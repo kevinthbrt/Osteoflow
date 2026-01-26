@@ -97,7 +97,7 @@ describe('generateInvoiceNumber', () => {
   it('should use custom prefix', () => {
     const date = new Date('2024-03-15')
     const result = generateInvoiceNumber('INV', 1, date)
-    expect(result).toStartWith('INV-')
+    expect(result).toMatch(/^INV-/)
   })
 })
 
