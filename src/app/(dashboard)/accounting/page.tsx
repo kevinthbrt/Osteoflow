@@ -36,7 +36,7 @@ import {
 } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
-import type { Invoice, Payment, Patient, Consultation, Insertable } from '@/types/database'
+import type { Invoice, Payment, Patient, Consultation } from '@/types/database'
 import {
   Dialog,
   DialogContent,
@@ -292,11 +292,11 @@ export default function AccountingPage() {
         .from('practitioners')
         .select('id')
         .eq('user_id', user.id)
-        .single()
+        .single() as { data: { id: string } | null }
 
       if (!practitioner) throw new Error('Praticien non trouvé')
 
-      const reportData: Insertable<'saved_reports'> = {
+      const { error } = await supabase.from('saved_reports').insert({
         practitioner_id: practitioner.id,
         name: reportName,
         filters: {
@@ -305,8 +305,7 @@ export default function AccountingPage() {
           period,
           paymentMethod,
         },
-      }
-      const { error } = await supabase.from('saved_reports').insert(reportData as never)
+      } as never)
 
       if (error) throw error
 
