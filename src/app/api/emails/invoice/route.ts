@@ -10,7 +10,8 @@ import {
 } from '@/lib/email/templates'
 import { formatDate, formatCurrency } from '@/lib/utils'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy initialization to avoid build-time errors
+const getResend = () => new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request: NextRequest) {
   try {
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
     )
 
     // Send email
-    const { error: emailError } = await resend.emails.send({
+    const { error: emailError } = await getResend().emails.send({
       from: `${practitioner.practice_name || practitioner.first_name} <onboarding@resend.dev>`,
       to: patient.email,
       subject,

@@ -8,7 +8,8 @@ import {
 } from '@/lib/email/templates'
 import { formatDate } from '@/lib/utils'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy initialization to avoid build-time errors
+const getResend = () => new Resend(process.env.RESEND_API_KEY)
 
 // This endpoint can be called by a cron job to process pending follow-up tasks
 export async function POST(request: NextRequest) {
@@ -135,7 +136,7 @@ export async function POST(request: NextRequest) {
         const bodyHtml = textToHtml(bodyText)
 
         // Send email
-        const { error: emailError } = await resend.emails.send({
+        const { error: emailError } = await getResend().emails.send({
           from: `${practitioner.practice_name || practitioner.first_name} <onboarding@resend.dev>`,
           to: patient.email,
           subject,
@@ -289,7 +290,7 @@ export async function PUT(request: NextRequest) {
     const bodyHtml = textToHtml(bodyText)
 
     // Send email
-    const { error: emailError } = await resend.emails.send({
+    const { error: emailError } = await getResend().emails.send({
       from: `${practitioner.practice_name || practitioner.first_name} <onboarding@resend.dev>`,
       to: patient.email,
       subject,
