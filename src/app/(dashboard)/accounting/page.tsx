@@ -292,7 +292,7 @@ export default function AccountingPage() {
         .from('practitioners')
         .select('id')
         .eq('user_id', user.id)
-        .single() as { data: { id: string } | null }
+        .single()
 
       if (!practitioner) throw new Error('Praticien non trouvé')
 
@@ -305,7 +305,7 @@ export default function AccountingPage() {
           period,
           paymentMethod,
         },
-      } as never)
+      })
 
       if (error) throw error
 
