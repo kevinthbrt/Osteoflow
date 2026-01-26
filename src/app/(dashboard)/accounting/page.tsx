@@ -299,12 +299,12 @@ export default function AccountingPage() {
       const { error } = await supabase.from('saved_reports').insert({
         practitioner_id: practitioner.id,
         name: reportName,
-        filters: {
+        filters: JSON.parse(JSON.stringify({
           startDate,
           endDate,
           period,
           paymentMethod,
-        },
+        })),
       })
 
       if (error) throw error
