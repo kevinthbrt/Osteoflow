@@ -23,7 +23,13 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Building, Mail, FileText, Download, Trash2 } from 'lucide-react'
-import type { Practitioner, EmailTemplate, Patient } from '@/types/database'
+import type { Practitioner, EmailTemplate } from '@/types/database'
+
+interface PatientListItem {
+  id: string
+  first_name: string
+  last_name: string
+}
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,7 +55,7 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [selectedTemplateType, setSelectedTemplateType] = useState<'invoice' | 'follow_up_7d'>('invoice')
   const [exportPatientId, setExportPatientId] = useState<string>('')
-  const [patients, setPatients] = useState<Patient[]>([])
+  const [patients, setPatients] = useState<PatientListItem[]>([])
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const { toast } = useToast()
