@@ -58,7 +58,12 @@ export async function GET(
       return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
     }
 
-    const stampImage = await getStampDataUrl(practitioner.stamp_url)
+    let stampImage: string | null = null
+    const debugMode = request.nextUrl.searchParams.get('debug') === '1'
+
+    if (!debugMode) {
+      stampImage = await getStampDataUrl(practitioner.stamp_url)
+    }
 
     let pdfBuffer: Uint8Array
 
@@ -74,7 +79,16 @@ export async function GET(
         })
       )
     } catch (error) {
-      console.error('Error generating PDF with stamp, retrying without:', error)
+      console.error('Error generating PDF with stamp, retrying without:', {
+        invoiceId: invoice.id,
+        issuedAt: invoice.issued_at,
+        createdAt: invoice.created_at,
+        consultationDate: invoice.consultation?.date_time,
+        paymentDates: (invoice.payments || []).map((payment) => payment.payment_date),
+        primaryColor: practitioner.primary_color,
+        stampUrl: practitioner.stamp_url,
+        error,
+      })
       pdfBuffer = await renderToBuffer(
         InvoicePDF({
           invoice,

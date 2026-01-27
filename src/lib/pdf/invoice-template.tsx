@@ -21,6 +21,9 @@ const safeText = (value: unknown): string => {
   if (typeof value === 'string' || typeof value === 'number') {
     return String(value)
   }
+  if (value instanceof Date) {
+    return value.toISOString()
+  }
   return ''
 }
 
