@@ -76,8 +76,9 @@ export async function GET(
     })
   } catch (error) {
     console.error('Error generating PDF:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Erreur lors de la génération du PDF' },
+      { error: 'Erreur lors de la génération du PDF', details: errorMessage },
       { status: 500 }
     )
   }
