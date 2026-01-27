@@ -66,6 +66,7 @@ export default function SettingsPage() {
     register: registerSettings,
     handleSubmit: handleSubmitSettings,
     setValue: setSettingsValue,
+    watch: watchSettings,
     formState: { errors: settingsErrors },
   } = useForm<PractitionerSettingsFormData>({
     resolver: zodResolver(practitionerSettingsSchema),
@@ -88,6 +89,7 @@ export default function SettingsPage() {
   })
 
   const templateBody = watchTemplate('body')
+  const stampPreview = watchSettings('stamp_url')
 
   // Fetch data
   useEffect(() => {
@@ -116,8 +118,12 @@ export default function SettingsPage() {
           setSettingsValue('city', practitionerData.city || '')
           setSettingsValue('postal_code', practitionerData.postal_code || '')
           setSettingsValue('siret', practitionerData.siret || '')
+          setSettingsValue('rpps', practitionerData.rpps || '')
+          setSettingsValue('specialty', practitionerData.specialty || '')
           setSettingsValue('default_rate', practitionerData.default_rate)
           setSettingsValue('invoice_prefix', practitionerData.invoice_prefix)
+          setSettingsValue('accountant_email', practitionerData.accountant_email || '')
+          setSettingsValue('stamp_url', practitionerData.stamp_url || '')
           setSettingsValue('primary_color', practitionerData.primary_color)
 
           // Get email templates
@@ -192,8 +198,12 @@ export default function SettingsPage() {
           city: data.city || null,
           postal_code: data.postal_code || null,
           siret: data.siret || null,
+          rpps: data.rpps || null,
+          specialty: data.specialty || null,
           default_rate: data.default_rate,
           invoice_prefix: data.invoice_prefix,
+          accountant_email: data.accountant_email || null,
+          stamp_url: data.stamp_url || null,
           primary_color: data.primary_color,
         })
         .eq('id', practitioner.id)
@@ -519,6 +529,25 @@ export default function SettingsPage() {
                   />
                 </div>
 
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="specialty">Spécialité</Label>
+                    <Input
+                      id="specialty"
+                      {...registerSettings('specialty')}
+                      placeholder="Ostéopathe"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="rpps">RPPS</Label>
+                    <Input
+                      id="rpps"
+                      {...registerSettings('rpps')}
+                      placeholder="10000000000"
+                    />
+                  </div>
+                </div>
+
                 <div className="flex justify-end">
                   <Button type="submit" disabled={isSaving}>
                     {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -594,6 +623,56 @@ export default function SettingsPage() {
                     <p className="text-sm text-destructive">
                       {settingsErrors.primary_color.message}
                     </p>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label htmlFor="accountant_email">Email comptable</Label>
+                  <Input
+                    id="accountant_email"
+                    type="email"
+                    {...registerSettings('accountant_email')}
+                    placeholder="compta@cabinet.fr"
+                  />
+                  {settingsErrors.accountant_email && (
+                    <p className="text-sm text-destructive">
+                      {settingsErrors.accountant_email.message}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Utilisé pour l&apos;envoi automatique des récapitulatifs comptables.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="stamp_url">Tampon &amp; signature (image)</Label>
+                  <Input
+                    id="stamp_url"
+                    type="url"
+                    {...registerSettings('stamp_url')}
+                    placeholder="https://..."
+                  />
+                  {settingsErrors.stamp_url && (
+                    <p className="text-sm text-destructive">
+                      {settingsErrors.stamp_url.message}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Ajoutez une image (tampon + signature) qui s&apos;affichera automatiquement sur vos factures.
+                  </p>
+                  {stampPreview && (
+                    <div className="rounded-md border bg-muted/40 p-3">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Aperçu de l&apos;image
+                      </p>
+                      <img
+                        src={stampPreview}
+                        alt="Tampon et signature"
+                        className="max-h-24"
+                      />
+                    </div>
                   )}
                 </div>
 

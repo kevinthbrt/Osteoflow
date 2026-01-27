@@ -42,6 +42,16 @@ export const practitionerSettingsSchema = z.object({
     .max(14, 'Le SIRET ne peut pas dépasser 14 caractères')
     .optional()
     .or(z.literal('')),
+  rpps: z
+    .string()
+    .max(20, 'Le RPPS ne peut pas dépasser 20 caractères')
+    .optional()
+    .or(z.literal('')),
+  specialty: z
+    .string()
+    .max(100, 'La spécialité ne peut pas dépasser 100 caractères')
+    .optional()
+    .or(z.literal('')),
   default_rate: z
     .number()
     .positive('Le tarif doit être positif')
@@ -50,6 +60,16 @@ export const practitionerSettingsSchema = z.object({
     .string()
     .min(1, 'Le préfixe est requis')
     .max(20, 'Le préfixe ne peut pas dépasser 20 caractères'),
+  accountant_email: z
+    .string()
+    .email('Format d\'email invalide')
+    .optional()
+    .or(z.literal('')),
+  stamp_url: z
+    .string()
+    .url('URL d\'image invalide')
+    .optional()
+    .or(z.literal('')),
   primary_color: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, 'Format de couleur invalide (ex: #2563eb)'),

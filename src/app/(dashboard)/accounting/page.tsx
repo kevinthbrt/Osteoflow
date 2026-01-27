@@ -33,6 +33,7 @@ import {
   Banknote,
   Loader2,
   Save,
+  Mail,
 } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
@@ -63,8 +64,10 @@ export default function AccountingPage() {
   const [invoices, setInvoices] = useState<InvoiceWithDetails[]>([])
   const [summary, setSummary] = useState<AccountingSummary | null>(null)
   const [isExporting, setIsExporting] = useState(false)
+  const [isSendingRecap, setIsSendingRecap] = useState(false)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [reportName, setReportName] = useState('')
+  const [accountantEmail, setAccountantEmail] = useState('')
   const { toast } = useToast()
   const supabase = createClient()
 
@@ -179,6 +182,27 @@ export default function AccountingPage() {
 
     fetchData()
   }, [startDate, endDate, paymentMethod, supabase, toast])
+
+  useEffect(() => {
+    async function fetchPractitioner() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data: practitioner } = await supabase
+          .from('practitioners')
+          .select('accountant_email')
+          .eq('user_id', user.id)
+          .single()
+
+        setAccountantEmail(practitioner?.accountant_email || '')
+      } catch (error) {
+        console.error('Error fetching practitioner:', error)
+      }
+    }
+
+    fetchPractitioner()
+  }, [supabase])
 
   // Group invoices by date for daily recap
   const getDailyRecaps = () => {
@@ -338,6 +362,51 @@ export default function AccountingPage() {
     }
   }
 
+  const handleSendRecap = async () => {
+    if (!accountantEmail) {
+      toast({
+        variant: 'destructive',
+        title: 'Email manquant',
+        description: 'Ajoutez l\'adresse email de votre comptable dans les paramètres.',
+      })
+      return
+    }
+
+    setIsSendingRecap(true)
+
+    try {
+      const response = await fetch('/api/emails/accounting-recap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startDate,
+          endDate,
+          paymentMethod,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data?.error || 'Erreur lors de l\'envoi')
+      }
+
+      toast({
+        variant: 'success',
+        title: 'Récapitulatif envoyé',
+        description: `Le récapitulatif a été envoyé à ${accountantEmail}`,
+      })
+    } catch (error) {
+      console.error('Error sending recap:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible d\'envoyer le récapitulatif comptable',
+      })
+    } finally {
+      setIsSendingRecap(false)
+    }
+  }
+
   // Save report preset
   const handleSaveReport = async () => {
     if (!reportName.trim()) {
@@ -404,6 +473,18 @@ export default function AccountingPage() {
           <Button variant="outline" onClick={() => setShowSaveDialog(true)}>
             <Save className="mr-2 h-4 w-4" />
             Sauvegarder
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleSendRecap}
+            disabled={isSendingRecap}
+          >
+            {isSendingRecap ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Mail className="mr-2 h-4 w-4" />
+            )}
+            Envoyer au comptable
           </Button>
           <Button variant="outline" onClick={handleExportCSV}>
             <Download className="mr-2 h-4 w-4" />
