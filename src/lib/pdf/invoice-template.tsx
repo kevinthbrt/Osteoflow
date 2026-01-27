@@ -6,6 +6,8 @@ import {
   Image,
   StyleSheet,
 } from '@react-pdf/renderer'
+import type { DocumentProps } from '@react-pdf/renderer'
+import type { ReactElement } from 'react'
 import type { Invoice, Patient, Practitioner, Consultation, Payment } from '@/types/database'
 
 interface InvoicePDFProps {
@@ -284,13 +286,13 @@ function safeString(value: unknown): string {
   return ''
 }
 
-export function InvoicePDF({
+export function createInvoicePDF({
   invoice,
   consultation,
   patient,
   practitioner,
   payments,
-}: InvoicePDFProps) {
+}: InvoicePDFProps): ReactElement<DocumentProps> {
   const payment = payments && payments.length > 0 ? payments[0] : null
   const invoiceDateStr = safeString(invoice?.issued_at) || new Date().toISOString()
   const location = safeString(practitioner?.city) || 'Paris'

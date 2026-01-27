@@ -1,11 +1,8 @@
-import { createElement } from 'react'
-import type { ReactElement } from 'react'
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { renderToBuffer } from '@react-pdf/renderer'
-import type { DocumentProps } from '@react-pdf/renderer'
 import { createClient } from '@/lib/supabase/server'
-import { InvoicePDF } from '@/lib/pdf/invoice-template'
+import { createInvoicePDF } from '@/lib/pdf/invoice-template'
 import {
   defaultEmailTemplates,
   replaceTemplateVariables,
@@ -109,13 +106,13 @@ export async function POST(request: NextRequest) {
 
     // Generate PDF
     const pdfBuffer = await renderToBuffer(
-      createElement(InvoicePDF, {
+      createInvoicePDF({
         invoice,
         consultation: invoice.consultation,
         patient,
         practitioner,
         payments: invoice.payments || [],
-      }) as ReactElement<DocumentProps>
+      })
     )
 
     // Send email
