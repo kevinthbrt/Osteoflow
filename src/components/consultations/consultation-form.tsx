@@ -24,9 +24,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2 } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck } from 'lucide-react'
 import { generateInvoiceNumber } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
+import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import type { Patient, Consultation, Practitioner } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -43,6 +44,11 @@ interface PaymentEntry {
   notes?: string
 }
 
+interface CreatedInvoice {
+  id: string
+  invoice_number: string
+}
+
 export function ConsultationForm({
   patient,
   practitioner,
@@ -54,6 +60,8 @@ export function ConsultationForm({
   const [payments, setPayments] = useState<PaymentEntry[]>([
     { id: crypto.randomUUID(), amount: practitioner.default_rate, method: 'card' },
   ])
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  const [createdInvoice, setCreatedInvoice] = useState<CreatedInvoice | null>(null)
   const router = useRouter()
   const { toast } = useToast()
   const supabase = createClient()
@@ -129,9 +137,13 @@ export function ConsultationForm({
 
         if (consultationError) throw consultationError
 
+        // Variables for invoice to access outside the block
+        let invoiceId: string | null = null
+        let invoiceNumber: string | null = null
+
         // Create invoice if requested
         if (createInvoice && newConsultation) {
-          const invoiceNumber = generateInvoiceNumber(
+          invoiceNumber = generateInvoiceNumber(
             practitioner.invoice_prefix,
             practitioner.invoice_next_number
           )
@@ -153,6 +165,8 @@ export function ConsultationForm({
 
           // Create payments
           if (newInvoice) {
+            invoiceId = newInvoice.id
+
             const paymentInserts = payments.map((p) => ({
               invoice_id: newInvoice.id,
               amount: p.amount,
@@ -188,12 +202,21 @@ export function ConsultationForm({
           })
         }
 
+        // Show invoice action modal if invoice was created
+        if (invoiceId && invoiceNumber) {
+          setCreatedInvoice({
+            id: invoiceId,
+            invoice_number: invoiceNumber,
+          })
+          setShowInvoiceModal(true)
+          setIsLoading(false)
+          return // Don't navigate yet, wait for modal action
+        }
+
         toast({
           variant: 'success',
           title: 'Consultation créée',
-          description: createInvoice
-            ? 'La consultation et la facture ont été créées'
-            : 'La consultation a été créée',
+          description: 'La consultation a été créée',
         })
 
         router.push(`/patients/${patient.id}`)
@@ -463,11 +486,34 @@ export function ConsultationForm({
         >
           Annuler
         </Button>
-        <Button type="submit" disabled={isLoading}>
+        <Button type="submit" disabled={isLoading} className="gap-2">
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {mode === 'create' ? 'Enregistrer la consultation' : 'Mettre à jour'}
+          {mode === 'create' ? (
+            <>
+              <Stethoscope className="h-4 w-4" />
+              Enregistrer la consultation
+            </>
+          ) : (
+            'Mettre à jour'
+          )}
         </Button>
       </div>
+
+      {/* Invoice Action Modal */}
+      {createdInvoice && (
+        <InvoiceActionModal
+          open={showInvoiceModal}
+          onOpenChange={setShowInvoiceModal}
+          invoiceId={createdInvoice.id}
+          invoiceNumber={createdInvoice.invoice_number}
+          patientEmail={patient.email}
+          patientName={`${patient.last_name} ${patient.first_name}`}
+          onComplete={() => {
+            router.push(`/patients/${patient.id}`)
+            router.refresh()
+          }}
+        />
+      )}
     </form>
   )
 }

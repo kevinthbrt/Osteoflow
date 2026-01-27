@@ -1,10 +1,7 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import '@/styles/globals.css'
 import { Toaster } from '@/components/ui/toaster'
 import { QueryProvider } from '@/components/providers/query-provider'
-
-const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'Osteoflow - Gestion de cabinet',
@@ -18,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <body className={inter.className}>
+      <body className="font-sans antialiased">
         <QueryProvider>
           {children}
           <Toaster />
