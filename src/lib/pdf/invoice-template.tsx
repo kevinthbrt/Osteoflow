@@ -243,7 +243,9 @@ export function InvoicePDF({
   stampImage,
 }: InvoicePDFProps) {
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0)
-  const accentColor = practitioner.primary_color || '#16a34a'
+  const accentColor = /^#[0-9A-Fa-f]{6}$/.test(practitioner.primary_color || '')
+    ? practitioner.primary_color
+    : '#16a34a'
   const styles = createStyles(accentColor)
   const issuedAt = invoice.issued_at || invoice.created_at
   const latestPayment = payments.reduce<Payment | null>((latest, payment) => {
