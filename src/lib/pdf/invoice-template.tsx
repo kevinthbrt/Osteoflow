@@ -286,7 +286,7 @@ function safeString(value: unknown): string {
   return ''
 }
 
-export function createInvoicePDF({
+export function InvoicePDF({
   invoice,
   consultation,
   patient,
