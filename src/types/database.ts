@@ -28,14 +28,17 @@ export interface Database {
           email: string
           phone: string | null
           practice_name: string | null
+          specialty: string | null
           address: string | null
           city: string | null
           postal_code: string | null
           siret: string | null
+          rpps: string | null
           default_rate: number
           invoice_prefix: string
           invoice_next_number: number
           logo_url: string | null
+          stamp_url: string | null
           primary_color: string
           created_at: string
           updated_at: string
@@ -48,14 +51,17 @@ export interface Database {
           email: string
           phone?: string | null
           practice_name?: string | null
+          specialty?: string | null
           address?: string | null
           city?: string | null
           postal_code?: string | null
           siret?: string | null
+          rpps?: string | null
           default_rate?: number
           invoice_prefix?: string
           invoice_next_number?: number
           logo_url?: string | null
+          stamp_url?: string | null
           primary_color?: string
           created_at?: string
           updated_at?: string
@@ -68,14 +74,17 @@ export interface Database {
           email?: string
           phone?: string | null
           practice_name?: string | null
+          specialty?: string | null
           address?: string | null
           city?: string | null
           postal_code?: string | null
           siret?: string | null
+          rpps?: string | null
           default_rate?: number
           invoice_prefix?: string
           invoice_next_number?: number
           logo_url?: string | null
+          stamp_url?: string | null
           primary_color?: string
           created_at?: string
           updated_at?: string

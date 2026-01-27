@@ -22,6 +22,11 @@ export const practitionerSettingsSchema = z.object({
     .max(255, 'Le nom du cabinet ne peut pas dépasser 255 caractères')
     .optional()
     .or(z.literal('')),
+  specialty: z
+    .string()
+    .max(100, 'La spécialité ne peut pas dépasser 100 caractères')
+    .optional()
+    .or(z.literal('')),
   address: z
     .string()
     .max(500, 'L\'adresse ne peut pas dépasser 500 caractères')
@@ -40,6 +45,11 @@ export const practitionerSettingsSchema = z.object({
   siret: z
     .string()
     .max(14, 'Le SIRET ne peut pas dépasser 14 caractères')
+    .optional()
+    .or(z.literal('')),
+  rpps: z
+    .string()
+    .max(11, 'Le RPPS ne peut pas dépasser 11 caractères')
     .optional()
     .or(z.literal('')),
   default_rate: z
