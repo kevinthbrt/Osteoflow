@@ -17,7 +17,7 @@ interface InvoicePDFProps {
   payments: Payment[]
 }
 
-const primaryColor = '#10B981' // Emerald green like in the screenshot
+const primaryColor = '#10B981'
 
 const styles = StyleSheet.create({
   page: {
@@ -26,13 +26,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     backgroundColor: '#FFFFFF',
   },
-  // Header section with practitioner and patient info
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 30,
   },
-  // Practitioner info (left side)
   practitionerSection: {
     maxWidth: '45%',
   },
@@ -52,7 +50,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     lineHeight: 1.5,
   },
-  // Patient info (right side)
   patientSection: {
     maxWidth: '45%',
     alignItems: 'flex-end',
@@ -62,12 +59,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 4,
     minWidth: 180,
-  },
-  patientLabel: {
-    fontSize: 8,
-    color: '#FFFFFF',
-    opacity: 0.8,
-    marginBottom: 4,
   },
   patientName: {
     fontSize: 11,
@@ -80,7 +71,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     opacity: 0.9,
   },
-  // Invoice meta (location, date)
   metaSection: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -96,7 +86,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: '#FFFFFF',
   },
-  // Invoice title
   invoiceTitle: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -118,7 +107,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  // Table
   table: {
     marginBottom: 20,
   },
@@ -163,7 +151,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  // Total section
   totalSection: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -188,7 +175,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  // Payment section
   paymentSection: {
     marginBottom: 30,
   },
@@ -219,7 +205,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: '#FFFFFF',
   },
-  // Stamp section
   stampSection: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -231,7 +216,6 @@ const styles = StyleSheet.create({
     maxHeight: 80,
     objectFit: 'contain',
   },
-  // Footer
   footer: {
     position: 'absolute',
     bottom: 30,
@@ -254,8 +238,8 @@ const styles = StyleSheet.create({
 
 const paymentMethodLabels: Record<string, string> = {
   card: 'Carte bancaire',
-  cash: 'Espèces',
-  check: 'Chèque',
+  cash: 'Especes',
+  check: 'Cheque',
   transfer: 'Virement',
   other: 'Autre',
 }
@@ -267,60 +251,58 @@ export function InvoicePDF({
   practitioner,
   payments,
 }: InvoicePDFProps) {
-  const payment = payments[0] // Primary payment
+  const payment = payments[0]
   const invoiceDate = invoice.issued_at ? new Date(invoice.issued_at) : new Date()
   const location = practitioner.city || 'Paris'
+
+  // Safe string helper
+  const safeStr = (val: string | null | undefined): string => val || ''
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Header: Practitioner + Patient */}
+        {/* Header */}
         <View style={styles.header}>
-          {/* Practitioner Info */}
           <View style={styles.practitionerSection}>
             <Text style={styles.practitionerName}>
-              {practitioner.last_name.toUpperCase()} {practitioner.first_name}
+              {practitioner.last_name?.toUpperCase() || ''} {practitioner.first_name || ''}
             </Text>
-            {practitioner.specialty && (
+            {practitioner.specialty ? (
               <Text style={styles.practitionerSpecialty}>
                 {practitioner.specialty}
               </Text>
-            )}
+            ) : null}
             <View style={styles.practitionerInfo}>
-              {practitioner.address && (
+              {practitioner.address ? (
                 <Text>{practitioner.address}</Text>
-              )}
-              {(practitioner.postal_code || practitioner.city) && (
+              ) : null}
+              {(practitioner.postal_code || practitioner.city) ? (
                 <Text>
-                  {practitioner.postal_code} {practitioner.city}
+                  {safeStr(practitioner.postal_code)} {safeStr(practitioner.city)}
                 </Text>
-              )}
-              {practitioner.siret && (
-                <Text>N° SIREN: {practitioner.siret}</Text>
-              )}
-              {practitioner.rpps && (
-                <Text>N° RPPS: {practitioner.rpps}</Text>
-              )}
+              ) : null}
+              {practitioner.siret ? (
+                <Text>N SIREN: {practitioner.siret}</Text>
+              ) : null}
+              {practitioner.rpps ? (
+                <Text>N RPPS: {practitioner.rpps}</Text>
+              ) : null}
             </View>
           </View>
 
-          {/* Patient Info */}
           <View style={styles.patientSection}>
             <View style={styles.patientBox}>
               <Text style={styles.patientName}>
-                {patient.last_name.toUpperCase()} {patient.first_name}
+                {patient.last_name?.toUpperCase() || ''} {patient.first_name || ''}
               </Text>
               <Text style={styles.patientAddress}>
-                Adresse du patient
-              </Text>
-              <Text style={styles.patientAddress}>
-                {patient.email || ''}
+                {safeStr(patient.email)}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Location and Date */}
+        {/* Date */}
         <View style={styles.metaSection}>
           <View style={styles.metaBox}>
             <Text style={styles.metaText}>
@@ -329,15 +311,15 @@ export function InvoicePDF({
           </View>
         </View>
 
-        {/* Invoice Title */}
+        {/* Title */}
         <View style={styles.invoiceTitle}>
-          <Text style={styles.invoiceLabel}>Reçu d'honoraires n°</Text>
+          <Text style={styles.invoiceLabel}>Recu d honoraires n</Text>
           <View style={styles.invoiceNumber}>
             <Text style={styles.invoiceNumberText}>{invoice.invoice_number}</Text>
           </View>
         </View>
 
-        {/* Line Items */}
+        {/* Items */}
         <View style={styles.table}>
           <View style={styles.tableHeader}>
             <Text style={[styles.tableHeaderCell, styles.descriptionCol]}>
@@ -351,7 +333,7 @@ export function InvoicePDF({
           <View style={styles.tableRow}>
             <View style={styles.descriptionCol}>
               <Text style={styles.itemDescription}>
-                Séance de ce jour - {consultation.reason || 'Consultation'}
+                Seance du jour - {consultation.reason || 'Consultation'}
               </Text>
             </View>
             <View style={styles.amountCol}>
@@ -366,7 +348,7 @@ export function InvoicePDF({
 
         {/* Total */}
         <View style={styles.totalSection}>
-          <Text style={styles.totalLabel}>Somme à régler</Text>
+          <Text style={styles.totalLabel}>Somme a regler</Text>
           <View style={styles.totalAmount}>
             <Text style={styles.totalAmountText}>
               {formatCurrency(invoice.amount)}
@@ -374,10 +356,10 @@ export function InvoicePDF({
           </View>
         </View>
 
-        {/* Payment Info */}
+        {/* Payment */}
         <View style={styles.paymentSection}>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Règlement</Text>
+            <Text style={styles.paymentLabel}>Reglement</Text>
             <View style={styles.paymentBadge}>
               <Text style={styles.paymentBadgeText}>
                 {payment ? paymentMethodLabels[payment.method] || payment.method : 'Comptant'}
@@ -385,11 +367,11 @@ export function InvoicePDF({
             </View>
           </View>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Type de règlement</Text>
+            <Text style={styles.paymentLabel}>Type de reglement</Text>
             <Text style={styles.paymentValue}>Comptant</Text>
           </View>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Date du règlement</Text>
+            <Text style={styles.paymentLabel}>Date du reglement</Text>
             <Text style={styles.paymentValue}>
               {payment ? formatDate(payment.payment_date) : formatDate(invoiceDate.toISOString())}
             </Text>
@@ -402,27 +384,27 @@ export function InvoicePDF({
           </View>
         </View>
 
-        {/* Stamp/Signature */}
-        {practitioner.stamp_url && (
+        {/* Stamp */}
+        {practitioner.stamp_url ? (
           <View style={styles.stampSection}>
             <Image src={practitioner.stamp_url} style={styles.stampImage} />
           </View>
-        )}
+        ) : null}
 
         {/* Footer */}
         <View style={styles.footer}>
           <View style={styles.footerDivider}>
             <Text style={styles.footerText}>
-              TVA non applicable selon l'article 261, 4-1° du CGI
+              TVA non applicable selon article 261, 4-1 du CGI
             </Text>
             <Text style={styles.footerText}>
-              Absence d'escompte pour paiement anticipé
+              Absence d escompte pour paiement anticipe
             </Text>
             <Text style={styles.footerText}>
-              En cas de retard, il sera appliqué des retards suivant le taux minimum légal en vigueur, par mois de retard
+              En cas de retard, il sera applique des penalites suivant le taux minimum legal en vigueur
             </Text>
             <Text style={styles.footerText}>
-              En outre, une indemnité forfaitaire pour frais de recouvrement de 40 euros sera due.
+              En outre, une indemnite forfaitaire pour frais de recouvrement de 40 euros sera due.
             </Text>
           </View>
         </View>
