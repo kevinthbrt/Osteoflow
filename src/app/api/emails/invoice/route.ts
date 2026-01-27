@@ -108,15 +108,13 @@ export async function POST(request: NextRequest) {
 
     // Generate PDF
     const pdfBuffer = await renderToBuffer(
-      (
-        <InvoicePDF
-          invoice={invoice}
-          consultation={invoice.consultation}
-          patient={patient}
-          practitioner={practitioner}
-          payments={invoice.payments || []}
-        />
-      ) as ReactElement<DocumentProps>
+      InvoicePDF({
+        invoice,
+        consultation: invoice.consultation,
+        patient,
+        practitioner,
+        payments: invoice.payments || [],
+      }) as ReactElement<DocumentProps>
     )
 
     // Send email

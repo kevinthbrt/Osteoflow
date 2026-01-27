@@ -59,15 +59,13 @@ export async function GET(
 
     // Generate PDF
     const pdfBuffer = await renderToBuffer(
-      (
-        <InvoicePDF
-          invoice={invoice}
-          consultation={invoice.consultation}
-          patient={invoice.consultation.patient}
-          practitioner={practitioner}
-          payments={invoice.payments || []}
-        />
-      ) as ReactElement<DocumentProps>
+      InvoicePDF({
+        invoice,
+        consultation: invoice.consultation,
+        patient: invoice.consultation.patient,
+        practitioner,
+        payments: invoice.payments || [],
+      }) as ReactElement<DocumentProps>
     )
 
     // Return PDF - convert Buffer to Uint8Array for NextResponse
