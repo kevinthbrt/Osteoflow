@@ -180,36 +180,84 @@ export default function AccountingPage() {
     fetchData()
   }, [startDate, endDate, paymentMethod, supabase, toast])
 
-  // Export to CSV
+  // Group invoices by date for daily recap
+  const getDailyRecaps = () => {
+    const recaps: Record<string, {
+      date: string
+      count: number
+      total: number
+      byMethod: Record<string, { count: number; amount: number }>
+    }> = {}
+
+    for (const inv of invoices) {
+      const date = inv.paid_at ? formatDate(inv.paid_at) : formatDate(inv.issued_at || '')
+
+      if (!recaps[date]) {
+        recaps[date] = { date, count: 0, total: 0, byMethod: {} }
+      }
+
+      recaps[date].count++
+      recaps[date].total += inv.amount
+
+      for (const payment of inv.payments) {
+        if (!recaps[date].byMethod[payment.method]) {
+          recaps[date].byMethod[payment.method] = { count: 0, amount: 0 }
+        }
+        recaps[date].byMethod[payment.method].count++
+        recaps[date].byMethod[payment.method].amount += payment.amount
+      }
+    }
+
+    return Object.values(recaps).sort((a, b) =>
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    )
+  }
+
+  // Export to CSV - Anonymized daily recap
   const handleExportCSV = () => {
+    const dailyRecaps = getDailyRecaps()
+
     const headers = [
-      'Date facture',
-      'Numéro facture',
-      'Patient',
-      'Montant',
-      'Mode(s) de paiement',
-      'Date encaissement',
+      'Date',
+      'Nombre de consultations',
+      'Chiffre d\'affaires',
+      'CB',
+      'Espèces',
+      'Chèque',
+      'Virement',
+      'Autre',
     ]
 
-    const rows = invoices.map((inv) => {
-      const patient = inv.consultation.patient
-      const paymentMethods = inv.payments
-        .map((p) => `${paymentMethodLabels[p.method]} (${formatCurrency(p.amount)})`)
-        .join(', ')
+    const rows = dailyRecaps.map((recap) => [
+      recap.date,
+      recap.count.toString(),
+      recap.total.toFixed(2),
+      (recap.byMethod['card']?.amount || 0).toFixed(2),
+      (recap.byMethod['cash']?.amount || 0).toFixed(2),
+      (recap.byMethod['check']?.amount || 0).toFixed(2),
+      (recap.byMethod['transfer']?.amount || 0).toFixed(2),
+      (recap.byMethod['other']?.amount || 0).toFixed(2),
+    ])
 
-      return [
-        inv.issued_at ? formatDate(inv.issued_at) : '',
-        inv.invoice_number,
-        `${patient.last_name} ${patient.first_name}`,
-        inv.amount.toFixed(2),
-        paymentMethods,
-        inv.paid_at ? formatDate(inv.paid_at) : '',
-      ]
-    })
+    // Add total row
+    const totalRow = [
+      'TOTAL',
+      summary?.totalConsultations.toString() || '0',
+      summary?.totalRevenue.toFixed(2) || '0.00',
+      (summary?.revenueByMethod['card'] || 0).toFixed(2),
+      (summary?.revenueByMethod['cash'] || 0).toFixed(2),
+      (summary?.revenueByMethod['check'] || 0).toFixed(2),
+      (summary?.revenueByMethod['transfer'] || 0).toFixed(2),
+      (summary?.revenueByMethod['other'] || 0).toFixed(2),
+    ]
 
     const csvContent = [
+      `Récapitulatif comptable du ${formatDate(startDate)} au ${formatDate(endDate)}`,
+      '',
       headers.join(';'),
       ...rows.map((row) => row.join(';')),
+      '',
+      totalRow.join(';'),
     ].join('\n')
 
     const blob = new Blob(['\ufeff' + csvContent], {
@@ -218,49 +266,66 @@ export default function AccountingPage() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `comptabilite_${startDate}_${endDate}.csv`
+    link.download = `recap_comptable_${startDate}_${endDate}.csv`
     link.click()
     URL.revokeObjectURL(url)
   }
 
-  // Export to XLSX
+  // Export to XLSX - Anonymized daily recap
   const handleExportXLSX = async () => {
     setIsExporting(true)
 
     try {
       const XLSX = await import('xlsx')
+      const dailyRecaps = getDailyRecaps()
 
-      const data = invoices.map((inv) => {
-        const patient = inv.consultation.patient
-        const paymentMethods = inv.payments
-          .map((p) => `${paymentMethodLabels[p.method]} (${p.amount.toFixed(2)}€)`)
-          .join(', ')
+      // Daily recap sheet
+      const recapData = dailyRecaps.map((recap) => ({
+        'Date': recap.date,
+        'Consultations': recap.count,
+        'Chiffre d\'affaires': recap.total,
+        'CB': recap.byMethod['card']?.amount || 0,
+        'Espèces': recap.byMethod['cash']?.amount || 0,
+        'Chèque': recap.byMethod['check']?.amount || 0,
+        'Virement': recap.byMethod['transfer']?.amount || 0,
+        'Autre': recap.byMethod['other']?.amount || 0,
+      }))
 
-        return {
-          'Date facture': inv.issued_at ? formatDate(inv.issued_at) : '',
-          'Numéro facture': inv.invoice_number,
-          'Patient': `${patient.last_name} ${patient.first_name}`,
-          'Montant': inv.amount,
-          'Mode(s) de paiement': paymentMethods,
-          'Date encaissement': inv.paid_at ? formatDate(inv.paid_at) : '',
+      // Add total row
+      recapData.push({
+        'Date': 'TOTAL',
+        'Consultations': summary?.totalConsultations || 0,
+        'Chiffre d\'affaires': summary?.totalRevenue || 0,
+        'CB': summary?.revenueByMethod['card'] || 0,
+        'Espèces': summary?.revenueByMethod['cash'] || 0,
+        'Chèque': summary?.revenueByMethod['check'] || 0,
+        'Virement': summary?.revenueByMethod['transfer'] || 0,
+        'Autre': summary?.revenueByMethod['other'] || 0,
+      })
+
+      const ws = XLSX.utils.json_to_sheet(recapData)
+
+      // Format currency columns
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
+      for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+        for (let C = 2; C <= 7; ++C) {
+          const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })]
+          if (cell) {
+            cell.z = '#,##0.00 €'
+          }
         }
-      })
+      }
 
-      // Add summary row
-      data.push({
-        'Date facture': '',
-        'Numéro facture': 'TOTAL',
-        'Patient': `${invoices.length} consultations`,
-        'Montant': summary?.totalRevenue || 0,
-        'Mode(s) de paiement': '',
-        'Date encaissement': '',
-      })
-
-      const ws = XLSX.utils.json_to_sheet(data)
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Comptabilité')
+      XLSX.utils.book_append_sheet(wb, ws, 'Récapitulatif quotidien')
 
-      XLSX.writeFile(wb, `comptabilite_${startDate}_${endDate}.xlsx`)
+      XLSX.writeFile(wb, `recap_comptable_${startDate}_${endDate}.xlsx`)
+
+      toast({
+        variant: 'success',
+        title: 'Export réussi',
+        description: 'Le récapitulatif comptable a été téléchargé',
+      })
     } catch (error) {
       console.error('Error exporting XLSX:', error)
       toast({
@@ -498,12 +563,12 @@ export default function AccountingPage() {
         </div>
       ) : null}
 
-      {/* Invoices Table */}
+      {/* Daily Recap Table */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Détail des factures
+            Récapitulatif quotidien
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -526,43 +591,70 @@ export default function AccountingPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
-                    <TableHead>Numéro</TableHead>
-                    <TableHead>Patient</TableHead>
-                    <TableHead>Montant</TableHead>
-                    <TableHead>Paiement(s)</TableHead>
+                    <TableHead className="text-center">Consultations</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">CB</TableHead>
+                    <TableHead className="text-right">Espèces</TableHead>
+                    <TableHead className="text-right">Chèque</TableHead>
+                    <TableHead className="text-right">Virement</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {invoices.map((invoice) => {
-                    const patient = invoice.consultation.patient
-
-                    return (
-                      <TableRow key={invoice.id}>
-                        <TableCell>
-                          {invoice.paid_at ? formatDate(invoice.paid_at) : '-'}
-                        </TableCell>
-                        <TableCell className="font-mono">
-                          {invoice.invoice_number}
-                        </TableCell>
-                        <TableCell>
-                          {patient.last_name} {patient.first_name}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {formatCurrency(invoice.amount)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {invoice.payments.map((payment, idx) => (
-                              <Badge key={idx} variant="outline">
-                                {paymentMethodLabels[payment.method]}:{' '}
-                                {formatCurrency(payment.amount)}
-                              </Badge>
-                            ))}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
+                  {getDailyRecaps().map((recap) => (
+                    <TableRow key={recap.date}>
+                      <TableCell className="font-medium">
+                        {recap.date}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="secondary">{recap.count}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">
+                        {formatCurrency(recap.total)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {recap.byMethod['card']
+                          ? formatCurrency(recap.byMethod['card'].amount)
+                          : '-'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {recap.byMethod['cash']
+                          ? formatCurrency(recap.byMethod['cash'].amount)
+                          : '-'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {recap.byMethod['check']
+                          ? formatCurrency(recap.byMethod['check'].amount)
+                          : '-'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {recap.byMethod['transfer']
+                          ? formatCurrency(recap.byMethod['transfer'].amount)
+                          : '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {/* Total row */}
+                  <TableRow className="bg-muted/50 font-semibold">
+                    <TableCell>TOTAL</TableCell>
+                    <TableCell className="text-center">
+                      <Badge>{summary?.totalConsultations || 0}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-primary">
+                      {formatCurrency(summary?.totalRevenue || 0)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(summary?.revenueByMethod['card'] || 0)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(summary?.revenueByMethod['cash'] || 0)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(summary?.revenueByMethod['check'] || 0)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(summary?.revenueByMethod['transfer'] || 0)}
+                    </TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             </div>
