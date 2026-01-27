@@ -3,6 +3,7 @@ import { Resend } from 'resend'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { createClient } from '@/lib/supabase/server'
 import { InvoicePDF } from '@/lib/pdf/invoice-template'
+import { getStampDataUrl } from '@/lib/pdf/stamp'
 import {
   defaultEmailTemplates,
   replaceTemplateVariables,
@@ -105,6 +106,7 @@ export async function POST(request: NextRequest) {
     const bodyHtml = textToHtml(bodyText)
 
     // Generate PDF
+    const stampImage = await getStampDataUrl(practitioner.stamp_url)
     const pdfBuffer = await renderToBuffer(
       InvoicePDF({
         invoice,
@@ -112,6 +114,7 @@ export async function POST(request: NextRequest) {
         patient,
         practitioner,
         payments: invoice.payments || [],
+        stampImage,
       })
     )
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { createClient } from '@/lib/supabase/server'
 import { InvoicePDF } from '@/lib/pdf/invoice-template'
+import { getStampDataUrl } from '@/lib/pdf/stamp'
 
 export async function GET(
   request: NextRequest,
@@ -55,6 +56,8 @@ export async function GET(
       return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
     }
 
+    const stampImage = await getStampDataUrl(practitioner.stamp_url)
+
     // Generate PDF
     const pdfBuffer = await renderToBuffer(
       InvoicePDF({
@@ -63,6 +66,7 @@ export async function GET(
         patient: invoice.consultation.patient,
         practitioner,
         payments: invoice.payments || [],
+        stampImage,
       })
     )
 

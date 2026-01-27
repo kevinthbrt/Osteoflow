@@ -231,6 +231,7 @@ interface InvoicePDFProps {
   patient: Patient
   practitioner: Practitioner
   payments: Payment[]
+  stampImage?: string | null
 }
 
 export function InvoicePDF({
@@ -239,6 +240,7 @@ export function InvoicePDF({
   patient,
   practitioner,
   payments,
+  stampImage,
 }: InvoicePDFProps) {
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0)
   const accentColor = practitioner.primary_color || '#16a34a'
@@ -370,8 +372,8 @@ export function InvoicePDF({
           </View>
           <View style={styles.signatureBox}>
             <Text style={styles.sectionTitle}>Tampon & signature</Text>
-            {practitioner.stamp_url ? (
-              <Image src={practitioner.stamp_url} style={styles.stampImage} />
+            {stampImage ? (
+              <Image src={stampImage} style={styles.stampImage} />
             ) : (
               <Text style={styles.signaturePlaceholder}>
                 Ajoutez votre tampon dans les paramètres.
