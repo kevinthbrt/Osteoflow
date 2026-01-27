@@ -269,9 +269,11 @@ function formatDatePDF(dateInput: string | Date | null | undefined): string {
   }
 }
 
-function formatAmountPDF(amount: number | null | undefined): string {
-  if (amount === null || amount === undefined) return '0.00 EUR'
-  return amount.toFixed(2) + ' EUR'
+function formatAmountPDF(amount: number | string | null | undefined): string {
+  if (amount === null || amount === undefined || amount === '') return '0.00 EUR'
+  const numericAmount = typeof amount === 'number' ? amount : Number(amount)
+  if (Number.isNaN(numericAmount)) return '0.00 EUR'
+  return numericAmount.toFixed(2) + ' EUR'
 }
 
 function safeString(value: unknown): string {

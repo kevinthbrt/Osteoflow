@@ -1,3 +1,4 @@
+import { createElement } from 'react'
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { renderToBuffer } from '@react-pdf/renderer'
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
 
     // Generate PDF
     const pdfBuffer = await renderToBuffer(
-      InvoicePDF({
+      createElement(InvoicePDF, {
         invoice,
         consultation: invoice.consultation,
         patient,

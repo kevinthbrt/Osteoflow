@@ -1,3 +1,4 @@
+import { createElement } from 'react'
 import { NextRequest, NextResponse } from 'next/server'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { createClient } from '@/lib/supabase/server'
@@ -57,7 +58,7 @@ export async function GET(
 
     // Generate PDF
     const pdfBuffer = await renderToBuffer(
-      InvoicePDF({
+      createElement(InvoicePDF, {
         invoice,
         consultation: invoice.consultation,
         patient: invoice.consultation.patient,
