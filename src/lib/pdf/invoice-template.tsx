@@ -6,7 +6,6 @@ import {
   Image,
   StyleSheet,
 } from '@react-pdf/renderer'
-import { formatDate, formatCurrency } from '@/lib/utils'
 import type { Invoice, Patient, Practitioner, Consultation, Payment } from '@/types/database'
 
 interface InvoicePDFProps {
@@ -32,7 +31,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   practitionerSection: {
-    maxWidth: '45%',
+    width: '50%',
   },
   practitionerName: {
     fontSize: 12,
@@ -45,20 +44,19 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginBottom: 6,
   },
-  practitionerInfo: {
+  infoText: {
     fontSize: 9,
     color: '#6B7280',
-    lineHeight: 1.5,
+    marginBottom: 2,
   },
   patientSection: {
-    maxWidth: '45%',
+    width: '45%',
     alignItems: 'flex-end',
   },
   patientBox: {
     backgroundColor: primaryColor,
     padding: 12,
     borderRadius: 4,
-    minWidth: 180,
   },
   patientName: {
     fontSize: 11,
@@ -66,10 +64,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 2,
   },
-  patientAddress: {
+  patientEmail: {
     fontSize: 9,
     color: '#FFFFFF',
-    opacity: 0.9,
   },
   metaSection: {
     flexDirection: 'row',
@@ -78,8 +75,10 @@ const styles = StyleSheet.create({
   },
   metaBox: {
     backgroundColor: primaryColor,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingTop: 6,
+    paddingBottom: 6,
     borderRadius: 4,
   },
   metaText: {
@@ -90,16 +89,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 30,
-    gap: 10,
   },
   invoiceLabel: {
     fontSize: 14,
     color: '#1F2937',
+    marginRight: 10,
   },
-  invoiceNumber: {
+  invoiceNumberBox: {
     backgroundColor: primaryColor,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingTop: 6,
+    paddingBottom: 6,
     borderRadius: 4,
   },
   invoiceNumberText: {
@@ -117,36 +118,46 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     marginBottom: 8,
   },
-  tableHeaderCell: {
+  tableHeaderDesc: {
+    width: '70%',
     fontSize: 9,
     fontWeight: 'bold',
     color: '#6B7280',
-    textTransform: 'uppercase',
+  },
+  tableHeaderAmount: {
+    width: '30%',
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#6B7280',
+    textAlign: 'right',
   },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
-  descriptionCol: {
-    flex: 3,
+  tableDesc: {
+    width: '70%',
   },
-  amountCol: {
-    flex: 1,
+  tableAmount: {
+    width: '30%',
     alignItems: 'flex-end',
   },
-  itemDescription: {
+  itemText: {
     fontSize: 11,
     color: '#1F2937',
   },
-  itemAmount: {
+  amountBox: {
     backgroundColor: primaryColor,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingLeft: 10,
+    paddingRight: 10,
+    paddingTop: 4,
+    paddingBottom: 4,
     borderRadius: 4,
   },
-  itemAmountText: {
+  amountText: {
     fontSize: 10,
     fontWeight: 'bold',
     color: '#FFFFFF',
@@ -157,20 +168,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
     marginBottom: 30,
-    gap: 15,
   },
   totalLabel: {
     fontSize: 12,
     fontWeight: 'bold',
     color: '#1F2937',
+    marginRight: 15,
   },
-  totalAmount: {
+  totalBox: {
     backgroundColor: primaryColor,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
+    paddingLeft: 15,
+    paddingRight: 15,
+    paddingTop: 8,
+    paddingBottom: 8,
     borderRadius: 4,
   },
-  totalAmountText: {
+  totalText: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#FFFFFF',
@@ -183,22 +196,24 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
     marginBottom: 6,
-    gap: 10,
   },
   paymentLabel: {
     fontSize: 10,
     color: '#6B7280',
+    marginRight: 10,
   },
   paymentValue: {
     fontSize: 10,
     color: '#1F2937',
-    minWidth: 100,
+    width: 100,
     textAlign: 'right',
   },
   paymentBadge: {
     backgroundColor: primaryColor,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingLeft: 8,
+    paddingRight: 8,
+    paddingTop: 3,
+    paddingBottom: 3,
     borderRadius: 4,
   },
   paymentBadgeText: {
@@ -212,27 +227,23 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   stampImage: {
-    maxWidth: 150,
-    maxHeight: 80,
-    objectFit: 'contain',
+    width: 150,
+    height: 80,
   },
   footer: {
     position: 'absolute',
     bottom: 30,
     left: 40,
     right: 40,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingTop: 10,
   },
   footerText: {
     fontSize: 7,
     color: '#9CA3AF',
     textAlign: 'center',
-    lineHeight: 1.6,
-  },
-  footerDivider: {
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingTop: 10,
-    marginTop: 10,
+    marginBottom: 2,
   },
 })
 
@@ -244,6 +255,33 @@ const paymentMethodLabels: Record<string, string> = {
   other: 'Autre',
 }
 
+function formatDatePDF(dateInput: string | Date | null | undefined): string {
+  if (!dateInput) return ''
+  try {
+    const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
+    if (isNaN(d.getTime())) return ''
+    const day = d.getDate().toString().padStart(2, '0')
+    const month = (d.getMonth() + 1).toString().padStart(2, '0')
+    const year = d.getFullYear()
+    return day + '/' + month + '/' + year
+  } catch {
+    return ''
+  }
+}
+
+function formatAmountPDF(amount: number | null | undefined): string {
+  if (amount === null || amount === undefined) return '0.00 EUR'
+  return amount.toFixed(2) + ' EUR'
+}
+
+function safeString(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return String(value)
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  return ''
+}
+
 export function InvoicePDF({
   invoice,
   consultation,
@@ -251,119 +289,103 @@ export function InvoicePDF({
   practitioner,
   payments,
 }: InvoicePDFProps) {
-  const payment = payments[0]
-  const invoiceDate = invoice.issued_at ? new Date(invoice.issued_at) : new Date()
-  const location = practitioner.city || 'Paris'
+  const payment = payments && payments.length > 0 ? payments[0] : null
+  const invoiceDateStr = safeString(invoice?.issued_at) || new Date().toISOString()
+  const location = safeString(practitioner?.city) || 'Paris'
 
-  // Safe string helper
-  const safeStr = (val: string | null | undefined): string => val || ''
+  const practLastName = safeString(practitioner?.last_name).toUpperCase()
+  const practFirstName = safeString(practitioner?.first_name)
+  const patLastName = safeString(patient?.last_name).toUpperCase()
+  const patFirstName = safeString(patient?.first_name)
+  const reason = safeString(consultation?.reason) || 'Consultation'
+  const paymentMethod = payment ? safeString(payment.method) : ''
+  const method = paymentMethodLabels[paymentMethod] || 'Comptant'
+  const invoiceNumber = safeString(invoice?.invoice_number)
+  const practSpecialty = safeString(practitioner?.specialty)
+  const practAddress = safeString(practitioner?.address)
+  const practPostalCode = safeString(practitioner?.postal_code)
+  const practCity = safeString(practitioner?.city)
+  const practSiret = safeString(practitioner?.siret)
+  const practRpps = safeString(practitioner?.rpps)
+  const patientEmail = safeString(patient?.email)
+  const stampUrl = safeString(practitioner?.stamp_url)
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.practitionerSection}>
-            <Text style={styles.practitionerName}>
-              {practitioner.last_name?.toUpperCase() || ''} {practitioner.first_name || ''}
-            </Text>
-            {practitioner.specialty ? (
-              <Text style={styles.practitionerSpecialty}>
-                {practitioner.specialty}
-              </Text>
+            <Text style={styles.practitionerName}>{practLastName + ' ' + practFirstName}</Text>
+            {practSpecialty ? (
+              <Text style={styles.practitionerSpecialty}>{practSpecialty}</Text>
             ) : null}
-            <View style={styles.practitionerInfo}>
-              {practitioner.address ? (
-                <Text>{practitioner.address}</Text>
-              ) : null}
-              {(practitioner.postal_code || practitioner.city) ? (
-                <Text>
-                  {safeStr(practitioner.postal_code)} {safeStr(practitioner.city)}
-                </Text>
-              ) : null}
-              {practitioner.siret ? (
-                <Text>N SIREN: {practitioner.siret}</Text>
-              ) : null}
-              {practitioner.rpps ? (
-                <Text>N RPPS: {practitioner.rpps}</Text>
-              ) : null}
-            </View>
+            {practAddress ? (
+              <Text style={styles.infoText}>{practAddress}</Text>
+            ) : null}
+            {(practPostalCode || practCity) ? (
+              <Text style={styles.infoText}>{practPostalCode + ' ' + practCity}</Text>
+            ) : null}
+            {practSiret ? (
+              <Text style={styles.infoText}>{'N SIREN: ' + practSiret}</Text>
+            ) : null}
+            {practRpps ? (
+              <Text style={styles.infoText}>{'N RPPS: ' + practRpps}</Text>
+            ) : null}
           </View>
 
           <View style={styles.patientSection}>
             <View style={styles.patientBox}>
-              <Text style={styles.patientName}>
-                {patient.last_name?.toUpperCase() || ''} {patient.first_name || ''}
-              </Text>
-              <Text style={styles.patientAddress}>
-                {safeStr(patient.email)}
-              </Text>
+              <Text style={styles.patientName}>{patLastName + ' ' + patFirstName}</Text>
+              {patientEmail ? (
+                <Text style={styles.patientEmail}>{patientEmail}</Text>
+              ) : null}
             </View>
           </View>
         </View>
 
-        {/* Date */}
         <View style={styles.metaSection}>
           <View style={styles.metaBox}>
-            <Text style={styles.metaText}>
-              {location}, le {formatDate(invoiceDate.toISOString())}
-            </Text>
+            <Text style={styles.metaText}>{location + ', le ' + formatDatePDF(invoiceDateStr)}</Text>
           </View>
         </View>
 
-        {/* Title */}
         <View style={styles.invoiceTitle}>
           <Text style={styles.invoiceLabel}>Recu d honoraires n</Text>
-          <View style={styles.invoiceNumber}>
-            <Text style={styles.invoiceNumberText}>{invoice.invoice_number}</Text>
+          <View style={styles.invoiceNumberBox}>
+            <Text style={styles.invoiceNumberText}>{invoiceNumber}</Text>
           </View>
         </View>
 
-        {/* Items */}
         <View style={styles.table}>
           <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, styles.descriptionCol]}>
-              Description
-            </Text>
-            <View style={styles.amountCol}>
-              <Text style={styles.tableHeaderCell}>Montant</Text>
-            </View>
+            <Text style={styles.tableHeaderDesc}>DESCRIPTION</Text>
+            <Text style={styles.tableHeaderAmount}>MONTANT</Text>
           </View>
 
           <View style={styles.tableRow}>
-            <View style={styles.descriptionCol}>
-              <Text style={styles.itemDescription}>
-                Seance du jour - {consultation.reason || 'Consultation'}
-              </Text>
+            <View style={styles.tableDesc}>
+              <Text style={styles.itemText}>{'Seance du jour - ' + reason}</Text>
             </View>
-            <View style={styles.amountCol}>
-              <View style={styles.itemAmount}>
-                <Text style={styles.itemAmountText}>
-                  {formatCurrency(invoice.amount)}
-                </Text>
+            <View style={styles.tableAmount}>
+              <View style={styles.amountBox}>
+                <Text style={styles.amountText}>{formatAmountPDF(invoice?.amount)}</Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Total */}
         <View style={styles.totalSection}>
           <Text style={styles.totalLabel}>Somme a regler</Text>
-          <View style={styles.totalAmount}>
-            <Text style={styles.totalAmountText}>
-              {formatCurrency(invoice.amount)}
-            </Text>
+          <View style={styles.totalBox}>
+            <Text style={styles.totalText}>{formatAmountPDF(invoice?.amount)}</Text>
           </View>
         </View>
 
-        {/* Payment */}
         <View style={styles.paymentSection}>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Reglement</Text>
             <View style={styles.paymentBadge}>
-              <Text style={styles.paymentBadgeText}>
-                {payment ? paymentMethodLabels[payment.method] || payment.method : 'Comptant'}
-              </Text>
+              <Text style={styles.paymentBadgeText}>{method}</Text>
             </View>
           </View>
           <View style={styles.paymentRow}>
@@ -372,41 +394,25 @@ export function InvoicePDF({
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Date du reglement</Text>
-            <Text style={styles.paymentValue}>
-              {payment ? formatDate(payment.payment_date) : formatDate(invoiceDate.toISOString())}
-            </Text>
+            <Text style={styles.paymentValue}>{payment ? formatDatePDF(payment.payment_date) : formatDatePDF(invoiceDateStr)}</Text>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Date de facturation</Text>
-            <Text style={styles.paymentValue}>
-              {formatDate(invoiceDate.toISOString())}
-            </Text>
+            <Text style={styles.paymentValue}>{formatDatePDF(invoiceDateStr)}</Text>
           </View>
         </View>
 
-        {/* Stamp */}
-        {practitioner.stamp_url ? (
+        {stampUrl ? (
           <View style={styles.stampSection}>
-            <Image src={practitioner.stamp_url} style={styles.stampImage} />
+            <Image src={stampUrl} style={styles.stampImage} />
           </View>
         ) : null}
 
-        {/* Footer */}
         <View style={styles.footer}>
-          <View style={styles.footerDivider}>
-            <Text style={styles.footerText}>
-              TVA non applicable selon article 261, 4-1 du CGI
-            </Text>
-            <Text style={styles.footerText}>
-              Absence d escompte pour paiement anticipe
-            </Text>
-            <Text style={styles.footerText}>
-              En cas de retard, il sera applique des penalites suivant le taux minimum legal en vigueur
-            </Text>
-            <Text style={styles.footerText}>
-              En outre, une indemnite forfaitaire pour frais de recouvrement de 40 euros sera due.
-            </Text>
-          </View>
+          <Text style={styles.footerText}>TVA non applicable selon article 261, 4-1 du CGI</Text>
+          <Text style={styles.footerText}>Absence d escompte pour paiement anticipe</Text>
+          <Text style={styles.footerText}>En cas de retard, penalites suivant le taux minimum legal en vigueur</Text>
+          <Text style={styles.footerText}>Indemnite forfaitaire pour frais de recouvrement: 40 euros</Text>
         </View>
       </Page>
     </Document>
