@@ -60,17 +60,32 @@ export async function GET(
 
     const stampImage = await getStampDataUrl(practitioner.stamp_url)
 
-    // Generate PDF
-    const pdfBuffer = await renderToBuffer(
-      InvoicePDF({
-        invoice,
-        consultation: invoice.consultation,
-        patient: invoice.consultation.patient,
-        practitioner,
-        payments: invoice.payments || [],
-        stampImage,
-      })
-    )
+    let pdfBuffer: Uint8Array
+
+    try {
+      pdfBuffer = await renderToBuffer(
+        InvoicePDF({
+          invoice,
+          consultation: invoice.consultation,
+          patient: invoice.consultation.patient,
+          practitioner,
+          payments: invoice.payments || [],
+          stampImage,
+        })
+      )
+    } catch (error) {
+      console.error('Error generating PDF with stamp, retrying without:', error)
+      pdfBuffer = await renderToBuffer(
+        InvoicePDF({
+          invoice,
+          consultation: invoice.consultation,
+          patient: invoice.consultation.patient,
+          practitioner,
+          payments: invoice.payments || [],
+          stampImage: null,
+        })
+      )
+    }
 
     // Return PDF - convert Buffer to Uint8Array for NextResponse
     return new NextResponse(new Uint8Array(pdfBuffer), {

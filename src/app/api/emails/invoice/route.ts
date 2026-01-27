@@ -107,18 +107,33 @@ export async function POST(request: NextRequest) {
     const bodyText = replaceTemplateVariables(template.body, variables)
     const bodyHtml = textToHtml(bodyText)
 
-    // Generate PDF
     const stampImage = await getStampDataUrl(practitioner.stamp_url)
-    const pdfBuffer = await renderToBuffer(
-      InvoicePDF({
-        invoice,
-        consultation: invoice.consultation,
-        patient,
-        practitioner,
-        payments: invoice.payments || [],
-        stampImage,
-      })
-    )
+    let pdfBuffer: Uint8Array
+
+    try {
+      pdfBuffer = await renderToBuffer(
+        InvoicePDF({
+          invoice,
+          consultation: invoice.consultation,
+          patient,
+          practitioner,
+          payments: invoice.payments || [],
+          stampImage,
+        })
+      )
+    } catch (error) {
+      console.error('Error generating PDF with stamp, retrying without:', error)
+      pdfBuffer = await renderToBuffer(
+        InvoicePDF({
+          invoice,
+          consultation: invoice.consultation,
+          patient,
+          practitioner,
+          payments: invoice.payments || [],
+          stampImage: null,
+        })
+      )
+    }
 
     // Send email
     const { error: emailError } = await getResend().emails.send({
