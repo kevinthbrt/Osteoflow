@@ -8,7 +8,7 @@ import {
 } from '@react-pdf/renderer'
 import type { DocumentProps } from '@react-pdf/renderer'
 import { isValidElement } from 'react'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import type { Invoice, Patient, Practitioner, Consultation, Payment } from '@/types/database'
 
 interface InvoicePDFProps {
@@ -288,7 +288,8 @@ function safeString(value: unknown): string {
     return value.map((item) => safeString(item)).filter(Boolean).join(' ')
   }
   if (isValidElement(value)) {
-    return safeString(value.props?.children)
+    const element = value as ReactElement<{ children?: ReactNode }>
+    return safeString(element.props?.children)
   }
   if (typeof value === 'object' && typeof (value as { toString?: () => string }).toString === 'function') {
     const str = (value as { toString: () => string }).toString()
