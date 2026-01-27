@@ -17,6 +17,13 @@ const paymentMethodLabels: Record<string, string> = {
   other: 'Autre',
 }
 
+const safeText = (value: unknown): string => {
+  if (typeof value === 'string' || typeof value === 'number') {
+    return String(value)
+  }
+  return ''
+}
+
 const createStyles = (accentColor: string) =>
   StyleSheet.create({
     page: {
@@ -242,6 +249,16 @@ export function InvoicePDF({
   payments,
   stampImage,
 }: InvoicePDFProps) {
+  const practitionerFirstName = safeText(practitioner.first_name)
+  const practitionerLastName = safeText(practitioner.last_name)
+  const practitionerName =
+    safeText(practitioner.practice_name) ||
+    `${practitionerFirstName} ${practitionerLastName}`.trim()
+  const practitionerCity = safeText(practitioner.city)
+  const practitionerPostalCode = safeText(practitioner.postal_code)
+  const patientFirstName = safeText(patient.first_name)
+  const patientLastName = safeText(patient.last_name)
+  const patientName = `${patientFirstName} ${patientLastName}`.trim()
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0)
   const accentColor = /^#[0-9A-Fa-f]{6}$/.test(practitioner.primary_color || '')
     ? practitioner.primary_color
@@ -262,23 +279,32 @@ export function InvoicePDF({
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.practitionerName}>
-              {practitioner.practice_name ||
-                `${practitioner.first_name} ${practitioner.last_name}`}
+              {practitionerName}
             </Text>
             <View style={styles.practitionerAddress}>
               {practitioner.specialty && (
-                <Text>Spécialité: {practitioner.specialty}</Text>
+                <Text>Spécialité: {safeText(practitioner.specialty)}</Text>
               )}
-              {practitioner.address && <Text>{practitioner.address}</Text>}
-              {practitioner.city && practitioner.postal_code && (
+              {practitioner.address && (
+                <Text>{safeText(practitioner.address)}</Text>
+              )}
+              {practitionerCity && practitionerPostalCode && (
                 <Text>
-                  {practitioner.postal_code} {practitioner.city}
+                  {practitionerPostalCode} {practitionerCity}
                 </Text>
               )}
-              {practitioner.phone && <Text>Tél: {practitioner.phone}</Text>}
-              {practitioner.email && <Text>Email: {practitioner.email}</Text>}
-              {practitioner.siret && <Text>SIRET: {practitioner.siret}</Text>}
-              {practitioner.rpps && <Text>RPPS: {practitioner.rpps}</Text>}
+              {practitioner.phone && (
+                <Text>Tél: {safeText(practitioner.phone)}</Text>
+              )}
+              {practitioner.email && (
+                <Text>Email: {safeText(practitioner.email)}</Text>
+              )}
+              {practitioner.siret && (
+                <Text>SIRET: {safeText(practitioner.siret)}</Text>
+              )}
+              {practitioner.rpps && (
+                <Text>RPPS: {safeText(practitioner.rpps)}</Text>
+              )}
             </View>
           </View>
           <View style={styles.headerRight}>
@@ -286,12 +312,12 @@ export function InvoicePDF({
               <Text style={styles.invoiceTitle}>REÇU D'HONORAIRES</Text>
             </View>
             <Text style={styles.invoiceNumber}>
-              N° {invoice.invoice_number}
+              N° {safeText(invoice.invoice_number)}
             </Text>
             <View style={styles.invoiceMeta}>
               <View style={styles.metaRow}>
                 <Text style={styles.metaLabel}>Lieu:</Text>
-                <Text>{practitioner.city || '—'}</Text>
+                <Text>{practitionerCity || '—'}</Text>
               </View>
               <View style={styles.metaRow}>
                 <Text style={styles.metaLabel}>Date de facturation:</Text>
@@ -305,15 +331,19 @@ export function InvoicePDF({
         <View style={styles.clientSection}>
           <Text style={styles.sectionTitle}>Facturé à</Text>
           <Text style={styles.clientName}>
-            {patient.first_name} {patient.last_name}
+            {patientName}
           </Text>
           <View style={styles.clientGrid}>
             <View>
               {patient.email && (
-                <Text style={styles.clientInfo}>{patient.email}</Text>
+                <Text style={styles.clientInfo}>
+                  {safeText(patient.email)}
+                </Text>
               )}
               {patient.phone && (
-                <Text style={styles.clientInfo}>{patient.phone}</Text>
+                <Text style={styles.clientInfo}>
+                  {safeText(patient.phone)}
+                </Text>
               )}
             </View>
           </View>
@@ -336,7 +366,7 @@ export function InvoicePDF({
               </Text>
               {consultation.reason && (
                 <Text style={styles.descriptionDetail}>
-                  Motif: {consultation.reason}
+                  Motif: {safeText(consultation.reason)}
                 </Text>
               )}
             </View>
@@ -356,7 +386,9 @@ export function InvoicePDF({
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Type de règlement</Text>
               <Text style={styles.infoValue}>
-                {latestPayment ? paymentMethodLabels[latestPayment.method] : '—'}
+                {latestPayment
+                  ? safeText(paymentMethodLabels[latestPayment.method])
+                  : '—'}
               </Text>
             </View>
             <View style={styles.infoRow}>
@@ -393,9 +425,8 @@ export function InvoicePDF({
 
         {/* Footer */}
         <Text style={styles.footer}>
-          {practitioner.practice_name ||
-            `${practitioner.first_name} ${practitioner.last_name}`}
-          {practitioner.siret && ` - SIRET: ${practitioner.siret}`}
+          {practitionerName}
+          {practitioner.siret && ` - SIRET: ${safeText(practitioner.siret)}`}
           {'\n'}
           TVA non applicable, art. 261, 4-1° du CGI
           {'\n'}
