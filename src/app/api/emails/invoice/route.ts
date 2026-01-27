@@ -11,6 +11,8 @@ import {
 } from '@/lib/email/templates'
 import { formatDate, formatCurrency } from '@/lib/utils'
 
+export const runtime = 'nodejs'
+
 // Lazy initialization to avoid build-time errors
 const getResend = () => new Resend(process.env.RESEND_API_KEY)
 

@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { InvoicePDF } from '@/lib/pdf/invoice-template'
 import { getStampDataUrl } from '@/lib/pdf/stamp'
 
+export const runtime = 'nodejs'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
