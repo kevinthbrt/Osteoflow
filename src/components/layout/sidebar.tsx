@@ -14,6 +14,7 @@ import {
   MessageCircle,
   Sparkles,
   LayoutDashboard,
+  TrendingUp,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Consultations', href: '/consultations', icon: Calendar, description: 'Historique' },
   { name: 'Factures', href: '/invoices', icon: FileText, description: 'Facturation' },
   { name: 'Messagerie', href: '/messages', icon: MessageCircle, description: 'Communications' },
+  { name: 'Statistiques', href: '/statistics', icon: TrendingUp, description: 'Analyses & tendances' },
   { name: 'Comptabilité', href: '/accounting', icon: BarChart3, description: 'Rapports' },
   { name: 'Paramètres', href: '/settings', icon: Settings, description: 'Configuration' },
 ]

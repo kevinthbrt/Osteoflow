@@ -13,6 +13,8 @@ export type EmailTemplateType = 'invoice' | 'follow_up_7d'
 export type TaskStatus = 'pending' | 'completed' | 'failed' | 'cancelled'
 export type TaskType = 'follow_up_email'
 export type AuditAction = 'INSERT' | 'UPDATE' | 'DELETE'
+export type MedicalHistoryType = 'traumatic' | 'medical' | 'surgical' | 'family'
+export type OnsetDurationUnit = 'days' | 'weeks' | 'months' | 'years'
 
 export interface Database {
   public: {
@@ -377,6 +379,53 @@ export interface Database {
           created_at?: string
         }
       }
+      medical_history_entries: {
+        Row: {
+          id: string
+          patient_id: string
+          history_type: MedicalHistoryType
+          description: string
+          onset_date: string | null
+          onset_age: number | null
+          onset_duration_value: number | null
+          onset_duration_unit: OnsetDurationUnit | null
+          is_vigilance: boolean
+          note: string | null
+          display_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          patient_id: string
+          history_type: MedicalHistoryType
+          description: string
+          onset_date?: string | null
+          onset_age?: number | null
+          onset_duration_value?: number | null
+          onset_duration_unit?: OnsetDurationUnit | null
+          is_vigilance?: boolean
+          note?: string | null
+          display_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          patient_id?: string
+          history_type?: MedicalHistoryType
+          description?: string
+          onset_date?: string | null
+          onset_age?: number | null
+          onset_duration_value?: number | null
+          onset_duration_unit?: OnsetDurationUnit | null
+          is_vigilance?: boolean
+          note?: string | null
+          display_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -394,6 +443,8 @@ export interface Database {
       task_status: TaskStatus
       task_type: TaskType
       audit_action: AuditAction
+      medical_history_type: MedicalHistoryType
+      onset_duration_unit: OnsetDurationUnit
     }
   }
 }
@@ -413,6 +464,7 @@ export type EmailTemplate = Tables<'email_templates'>
 export type ScheduledTask = Tables<'scheduled_tasks'>
 export type AuditLog = Tables<'audit_logs'>
 export type SavedReport = Tables<'saved_reports'>
+export type MedicalHistoryEntry = Tables<'medical_history_entries'>
 
 // Extended types with relations
 export interface PatientWithConsultations extends Patient {

@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { ArrowLeft, Edit, Calendar, FileText, Phone, Mail, Briefcase } from 'lucide-react'
 import { formatDate, formatPhone, calculateAge } from '@/lib/utils'
 import { ConsultationTimeline } from '@/components/consultations/consultation-timeline'
+import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 
 interface PatientPageProps {
   params: Promise<{ id: string }>
@@ -36,6 +37,13 @@ export default async function PatientPage({ params }: PatientPageProps) {
     `)
     .eq('patient_id', id)
     .order('date_time', { ascending: false })
+
+  // Get medical history entries
+  const { data: medicalHistoryEntries } = await supabase
+    .from('medical_history_entries')
+    .select('*')
+    .eq('patient_id', id)
+    .order('display_order', { ascending: true })
 
   return (
     <div className="space-y-6">
@@ -118,54 +126,54 @@ export default async function PatientPage({ params }: PatientPageProps) {
             </CardContent>
           </Card>
 
-          {/* Medical History */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Antécédents</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {patient.trauma_history && (
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                    Traumatiques
-                  </h4>
-                  <p className="text-sm whitespace-pre-wrap">{patient.trauma_history}</p>
-                </div>
-              )}
-              {patient.medical_history && (
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                    Médicaux
-                  </h4>
-                  <p className="text-sm whitespace-pre-wrap">{patient.medical_history}</p>
-                </div>
-              )}
-              {patient.surgical_history && (
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                    Chirurgicaux
-                  </h4>
-                  <p className="text-sm whitespace-pre-wrap">{patient.surgical_history}</p>
-                </div>
-              )}
-              {patient.family_history && (
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                    Familiaux
-                  </h4>
-                  <p className="text-sm whitespace-pre-wrap">{patient.family_history}</p>
-                </div>
-              )}
-              {!patient.trauma_history &&
-                !patient.medical_history &&
-                !patient.surgical_history &&
-                !patient.family_history && (
-                  <p className="text-sm text-muted-foreground italic">
-                    Aucun antécédent renseigné
-                  </p>
+          {/* Structured Medical History */}
+          <MedicalHistorySectionWrapper
+            patientId={id}
+            initialEntries={medicalHistoryEntries || []}
+          />
+
+          {/* Legacy Medical History (text fields) */}
+          {(patient.trauma_history || patient.medical_history || patient.surgical_history || patient.family_history) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Antécédents (notes)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {patient.trauma_history && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">
+                      Traumatiques
+                    </h4>
+                    <p className="text-sm whitespace-pre-wrap">{patient.trauma_history}</p>
+                  </div>
                 )}
-            </CardContent>
-          </Card>
+                {patient.medical_history && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">
+                      Médicaux
+                    </h4>
+                    <p className="text-sm whitespace-pre-wrap">{patient.medical_history}</p>
+                  </div>
+                )}
+                {patient.surgical_history && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">
+                      Chirurgicaux
+                    </h4>
+                    <p className="text-sm whitespace-pre-wrap">{patient.surgical_history}</p>
+                  </div>
+                )}
+                {patient.family_history && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">
+                      Familiaux
+                    </h4>
+                    <p className="text-sm whitespace-pre-wrap">{patient.family_history}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Notes */}
           {patient.notes && (
