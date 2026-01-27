@@ -7,6 +7,7 @@ import {
   StyleSheet,
 } from '@react-pdf/renderer'
 import type { DocumentProps } from '@react-pdf/renderer'
+import { isValidElement } from 'react'
 import type { ReactElement } from 'react'
 import type { Invoice, Patient, Practitioner, Consultation, Payment } from '@/types/database'
 
@@ -283,6 +284,16 @@ function safeString(value: unknown): string {
   if (typeof value === 'string') return value
   if (typeof value === 'number') return String(value)
   if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (Array.isArray(value)) {
+    return value.map((item) => safeString(item)).filter(Boolean).join(' ')
+  }
+  if (isValidElement(value)) {
+    return safeString(value.props?.children)
+  }
+  if (typeof value === 'object' && typeof (value as { toString?: () => string }).toString === 'function') {
+    const str = (value as { toString: () => string }).toString()
+    return str === '[object Object]' ? '' : str
+  }
   return ''
 }
 
