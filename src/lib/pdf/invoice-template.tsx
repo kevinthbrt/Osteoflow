@@ -331,7 +331,7 @@ export function InvoicePDF({
 
         {/* Invoice Title */}
         <View style={styles.invoiceTitle}>
-          <Text style={styles.invoiceLabel}>Reçu d&apos;honoraires n°</Text>
+          <Text style={styles.invoiceLabel}>Reçu d'honoraires n°</Text>
           <View style={styles.invoiceNumber}>
             <Text style={styles.invoiceNumberText}>{invoice.invoice_number}</Text>
           </View>
@@ -413,16 +413,16 @@ export function InvoicePDF({
         <View style={styles.footer}>
           <View style={styles.footerDivider}>
             <Text style={styles.footerText}>
-              TVA non applicable selon l&apos;article 261, 4-1° du CGI
+              TVA non applicable selon l'article 261, 4-1° du CGI
             </Text>
             <Text style={styles.footerText}>
-              Absence d&apos;escompte pour paiement anticipé
+              Absence d'escompte pour paiement anticipé
             </Text>
             <Text style={styles.footerText}>
               En cas de retard, il sera appliqué des retards suivant le taux minimum légal en vigueur, par mois de retard
             </Text>
             <Text style={styles.footerText}>
-              En outre, une indemnité forfaitaire pour frais de recouvrement de 40 € sera due.
+              En outre, une indemnité forfaitaire pour frais de recouvrement de 40 euros sera due.
             </Text>
           </View>
         </View>
