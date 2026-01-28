@@ -129,7 +129,7 @@ export const emailSettingsSchema = z.object({
     .string()
     .min(1, 'Le mot de passe SMTP est requis'),
 
-  // IMAP (receiving)
+  // IMAP (receiving) - optional in form, will be copied from SMTP
   imap_host: z
     .string()
     .min(1, 'Le serveur IMAP est requis'),
@@ -144,10 +144,12 @@ export const emailSettingsSchema = z.object({
     .default(true),
   imap_user: z
     .string()
-    .min(1, 'L\'identifiant IMAP est requis'),
+    .optional()
+    .default(''),
   imap_password: z
     .string()
-    .min(1, 'Le mot de passe IMAP est requis'),
+    .optional()
+    .default(''),
 
   // Identity
   from_name: z
