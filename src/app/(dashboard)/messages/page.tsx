@@ -28,11 +28,42 @@ import type { Patient } from '@/types/database'
 
 interface Conversation {
   id: string
-  patient_id: string
+  patient_id: string | null
   subject: string | null
   last_message_at: string
   unread_count: number
-  patient: Pick<Patient, 'id' | 'first_name' | 'last_name' | 'email' | 'phone'>
+  external_email: string | null
+  external_name: string | null
+  patient: Pick<Patient, 'id' | 'first_name' | 'last_name' | 'email' | 'phone'> | null
+}
+
+// Helper functions for external/patient conversations
+function getContactName(conv: Conversation): string {
+  if (conv.patient) {
+    return `${conv.patient.first_name} ${conv.patient.last_name}`
+  }
+  return conv.external_name || conv.external_email || 'Contact inconnu'
+}
+
+function getContactEmail(conv: Conversation): string | null {
+  if (conv.patient) {
+    return conv.patient.email || conv.patient.phone || null
+  }
+  return conv.external_email
+}
+
+function getContactInitials(conv: Conversation): string {
+  if (conv.patient) {
+    return getInitials(conv.patient.first_name, conv.patient.last_name)
+  }
+  if (conv.external_name) {
+    const parts = conv.external_name.split(' ')
+    return getInitials(parts[0] || '', parts[1] || '')
+  }
+  if (conv.external_email) {
+    return conv.external_email.substring(0, 2).toUpperCase()
+  }
+  return '?'
 }
 
 interface Message {
@@ -78,6 +109,8 @@ export default function MessagesPage() {
           subject,
           last_message_at,
           unread_count,
+          external_email,
+          external_name,
           patient:patients (id, first_name, last_name, email, phone)
         `)
         .eq('is_archived', false)
@@ -175,12 +208,14 @@ export default function MessagesPage() {
   const handleSendEmail = async () => {
     if (!newMessage.trim() || !selectedConversation) return
 
-    const patient = selectedConversation.patient
-    if (!patient.email) {
+    const recipientEmail = getContactEmail(selectedConversation)
+    const recipientName = getContactName(selectedConversation)
+
+    if (!recipientEmail) {
       toast({
         variant: 'destructive',
         title: 'Pas d\'email',
-        description: 'Ce patient n\'a pas d\'adresse email',
+        description: 'Ce contact n\'a pas d\'adresse email',
       })
       return
     }
@@ -193,8 +228,8 @@ export default function MessagesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationId: selectedConversation.id,
-          patientEmail: patient.email,
-          patientName: `${patient.first_name} ${patient.last_name}`,
+          patientEmail: recipientEmail,
+          patientName: recipientName,
           content: newMessage.trim(),
         }),
       })
@@ -208,7 +243,7 @@ export default function MessagesPage() {
       toast({
         variant: 'success',
         title: 'Email envoyé',
-        description: `Email envoyé à ${patient.email}`,
+        description: `Email envoyé à ${recipientEmail}`,
       })
     } catch (error) {
       console.error('Error sending email:', error)
@@ -224,8 +259,11 @@ export default function MessagesPage() {
 
   const filteredConversations = conversations.filter((conv) => {
     if (!searchQuery) return true
-    const fullName = `${conv.patient.first_name} ${conv.patient.last_name}`.toLowerCase()
-    return fullName.includes(searchQuery.toLowerCase())
+    const searchLower = searchQuery.toLowerCase()
+    // Search in patient name or external contact
+    const contactName = getContactName(conv).toLowerCase()
+    const contactEmail = getContactEmail(conv)?.toLowerCase() || ''
+    return contactName.includes(searchLower) || contactEmail.includes(searchLower)
   })
 
   // Mobile: show conversation list or messages
@@ -243,19 +281,15 @@ export default function MessagesPage() {
           </Button>
           <Avatar className="h-10 w-10">
             <AvatarFallback className="bg-primary/10 text-primary">
-              {getInitials(
-                selectedConversation.patient.first_name,
-                selectedConversation.patient.last_name
-              )}
+              {getContactInitials(selectedConversation)}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="font-medium truncate">
-              {selectedConversation.patient.first_name}{' '}
-              {selectedConversation.patient.last_name}
+              {getContactName(selectedConversation)}
             </p>
             <p className="text-xs text-muted-foreground">
-              {selectedConversation.patient.email || selectedConversation.patient.phone}
+              {getContactEmail(selectedConversation) || 'Pas d\'email'}
             </p>
           </div>
         </div>
@@ -274,7 +308,7 @@ export default function MessagesPage() {
           onSend={handleSendMessage}
           onSendEmail={handleSendEmail}
           isSending={isSending}
-          hasEmail={!!selectedConversation.patient.email}
+          hasEmail={!!getContactEmail(selectedConversation)}
           onQuickReply={(content) => setNewMessage(content)}
         />
       </div>
@@ -341,14 +375,17 @@ export default function MessagesPage() {
                 }`}
               >
                 <Avatar className="h-12 w-12">
-                  <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                    {getInitials(conv.patient.first_name, conv.patient.last_name)}
+                  <AvatarFallback className={`font-medium ${conv.patient ? 'bg-primary/10 text-primary' : 'bg-orange-100 text-orange-600'}`}>
+                    {getContactInitials(conv)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0 text-left">
                   <div className="flex items-center justify-between">
                     <p className="font-medium truncate">
-                      {conv.patient.first_name} {conv.patient.last_name}
+                      {getContactName(conv)}
+                      {!conv.patient && (
+                        <span className="ml-2 text-xs text-orange-600">(externe)</span>
+                      )}
                     </p>
                     {conv.unread_count > 0 && (
                       <Badge className="ml-2">{conv.unread_count}</Badge>
@@ -377,20 +414,19 @@ export default function MessagesPage() {
             {/* Header */}
             <div className="flex items-center gap-4 p-4 border-b bg-muted/30">
               <Avatar className="h-12 w-12">
-                <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                  {getInitials(
-                    selectedConversation.patient.first_name,
-                    selectedConversation.patient.last_name
-                  )}
+                <AvatarFallback className={`font-medium ${selectedConversation.patient ? 'bg-primary/10 text-primary' : 'bg-orange-100 text-orange-600'}`}>
+                  {getContactInitials(selectedConversation)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
                 <p className="font-semibold text-lg">
-                  {selectedConversation.patient.first_name}{' '}
-                  {selectedConversation.patient.last_name}
+                  {getContactName(selectedConversation)}
+                  {!selectedConversation.patient && (
+                    <span className="ml-2 text-sm font-normal text-orange-600">(contact externe)</span>
+                  )}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {selectedConversation.patient.email || selectedConversation.patient.phone}
+                  {getContactEmail(selectedConversation) || 'Pas d\'email'}
                 </p>
               </div>
             </div>
@@ -418,7 +454,7 @@ export default function MessagesPage() {
               onSend={handleSendMessage}
               onSendEmail={handleSendEmail}
               isSending={isSending}
-              hasEmail={!!selectedConversation.patient.email}
+              hasEmail={!!getContactEmail(selectedConversation)}
               onQuickReply={(content) => setNewMessage(content)}
             />
           </>

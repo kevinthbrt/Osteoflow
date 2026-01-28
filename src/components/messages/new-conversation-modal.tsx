@@ -227,15 +227,41 @@ export function NewConversationModal({
           conversationId = newConv.id
         }
       } else {
-        // Create a temporary/external conversation without patient link
-        // We'll need a special handling - for now, show error and suggest creating patient
-        toast({
-          variant: 'destructive',
-          title: 'Patient non trouvé',
-          description: 'Créez d\'abord ce patient dans votre base pour pouvoir lui envoyer des messages suivis.',
-        })
-        setIsSendingManual(false)
-        return
+        // No patient found - check for existing external conversation or create one
+        const { data: existingExtConv } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('practitioner_id', practitioner.id)
+          .eq('external_email', manualEmail)
+          .is('patient_id', null)
+          .single()
+
+        if (existingExtConv) {
+          conversationId = existingExtConv.id
+        } else {
+          // Create external conversation
+          const { data: newExtConv, error: extError } = await supabase
+            .from('conversations')
+            .insert({
+              practitioner_id: practitioner.id,
+              patient_id: null,
+              external_email: manualEmail,
+              external_name: manualName || manualEmail.split('@')[0],
+              subject: `Conversation avec ${manualName || manualEmail}`,
+            })
+            .select('id')
+            .single()
+
+          if (extError) throw extError
+          conversationId = newExtConv.id
+        }
+
+        patientData = {
+          id: '',
+          first_name: manualName || manualEmail.split('@')[0],
+          last_name: '',
+          email: manualEmail,
+        }
       }
 
       // Send the email via API
@@ -263,7 +289,7 @@ export function NewConversationModal({
       // Fetch the full conversation and return it
       const { data: fullConv } = await supabase
         .from('conversations')
-        .select('*, patient:patients(*)')
+        .select('*, external_email, external_name, patient:patients(*)')
         .eq('id', conversationId)
         .single()
 
@@ -409,8 +435,8 @@ export function NewConversationModal({
 
               <div className="bg-muted/50 p-3 rounded-lg text-sm text-muted-foreground">
                 <p>
-                  <strong>Note :</strong> L'email doit correspondre à un patient existant
-                  dans votre base pour que la conversation soit enregistrée.
+                  <strong>Astuce :</strong> Si l'email correspond à un patient, la conversation sera liée à sa fiche.
+                  Sinon, un contact externe sera créé automatiquement.
                 </p>
               </div>
 
