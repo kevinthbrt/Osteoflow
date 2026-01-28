@@ -299,17 +299,17 @@ function formatAmountPDF(amount: number | string | null | undefined): string {
   return numericAmount.toFixed(2) + ' EUR'
 }
 
-function safeString(value: unknown): string {
+function normalizeText(value: unknown): string {
   if (value === null || value === undefined) return ''
   if (typeof value === 'string') return value
   if (typeof value === 'number') return String(value)
   if (typeof value === 'boolean') return value ? 'true' : 'false'
   if (Array.isArray(value)) {
-    return value.map((item) => safeString(item)).filter(Boolean).join(' ')
+    return value.map((item) => normalizeText(item)).filter(Boolean).join(' ')
   }
   if (isValidElement(value)) {
     const element = value as ReactElement<{ children?: ReactNode }>
-    return safeString(element.props?.children)
+    return normalizeText(element.props?.children)
   }
   if (typeof value === 'object' && typeof (value as { toString?: () => string }).toString === 'function') {
     const str = (value as { toString: () => string }).toString()
@@ -326,48 +326,48 @@ export function buildInvoicePDFData({
   payments,
 }: InvoicePDFProps): InvoicePDFData {
   const payment = payments && payments.length > 0 ? payments[0] : null
-  const invoiceDateStr = safeString(invoice?.issued_at) || new Date().toISOString()
-  const location = safeString(practitioner?.city) || 'Paris'
+  const invoiceDateStr = normalizeText(invoice?.issued_at) || new Date().toISOString()
+  const location = normalizeText(practitioner?.city) || 'Paris'
 
-  const practLastName = safeString(practitioner?.last_name).toUpperCase()
-  const practFirstName = safeString(practitioner?.first_name)
-  const patLastName = safeString(patient?.last_name).toUpperCase()
-  const patFirstName = safeString(patient?.first_name)
-  const reason = safeString(consultation?.reason) || 'Consultation'
-  const paymentMethod = payment ? safeString(payment.method) : ''
+  const practLastName = normalizeText(practitioner?.last_name).toUpperCase()
+  const practFirstName = normalizeText(practitioner?.first_name)
+  const patLastName = normalizeText(patient?.last_name).toUpperCase()
+  const patFirstName = normalizeText(patient?.first_name)
+  const reason = normalizeText(consultation?.reason) || 'Consultation'
+  const paymentMethod = payment ? normalizeText(payment.method) : ''
   const method = paymentMethodLabels[paymentMethod] || 'Comptant'
-  const invoiceNumber = safeString(invoice?.invoice_number)
-  const practSpecialty = safeString(practitioner?.specialty)
-  const practAddress = safeString(practitioner?.address)
-  const practPostalCode = safeString(practitioner?.postal_code)
-  const practCity = safeString(practitioner?.city)
-  const practSiret = safeString(practitioner?.siret)
-  const practRpps = safeString(practitioner?.rpps)
-  const patientEmail = safeString(patient?.email)
-  const stampUrl = safeString(practitioner?.stamp_url)
+  const invoiceNumber = normalizeText(invoice?.invoice_number)
+  const practSpecialty = normalizeText(practitioner?.specialty)
+  const practAddress = normalizeText(practitioner?.address)
+  const practPostalCode = normalizeText(practitioner?.postal_code)
+  const practCity = normalizeText(practitioner?.city)
+  const practSiret = normalizeText(practitioner?.siret)
+  const practRpps = normalizeText(practitioner?.rpps)
+  const patientEmail = normalizeText(patient?.email)
+  const stampUrl = normalizeText(practitioner?.stamp_url)
   const practitionerName = `${practLastName} ${practFirstName}`.trim()
   const patientName = `${patLastName} ${patFirstName}`.trim()
   const practitionerCityLine = `${practPostalCode} ${practCity}`.trim()
   const locationLine = `${location}, le ${formatDatePDF(invoiceDateStr)}`.trim()
 
   return {
-    practitionerName,
-    practitionerSpecialty: practSpecialty,
-    practitionerAddress: practAddress,
-    practitionerCityLine,
-    practitionerSiret: practSiret,
-    practitionerRpps: practRpps,
-    patientName,
-    patientEmail,
-    locationLine,
-    invoiceNumber,
-    reason,
-    amount: formatAmountPDF(invoice?.amount),
-    paymentMethod: method,
+    practitionerName: normalizeText(practitionerName),
+    practitionerSpecialty: normalizeText(practSpecialty),
+    practitionerAddress: normalizeText(practAddress),
+    practitionerCityLine: normalizeText(practitionerCityLine),
+    practitionerSiret: normalizeText(practSiret),
+    practitionerRpps: normalizeText(practRpps),
+    patientName: normalizeText(patientName),
+    patientEmail: normalizeText(patientEmail),
+    locationLine: normalizeText(locationLine),
+    invoiceNumber: normalizeText(invoiceNumber),
+    reason: normalizeText(reason),
+    amount: normalizeText(formatAmountPDF(invoice?.amount)),
+    paymentMethod: normalizeText(method),
     paymentType: 'Comptant',
-    paymentDate: payment ? formatDatePDF(payment.payment_date) : formatDatePDF(invoiceDateStr),
-    invoiceDate: formatDatePDF(invoiceDateStr),
-    stampUrl,
+    paymentDate: normalizeText(payment ? formatDatePDF(payment.payment_date) : formatDatePDF(invoiceDateStr)),
+    invoiceDate: normalizeText(formatDatePDF(invoiceDateStr)),
+    stampUrl: normalizeText(stampUrl),
   }
 }
 
@@ -376,35 +376,54 @@ export function InvoicePDF({
 }: {
   data: InvoicePDFData
 }): ReactElement<DocumentProps> {
+  const safeData: InvoicePDFData = {
+    practitionerName: normalizeText(data.practitionerName),
+    practitionerSpecialty: normalizeText(data.practitionerSpecialty),
+    practitionerAddress: normalizeText(data.practitionerAddress),
+    practitionerCityLine: normalizeText(data.practitionerCityLine),
+    practitionerSiret: normalizeText(data.practitionerSiret),
+    practitionerRpps: normalizeText(data.practitionerRpps),
+    patientName: normalizeText(data.patientName),
+    patientEmail: normalizeText(data.patientEmail),
+    locationLine: normalizeText(data.locationLine),
+    invoiceNumber: normalizeText(data.invoiceNumber),
+    reason: normalizeText(data.reason),
+    amount: normalizeText(data.amount),
+    paymentMethod: normalizeText(data.paymentMethod),
+    paymentType: normalizeText(data.paymentType),
+    paymentDate: normalizeText(data.paymentDate),
+    invoiceDate: normalizeText(data.invoiceDate),
+    stampUrl: normalizeText(data.stampUrl),
+  }
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.practitionerSection}>
-            <Text style={styles.practitionerName}>{data.practitionerName}</Text>
-            {data.practitionerSpecialty ? (
-              <Text style={styles.practitionerSpecialty}>{data.practitionerSpecialty}</Text>
+            <Text style={styles.practitionerName}>{safeData.practitionerName}</Text>
+            {safeData.practitionerSpecialty ? (
+              <Text style={styles.practitionerSpecialty}>{safeData.practitionerSpecialty}</Text>
             ) : null}
-            {data.practitionerAddress ? (
-              <Text style={styles.infoText}>{data.practitionerAddress}</Text>
+            {safeData.practitionerAddress ? (
+              <Text style={styles.infoText}>{safeData.practitionerAddress}</Text>
             ) : null}
-            {data.practitionerCityLine ? (
-              <Text style={styles.infoText}>{data.practitionerCityLine}</Text>
+            {safeData.practitionerCityLine ? (
+              <Text style={styles.infoText}>{safeData.practitionerCityLine}</Text>
             ) : null}
-            {data.practitionerSiret ? (
-              <Text style={styles.infoText}>{'N SIREN: ' + data.practitionerSiret}</Text>
+            {safeData.practitionerSiret ? (
+              <Text style={styles.infoText}>{'N SIREN: ' + safeData.practitionerSiret}</Text>
             ) : null}
-            {data.practitionerRpps ? (
-              <Text style={styles.infoText}>{'N RPPS: ' + data.practitionerRpps}</Text>
+            {safeData.practitionerRpps ? (
+              <Text style={styles.infoText}>{'N RPPS: ' + safeData.practitionerRpps}</Text>
             ) : null}
           </View>
 
           <View style={styles.patientSection}>
             <View style={styles.patientBox}>
-              <Text style={styles.patientName}>{data.patientName}</Text>
-              {data.patientEmail ? (
-                <Text style={styles.patientEmail}>{data.patientEmail}</Text>
+              <Text style={styles.patientName}>{safeData.patientName}</Text>
+              {safeData.patientEmail ? (
+                <Text style={styles.patientEmail}>{safeData.patientEmail}</Text>
               ) : null}
             </View>
           </View>
@@ -412,14 +431,14 @@ export function InvoicePDF({
 
         <View style={styles.metaSection}>
           <View style={styles.metaBox}>
-            <Text style={styles.metaText}>{data.locationLine}</Text>
+            <Text style={styles.metaText}>{safeData.locationLine}</Text>
           </View>
         </View>
 
         <View style={styles.invoiceTitle}>
           <Text style={styles.invoiceLabel}>Recu d honoraires n</Text>
           <View style={styles.invoiceNumberBox}>
-            <Text style={styles.invoiceNumberText}>{data.invoiceNumber}</Text>
+            <Text style={styles.invoiceNumberText}>{safeData.invoiceNumber}</Text>
           </View>
         </View>
 
@@ -431,11 +450,11 @@ export function InvoicePDF({
 
           <View style={styles.tableRow}>
             <View style={styles.tableDesc}>
-              <Text style={styles.itemText}>{'Seance du jour - ' + data.reason}</Text>
+              <Text style={styles.itemText}>{'Seance du jour - ' + safeData.reason}</Text>
             </View>
             <View style={styles.tableAmount}>
               <View style={styles.amountBox}>
-                <Text style={styles.amountText}>{data.amount}</Text>
+                <Text style={styles.amountText}>{safeData.amount}</Text>
               </View>
             </View>
           </View>
@@ -444,7 +463,7 @@ export function InvoicePDF({
         <View style={styles.totalSection}>
           <Text style={styles.totalLabel}>Somme a regler</Text>
           <View style={styles.totalBox}>
-            <Text style={styles.totalText}>{data.amount}</Text>
+            <Text style={styles.totalText}>{safeData.amount}</Text>
           </View>
         </View>
 
@@ -452,26 +471,26 @@ export function InvoicePDF({
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Reglement</Text>
             <View style={styles.paymentBadge}>
-              <Text style={styles.paymentBadgeText}>{data.paymentMethod}</Text>
+              <Text style={styles.paymentBadgeText}>{safeData.paymentMethod}</Text>
             </View>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Type de reglement</Text>
-            <Text style={styles.paymentValue}>{data.paymentType}</Text>
+            <Text style={styles.paymentValue}>{safeData.paymentType}</Text>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Date du reglement</Text>
-            <Text style={styles.paymentValue}>{data.paymentDate}</Text>
+            <Text style={styles.paymentValue}>{safeData.paymentDate}</Text>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Date de facturation</Text>
-            <Text style={styles.paymentValue}>{data.invoiceDate}</Text>
+            <Text style={styles.paymentValue}>{safeData.invoiceDate}</Text>
           </View>
         </View>
 
-        {data.stampUrl ? (
+        {safeData.stampUrl ? (
           <View style={styles.stampSection}>
-            <Image src={data.stampUrl} style={styles.stampImage} />
+            <Image src={safeData.stampUrl} style={styles.stampImage} />
           </View>
         ) : null}
 
