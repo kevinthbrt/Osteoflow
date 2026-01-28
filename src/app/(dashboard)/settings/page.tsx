@@ -639,10 +639,17 @@ export default function SettingsPage() {
     setIsSavingEmailSettings(true)
 
     try {
+      // Copy SMTP credentials to IMAP (same for Gmail, Outlook, etc.)
+      const payload = {
+        ...data,
+        imap_user: data.smtp_user,
+        imap_password: data.smtp_password,
+      }
+
       const response = await fetch('/api/emails/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       })
 
       const result = await response.json()
@@ -1254,10 +1261,7 @@ export default function SettingsPage() {
                       </div>
                     </div>
 
-                    {/* Hidden fields for IMAP (same credentials) */}
-                    <input type="hidden" {...registerEmailSettings('imap_user')} value={registerEmailSettings('smtp_user').name} />
-                    <input type="hidden" {...registerEmailSettings('imap_password')} value={registerEmailSettings('smtp_password').name} />
-                  </div>
+                    </div>
 
                   {/* Advanced settings (collapsed by default) */}
                   <details className="group">
