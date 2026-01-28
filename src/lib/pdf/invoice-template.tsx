@@ -6,17 +6,36 @@ import {
   Image,
   StyleSheet,
 } from '@react-pdf/renderer'
-import type { Invoice, Patient, Practitioner, Consultation, Payment } from '@/types/database'
+import React from 'react'
 
-interface InvoicePDFProps {
-  invoice: Invoice
-  consultation: Consultation
-  patient: Patient
-  practitioner: Practitioner
-  payments: Payment[]
+// Simple data interface - only primitive types
+export interface InvoicePDFData {
+  // Invoice
+  invoiceNumber: string
+  invoiceAmount: number
+  invoiceDate: string
+  // Patient
+  patientFirstName: string
+  patientLastName: string
+  patientEmail: string
+  // Practitioner
+  practitionerFirstName: string
+  practitionerLastName: string
+  practitionerSpecialty: string
+  practitionerAddress: string
+  practitionerCity: string
+  practitionerPostalCode: string
+  practitionerSiret: string
+  practitionerRpps: string
+  practitionerStampUrl: string
+  // Consultation
+  consultationReason: string
+  // Payment
+  paymentMethod: string
+  paymentDate: string
 }
 
-const primaryColor = '#10B981'
+const PRIMARY_COLOR = '#10B981'
 
 const styles = StyleSheet.create({
   page: {
@@ -54,7 +73,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   patientBox: {
-    backgroundColor: primaryColor,
+    backgroundColor: PRIMARY_COLOR,
     padding: 12,
     borderRadius: 4,
   },
@@ -74,7 +93,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   metaBox: {
-    backgroundColor: primaryColor,
+    backgroundColor: PRIMARY_COLOR,
     paddingLeft: 12,
     paddingRight: 12,
     paddingTop: 6,
@@ -96,7 +115,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   invoiceNumberBox: {
-    backgroundColor: primaryColor,
+    backgroundColor: PRIMARY_COLOR,
     paddingLeft: 12,
     paddingRight: 12,
     paddingTop: 6,
@@ -150,7 +169,7 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
   amountBox: {
-    backgroundColor: primaryColor,
+    backgroundColor: PRIMARY_COLOR,
     paddingLeft: 10,
     paddingRight: 10,
     paddingTop: 4,
@@ -176,7 +195,7 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   totalBox: {
-    backgroundColor: primaryColor,
+    backgroundColor: PRIMARY_COLOR,
     paddingLeft: 15,
     paddingRight: 15,
     paddingTop: 8,
@@ -209,7 +228,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   paymentBadge: {
-    backgroundColor: primaryColor,
+    backgroundColor: PRIMARY_COLOR,
     paddingLeft: 8,
     paddingRight: 8,
     paddingTop: 3,
@@ -247,97 +266,54 @@ const styles = StyleSheet.create({
   },
 })
 
-const paymentMethodLabels: Record<string, string> = {
-  card: 'Carte bancaire',
-  cash: 'Especes',
-  check: 'Cheque',
-  transfer: 'Virement',
-  other: 'Autre',
-}
-
-function formatDatePDF(dateInput: string | Date | null | undefined): string {
-  if (!dateInput) return ''
-  try {
-    const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
-    if (isNaN(d.getTime())) return ''
-    const day = d.getDate().toString().padStart(2, '0')
-    const month = (d.getMonth() + 1).toString().padStart(2, '0')
-    const year = d.getFullYear()
-    return day + '/' + month + '/' + year
-  } catch {
-    return ''
-  }
-}
-
-function formatAmountPDF(amount: number | null | undefined): string {
-  if (amount === null || amount === undefined) return '0.00 EUR'
-  return amount.toFixed(2) + ' EUR'
-}
-
-function safeString(value: unknown): string {
-  if (value === null || value === undefined) return ''
-  if (typeof value === 'string') return value
-  if (typeof value === 'number') return String(value)
-  if (typeof value === 'boolean') return value ? 'true' : 'false'
-  return ''
-}
-
-export function InvoicePDF({
-  invoice,
-  consultation,
-  patient,
-  practitioner,
-  payments,
-}: InvoicePDFProps) {
-  const payment = payments && payments.length > 0 ? payments[0] : null
-  const invoiceDateStr = safeString(invoice?.issued_at) || new Date().toISOString()
-  const location = safeString(practitioner?.city) || 'Paris'
-
-  const practLastName = safeString(practitioner?.last_name).toUpperCase()
-  const practFirstName = safeString(practitioner?.first_name)
-  const patLastName = safeString(patient?.last_name).toUpperCase()
-  const patFirstName = safeString(patient?.first_name)
-  const reason = safeString(consultation?.reason) || 'Consultation'
-  const paymentMethod = payment ? safeString(payment.method) : ''
-  const method = paymentMethodLabels[paymentMethod] || 'Comptant'
-  const invoiceNumber = safeString(invoice?.invoice_number)
-  const practSpecialty = safeString(practitioner?.specialty)
-  const practAddress = safeString(practitioner?.address)
-  const practPostalCode = safeString(practitioner?.postal_code)
-  const practCity = safeString(practitioner?.city)
-  const practSiret = safeString(practitioner?.siret)
-  const practRpps = safeString(practitioner?.rpps)
-  const patientEmail = safeString(patient?.email)
-  const stampUrl = safeString(practitioner?.stamp_url)
+export function InvoicePDF(data: InvoicePDFData): React.ReactElement {
+  // Pre-compute all display strings
+  const practFullName = String(data.practitionerLastName || '').toUpperCase() + ' ' + String(data.practitionerFirstName || '')
+  const patFullName = String(data.patientLastName || '').toUpperCase() + ' ' + String(data.patientFirstName || '')
+  const location = String(data.practitionerCity || 'Paris')
+  const invoiceDateFormatted = String(data.invoiceDate || '')
+  const amountFormatted = (typeof data.invoiceAmount === 'number' ? data.invoiceAmount.toFixed(2) : '0.00') + ' EUR'
+  const reason = String(data.consultationReason || 'Consultation')
+  const paymentMethodStr = String(data.paymentMethod || 'Comptant')
+  const paymentDateStr = String(data.paymentDate || data.invoiceDate || '')
+  const invoiceNumberStr = String(data.invoiceNumber || '')
+  const specialtyStr = String(data.practitionerSpecialty || '')
+  const addressStr = String(data.practitionerAddress || '')
+  const postalCodeStr = String(data.practitionerPostalCode || '')
+  const cityStr = String(data.practitionerCity || '')
+  const siretStr = String(data.practitionerSiret || '')
+  const rppsStr = String(data.practitionerRpps || '')
+  const patientEmailStr = String(data.patientEmail || '')
+  const stampUrlStr = String(data.practitionerStampUrl || '')
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.practitionerSection}>
-            <Text style={styles.practitionerName}>{practLastName + ' ' + practFirstName}</Text>
-            {practSpecialty ? (
-              <Text style={styles.practitionerSpecialty}>{practSpecialty}</Text>
+            <Text style={styles.practitionerName}>{practFullName}</Text>
+            {specialtyStr.length > 0 ? (
+              <Text style={styles.practitionerSpecialty}>{specialtyStr}</Text>
             ) : null}
-            {practAddress ? (
-              <Text style={styles.infoText}>{practAddress}</Text>
+            {addressStr.length > 0 ? (
+              <Text style={styles.infoText}>{addressStr}</Text>
             ) : null}
-            {(practPostalCode || practCity) ? (
-              <Text style={styles.infoText}>{practPostalCode + ' ' + practCity}</Text>
+            {(postalCodeStr.length > 0 || cityStr.length > 0) ? (
+              <Text style={styles.infoText}>{postalCodeStr + ' ' + cityStr}</Text>
             ) : null}
-            {practSiret ? (
-              <Text style={styles.infoText}>{'N SIREN: ' + practSiret}</Text>
+            {siretStr.length > 0 ? (
+              <Text style={styles.infoText}>{'N SIREN: ' + siretStr}</Text>
             ) : null}
-            {practRpps ? (
-              <Text style={styles.infoText}>{'N RPPS: ' + practRpps}</Text>
+            {rppsStr.length > 0 ? (
+              <Text style={styles.infoText}>{'N RPPS: ' + rppsStr}</Text>
             ) : null}
           </View>
 
           <View style={styles.patientSection}>
             <View style={styles.patientBox}>
-              <Text style={styles.patientName}>{patLastName + ' ' + patFirstName}</Text>
-              {patientEmail ? (
-                <Text style={styles.patientEmail}>{patientEmail}</Text>
+              <Text style={styles.patientName}>{patFullName}</Text>
+              {patientEmailStr.length > 0 ? (
+                <Text style={styles.patientEmail}>{patientEmailStr}</Text>
               ) : null}
             </View>
           </View>
@@ -345,14 +321,14 @@ export function InvoicePDF({
 
         <View style={styles.metaSection}>
           <View style={styles.metaBox}>
-            <Text style={styles.metaText}>{location + ', le ' + formatDatePDF(invoiceDateStr)}</Text>
+            <Text style={styles.metaText}>{location + ', le ' + invoiceDateFormatted}</Text>
           </View>
         </View>
 
         <View style={styles.invoiceTitle}>
           <Text style={styles.invoiceLabel}>Recu d honoraires n</Text>
           <View style={styles.invoiceNumberBox}>
-            <Text style={styles.invoiceNumberText}>{invoiceNumber}</Text>
+            <Text style={styles.invoiceNumberText}>{invoiceNumberStr}</Text>
           </View>
         </View>
 
@@ -368,7 +344,7 @@ export function InvoicePDF({
             </View>
             <View style={styles.tableAmount}>
               <View style={styles.amountBox}>
-                <Text style={styles.amountText}>{formatAmountPDF(invoice?.amount)}</Text>
+                <Text style={styles.amountText}>{amountFormatted}</Text>
               </View>
             </View>
           </View>
@@ -377,7 +353,7 @@ export function InvoicePDF({
         <View style={styles.totalSection}>
           <Text style={styles.totalLabel}>Somme a regler</Text>
           <View style={styles.totalBox}>
-            <Text style={styles.totalText}>{formatAmountPDF(invoice?.amount)}</Text>
+            <Text style={styles.totalText}>{amountFormatted}</Text>
           </View>
         </View>
 
@@ -385,7 +361,7 @@ export function InvoicePDF({
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Reglement</Text>
             <View style={styles.paymentBadge}>
-              <Text style={styles.paymentBadgeText}>{method}</Text>
+              <Text style={styles.paymentBadgeText}>{paymentMethodStr}</Text>
             </View>
           </View>
           <View style={styles.paymentRow}>
@@ -394,17 +370,17 @@ export function InvoicePDF({
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Date du reglement</Text>
-            <Text style={styles.paymentValue}>{payment ? formatDatePDF(payment.payment_date) : formatDatePDF(invoiceDateStr)}</Text>
+            <Text style={styles.paymentValue}>{paymentDateStr}</Text>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Date de facturation</Text>
-            <Text style={styles.paymentValue}>{formatDatePDF(invoiceDateStr)}</Text>
+            <Text style={styles.paymentValue}>{invoiceDateFormatted}</Text>
           </View>
         </View>
 
-        {stampUrl ? (
+        {stampUrlStr.length > 0 ? (
           <View style={styles.stampSection}>
-            <Image src={stampUrl} style={styles.stampImage} />
+            <Image src={stampUrlStr} style={styles.stampImage} />
           </View>
         ) : null}
 
