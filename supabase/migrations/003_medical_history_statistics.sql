@@ -69,7 +69,7 @@ CREATE INDEX idx_mhe_patient_type ON medical_history_entries(patient_id, history
 CREATE INDEX idx_patients_gender ON patients(gender) WHERE archived_at IS NULL;
 CREATE INDEX idx_patients_birth_date ON patients(birth_date) WHERE archived_at IS NULL;
 CREATE INDEX idx_consultations_reason ON consultations(reason) WHERE archived_at IS NULL;
-CREATE INDEX idx_consultations_year_month ON consultations(date_part('year', date_time), date_part('month', date_time)) WHERE archived_at IS NULL;
+CREATE INDEX idx_consultations_date_time ON consultations(date_time) WHERE archived_at IS NULL;
 
 -- ============================================
 -- TRIGGERS
