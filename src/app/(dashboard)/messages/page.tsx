@@ -358,6 +358,7 @@ export default function MessagesPage() {
           onSend={handleSendEmail}
           isSending={isSending}
           hasEmail={isValidEmail(getContactEmail(selectedConversation))}
+          previewName={getContactName(selectedConversation)}
           onQuickReply={(content) => setNewMessage(content)}
         />
       </div>
@@ -530,6 +531,7 @@ export default function MessagesPage() {
               onSend={handleSendEmail}
               isSending={isSending}
               hasEmail={isValidEmail(getContactEmail(selectedConversation))}
+              previewName={getContactName(selectedConversation)}
               onQuickReply={(content) => setNewMessage(content)}
             />
           </>
@@ -619,6 +621,7 @@ function MessageInput({
   onSend,
   isSending,
   hasEmail,
+  previewName,
   onQuickReply,
 }: {
   value: string
@@ -626,12 +629,23 @@ function MessageInput({
   onSend: () => void
   isSending: boolean
   hasEmail: boolean
+  previewName?: string
   onQuickReply: (content: string) => void
 }) {
   const [showQuickReplies, setShowQuickReplies] = useState(false)
+  const greeting = previewName ? `Bonjour ${previewName},` : 'Bonjour,'
+  const previewContent = value.trim()
+    ? `${greeting}\n\n${value}`
+    : `${greeting}\n\nVotre message apparaîtra ici.`
 
   return (
     <div className="p-4 border-t bg-background">
+      <div className="mb-3 rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/80">
+          Prévisualisation
+        </p>
+        <p className="mt-2 whitespace-pre-wrap text-foreground">{previewContent}</p>
+      </div>
       {showQuickReplies && (
         <QuickReplies
           onSelect={(content) => {

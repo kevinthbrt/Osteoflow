@@ -42,26 +42,6 @@ export const patientSchema = z.object({
     .max(100, 'La profession ne peut pas dépasser 100 caractères')
     .optional()
     .or(z.literal('')),
-  trauma_history: z
-    .string()
-    .max(5000, 'Le texte ne peut pas dépasser 5000 caractères')
-    .optional()
-    .or(z.literal('')),
-  medical_history: z
-    .string()
-    .max(5000, 'Le texte ne peut pas dépasser 5000 caractères')
-    .optional()
-    .or(z.literal('')),
-  surgical_history: z
-    .string()
-    .max(5000, 'Le texte ne peut pas dépasser 5000 caractères')
-    .optional()
-    .or(z.literal('')),
-  family_history: z
-    .string()
-    .max(5000, 'Le texte ne peut pas dépasser 5000 caractères')
-    .optional()
-    .or(z.literal('')),
   notes: z
     .string()
     .max(5000, 'Les notes ne peuvent pas dépasser 5000 caractères')

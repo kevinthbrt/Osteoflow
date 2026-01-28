@@ -28,13 +28,15 @@ import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, Calendar
 import { generateInvoiceNumber } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
-import type { Patient, Consultation, Practitioner, SessionType } from '@/types/database'
+import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
+import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry } from '@/types/database'
 
 interface ConsultationFormProps {
   patient: Patient
   practitioner: Practitioner
   consultation?: Consultation
   mode: 'create' | 'edit'
+  medicalHistoryEntries?: MedicalHistoryEntry[]
 }
 
 interface PaymentEntry {
@@ -54,6 +56,7 @@ export function ConsultationForm({
   practitioner,
   consultation,
   mode,
+  medicalHistoryEntries,
 }: ConsultationFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [createInvoice, setCreateInvoice] = useState(mode === 'create')
@@ -301,7 +304,7 @@ export function ConsultationForm({
     }
   }
 
-  return (
+  const formContent = (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Date and Reason */}
       <Card>
@@ -583,4 +586,20 @@ export function ConsultationForm({
       )}
     </form>
   )
+
+  if (medicalHistoryEntries) {
+    return (
+      <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+        <div className="lg:sticky lg:top-6 self-start">
+          <MedicalHistorySectionWrapper
+            patientId={patient.id}
+            initialEntries={medicalHistoryEntries}
+          />
+        </div>
+        <div>{formContent}</div>
+      </div>
+    )
+  }
+
+  return formContent
 }

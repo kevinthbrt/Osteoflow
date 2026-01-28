@@ -49,10 +49,6 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
       phone: patient?.phone || '',
       email: patient?.email || '',
       profession: patient?.profession || '',
-      trauma_history: patient?.trauma_history || '',
-      medical_history: patient?.medical_history || '',
-      surgical_history: patient?.surgical_history || '',
-      family_history: patient?.family_history || '',
       notes: patient?.notes || '',
     },
   })
@@ -94,10 +90,6 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
         ...data,
         email: data.email || null,
         profession: data.profession || null,
-        trauma_history: data.trauma_history || null,
-        medical_history: data.medical_history || null,
-        surgical_history: data.surgical_history || null,
-        family_history: data.family_history || null,
         notes: data.notes || null,
       }
 
@@ -261,70 +253,6 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
             />
             {errors.profession && (
               <p className="text-sm text-destructive">{errors.profession.message}</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Medical History */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Antécédents</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="trauma_history">Antécédents traumatiques</Label>
-            <Textarea
-              id="trauma_history"
-              {...register('trauma_history')}
-              disabled={isLoading}
-              placeholder="Fractures, entorses, accidents..."
-              rows={3}
-            />
-            {errors.trauma_history && (
-              <p className="text-sm text-destructive">{errors.trauma_history.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="medical_history">Antécédents médicaux</Label>
-            <Textarea
-              id="medical_history"
-              {...register('medical_history')}
-              disabled={isLoading}
-              placeholder="Maladies, traitements en cours..."
-              rows={3}
-            />
-            {errors.medical_history && (
-              <p className="text-sm text-destructive">{errors.medical_history.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="surgical_history">Antécédents chirurgicaux</Label>
-            <Textarea
-              id="surgical_history"
-              {...register('surgical_history')}
-              disabled={isLoading}
-              placeholder="Opérations, interventions..."
-              rows={3}
-            />
-            {errors.surgical_history && (
-              <p className="text-sm text-destructive">{errors.surgical_history.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="family_history">Antécédents familiaux</Label>
-            <Textarea
-              id="family_history"
-              {...register('family_history')}
-              disabled={isLoading}
-              placeholder="Maladies héréditaires, pathologies familiales..."
-              rows={3}
-            />
-            {errors.family_history && (
-              <p className="text-sm text-destructive">{errors.family_history.message}</p>
             )}
           </div>
         </CardContent>

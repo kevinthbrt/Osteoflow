@@ -132,49 +132,6 @@ export default async function PatientPage({ params }: PatientPageProps) {
             initialEntries={medicalHistoryEntries || []}
           />
 
-          {/* Legacy Medical History (text fields) */}
-          {(patient.trauma_history || patient.medical_history || patient.surgical_history || patient.family_history) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Antécédents (notes)</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {patient.trauma_history && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                      Traumatiques
-                    </h4>
-                    <p className="text-sm whitespace-pre-wrap">{patient.trauma_history}</p>
-                  </div>
-                )}
-                {patient.medical_history && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                      Médicaux
-                    </h4>
-                    <p className="text-sm whitespace-pre-wrap">{patient.medical_history}</p>
-                  </div>
-                )}
-                {patient.surgical_history && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                      Chirurgicaux
-                    </h4>
-                    <p className="text-sm whitespace-pre-wrap">{patient.surgical_history}</p>
-                  </div>
-                )}
-                {patient.family_history && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                      Familiaux
-                    </h4>
-                    <p className="text-sm whitespace-pre-wrap">{patient.family_history}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
           {/* Notes */}
           {patient.notes && (
             <Card>
