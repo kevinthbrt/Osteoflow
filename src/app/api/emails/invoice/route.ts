@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import { renderToBuffer } from '@react-pdf/renderer'
+import { pdf } from '@react-pdf/renderer'
 import { createClient } from '@/lib/supabase/server'
 import { createInvoicePDF, InvoicePDFData } from '@/lib/pdf/invoice-template'
 import {
@@ -169,8 +169,10 @@ export async function POST(request: NextRequest) {
       paymentDate: payment ? formatDateForPDF(safeStr(payment.payment_date)) : formatDateForPDF(safeStr(invoice.issued_at)),
     }
 
-    // Generate PDF
-    const pdfBuffer = await renderToBuffer(createInvoicePDF(pdfData))
+    // Generate PDF using pdf().toBuffer()
+    const pdfDoc = createInvoicePDF(pdfData)
+    const pdfInstance = pdf(pdfDoc)
+    const pdfBuffer = await pdfInstance.toBuffer()
 
     // Send email
     const { error: emailError } = await getResend().emails.send({

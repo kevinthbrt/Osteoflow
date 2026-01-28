@@ -8,7 +8,6 @@ import {
   StyleSheet,
 } from '@react-pdf/renderer'
 
-// Simple data interface - only primitive types
 export interface InvoicePDFData {
   invoiceNumber: string
   invoiceAmount: number
@@ -29,8 +28,6 @@ export interface InvoicePDFData {
   paymentMethod: string
   paymentDate: string
 }
-
-const PRIMARY = '#10B981'
 
 const styles = StyleSheet.create({
   page: {
@@ -55,12 +52,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     color: '#1F2937',
-    marginBottom: 2,
-  },
-  subtitle: {
-    fontSize: 10,
-    color: '#6B7280',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   text: {
     fontSize: 9,
@@ -68,7 +60,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   greenBox: {
-    backgroundColor: PRIMARY,
+    backgroundColor: '#10B981',
     padding: 12,
     borderRadius: 4,
   },
@@ -76,24 +68,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 2,
   },
   whiteTextSmall: {
     fontSize: 9,
     color: '#FFFFFF',
   },
-  metaRow: {
+  row: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginBottom: 20,
-  },
-  metaBox: {
-    backgroundColor: PRIMARY,
-    paddingLeft: 12,
-    paddingRight: 12,
-    paddingTop: 6,
-    paddingBottom: 6,
-    borderRadius: 4,
   },
   invoiceRow: {
     flexDirection: 'row',
@@ -138,14 +121,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#1F2937',
   },
-  amountBox: {
-    backgroundColor: PRIMARY,
-    paddingLeft: 10,
-    paddingRight: 10,
-    paddingTop: 4,
-    paddingBottom: 4,
-    borderRadius: 4,
-  },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -160,7 +135,7 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   totalBox: {
-    backgroundColor: PRIMARY,
+    backgroundColor: '#10B981',
     paddingLeft: 15,
     paddingRight: 15,
     paddingTop: 8,
@@ -171,9 +146,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#FFFFFF',
-  },
-  paymentSection: {
-    marginBottom: 30,
   },
   paymentRow: {
     flexDirection: 'row',
@@ -189,22 +161,8 @@ const styles = StyleSheet.create({
   paymentValue: {
     fontSize: 10,
     color: '#1F2937',
-    width: 100,
-    textAlign: 'right',
   },
-  badge: {
-    backgroundColor: PRIMARY,
-    paddingLeft: 8,
-    paddingRight: 8,
-    paddingTop: 3,
-    paddingBottom: 3,
-    borderRadius: 4,
-  },
-  badgeText: {
-    fontSize: 9,
-    color: '#FFFFFF',
-  },
-  stampRow: {
+  stampContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginTop: 20,
@@ -231,81 +189,87 @@ const styles = StyleSheet.create({
   },
 })
 
-// Helper to safely get string
-function str(val: unknown): string {
-  if (val === null || val === undefined) return ''
-  if (typeof val === 'string') return val
-  if (typeof val === 'number') return String(val)
-  return ''
+// Helper - ensure string
+const s = (v: unknown): string => {
+  if (v === null || v === undefined) return ''
+  return typeof v === 'string' ? v : typeof v === 'number' ? String(v) : ''
 }
 
-// React Component for the PDF
-export const InvoicePDFDocument: React.FC<{ data: InvoicePDFData }> = ({ data }) => {
-  const practLastName = str(data.practitionerLastName).toUpperCase()
-  const practFirstName = str(data.practitionerFirstName)
-  const practName = practLastName + ' ' + practFirstName
+// Stamp component - only renders if URL exists
+const StampImage = ({ url }: { url: string }) => {
+  if (!url || url === '') return null
+  return (
+    <View style={styles.stampContainer}>
+      <Image src={url} style={styles.stamp} />
+    </View>
+  )
+}
 
-  const practSpec = str(data.practitionerSpecialty)
-  const practAddr = str(data.practitionerAddress)
-  const practPostal = str(data.practitionerPostalCode)
-  const practCity = str(data.practitionerCity)
-  const practLoc = (practPostal + ' ' + practCity).trim()
-  const practSiren = data.practitionerSiret ? 'N SIREN: ' + str(data.practitionerSiret) : ''
-  const practRpps = data.practitionerRpps ? 'N RPPS: ' + str(data.practitionerRpps) : ''
+// PDF Document Component
+const InvoiceDoc = ({ d }: { d: InvoicePDFData }) => {
+  // Pre-compute ALL strings
+  const practName = s(d.practitionerLastName).toUpperCase() + ' ' + s(d.practitionerFirstName)
+  const practSpec = s(d.practitionerSpecialty)
+  const practAddr = s(d.practitionerAddress)
+  const practLoc = (s(d.practitionerPostalCode) + ' ' + s(d.practitionerCity)).trim()
+  const practSiren = d.practitionerSiret ? 'N SIREN: ' + s(d.practitionerSiret) : ''
+  const practRpps = d.practitionerRpps ? 'N RPPS: ' + s(d.practitionerRpps) : ''
 
-  const patLastName = str(data.patientLastName).toUpperCase()
-  const patFirstName = str(data.patientFirstName)
-  const patName = patLastName + ' ' + patFirstName
-  const patEmail = str(data.patientEmail)
+  const patName = s(d.patientLastName).toUpperCase() + ' ' + s(d.patientFirstName)
+  const patEmail = s(d.patientEmail)
 
-  const location = practCity || 'Paris'
-  const dateStr = str(data.invoiceDate)
-  const invNum = str(data.invoiceNumber)
+  const city = s(d.practitionerCity) || 'Paris'
+  const dateStr = s(d.invoiceDate)
+  const invNum = s(d.invoiceNumber)
+  const reason = 'Seance du jour - ' + (s(d.consultationReason) || 'Consultation')
+  const amt = (typeof d.invoiceAmount === 'number' ? d.invoiceAmount : 0).toFixed(2) + ' EUR'
+  const method = s(d.paymentMethod) || 'Comptant'
+  const payDate = s(d.paymentDate) || dateStr
+  const stampUrl = s(d.practitionerStampUrl)
 
-  const consultReason = str(data.consultationReason) || 'Consultation'
-  const reason = 'Seance du jour - ' + consultReason
-
-  const amountNum = typeof data.invoiceAmount === 'number' ? data.invoiceAmount : 0
-  const amount = amountNum.toFixed(2) + ' EUR'
-
-  const method = str(data.paymentMethod) || 'Comptant'
-  const payDate = str(data.paymentDate) || dateStr
-
-  const stampUrl = str(data.practitionerStampUrl)
+  // Build practitioner info lines
+  const infoLines: string[] = []
+  if (practSpec) infoLines.push(practSpec)
+  if (practAddr) infoLines.push(practAddr)
+  if (practLoc) infoLines.push(practLoc)
+  if (practSiren) infoLines.push(practSiren)
+  if (practRpps) infoLines.push(practRpps)
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
+        {/* Header */}
         <View style={styles.header}>
           <View style={styles.leftCol}>
             <Text style={styles.title}>{practName}</Text>
-            {practSpec !== '' ? <Text style={styles.subtitle}>{practSpec}</Text> : null}
-            {practAddr !== '' ? <Text style={styles.text}>{practAddr}</Text> : null}
-            {practLoc !== '' ? <Text style={styles.text}>{practLoc}</Text> : null}
-            {practSiren !== '' ? <Text style={styles.text}>{practSiren}</Text> : null}
-            {practRpps !== '' ? <Text style={styles.text}>{practRpps}</Text> : null}
+            {infoLines.map((line, i) => (
+              <Text key={String(i)} style={styles.text}>{line}</Text>
+            ))}
           </View>
           <View style={styles.rightCol}>
             <View style={styles.greenBox}>
               <Text style={styles.whiteText}>{patName}</Text>
-              {patEmail !== '' ? <Text style={styles.whiteTextSmall}>{patEmail}</Text> : null}
+              <Text style={styles.whiteTextSmall}>{patEmail}</Text>
             </View>
           </View>
         </View>
 
-        <View style={styles.metaRow}>
-          <View style={styles.metaBox}>
-            <Text style={styles.whiteTextSmall}>{location + ', le ' + dateStr}</Text>
+        {/* Date */}
+        <View style={styles.row}>
+          <View style={styles.greenBox}>
+            <Text style={styles.whiteTextSmall}>{city + ', le ' + dateStr}</Text>
           </View>
         </View>
 
+        {/* Invoice number */}
         <View style={styles.invoiceRow}>
           <Text style={styles.invoiceLabel}>Recu d honoraires n</Text>
-          <View style={styles.metaBox}>
+          <View style={styles.greenBox}>
             <Text style={styles.whiteText}>{invNum}</Text>
           </View>
         </View>
 
+        {/* Table */}
         <View style={styles.table}>
           <View style={styles.tableHead}>
             <View style={styles.descCol}>
@@ -320,47 +284,41 @@ export const InvoicePDFDocument: React.FC<{ data: InvoicePDFData }> = ({ data })
               <Text style={styles.itemText}>{reason}</Text>
             </View>
             <View style={styles.amountCol}>
-              <View style={styles.amountBox}>
-                <Text style={styles.whiteTextSmall}>{amount}</Text>
+              <View style={styles.greenBox}>
+                <Text style={styles.whiteTextSmall}>{amt}</Text>
               </View>
             </View>
           </View>
         </View>
 
+        {/* Total */}
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Somme a regler</Text>
           <View style={styles.totalBox}>
-            <Text style={styles.totalText}>{amount}</Text>
+            <Text style={styles.totalText}>{amt}</Text>
           </View>
         </View>
 
-        <View style={styles.paymentSection}>
+        {/* Payment info */}
+        <View>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Reglement</Text>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{method}</Text>
-            </View>
+            <Text style={styles.paymentLabel}>Reglement:</Text>
+            <Text style={styles.paymentValue}>{method}</Text>
           </View>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Type de reglement</Text>
-            <Text style={styles.paymentValue}>Comptant</Text>
-          </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Date du reglement</Text>
+            <Text style={styles.paymentLabel}>Date du reglement:</Text>
             <Text style={styles.paymentValue}>{payDate}</Text>
           </View>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Date de facturation</Text>
+            <Text style={styles.paymentLabel}>Date de facturation:</Text>
             <Text style={styles.paymentValue}>{dateStr}</Text>
           </View>
         </View>
 
-        {stampUrl !== '' ? (
-          <View style={styles.stampRow}>
-            <Image src={stampUrl} style={styles.stamp} />
-          </View>
-        ) : null}
+        {/* Stamp */}
+        <StampImage url={stampUrl} />
 
+        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>TVA non applicable selon article 261, 4-1 du CGI</Text>
           <Text style={styles.footerText}>Absence d escompte pour paiement anticipe</Text>
@@ -372,7 +330,7 @@ export const InvoicePDFDocument: React.FC<{ data: InvoicePDFData }> = ({ data })
   )
 }
 
-// Function to create the PDF element for renderToBuffer
+// Export function that creates the PDF element
 export function createInvoicePDF(data: InvoicePDFData): React.ReactElement {
-  return React.createElement(InvoicePDFDocument, { data })
+  return React.createElement(InvoiceDoc, { d: data })
 }

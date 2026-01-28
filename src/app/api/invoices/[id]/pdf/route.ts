@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { renderToBuffer } from '@react-pdf/renderer'
+import { pdf } from '@react-pdf/renderer'
 import { createClient } from '@/lib/supabase/server'
 import { createInvoicePDF, InvoicePDFData } from '@/lib/pdf/invoice-template'
 
@@ -89,15 +89,12 @@ export async function GET(
 
     // Build PDF data with only primitive values
     const pdfData: InvoicePDFData = {
-      // Invoice
       invoiceNumber: safeStr(invoice.invoice_number),
       invoiceAmount: typeof invoice.amount === 'number' ? invoice.amount : 0,
       invoiceDate: formatDateForPDF(safeStr(invoice.issued_at)),
-      // Patient
       patientFirstName: safeStr(patient?.first_name),
       patientLastName: safeStr(patient?.last_name),
       patientEmail: safeStr(patient?.email),
-      // Practitioner
       practitionerFirstName: safeStr(practitioner.first_name),
       practitionerLastName: safeStr(practitioner.last_name),
       practitionerSpecialty: safeStr(practitioner.specialty),
@@ -107,18 +104,18 @@ export async function GET(
       practitionerSiret: safeStr(practitioner.siret),
       practitionerRpps: safeStr(practitioner.rpps),
       practitionerStampUrl: safeStr(practitioner.stamp_url),
-      // Consultation
       consultationReason: safeStr(consultation?.reason),
-      // Payment
       paymentMethod: payment ? (paymentMethodLabels[safeStr(payment.method)] || 'Comptant') : 'Comptant',
       paymentDate: payment ? formatDateForPDF(safeStr(payment.payment_date)) : formatDateForPDF(safeStr(invoice.issued_at)),
     }
 
-    // Generate PDF
-    const pdfBuffer = await renderToBuffer(createInvoicePDF(pdfData))
+    // Generate PDF using pdf().toBuffer()
+    const pdfDoc = createInvoicePDF(pdfData)
+    const pdfInstance = pdf(pdfDoc)
+    const pdfBuffer = await pdfInstance.toBuffer()
 
-    // Return PDF - convert Buffer to Uint8Array for NextResponse
-    return new NextResponse(new Uint8Array(pdfBuffer), {
+    // Return PDF
+    return new NextResponse(pdfBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="${pdfData.invoiceNumber || 'facture'}.pdf"`,
