@@ -162,6 +162,7 @@ export default function SettingsPage() {
           setSettingsValue('first_name', practitionerData.first_name)
           setSettingsValue('last_name', practitionerData.last_name)
           setSettingsValue('email', practitionerData.email)
+          setSettingsValue('accountant_email', practitionerData.accountant_email || '')
           setSettingsValue('phone', practitionerData.phone || '')
           setSettingsValue('practice_name', practitionerData.practice_name || '')
           setSettingsValue('specialty', practitionerData.specialty || '')
@@ -279,6 +280,7 @@ export default function SettingsPage() {
           first_name: data.first_name,
           last_name: data.last_name,
           email: data.email,
+          accountant_email: data.accountant_email || null,
           phone: data.phone || null,
           practice_name: data.practice_name || null,
           specialty: data.specialty || null,
@@ -808,6 +810,24 @@ export default function SettingsPage() {
                     <Label htmlFor="phone">Téléphone</Label>
                     <Input id="phone" {...registerSettings('phone')} />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="accountant_email">Email comptable</Label>
+                  <Input
+                    id="accountant_email"
+                    type="email"
+                    {...registerSettings('accountant_email')}
+                    placeholder="comptable@cabinet.fr"
+                  />
+                  {settingsErrors.accountant_email && (
+                    <p className="text-sm text-destructive">
+                      {settingsErrors.accountant_email.message}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Utilisé pour l&apos;envoi direct des récapitulatifs comptables.
+                  </p>
                 </div>
 
                 <Separator />

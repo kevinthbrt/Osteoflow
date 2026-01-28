@@ -117,10 +117,22 @@ export default async function PatientPage({ params }: PatientPageProps) {
                   </a>
                 </div>
               )}
-              {patient.profession && (
+             {patient.profession && (
+               <div className="flex items-center gap-2 text-sm">
+                 <Briefcase className="h-4 w-4 text-muted-foreground" />
+                 <span>{patient.profession}</span>
+               </div>
+             )}
+              {patient.sport_activity && (
                 <div className="flex items-center gap-2 text-sm">
-                  <Briefcase className="h-4 w-4 text-muted-foreground" />
-                  <span>{patient.profession}</span>
+                  <span className="text-muted-foreground">Activité sportive :</span>
+                  <span>{patient.sport_activity}</span>
+                </div>
+              )}
+              {patient.primary_physician && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Médecin traitant :</span>
+                  <span>{patient.primary_physician}</span>
                 </div>
               )}
             </CardContent>
