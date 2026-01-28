@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -28,7 +28,7 @@ import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, Calendar
 import { generateInvoiceNumber } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
-import type { Patient, Consultation, Practitioner } from '@/types/database'
+import type { Patient, Consultation, Practitioner, SessionType } from '@/types/database'
 
 interface ConsultationFormProps {
   patient: Patient
@@ -57,6 +57,7 @@ export function ConsultationForm({
 }: ConsultationFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [createInvoice, setCreateInvoice] = useState(mode === 'create')
+  const [sessionTypes, setSessionTypes] = useState<SessionType[]>([])
   const [payments, setPayments] = useState<PaymentEntry[]>([
     { id: crypto.randomUUID(), amount: practitioner.default_rate, method: 'card' },
   ])
@@ -82,6 +83,7 @@ export function ConsultationForm({
     defaultValues: {
       patient_id: patient.id,
       date_time: defaultDateTime,
+      session_type_id: consultation?.session_type_id ?? null,
       reason: consultation?.reason || '',
       anamnesis: consultation?.anamnesis || '',
       examination: consultation?.examination || '',
@@ -93,8 +95,31 @@ export function ConsultationForm({
   })
 
   const followUp7d = watch('follow_up_7d')
+  const selectedSessionTypeId = watch('session_type_id')
 
   const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0)
+
+  useEffect(() => {
+    async function loadSessionTypes() {
+      const { data, error } = await supabase
+        .from('session_types')
+        .select('*')
+        .eq('practitioner_id', practitioner.id)
+        .eq('is_active', true)
+        .order('name')
+
+      if (error) {
+        console.error('Error loading session types:', error)
+        return
+      }
+
+      if (data) {
+        setSessionTypes(data)
+      }
+    }
+
+    loadSessionTypes()
+  }, [supabase, practitioner.id])
 
   const addPayment = () => {
     setPayments([
@@ -115,6 +140,22 @@ export function ConsultationForm({
     )
   }
 
+  const handleSessionTypeChange = (value: string) => {
+    const nextValue = value === 'none' ? null : value
+    setValue('session_type_id', nextValue)
+
+    if (nextValue) {
+      const selectedType = sessionTypes.find((type) => type.id === nextValue)
+      if (selectedType) {
+        setPayments((prev) => {
+          if (prev.length === 0) return prev
+          const [first, ...rest] = prev
+          return [{ ...first, amount: selectedType.price }, ...rest]
+        })
+      }
+    }
+  }
+
   const onSubmit = async (data: ConsultationWithInvoiceFormData) => {
     setIsLoading(true)
 
@@ -126,6 +167,7 @@ export function ConsultationForm({
           .insert({
             patient_id: data.patient_id,
             date_time: data.date_time,
+            session_type_id: data.session_type_id || null,
             reason: data.reason,
             anamnesis: data.anamnesis || null,
             examination: data.examination || null,
@@ -226,6 +268,7 @@ export function ConsultationForm({
           .from('consultations')
           .update({
             date_time: data.date_time,
+            session_type_id: data.session_type_id || null,
             reason: data.reason,
             anamnesis: data.anamnesis || null,
             examination: data.examination || null,
@@ -290,6 +333,30 @@ export function ConsultationForm({
             {errors.reason && (
               <p className="text-sm text-destructive">{errors.reason.message}</p>
             )}
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Type de séance (facturation)</Label>
+            <Select
+              value={selectedSessionTypeId || 'none'}
+              onValueChange={handleSessionTypeChange}
+              disabled={isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sélectionner un type de séance" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Aucun</SelectItem>
+                {sessionTypes.map((type) => (
+                  <SelectItem key={type.id} value={type.id}>
+                    {type.name} - {Number(type.price).toFixed(2)} €
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Le type de séance sera affiché sur la facture à la place du motif.
+            </p>
           </div>
         </CardContent>
       </Card>

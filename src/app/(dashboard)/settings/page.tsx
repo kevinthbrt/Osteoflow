@@ -22,8 +22,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2 } from 'lucide-react'
-import type { Practitioner, EmailTemplate } from '@/types/database'
+import { Loader2, Building, Mail, FileText, Download, Trash2, Upload, X, Image } from 'lucide-react'
+import type { Practitioner, EmailTemplate, SessionType } from '@/types/database'
 
 interface PatientListItem {
   id: string
@@ -58,6 +58,12 @@ export default function SettingsPage() {
   const [patients, setPatients] = useState<PatientListItem[]>([])
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [stampUrl, setStampUrl] = useState<string | null>(null)
+  const [isUploadingStamp, setIsUploadingStamp] = useState(false)
+  const [sessionTypes, setSessionTypes] = useState<SessionType[]>([])
+  const [newSessionTypeName, setNewSessionTypeName] = useState('')
+  const [newSessionTypePrice, setNewSessionTypePrice] = useState('')
+  const [isSavingSessionType, setIsSavingSessionType] = useState(false)
   const { toast } = useToast()
   const supabase = createClient()
 
@@ -112,13 +118,16 @@ export default function SettingsPage() {
           setSettingsValue('email', practitionerData.email)
           setSettingsValue('phone', practitionerData.phone || '')
           setSettingsValue('practice_name', practitionerData.practice_name || '')
+          setSettingsValue('specialty', practitionerData.specialty || '')
           setSettingsValue('address', practitionerData.address || '')
           setSettingsValue('city', practitionerData.city || '')
           setSettingsValue('postal_code', practitionerData.postal_code || '')
           setSettingsValue('siret', practitionerData.siret || '')
+          setSettingsValue('rpps', practitionerData.rpps || '')
           setSettingsValue('default_rate', practitionerData.default_rate)
           setSettingsValue('invoice_prefix', practitionerData.invoice_prefix)
           setSettingsValue('primary_color', practitionerData.primary_color)
+          setStampUrl(practitionerData.stamp_url)
 
           // Get email templates
           const { data: templates } = await supabase
@@ -139,6 +148,18 @@ export default function SettingsPage() {
 
           if (patientsData) {
             setPatients(patientsData)
+          }
+
+          const { data: sessionTypesData, error: sessionTypesError } = await supabase
+            .from('session_types')
+            .select('*')
+            .eq('practitioner_id', practitionerData.id)
+            .order('name')
+
+          if (sessionTypesError) {
+            console.error('Error fetching session types:', sessionTypesError)
+          } else if (sessionTypesData) {
+            setSessionTypes(sessionTypesData)
           }
         }
       } catch (error) {
@@ -188,10 +209,12 @@ export default function SettingsPage() {
           email: data.email,
           phone: data.phone || null,
           practice_name: data.practice_name || null,
+          specialty: data.specialty || null,
           address: data.address || null,
           city: data.city || null,
           postal_code: data.postal_code || null,
           siret: data.siret || null,
+          rpps: data.rpps || null,
           default_rate: data.default_rate,
           invoice_prefix: data.invoice_prefix,
           primary_color: data.primary_color,
@@ -276,6 +299,57 @@ export default function SettingsPage() {
     }
   }
 
+  const handleAddSessionType = async () => {
+    if (!practitioner) return
+    const priceValue = Number(newSessionTypePrice)
+
+    if (!newSessionTypeName.trim() || Number.isNaN(priceValue)) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Veuillez saisir un nom et un tarif valide.',
+      })
+      return
+    }
+
+    setIsSavingSessionType(true)
+
+    try {
+      const { data, error } = await supabase
+        .from('session_types')
+        .insert({
+          practitioner_id: practitioner.id,
+          name: newSessionTypeName.trim(),
+          price: priceValue,
+          is_active: true,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      if (data) {
+        setSessionTypes((prev) => [...prev, data])
+      }
+      setNewSessionTypeName('')
+      setNewSessionTypePrice('')
+      toast({
+        variant: 'success',
+        title: 'Type de séance créé',
+        description: 'Le type de séance est disponible pour la facturation.',
+      })
+    } catch (error) {
+      console.error('Error creating session type:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de créer le type de séance.',
+      })
+    } finally {
+      setIsSavingSessionType(false)
+    }
+  }
+
   // Export patient data (GDPR)
   const handleExportPatient = async () => {
     if (!exportPatientId) {
@@ -343,6 +417,105 @@ export default function SettingsPage() {
       })
     } finally {
       setIsExporting(false)
+    }
+  }
+
+  // Upload stamp image
+  const handleStampUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !practitioner) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Le fichier doit être une image (PNG, JPG)',
+      })
+      return
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'L\'image ne doit pas dépasser 2 Mo',
+      })
+      return
+    }
+
+    setIsUploadingStamp(true)
+
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${practitioner.id}/stamp.${fileExt}`
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('stamps')
+        .upload(fileName, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('stamps')
+        .getPublicUrl(fileName)
+
+      // Update practitioner with stamp URL
+      const { error: updateError } = await supabase
+        .from('practitioners')
+        .update({ stamp_url: publicUrl })
+        .eq('id', practitioner.id)
+
+      if (updateError) throw updateError
+
+      setStampUrl(publicUrl)
+
+      toast({
+        variant: 'success',
+        title: 'Tampon enregistré',
+        description: 'Votre tampon/signature a été ajouté',
+      })
+    } catch (error) {
+      console.error('Error uploading stamp:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de télécharger l\'image',
+      })
+    } finally {
+      setIsUploadingStamp(false)
+    }
+  }
+
+  // Remove stamp
+  const handleRemoveStamp = async () => {
+    if (!practitioner) return
+
+    try {
+      // Update practitioner to remove stamp URL
+      const { error } = await supabase
+        .from('practitioners')
+        .update({ stamp_url: null })
+        .eq('id', practitioner.id)
+
+      if (error) throw error
+
+      setStampUrl(null)
+
+      toast({
+        title: 'Tampon supprimé',
+        description: 'Votre tampon/signature a été retiré',
+      })
+    } catch (error) {
+      console.error('Error removing stamp:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de supprimer le tampon',
+      })
     }
   }
 
@@ -473,13 +646,23 @@ export default function SettingsPage() {
 
                 <Separator />
 
-                <div className="space-y-2">
-                  <Label htmlFor="practice_name">Nom du cabinet</Label>
-                  <Input
-                    id="practice_name"
-                    {...registerSettings('practice_name')}
-                    placeholder="Cabinet d'ostéopathie"
-                  />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="practice_name">Nom du cabinet</Label>
+                    <Input
+                      id="practice_name"
+                      {...registerSettings('practice_name')}
+                      placeholder="Cabinet d'ostéopathie"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="specialty">Spécialité</Label>
+                    <Input
+                      id="specialty"
+                      {...registerSettings('specialty')}
+                      placeholder="Ostéopathe D.O."
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -510,13 +693,23 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="siret">SIRET</Label>
-                  <Input
-                    id="siret"
-                    {...registerSettings('siret')}
-                    placeholder="12345678901234"
-                  />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="siret">N° SIREN/SIRET</Label>
+                    <Input
+                      id="siret"
+                      {...registerSettings('siret')}
+                      placeholder="12345678901234"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="rpps">N° RPPS</Label>
+                    <Input
+                      id="rpps"
+                      {...registerSettings('rpps')}
+                      placeholder="10123456789"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex justify-end">
@@ -593,6 +786,133 @@ export default function SettingsPage() {
                   {settingsErrors.primary_color && (
                     <p className="text-sm text-destructive">
                       {settingsErrors.primary_color.message}
+                    </p>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div>
+                    <Label>Tampon / Signature</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Cette image sera ajoutée automatiquement sur vos factures
+                    </p>
+                  </div>
+
+                  {stampUrl ? (
+                    <div className="flex items-start gap-4">
+                      <div className="relative border rounded-lg p-2 bg-white">
+                        <img
+                          src={stampUrl}
+                          alt="Tampon"
+                          className="max-w-[200px] max-h-[100px] object-contain"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6"
+                          onClick={handleRemoveStamp}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Cliquez sur la croix pour supprimer
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-4">
+                      <label
+                        htmlFor="stamp-upload"
+                        className="cursor-pointer flex items-center gap-2 px-4 py-2 border-2 border-dashed rounded-lg hover:border-primary hover:bg-muted/50 transition-colors"
+                      >
+                        {isUploadingStamp ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <Image className="h-5 w-5 text-muted-foreground" />
+                        )}
+                        <span className="text-sm">
+                          {isUploadingStamp ? 'Envoi en cours...' : 'Ajouter un tampon'}
+                        </span>
+                        <input
+                          id="stamp-upload"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleStampUpload}
+                          disabled={isUploadingStamp}
+                        />
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        PNG ou JPG, max 2 Mo
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div>
+                    <Label>Types de séance</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Créez des types de séance avec un tarif associé pour la facturation.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-[1fr_160px_auto]">
+                    <div className="space-y-2">
+                      <Label htmlFor="session-type-name">Nom</Label>
+                      <Input
+                        id="session-type-name"
+                        value={newSessionTypeName}
+                        onChange={(event) => setNewSessionTypeName(event.target.value)}
+                        placeholder="Adulte, Enfant..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="session-type-price">Tarif (€)</Label>
+                      <Input
+                        id="session-type-price"
+                        type="number"
+                        step="0.01"
+                        value={newSessionTypePrice}
+                        onChange={(event) => setNewSessionTypePrice(event.target.value)}
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        type="button"
+                        onClick={handleAddSessionType}
+                        disabled={isSavingSessionType}
+                      >
+                        {isSavingSessionType && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Ajouter
+                      </Button>
+                    </div>
+                  </div>
+
+                  {sessionTypes.length > 0 ? (
+                    <div className="space-y-2">
+                      {sessionTypes.map((type) => (
+                        <div
+                          key={type.id}
+                          className="flex items-center justify-between rounded-lg border px-3 py-2"
+                        >
+                          <span className="text-sm font-medium">
+                            {type.name}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            {Number(type.price).toFixed(2)} €
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Aucun type de séance enregistré.
                     </p>
                   )}
                 </div>
