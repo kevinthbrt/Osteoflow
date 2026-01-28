@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import { renderToBuffer } from '@react-pdf/renderer'
+import { generateInvoicePdf } from '@/lib/pdf/invoice-pdfkit'
 import { createClient } from '@/lib/supabase/server'
-import { InvoicePDF } from '@/lib/pdf/invoice-template'
+import { buildInvoicePDFData } from '@/lib/pdf/invoice-template'
 import {
   defaultEmailTemplates,
   replaceTemplateVariables,
@@ -50,7 +50,8 @@ export async function POST(request: NextRequest) {
         *,
         consultation:consultations (
           *,
-          patient:patients (*)
+          patient:patients (*),
+          session_type:session_types (*)
         ),
         payments (*)
       `)
@@ -105,15 +106,22 @@ export async function POST(request: NextRequest) {
     const bodyHtml = textToHtml(bodyText)
 
     // Generate PDF
-    const pdfBuffer = await renderToBuffer(
-      InvoicePDF({
-        invoice,
-        consultation: invoice.consultation,
-        patient,
-        practitioner,
-        payments: invoice.payments || [],
-      })
-    )
+    const pdfData = buildInvoicePDFData({
+      invoice,
+      consultation: invoice.consultation,
+      patient,
+      practitioner,
+      payments: invoice.payments || [],
+    })
+    console.debug('Invoice PDF data (api/email):', {
+      invoiceId: invoice.id,
+      invoiceNumber: pdfData.invoiceNumber,
+      amount: pdfData.amount,
+      practitionerName: pdfData.practitionerName,
+      patientName: pdfData.patientName,
+      hasStamp: Boolean(pdfData.stampUrl),
+    })
+    const pdfBuffer = await generateInvoicePdf(pdfData)
 
     // Send email
     const { error: emailError } = await getResend().emails.send({

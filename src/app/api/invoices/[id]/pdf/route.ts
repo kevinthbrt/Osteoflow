@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { renderToBuffer } from '@react-pdf/renderer'
+import { generateInvoicePdf } from '@/lib/pdf/invoice-pdfkit'
 import { createClient } from '@/lib/supabase/server'
-import { InvoicePDF } from '@/lib/pdf/invoice-template'
+import { buildInvoicePDFData } from '@/lib/pdf/invoice-template'
 
 export async function GET(
   request: NextRequest,
@@ -35,7 +35,8 @@ export async function GET(
         *,
         consultation:consultations (
           *,
-          patient:patients (*)
+          patient:patients (*),
+          session_type:session_types (*)
         ),
         payments (*)
       `)
@@ -56,15 +57,22 @@ export async function GET(
     }
 
     // Generate PDF
-    const pdfBuffer = await renderToBuffer(
-      InvoicePDF({
-        invoice,
-        consultation: invoice.consultation,
-        patient: invoice.consultation.patient,
-        practitioner,
-        payments: invoice.payments || [],
-      })
-    )
+    const pdfData = buildInvoicePDFData({
+      invoice,
+      consultation: invoice.consultation,
+      patient: invoice.consultation.patient,
+      practitioner,
+      payments: invoice.payments || [],
+    })
+    console.debug('Invoice PDF data (api/pdf):', {
+      invoiceId: invoice.id,
+      invoiceNumber: pdfData.invoiceNumber,
+      amount: pdfData.amount,
+      practitionerName: pdfData.practitionerName,
+      patientName: pdfData.patientName,
+      hasStamp: Boolean(pdfData.stampUrl),
+    })
+    const pdfBuffer = await generateInvoicePdf(pdfData)
 
     // Return PDF - convert Buffer to Uint8Array for NextResponse
     return new NextResponse(new Uint8Array(pdfBuffer), {

@@ -23,7 +23,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Building, Mail, FileText, Download, Trash2, Upload, X, Image } from 'lucide-react'
-import type { Practitioner, EmailTemplate } from '@/types/database'
+import type { Practitioner, EmailTemplate, SessionType } from '@/types/database'
 
 interface PatientListItem {
   id: string
@@ -60,6 +60,10 @@ export default function SettingsPage() {
   const [isExporting, setIsExporting] = useState(false)
   const [stampUrl, setStampUrl] = useState<string | null>(null)
   const [isUploadingStamp, setIsUploadingStamp] = useState(false)
+  const [sessionTypes, setSessionTypes] = useState<SessionType[]>([])
+  const [newSessionTypeName, setNewSessionTypeName] = useState('')
+  const [newSessionTypePrice, setNewSessionTypePrice] = useState('')
+  const [isSavingSessionType, setIsSavingSessionType] = useState(false)
   const { toast } = useToast()
   const supabase = createClient()
 
@@ -144,6 +148,18 @@ export default function SettingsPage() {
 
           if (patientsData) {
             setPatients(patientsData)
+          }
+
+          const { data: sessionTypesData, error: sessionTypesError } = await supabase
+            .from('session_types')
+            .select('*')
+            .eq('practitioner_id', practitionerData.id)
+            .order('name')
+
+          if (sessionTypesError) {
+            console.error('Error fetching session types:', sessionTypesError)
+          } else if (sessionTypesData) {
+            setSessionTypes(sessionTypesData)
           }
         }
       } catch (error) {
@@ -280,6 +296,57 @@ export default function SettingsPage() {
       })
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleAddSessionType = async () => {
+    if (!practitioner) return
+    const priceValue = Number(newSessionTypePrice)
+
+    if (!newSessionTypeName.trim() || Number.isNaN(priceValue)) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Veuillez saisir un nom et un tarif valide.',
+      })
+      return
+    }
+
+    setIsSavingSessionType(true)
+
+    try {
+      const { data, error } = await supabase
+        .from('session_types')
+        .insert({
+          practitioner_id: practitioner.id,
+          name: newSessionTypeName.trim(),
+          price: priceValue,
+          is_active: true,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      if (data) {
+        setSessionTypes((prev) => [...prev, data])
+      }
+      setNewSessionTypeName('')
+      setNewSessionTypePrice('')
+      toast({
+        variant: 'success',
+        title: 'Type de séance créé',
+        description: 'Le type de séance est disponible pour la facturation.',
+      })
+    } catch (error) {
+      console.error('Error creating session type:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de créer le type de séance.',
+      })
+    } finally {
+      setIsSavingSessionType(false)
     }
   }
 
@@ -782,6 +849,71 @@ export default function SettingsPage() {
                         PNG ou JPG, max 2 Mo
                       </p>
                     </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div>
+                    <Label>Types de séance</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Créez des types de séance avec un tarif associé pour la facturation.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-[1fr_160px_auto]">
+                    <div className="space-y-2">
+                      <Label htmlFor="session-type-name">Nom</Label>
+                      <Input
+                        id="session-type-name"
+                        value={newSessionTypeName}
+                        onChange={(event) => setNewSessionTypeName(event.target.value)}
+                        placeholder="Adulte, Enfant..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="session-type-price">Tarif (€)</Label>
+                      <Input
+                        id="session-type-price"
+                        type="number"
+                        step="0.01"
+                        value={newSessionTypePrice}
+                        onChange={(event) => setNewSessionTypePrice(event.target.value)}
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        type="button"
+                        onClick={handleAddSessionType}
+                        disabled={isSavingSessionType}
+                      >
+                        {isSavingSessionType && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Ajouter
+                      </Button>
+                    </div>
+                  </div>
+
+                  {sessionTypes.length > 0 ? (
+                    <div className="space-y-2">
+                      {sessionTypes.map((type) => (
+                        <div
+                          key={type.id}
+                          className="flex items-center justify-between rounded-lg border px-3 py-2"
+                        >
+                          <span className="text-sm font-medium">
+                            {type.name}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            {Number(type.price).toFixed(2)} €
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Aucun type de séance enregistré.
+                    </p>
                   )}
                 </div>
 
