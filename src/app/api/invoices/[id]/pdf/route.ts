@@ -1,36 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { pdf } from '@react-pdf/renderer'
+import { generateInvoicePdf } from '@/lib/pdf/invoice-pdfkit'
 import { createClient } from '@/lib/supabase/server'
-import { createInvoicePDF, InvoicePDFData } from '@/lib/pdf/invoice-template'
-
-const paymentMethodLabels: Record<string, string> = {
-  card: 'Carte bancaire',
-  cash: 'Especes',
-  check: 'Cheque',
-  transfer: 'Virement',
-  other: 'Autre',
-}
-
-function formatDateForPDF(dateInput: string | null | undefined): string {
-  if (!dateInput) return ''
-  try {
-    const d = new Date(dateInput)
-    if (isNaN(d.getTime())) return ''
-    const day = d.getDate().toString().padStart(2, '0')
-    const month = (d.getMonth() + 1).toString().padStart(2, '0')
-    const year = d.getFullYear()
-    return day + '/' + month + '/' + year
-  } catch {
-    return ''
-  }
-}
-
-function safeStr(value: unknown): string {
-  if (value === null || value === undefined) return ''
-  if (typeof value === 'string') return value
-  if (typeof value === 'number') return String(value)
-  return ''
-}
+import { buildInvoicePDFData } from '@/lib/pdf/invoice-template'
 
 export async function GET(
   request: NextRequest,
@@ -64,7 +35,8 @@ export async function GET(
         *,
         consultation:consultations (
           *,
-          patient:patients (*)
+          patient:patients (*),
+          session_type:session_types (*)
         ),
         payments (*)
       `)
@@ -109,23 +81,23 @@ export async function GET(
       paymentDate: payment ? formatDateForPDF(safeStr(payment.payment_date)) : formatDateForPDF(safeStr(invoice.issued_at)),
     }
 
-    // Log data for debugging
-    console.log('PDF Data:', JSON.stringify(pdfData, null, 2))
-
-    // Generate PDF using pdf().toBuffer()
-    const pdfDoc = createInvoicePDF(pdfData)
-    console.log('PDF Doc created')
-    const pdfInstance = pdf(pdfDoc)
-    console.log('PDF Instance created')
-    const pdfStream = await pdfInstance.toBuffer()
-    console.log('PDF Stream created')
-
-    // Convert stream to buffer
-    const chunks: Uint8Array[] = []
-    for await (const chunk of pdfStream) {
-      chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk)
-    }
-    const pdfBuffer = Buffer.concat(chunks)
+    // Generate PDF
+    const pdfData = buildInvoicePDFData({
+      invoice,
+      consultation: invoice.consultation,
+      patient: invoice.consultation.patient,
+      practitioner,
+      payments: invoice.payments || [],
+    })
+    console.debug('Invoice PDF data (api/pdf):', {
+      invoiceId: invoice.id,
+      invoiceNumber: pdfData.invoiceNumber,
+      amount: pdfData.amount,
+      practitionerName: pdfData.practitionerName,
+      patientName: pdfData.patientName,
+      hasStamp: Boolean(pdfData.stampUrl),
+    })
+    const pdfBuffer = await generateInvoicePdf(pdfData)
 
     // Return PDF
     return new NextResponse(pdfBuffer, {

@@ -153,6 +153,7 @@ export interface Database {
         Row: {
           id: string
           patient_id: string
+          session_type_id: string | null
           date_time: string
           reason: string
           anamnesis: string | null
@@ -167,6 +168,7 @@ export interface Database {
         Insert: {
           id?: string
           patient_id: string
+          session_type_id?: string | null
           date_time?: string
           reason: string
           anamnesis?: string | null
@@ -181,6 +183,7 @@ export interface Database {
         Update: {
           id?: string
           patient_id?: string
+          session_type_id?: string | null
           date_time?: string
           reason?: string
           anamnesis?: string | null
@@ -191,6 +194,35 @@ export interface Database {
           created_at?: string
           updated_at?: string
           archived_at?: string | null
+        }
+      }
+      session_types: {
+        Row: {
+          id: string
+          practitioner_id: string
+          name: string
+          price: number
+          created_at: string
+          updated_at: string
+          is_active: boolean
+        }
+        Insert: {
+          id?: string
+          practitioner_id: string
+          name: string
+          price: number
+          created_at?: string
+          updated_at?: string
+          is_active?: boolean
+        }
+        Update: {
+          id?: string
+          practitioner_id?: string
+          name?: string
+          price?: number
+          created_at?: string
+          updated_at?: string
+          is_active?: boolean
         }
       }
       invoices: {
@@ -467,6 +499,7 @@ export type Updatable<T extends keyof Database['public']['Tables']> = Database['
 export type Practitioner = Tables<'practitioners'>
 export type Patient = Tables<'patients'>
 export type Consultation = Tables<'consultations'>
+export type SessionType = Tables<'session_types'>
 export type Invoice = Tables<'invoices'>
 export type Payment = Tables<'payments'>
 export type EmailTemplate = Tables<'email_templates'>

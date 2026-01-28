@@ -7,6 +7,10 @@ import {
   Image,
   StyleSheet,
 } from '@react-pdf/renderer'
+import type { DocumentProps } from '@react-pdf/renderer'
+import { isValidElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
+import type { Invoice, Patient, Practitioner, Consultation, Payment } from '@/types/database'
 
 export interface InvoicePDFData {
   invoiceNumber: string
@@ -28,6 +32,28 @@ export interface InvoicePDFData {
   paymentMethod: string
   paymentDate: string
 }
+
+export interface InvoicePDFData {
+  practitionerName: string
+  practitionerSpecialty: string
+  practitionerAddress: string
+  practitionerCityLine: string
+  practitionerSiret: string
+  practitionerRpps: string
+  patientName: string
+  patientEmail: string
+  locationLine: string
+  invoiceNumber: string
+  sessionTypeLabel: string
+  amount: string
+  paymentMethod: string
+  paymentType: string
+  paymentDate: string
+  invoiceDate: string
+  stampUrl: string
+}
+
+const primaryColor = '#10B981'
 
 const styles = StyleSheet.create({
   page: {
@@ -204,69 +230,158 @@ export function createInvoicePDF(d: InvoicePDFData) {
   const practFirstName = toStr(d.practitionerFirstName)
   const practName = practLastName + ' ' + practFirstName
 
-  const practSpec = toStr(d.practitionerSpecialty)
-  const practAddr = toStr(d.practitionerAddress)
-  const practPostal = toStr(d.practitionerPostalCode)
-  const practCity = toStr(d.practitionerCity)
-  const practLoc = (practPostal + ' ' + practCity).trim()
-  const practSiret = toStr(d.practitionerSiret)
-  const practRpps = toStr(d.practitionerRpps)
-  const practSiren = practSiret ? 'N SIREN: ' + practSiret : ''
-  const practRppsStr = practRpps ? 'N RPPS: ' + practRpps : ''
+function formatAmountPDF(amount: number | string | null | undefined): string {
+  if (amount === null || amount === undefined || amount === '') return '0.00 EUR'
+  const numericAmount = typeof amount === 'number' ? amount : Number(amount)
+  if (Number.isNaN(numericAmount)) return '0.00 EUR'
+  return numericAmount.toFixed(2) + ' EUR'
+}
 
-  const patLastName = toStr(d.patientLastName).toUpperCase()
-  const patFirstName = toStr(d.patientFirstName)
-  const patName = patLastName + ' ' + patFirstName
-  const patEmail = toStr(d.patientEmail)
+function normalizeText(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return String(value)
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeText(item)).filter(Boolean).join(' ')
+  }
+  if (isValidElement(value)) {
+    const element = value as ReactElement<{ children?: ReactNode }>
+    return normalizeText(element.props?.children)
+  }
+  if (typeof value === 'object' && typeof (value as { toString?: () => string }).toString === 'function') {
+    const str = (value as { toString: () => string }).toString()
+    return str === '[object Object]' ? '' : str
+  }
+  return ''
+}
 
-  const city = practCity || 'Paris'
-  const dateStr = toStr(d.invoiceDate)
-  const invNum = toStr(d.invoiceNumber)
-  const consultReason = toStr(d.consultationReason) || 'Consultation'
-  const reason = 'Seance du jour - ' + consultReason
-  const amountNum = typeof d.invoiceAmount === 'number' ? d.invoiceAmount : 0
-  const amt = amountNum.toFixed(2) + ' EUR'
-  const method = toStr(d.paymentMethod) || 'Comptant'
-  const payDate = toStr(d.paymentDate) || dateStr
-  const stampUrl = toStr(d.practitionerStampUrl)
+const toText = (value: unknown): string => String(value ?? '')
 
-  // Build info lines array
-  const lines: string[] = []
-  if (practSpec) lines.push(practSpec)
-  if (practAddr) lines.push(practAddr)
-  if (practLoc) lines.push(practLoc)
-  if (practSiren) lines.push(practSiren)
-  if (practRppsStr) lines.push(practRppsStr)
+export function buildInvoicePDFData({
+  invoice,
+  consultation,
+  patient,
+  practitioner,
+  payments,
+}: InvoicePDFProps): InvoicePDFData {
+  const payment = payments && payments.length > 0 ? payments[0] : null
+  const invoiceDateStr = normalizeText(invoice?.issued_at) || new Date().toISOString()
+  const location = normalizeText(practitioner?.city) || 'Paris'
+
+  const practLastName = normalizeText(practitioner?.last_name).toUpperCase()
+  const practFirstName = normalizeText(practitioner?.first_name)
+  const patLastName = normalizeText(patient?.last_name).toUpperCase()
+  const patFirstName = normalizeText(patient?.first_name)
+  const sessionTypeLabel = normalizeText(
+    (consultation as Consultation & { session_type?: { name?: string | null } })?.session_type?.name
+  ) || 'Type de séance'
+  const paymentMethod = payment ? normalizeText(payment.method) : ''
+  const method = paymentMethodLabels[paymentMethod] || 'Comptant'
+  const invoiceNumber = normalizeText(invoice?.invoice_number)
+  const practSpecialty = normalizeText(practitioner?.specialty)
+  const practAddress = normalizeText(practitioner?.address)
+  const practPostalCode = normalizeText(practitioner?.postal_code)
+  const practCity = normalizeText(practitioner?.city)
+  const practSiret = normalizeText(practitioner?.siret)
+  const practRpps = normalizeText(practitioner?.rpps)
+  const patientEmail = normalizeText(patient?.email)
+  const stampUrl = normalizeText(practitioner?.stamp_url)
+  const practitionerName = `${practLastName} ${practFirstName}`.trim()
+  const patientName = `${patLastName} ${patFirstName}`.trim()
+  const practitionerCityLine = `${practPostalCode} ${practCity}`.trim()
+  const locationLine = `${location}, le ${formatDatePDF(invoiceDateStr)}`.trim()
+
+  return {
+    practitionerName: normalizeText(practitionerName),
+    practitionerSpecialty: normalizeText(practSpecialty),
+    practitionerAddress: normalizeText(practAddress),
+    practitionerCityLine: normalizeText(practitionerCityLine),
+    practitionerSiret: normalizeText(practSiret),
+    practitionerRpps: normalizeText(practRpps),
+    patientName: normalizeText(patientName),
+    patientEmail: normalizeText(patientEmail),
+    locationLine: normalizeText(locationLine),
+    invoiceNumber: normalizeText(invoiceNumber),
+    sessionTypeLabel: normalizeText(sessionTypeLabel),
+    amount: normalizeText(formatAmountPDF(invoice?.amount)),
+    paymentMethod: normalizeText(method),
+    paymentType: 'Comptant',
+    paymentDate: normalizeText(payment ? formatDatePDF(payment.payment_date) : formatDatePDF(invoiceDateStr)),
+    invoiceDate: normalizeText(formatDatePDF(invoiceDateStr)),
+    stampUrl: normalizeText(stampUrl),
+  }
+}
+
+export function InvoicePDF({
+  data,
+}: {
+  data: InvoicePDFData
+}): ReactElement<DocumentProps> {
+  const safeData: InvoicePDFData = {
+    practitionerName: normalizeText(data.practitionerName),
+    practitionerSpecialty: normalizeText(data.practitionerSpecialty),
+    practitionerAddress: normalizeText(data.practitionerAddress),
+    practitionerCityLine: normalizeText(data.practitionerCityLine),
+    practitionerSiret: normalizeText(data.practitionerSiret),
+    practitionerRpps: normalizeText(data.practitionerRpps),
+    patientName: normalizeText(data.patientName),
+    patientEmail: normalizeText(data.patientEmail),
+    locationLine: normalizeText(data.locationLine),
+    invoiceNumber: normalizeText(data.invoiceNumber),
+    sessionTypeLabel: normalizeText(data.sessionTypeLabel),
+    amount: normalizeText(data.amount),
+    paymentMethod: normalizeText(data.paymentMethod),
+    paymentType: normalizeText(data.paymentType),
+    paymentDate: normalizeText(data.paymentDate),
+    invoiceDate: normalizeText(data.invoiceDate),
+    stampUrl: normalizeText(data.stampUrl),
+  }
 
   // Return the Document directly - no wrapper component
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <View style={styles.leftCol}>
-            <Text style={styles.title}>{practName}</Text>
-            {lines.map((line, idx) => (
-              <Text key={'line-' + String(idx)} style={styles.text}>{line}</Text>
-            ))}
+          <View style={styles.practitionerSection}>
+            <Text style={styles.practitionerName}>{toText(safeData.practitionerName)}</Text>
+            {safeData.practitionerSpecialty ? (
+              <Text style={styles.practitionerSpecialty}>{toText(safeData.practitionerSpecialty)}</Text>
+            ) : null}
+            {safeData.practitionerAddress ? (
+              <Text style={styles.infoText}>{toText(safeData.practitionerAddress)}</Text>
+            ) : null}
+            {safeData.practitionerCityLine ? (
+              <Text style={styles.infoText}>{toText(safeData.practitionerCityLine)}</Text>
+            ) : null}
+            {safeData.practitionerSiret ? (
+              <Text style={styles.infoText}>{'N SIREN: ' + toText(safeData.practitionerSiret)}</Text>
+            ) : null}
+            {safeData.practitionerRpps ? (
+              <Text style={styles.infoText}>{'N RPPS: ' + toText(safeData.practitionerRpps)}</Text>
+            ) : null}
           </View>
-          <View style={styles.rightCol}>
-            <View style={styles.greenBox}>
-              <Text style={styles.whiteText}>{patName}</Text>
-              <Text style={styles.whiteTextSmall}>{patEmail}</Text>
+
+          <View style={styles.patientSection}>
+            <View style={styles.patientBox}>
+              <Text style={styles.patientName}>{toText(safeData.patientName)}</Text>
+              {safeData.patientEmail ? (
+                <Text style={styles.patientEmail}>{toText(safeData.patientEmail)}</Text>
+              ) : null}
             </View>
           </View>
         </View>
 
-        <View style={styles.row}>
-          <View style={styles.greenBox}>
-            <Text style={styles.whiteTextSmall}>{city + ', le ' + dateStr}</Text>
+        <View style={styles.metaSection}>
+          <View style={styles.metaBox}>
+            <Text style={styles.metaText}>{toText(safeData.locationLine)}</Text>
           </View>
         </View>
 
         <View style={styles.invoiceRow}>
           <Text style={styles.invoiceLabel}>Recu d honoraires n</Text>
-          <View style={styles.greenBox}>
-            <Text style={styles.whiteText}>{invNum}</Text>
+          <View style={styles.invoiceNumberBox}>
+            <Text style={styles.invoiceNumberText}>{toText(safeData.invoiceNumber)}</Text>
           </View>
         </View>
 
@@ -280,12 +395,12 @@ export function createInvoicePDF(d: InvoicePDFData) {
             </View>
           </View>
           <View style={styles.tableRow}>
-            <View style={styles.descCol}>
-              <Text style={styles.itemText}>{reason}</Text>
+            <View style={styles.tableDesc}>
+              <Text style={styles.itemText}>{'Type de séance - ' + toText(safeData.sessionTypeLabel)}</Text>
             </View>
-            <View style={styles.amountCol}>
-              <View style={styles.greenBox}>
-                <Text style={styles.whiteTextSmall}>{amt}</Text>
+            <View style={styles.tableAmount}>
+              <View style={styles.amountBox}>
+                <Text style={styles.amountText}>{toText(safeData.amount)}</Text>
               </View>
             </View>
           </View>
@@ -294,28 +409,34 @@ export function createInvoicePDF(d: InvoicePDFData) {
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Somme a regler</Text>
           <View style={styles.totalBox}>
-            <Text style={styles.totalText}>{amt}</Text>
+            <Text style={styles.totalText}>{toText(safeData.amount)}</Text>
           </View>
         </View>
 
-        <View>
+        <View style={styles.paymentSection}>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Reglement:</Text>
-            <Text style={styles.paymentValue}>{method}</Text>
+            <Text style={styles.paymentLabel}>Reglement</Text>
+            <View style={styles.paymentBadge}>
+              <Text style={styles.paymentBadgeText}>{toText(safeData.paymentMethod)}</Text>
+            </View>
           </View>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Date du reglement:</Text>
-            <Text style={styles.paymentValue}>{payDate}</Text>
+            <Text style={styles.paymentLabel}>Type de reglement</Text>
+            <Text style={styles.paymentValue}>{toText(safeData.paymentType)}</Text>
           </View>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Date de facturation:</Text>
-            <Text style={styles.paymentValue}>{dateStr}</Text>
+            <Text style={styles.paymentLabel}>Date du reglement</Text>
+            <Text style={styles.paymentValue}>{toText(safeData.paymentDate)}</Text>
+          </View>
+          <View style={styles.paymentRow}>
+            <Text style={styles.paymentLabel}>Date de facturation</Text>
+            <Text style={styles.paymentValue}>{toText(safeData.invoiceDate)}</Text>
           </View>
         </View>
 
-        {stampUrl !== '' ? (
-          <View style={styles.stampContainer}>
-            <Image src={stampUrl} style={styles.stamp} />
+        {safeData.stampUrl ? (
+          <View style={styles.stampSection}>
+            <Image src={toText(safeData.stampUrl)} style={styles.stampImage} />
           </View>
         ) : (
           <View />

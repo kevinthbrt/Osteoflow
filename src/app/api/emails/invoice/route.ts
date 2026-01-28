@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import { pdf } from '@react-pdf/renderer'
+import { generateInvoicePdf } from '@/lib/pdf/invoice-pdfkit'
 import { createClient } from '@/lib/supabase/server'
-import { createInvoicePDF, InvoicePDFData } from '@/lib/pdf/invoice-template'
+import { buildInvoicePDFData } from '@/lib/pdf/invoice-template'
 import {
   defaultEmailTemplates,
   replaceTemplateVariables,
@@ -79,7 +79,8 @@ export async function POST(request: NextRequest) {
         *,
         consultation:consultations (
           *,
-          patient:patients (*)
+          patient:patients (*),
+          session_type:session_types (*)
         ),
         payments (*)
       `)
@@ -142,44 +143,23 @@ export async function POST(request: NextRequest) {
     const bodyText = replaceTemplateVariables(template.body, variables)
     const bodyHtml = textToHtml(bodyText)
 
-    // Build PDF data with only primitive values
-    const pdfData: InvoicePDFData = {
-      // Invoice
-      invoiceNumber: safeStr(invoice.invoice_number),
-      invoiceAmount: typeof invoice.amount === 'number' ? invoice.amount : 0,
-      invoiceDate: formatDateForPDF(safeStr(invoice.issued_at)),
-      // Patient
-      patientFirstName: patientFirstName,
-      patientLastName: patientLastName,
-      patientEmail: patientEmail,
-      // Practitioner
-      practitionerFirstName: safeStr(practitioner.first_name),
-      practitionerLastName: safeStr(practitioner.last_name),
-      practitionerSpecialty: safeStr(practitioner.specialty),
-      practitionerAddress: safeStr(practitioner.address),
-      practitionerCity: safeStr(practitioner.city),
-      practitionerPostalCode: safeStr(practitioner.postal_code),
-      practitionerSiret: safeStr(practitioner.siret),
-      practitionerRpps: safeStr(practitioner.rpps),
-      practitionerStampUrl: safeStr(practitioner.stamp_url),
-      // Consultation
-      consultationReason: safeStr(consultation?.reason),
-      // Payment
-      paymentMethod: payment ? (paymentMethodLabels[safeStr(payment.method)] || 'Comptant') : 'Comptant',
-      paymentDate: payment ? formatDateForPDF(safeStr(payment.payment_date)) : formatDateForPDF(safeStr(invoice.issued_at)),
-    }
-
-    // Generate PDF using pdf().toBuffer()
-    const pdfDoc = createInvoicePDF(pdfData)
-    const pdfInstance = pdf(pdfDoc)
-    const pdfStream = await pdfInstance.toBuffer()
-
-    // Convert stream to buffer
-    const chunks: Uint8Array[] = []
-    for await (const chunk of pdfStream) {
-      chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk)
-    }
-    const pdfBuffer = Buffer.concat(chunks)
+    // Generate PDF
+    const pdfData = buildInvoicePDFData({
+      invoice,
+      consultation: invoice.consultation,
+      patient,
+      practitioner,
+      payments: invoice.payments || [],
+    })
+    console.debug('Invoice PDF data (api/email):', {
+      invoiceId: invoice.id,
+      invoiceNumber: pdfData.invoiceNumber,
+      amount: pdfData.amount,
+      practitionerName: pdfData.practitionerName,
+      patientName: pdfData.patientName,
+      hasStamp: Boolean(pdfData.stampUrl),
+    })
+    const pdfBuffer = await generateInvoicePdf(pdfData)
 
     // Send email
     const { error: emailError } = await getResend().emails.send({

@@ -5,6 +5,11 @@ export const consultationSchema = z.object({
   date_time: z
     .string()
     .min(1, 'La date et l\'heure sont requises'),
+  session_type_id: z
+    .string()
+    .uuid('Type de séance invalide')
+    .optional()
+    .nullable(),
   reason: z
     .string()
     .min(1, 'Le motif de consultation est requis')
