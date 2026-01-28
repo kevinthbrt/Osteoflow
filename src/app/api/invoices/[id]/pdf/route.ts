@@ -14,7 +14,7 @@ export async function GET(
     // Check authentication
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+      return NextResponse.json({ error: 'Non autorise' }, { status: 401 })
     }
 
     // Get practitioner
@@ -25,7 +25,7 @@ export async function GET(
       .single()
 
     if (practitionerError || !practitioner) {
-      return NextResponse.json({ error: 'Praticien non trouvé' }, { status: 404 })
+      return NextResponse.json({ error: 'Praticien non trouve' }, { status: 404 })
     }
 
     // Get invoice with all relations
@@ -44,16 +44,41 @@ export async function GET(
       .single()
 
     if (invoiceError || !invoice) {
-      return NextResponse.json({ error: 'Facture non trouvée' }, { status: 404 })
+      return NextResponse.json({ error: 'Facture non trouvee' }, { status: 404 })
     }
+
+    // Extract nested data safely
+    const consultation = invoice.consultation as Record<string, unknown> | null
+    const patient = consultation?.patient as Record<string, unknown> | null
+    const payments = invoice.payments as Array<Record<string, unknown>> | null
+    const payment = payments && payments.length > 0 ? payments[0] : null
 
     // Verify the invoice belongs to this practitioner
-    const consultation = invoice.consultation as typeof invoice.consultation & {
-      patient: { practitioner_id: string }
+    const patientPractitionerId = patient?.practitioner_id
+    if (patientPractitionerId !== practitioner.id) {
+      return NextResponse.json({ error: 'Non autorise' }, { status: 403 })
     }
 
-    if (consultation.patient.practitioner_id !== practitioner.id) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+    // Build PDF data with only primitive values
+    const pdfData: InvoicePDFData = {
+      invoiceNumber: safeStr(invoice.invoice_number),
+      invoiceAmount: typeof invoice.amount === 'number' ? invoice.amount : 0,
+      invoiceDate: formatDateForPDF(safeStr(invoice.issued_at)),
+      patientFirstName: safeStr(patient?.first_name),
+      patientLastName: safeStr(patient?.last_name),
+      patientEmail: safeStr(patient?.email),
+      practitionerFirstName: safeStr(practitioner.first_name),
+      practitionerLastName: safeStr(practitioner.last_name),
+      practitionerSpecialty: safeStr(practitioner.specialty),
+      practitionerAddress: safeStr(practitioner.address),
+      practitionerCity: safeStr(practitioner.city),
+      practitionerPostalCode: safeStr(practitioner.postal_code),
+      practitionerSiret: safeStr(practitioner.siret),
+      practitionerRpps: safeStr(practitioner.rpps),
+      practitionerStampUrl: safeStr(practitioner.stamp_url),
+      consultationReason: safeStr(consultation?.reason),
+      paymentMethod: payment ? (paymentMethodLabels[safeStr(payment.method)] || 'Comptant') : 'Comptant',
+      paymentDate: payment ? formatDateForPDF(safeStr(payment.payment_date)) : formatDateForPDF(safeStr(invoice.issued_at)),
     }
 
     // Generate PDF
@@ -74,11 +99,11 @@ export async function GET(
     })
     const pdfBuffer = await generateInvoicePdf(pdfData)
 
-    // Return PDF - convert Buffer to Uint8Array for NextResponse
-    return new NextResponse(new Uint8Array(pdfBuffer), {
+    // Return PDF
+    return new NextResponse(pdfBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${invoice.invoice_number}.pdf"`,
+        'Content-Disposition': `inline; filename="${pdfData.invoiceNumber || 'facture'}.pdf"`,
         'Cache-Control': 'no-store',
       },
     })
@@ -86,7 +111,7 @@ export async function GET(
     console.error('Error generating PDF:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Erreur lors de la génération du PDF', details: errorMessage },
+      { error: 'Erreur lors de la generation du PDF', details: errorMessage },
       { status: 500 }
     )
   }

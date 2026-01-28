@@ -13,6 +13,35 @@ import { formatDate, formatCurrency } from '@/lib/utils'
 // Lazy initialization to avoid build-time errors
 const getResend = () => new Resend(process.env.RESEND_API_KEY)
 
+const paymentMethodLabels: Record<string, string> = {
+  card: 'Carte bancaire',
+  cash: 'Especes',
+  check: 'Cheque',
+  transfer: 'Virement',
+  other: 'Autre',
+}
+
+function formatDateForPDF(dateInput: string | null | undefined): string {
+  if (!dateInput) return ''
+  try {
+    const d = new Date(dateInput)
+    if (isNaN(d.getTime())) return ''
+    const day = d.getDate().toString().padStart(2, '0')
+    const month = (d.getMonth() + 1).toString().padStart(2, '0')
+    const year = d.getFullYear()
+    return day + '/' + month + '/' + year
+  } catch {
+    return ''
+  }
+}
+
+function safeStr(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return String(value)
+  return ''
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { invoiceId } = await request.json()
@@ -29,7 +58,7 @@ export async function POST(request: NextRequest) {
     // Check authentication
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+      return NextResponse.json({ error: 'Non autorise' }, { status: 401 })
     }
 
     // Get practitioner
@@ -40,7 +69,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (practitionerError || !practitioner) {
-      return NextResponse.json({ error: 'Praticien non trouvé' }, { status: 404 })
+      return NextResponse.json({ error: 'Praticien non trouve' }, { status: 404 })
     }
 
     // Get invoice with all relations
@@ -59,13 +88,21 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (invoiceError || !invoice) {
-      return NextResponse.json({ error: 'Facture non trouvée' }, { status: 404 })
+      return NextResponse.json({ error: 'Facture non trouvee' }, { status: 404 })
     }
 
-    const patient = invoice.consultation.patient
+    // Extract nested data safely
+    const consultation = invoice.consultation as Record<string, unknown> | null
+    const patient = consultation?.patient as Record<string, unknown> | null
+    const payments = invoice.payments as Array<Record<string, unknown>> | null
+    const payment = payments && payments.length > 0 ? payments[0] : null
+
+    const patientEmail = safeStr(patient?.email)
+    const patientFirstName = safeStr(patient?.first_name)
+    const patientLastName = safeStr(patient?.last_name)
 
     // Check patient has email
-    if (!patient.email) {
+    if (!patientEmail) {
       return NextResponse.json(
         { error: 'Le patient n\'a pas d\'adresse email' },
         { status: 400 }
@@ -73,8 +110,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the invoice belongs to this practitioner
-    if (patient.practitioner_id !== practitioner.id) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+    const patientPractitionerId = patient?.practitioner_id
+    if (patientPractitionerId !== practitioner.id) {
+      return NextResponse.json({ error: 'Non autorise' }, { status: 403 })
     }
 
     // Get email template (custom or default)
@@ -89,15 +127,15 @@ export async function POST(request: NextRequest) {
 
     // Prepare variables
     const variables = {
-      patient_name: `${patient.first_name} ${patient.last_name}`,
-      patient_first_name: patient.first_name,
-      invoice_number: invoice.invoice_number,
+      patient_name: patientFirstName + ' ' + patientLastName,
+      patient_first_name: patientFirstName,
+      invoice_number: safeStr(invoice.invoice_number),
       invoice_amount: formatCurrency(invoice.amount),
       invoice_date: formatDate(invoice.issued_at || invoice.created_at),
-      practitioner_name: `${practitioner.first_name} ${practitioner.last_name}`,
+      practitioner_name: safeStr(practitioner.first_name) + ' ' + safeStr(practitioner.last_name),
       practice_name:
-        practitioner.practice_name ||
-        `${practitioner.first_name} ${practitioner.last_name}`,
+        safeStr(practitioner.practice_name) ||
+        (safeStr(practitioner.first_name) + ' ' + safeStr(practitioner.last_name)),
     }
 
     // Replace variables in template
@@ -125,8 +163,8 @@ export async function POST(request: NextRequest) {
 
     // Send email
     const { error: emailError } = await getResend().emails.send({
-      from: `${practitioner.practice_name || practitioner.first_name} <onboarding@resend.dev>`,
-      to: patient.email,
+      from: `${safeStr(practitioner.practice_name) || safeStr(practitioner.first_name)} <onboarding@resend.dev>`,
+      to: patientEmail,
       subject,
       html: `
         <!DOCTYPE html>
@@ -143,8 +181,8 @@ export async function POST(request: NextRequest) {
       `,
       attachments: [
         {
-          filename: `${invoice.invoice_number}.pdf`,
-          content: Buffer.from(pdfBuffer),
+          filename: `${pdfData.invoiceNumber || 'facture'}.pdf`,
+          content: pdfBuffer,
         },
       ],
     })

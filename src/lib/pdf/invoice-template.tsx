@@ -1,3 +1,4 @@
+import React from 'react'
 import {
   Document,
   Page,
@@ -11,12 +12,25 @@ import { isValidElement } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import type { Invoice, Patient, Practitioner, Consultation, Payment } from '@/types/database'
 
-interface InvoicePDFProps {
-  invoice: Invoice
-  consultation: Consultation
-  patient: Patient
-  practitioner: Practitioner
-  payments: Payment[]
+export interface InvoicePDFData {
+  invoiceNumber: string
+  invoiceAmount: number
+  invoiceDate: string
+  patientFirstName: string
+  patientLastName: string
+  patientEmail: string
+  practitionerFirstName: string
+  practitionerLastName: string
+  practitionerSpecialty: string
+  practitionerAddress: string
+  practitionerCity: string
+  practitionerPostalCode: string
+  practitionerSiret: string
+  practitionerRpps: string
+  practitionerStampUrl: string
+  consultationReason: string
+  paymentMethod: string
+  paymentDate: string
 }
 
 export interface InvoicePDFData {
@@ -53,62 +67,44 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 30,
   },
-  practitionerSection: {
+  leftCol: {
     width: '50%',
   },
-  practitionerName: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 2,
-  },
-  practitionerSpecialty: {
-    fontSize: 10,
-    color: '#6B7280',
-    marginBottom: 6,
-  },
-  infoText: {
-    fontSize: 9,
-    color: '#6B7280',
-    marginBottom: 2,
-  },
-  patientSection: {
+  rightCol: {
     width: '45%',
     alignItems: 'flex-end',
   },
-  patientBox: {
-    backgroundColor: primaryColor,
+  title: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  text: {
+    fontSize: 9,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  greenBox: {
+    backgroundColor: '#10B981',
     padding: 12,
     borderRadius: 4,
   },
-  patientName: {
+  whiteText: {
     fontSize: 11,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 2,
   },
-  patientEmail: {
+  whiteTextSmall: {
     fontSize: 9,
     color: '#FFFFFF',
   },
-  metaSection: {
+  row: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginBottom: 20,
   },
-  metaBox: {
-    backgroundColor: primaryColor,
-    paddingLeft: 12,
-    paddingRight: 12,
-    paddingTop: 6,
-    paddingBottom: 6,
-    borderRadius: 4,
-  },
-  metaText: {
-    fontSize: 9,
-    color: '#FFFFFF',
-  },
-  invoiceTitle: {
+  invoiceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 30,
@@ -118,41 +114,20 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     marginRight: 10,
   },
-  invoiceNumberBox: {
-    backgroundColor: primaryColor,
-    paddingLeft: 12,
-    paddingRight: 12,
-    paddingTop: 6,
-    paddingBottom: 6,
-    borderRadius: 4,
-  },
-  invoiceNumberText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
   table: {
     marginBottom: 20,
   },
-  tableHeader: {
+  tableHead: {
     flexDirection: 'row',
     borderBottomWidth: 2,
     borderBottomColor: '#E5E7EB',
     paddingBottom: 8,
     marginBottom: 8,
   },
-  tableHeaderDesc: {
-    width: '70%',
+  tableHeadText: {
     fontSize: 9,
     fontWeight: 'bold',
     color: '#6B7280',
-  },
-  tableHeaderAmount: {
-    width: '30%',
-    fontSize: 9,
-    fontWeight: 'bold',
-    color: '#6B7280',
-    textAlign: 'right',
   },
   tableRow: {
     flexDirection: 'row',
@@ -161,10 +136,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
-  tableDesc: {
+  descCol: {
     width: '70%',
   },
-  tableAmount: {
+  amountCol: {
     width: '30%',
     alignItems: 'flex-end',
   },
@@ -172,20 +147,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#1F2937',
   },
-  amountBox: {
-    backgroundColor: primaryColor,
-    paddingLeft: 10,
-    paddingRight: 10,
-    paddingTop: 4,
-    paddingBottom: 4,
-    borderRadius: 4,
-  },
-  amountText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  totalSection: {
+  totalRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
@@ -199,7 +161,7 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   totalBox: {
-    backgroundColor: primaryColor,
+    backgroundColor: '#10B981',
     paddingLeft: 15,
     paddingRight: 15,
     paddingTop: 8,
@@ -210,9 +172,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#FFFFFF',
-  },
-  paymentSection: {
-    marginBottom: 30,
   },
   paymentRow: {
     flexDirection: 'row',
@@ -228,28 +187,14 @@ const styles = StyleSheet.create({
   paymentValue: {
     fontSize: 10,
     color: '#1F2937',
-    width: 100,
-    textAlign: 'right',
   },
-  paymentBadge: {
-    backgroundColor: primaryColor,
-    paddingLeft: 8,
-    paddingRight: 8,
-    paddingTop: 3,
-    paddingBottom: 3,
-    borderRadius: 4,
-  },
-  paymentBadgeText: {
-    fontSize: 9,
-    color: '#FFFFFF',
-  },
-  stampSection: {
+  stampContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginTop: 20,
     marginBottom: 30,
   },
-  stampImage: {
+  stamp: {
     width: 150,
     height: 80,
   },
@@ -270,27 +215,20 @@ const styles = StyleSheet.create({
   },
 })
 
-const paymentMethodLabels: Record<string, string> = {
-  card: 'Carte bancaire',
-  cash: 'Especes',
-  check: 'Cheque',
-  transfer: 'Virement',
-  other: 'Autre',
+// Helper function to ensure string
+function toStr(v: unknown): string {
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'string') return v
+  if (typeof v === 'number') return String(v)
+  return ''
 }
 
-function formatDatePDF(dateInput: string | Date | null | undefined): string {
-  if (!dateInput) return ''
-  try {
-    const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
-    if (isNaN(d.getTime())) return ''
-    const day = d.getDate().toString().padStart(2, '0')
-    const month = (d.getMonth() + 1).toString().padStart(2, '0')
-    const year = d.getFullYear()
-    return day + '/' + month + '/' + year
-  } catch {
-    return ''
-  }
-}
+// Main function that creates the PDF document directly
+export function createInvoicePDF(d: InvoicePDFData) {
+  // Pre-compute ALL strings
+  const practLastName = toStr(d.practitionerLastName).toUpperCase()
+  const practFirstName = toStr(d.practitionerFirstName)
+  const practName = practLastName + ' ' + practFirstName
 
 function formatAmountPDF(amount: number | string | null | undefined): string {
   if (amount === null || amount === undefined || amount === '') return '0.00 EUR'
@@ -400,6 +338,7 @@ export function InvoicePDF({
     stampUrl: normalizeText(data.stampUrl),
   }
 
+  // Return the Document directly - no wrapper component
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -439,7 +378,7 @@ export function InvoicePDF({
           </View>
         </View>
 
-        <View style={styles.invoiceTitle}>
+        <View style={styles.invoiceRow}>
           <Text style={styles.invoiceLabel}>Recu d honoraires n</Text>
           <View style={styles.invoiceNumberBox}>
             <Text style={styles.invoiceNumberText}>{toText(safeData.invoiceNumber)}</Text>
@@ -447,11 +386,14 @@ export function InvoicePDF({
         </View>
 
         <View style={styles.table}>
-          <View style={styles.tableHeader}>
-            <Text style={styles.tableHeaderDesc}>DESCRIPTION</Text>
-            <Text style={styles.tableHeaderAmount}>MONTANT</Text>
+          <View style={styles.tableHead}>
+            <View style={styles.descCol}>
+              <Text style={styles.tableHeadText}>DESCRIPTION</Text>
+            </View>
+            <View style={styles.amountCol}>
+              <Text style={styles.tableHeadText}>MONTANT</Text>
+            </View>
           </View>
-
           <View style={styles.tableRow}>
             <View style={styles.tableDesc}>
               <Text style={styles.itemText}>{'Type de séance - ' + toText(safeData.sessionTypeLabel)}</Text>
@@ -464,7 +406,7 @@ export function InvoicePDF({
           </View>
         </View>
 
-        <View style={styles.totalSection}>
+        <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Somme a regler</Text>
           <View style={styles.totalBox}>
             <Text style={styles.totalText}>{toText(safeData.amount)}</Text>
@@ -496,7 +438,9 @@ export function InvoicePDF({
           <View style={styles.stampSection}>
             <Image src={toText(safeData.stampUrl)} style={styles.stampImage} />
           </View>
-        ) : null}
+        ) : (
+          <View />
+        )}
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>TVA non applicable selon article 261, 4-1 du CGI</Text>
