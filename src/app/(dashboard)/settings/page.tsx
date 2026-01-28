@@ -165,6 +165,7 @@ export default function SettingsPage() {
           setSettingsValue('phone', practitionerData.phone || '')
           setSettingsValue('practice_name', practitionerData.practice_name || '')
           setSettingsValue('specialty', practitionerData.specialty || '')
+          setSettingsValue('google_review_url', practitionerData.google_review_url || '')
           setSettingsValue('address', practitionerData.address || '')
           setSettingsValue('city', practitionerData.city || '')
           setSettingsValue('postal_code', practitionerData.postal_code || '')
@@ -281,6 +282,7 @@ export default function SettingsPage() {
           phone: data.phone || null,
           practice_name: data.practice_name || null,
           specialty: data.specialty || null,
+          google_review_url: data.google_review_url || null,
           address: data.address || null,
           city: data.city || null,
           postal_code: data.postal_code || null,
@@ -827,6 +829,24 @@ export default function SettingsPage() {
                       placeholder="Ostéopathe D.O."
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="google_review_url">Lien d'avis Google</Label>
+                  <Input
+                    id="google_review_url"
+                    type="url"
+                    {...registerSettings('google_review_url')}
+                    placeholder="https://g.page/votre-cabinet/review"
+                  />
+                  {settingsErrors.google_review_url && (
+                    <p className="text-sm text-destructive">
+                      {settingsErrors.google_review_url.message}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Ce lien sera proposé aux patients lors de l'envoi des factures.
+                  </p>
                 </div>
 
                 <div className="space-y-2">

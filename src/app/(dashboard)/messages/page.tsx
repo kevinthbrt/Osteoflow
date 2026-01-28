@@ -8,6 +8,17 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import {
   MessageCircle,
   Search,
   Plus,
@@ -17,6 +28,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Sparkles,
+  Trash2,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -66,6 +78,13 @@ function getContactInitials(conv: Conversation): string {
   return '?'
 }
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function isValidEmail(value?: string | null): boolean {
+  if (!value) return false
+  return emailRegex.test(value)
+}
+
 interface Message {
   id: string
   content: string
@@ -84,6 +103,7 @@ export default function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [showNewModal, setShowNewModal] = useState(false)
   const [isMobileView, setIsMobileView] = useState(false)
   const { toast } = useToast()
@@ -167,43 +187,6 @@ export default function MessagesPage() {
     }
   }, [selectedConversation, fetchMessages])
 
-  // Send message
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation) return
-
-    setIsSending(true)
-    try {
-      const { error } = await supabase.from('messages').insert({
-        conversation_id: selectedConversation.id,
-        content: newMessage.trim(),
-        direction: 'outgoing',
-        channel: 'internal',
-        status: 'sent',
-        sent_at: new Date().toISOString(),
-      })
-
-      if (error) throw error
-
-      setNewMessage('')
-      await fetchMessages(selectedConversation.id)
-      await fetchConversations()
-
-      toast({
-        title: 'Message envoyé',
-        description: 'Votre message a été enregistré',
-      })
-    } catch (error) {
-      console.error('Error sending message:', error)
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: "Impossible d'envoyer le message",
-      })
-    } finally {
-      setIsSending(false)
-    }
-  }
-
   // Send email
   const handleSendEmail = async () => {
     if (!newMessage.trim() || !selectedConversation) return
@@ -211,7 +194,7 @@ export default function MessagesPage() {
     const recipientEmail = getContactEmail(selectedConversation)
     const recipientName = getContactName(selectedConversation)
 
-    if (!recipientEmail) {
+    if (!recipientEmail || !isValidEmail(recipientEmail)) {
       toast({
         variant: 'destructive',
         title: 'Pas d\'email',
@@ -257,6 +240,46 @@ export default function MessagesPage() {
     }
   }
 
+  const handleDeleteConversation = async () => {
+    if (!selectedConversation) return
+
+    setIsDeleting(true)
+    try {
+      const { error: messagesError } = await supabase
+        .from('messages')
+        .delete()
+        .eq('conversation_id', selectedConversation.id)
+
+      if (messagesError) throw messagesError
+
+      const { error: conversationError } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('id', selectedConversation.id)
+
+      if (conversationError) throw conversationError
+
+      setSelectedConversation(null)
+      setMessages([])
+      await fetchConversations()
+
+      toast({
+        variant: 'success',
+        title: 'Conversation supprimée',
+        description: 'La conversation a été supprimée avec succès',
+      })
+    } catch (error) {
+      console.error('Error deleting conversation:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de supprimer la conversation',
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   const filteredConversations = conversations.filter((conv) => {
     if (!searchQuery) return true
     const searchLower = searchQuery.toLowerCase()
@@ -292,6 +315,33 @@ export default function MessagesPage() {
               {getContactEmail(selectedConversation) || 'Pas d\'email'}
             </p>
           </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={isDeleting}
+                className="text-destructive"
+                aria-label="Supprimer la conversation"
+              >
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Supprimer la conversation ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Cette action supprimera définitivement la conversation et tous ses messages.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteConversation}>
+                  Supprimer
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
 
         {/* Messages */}
@@ -305,10 +355,9 @@ export default function MessagesPage() {
         <MessageInput
           value={newMessage}
           onChange={setNewMessage}
-          onSend={handleSendMessage}
-          onSendEmail={handleSendEmail}
+          onSend={handleSendEmail}
           isSending={isSending}
-          hasEmail={!!getContactEmail(selectedConversation)}
+          hasEmail={isValidEmail(getContactEmail(selectedConversation))}
           onQuickReply={(content) => setNewMessage(content)}
         />
       </div>
@@ -429,6 +478,33 @@ export default function MessagesPage() {
                   {getContactEmail(selectedConversation) || 'Pas d\'email'}
                 </p>
               </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={isDeleting}
+                    className="border-destructive text-destructive"
+                    aria-label="Supprimer la conversation"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Supprimer la conversation ?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Cette action supprimera définitivement la conversation et tous ses messages.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteConversation}>
+                      Supprimer
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
 
             {/* Messages */}
@@ -451,10 +527,9 @@ export default function MessagesPage() {
             <MessageInput
               value={newMessage}
               onChange={setNewMessage}
-              onSend={handleSendMessage}
-              onSendEmail={handleSendEmail}
+              onSend={handleSendEmail}
               isSending={isSending}
-              hasEmail={!!getContactEmail(selectedConversation)}
+              hasEmail={isValidEmail(getContactEmail(selectedConversation))}
               onQuickReply={(content) => setNewMessage(content)}
             />
           </>
@@ -542,7 +617,6 @@ function MessageInput({
   value,
   onChange,
   onSend,
-  onSendEmail,
   isSending,
   hasEmail,
   onQuickReply,
@@ -550,7 +624,6 @@ function MessageInput({
   value: string
   onChange: (value: string) => void
   onSend: () => void
-  onSendEmail: () => void
   isSending: boolean
   hasEmail: boolean
   onQuickReply: (content: string) => void
@@ -593,21 +666,11 @@ function MessageInput({
         </div>
         <Button
           onClick={onSend}
-          disabled={!value.trim() || isSending}
+          disabled={!value.trim() || isSending || !hasEmail}
           className="flex-shrink-0"
         >
           <Send className="h-4 w-4" />
         </Button>
-        {hasEmail && (
-          <Button
-            variant="outline"
-            onClick={onSendEmail}
-            disabled={!value.trim() || isSending}
-            className="flex-shrink-0 gap-1"
-          >
-            Email
-          </Button>
-        )}
       </div>
     </div>
   )

@@ -141,12 +141,16 @@ export function createHtmlEmail(
     postal_code?: string
     phone?: string
     email?: string
+  },
+  options?: {
+    includeFooter?: boolean
   }
 ): string {
   const htmlContent = textToHtml(content)
+  const includeFooter = options?.includeFooter ?? true
 
   let footer = ''
-  if (practitioner) {
+  if (practitioner && includeFooter) {
     const name = [practitioner.first_name, practitioner.last_name].filter(Boolean).join(' ')
     const addressParts = [
       practitioner.address,

@@ -97,6 +97,36 @@ function extractTextFromParts(parts: unknown): { text?: string; html?: string } 
   return result
 }
 
+function decodeQuotedPrintable(input: string): string {
+  const normalized = input.replace(/=\r?\n/g, '')
+  const bytes: number[] = []
+
+  for (let i = 0; i < normalized.length; i += 1) {
+    const char = normalized[i]
+    if (char === '=' && i + 2 < normalized.length) {
+      const hex = normalized.slice(i + 1, i + 3)
+      if (/^[0-9A-Fa-f]{2}$/.test(hex)) {
+        bytes.push(Number.parseInt(hex, 16))
+        i += 2
+        continue
+      }
+    }
+
+    if (char) {
+      const encoded = Buffer.from(char, 'utf8')
+      bytes.push(...encoded)
+    }
+  }
+
+  return Buffer.from(bytes).toString('utf8')
+}
+
+function normalizeEmailContent(content?: string): string | undefined {
+  if (!content) return undefined
+  const decoded = decodeQuotedPrintable(content)
+  return decoded.replace(/=\s*$/g, '').trim()
+}
+
 /**
  * Fetch new emails since a given UID
  */
@@ -159,12 +189,12 @@ export async function fetchNewEmails(
           // Simple extraction - look for plain text between boundaries
           const textMatch = source.match(/Content-Type: text\/plain[^]*?\r\n\r\n([^]*?)(?:\r\n--|\r\n\r\n$)/i)
           if (textMatch) {
-            email.textContent = textMatch[1].trim()
+            email.textContent = normalizeEmailContent(textMatch[1])
           }
 
           const htmlMatch = source.match(/Content-Type: text\/html[^]*?\r\n\r\n([^]*?)(?:\r\n--|\r\n\r\n$)/i)
           if (htmlMatch) {
-            email.htmlContent = htmlMatch[1].trim()
+            email.htmlContent = normalizeEmailContent(htmlMatch[1])
           }
 
           // If no multipart, try simple body
@@ -172,7 +202,7 @@ export async function fetchNewEmails(
             const bodyStart = source.indexOf('\r\n\r\n')
             if (bodyStart > -1) {
               const body = source.substring(bodyStart + 4).trim()
-              email.textContent = body
+              email.textContent = normalizeEmailContent(body)
             }
           }
         } catch {

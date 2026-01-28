@@ -27,6 +27,11 @@ export const practitionerSettingsSchema = z.object({
     .max(100, 'La spécialité ne peut pas dépasser 100 caractères')
     .optional()
     .or(z.literal('')),
+  google_review_url: z
+    .string()
+    .url('Le lien Google doit être une URL valide')
+    .optional()
+    .or(z.literal('')),
   address: z
     .string()
     .max(500, 'L\'adresse ne peut pas dépasser 500 caractères')
@@ -95,7 +100,9 @@ export const emailTemplateVariables = {
     { key: '{{invoice_amount}}', description: 'Montant de la facture' },
     { key: '{{invoice_date}}', description: 'Date de la facture' },
     { key: '{{practitioner_name}}', description: 'Nom du praticien' },
+    { key: '{{practitioner_specialty}}', description: 'Spécialité du praticien' },
     { key: '{{practice_name}}', description: 'Nom du cabinet' },
+    { key: '{{google_review_url}}', description: 'Lien d\'avis Google' },
   ],
   follow_up_7d: [
     { key: '{{patient_name}}', description: 'Nom complet du patient' },
