@@ -112,7 +112,14 @@ export async function GET(
     // Generate PDF using pdf().toBuffer()
     const pdfDoc = createInvoicePDF(pdfData)
     const pdfInstance = pdf(pdfDoc)
-    const pdfBuffer = await pdfInstance.toBuffer()
+    const pdfStream = await pdfInstance.toBuffer()
+
+    // Convert stream to buffer
+    const chunks: Uint8Array[] = []
+    for await (const chunk of pdfStream) {
+      chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk)
+    }
+    const pdfBuffer = Buffer.concat(chunks)
 
     // Return PDF
     return new NextResponse(pdfBuffer, {

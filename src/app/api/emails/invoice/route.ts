@@ -172,7 +172,14 @@ export async function POST(request: NextRequest) {
     // Generate PDF using pdf().toBuffer()
     const pdfDoc = createInvoicePDF(pdfData)
     const pdfInstance = pdf(pdfDoc)
-    const pdfBuffer = await pdfInstance.toBuffer()
+    const pdfStream = await pdfInstance.toBuffer()
+
+    // Convert stream to buffer
+    const chunks: Uint8Array[] = []
+    for await (const chunk of pdfStream) {
+      chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk)
+    }
+    const pdfBuffer = Buffer.concat(chunks)
 
     // Send email
     const { error: emailError } = await getResend().emails.send({
@@ -195,7 +202,7 @@ export async function POST(request: NextRequest) {
       attachments: [
         {
           filename: `${pdfData.invoiceNumber || 'facture'}.pdf`,
-          content: Buffer.from(pdfBuffer),
+          content: pdfBuffer,
         },
       ],
     })
