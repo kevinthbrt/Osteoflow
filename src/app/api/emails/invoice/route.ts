@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { generateInvoicePdf } from '@/lib/pdf/invoice-pdfkit'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { buildInvoicePDFData } from '@/lib/pdf/invoice-template'
 import {
   defaultEmailTemplates,
@@ -9,6 +9,7 @@ import {
   textToHtml,
 } from '@/lib/email/templates'
 import { formatDate, formatCurrency } from '@/lib/utils'
+import { sendEmail, createHtmlEmail } from '@/lib/email/smtp-service'
 
 // Lazy initialization to avoid build-time errors
 const getResend = () => new Resend(process.env.RESEND_API_KEY)
@@ -123,38 +124,84 @@ export async function POST(request: NextRequest) {
     })
     const pdfBuffer = await generateInvoicePdf(pdfData)
 
-    // Send email
-    const { error: emailError } = await getResend().emails.send({
-      from: `${practitioner.practice_name || practitioner.first_name} <onboarding@resend.dev>`,
-      to: patient.email,
-      subject,
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              p { margin: 0 0 10px; }
-            </style>
-          </head>
-          <body>${bodyHtml}</body>
-        </html>
-      `,
-      attachments: [
-        {
-          filename: `${invoice.invoice_number}.pdf`,
-          content: Buffer.from(pdfBuffer),
-        },
-      ],
-    })
+    // Check if practitioner has custom email settings
+    const serviceClient = await createServiceClient()
+    const { data: emailSettings } = await serviceClient
+      .from('email_settings')
+      .select('*')
+      .eq('practitioner_id', practitioner.id)
+      .eq('is_verified', true)
+      .single()
 
-    if (emailError) {
-      console.error('Resend error:', emailError)
-      return NextResponse.json(
-        { error: 'Erreur lors de l\'envoi de l\'email' },
-        { status: 500 }
+    if (emailSettings) {
+      // Use practitioner's SMTP settings
+      const htmlEmail = createHtmlEmail(bodyText, practitioner)
+
+      const result = await sendEmail(
+        {
+          smtp_host: emailSettings.smtp_host,
+          smtp_port: emailSettings.smtp_port,
+          smtp_secure: emailSettings.smtp_secure,
+          smtp_user: emailSettings.smtp_user,
+          smtp_password: emailSettings.smtp_password,
+          from_name: emailSettings.from_name,
+          from_email: emailSettings.from_email,
+        },
+        {
+          to: patient.email,
+          subject,
+          html: htmlEmail,
+          attachments: [
+            {
+              filename: `${invoice.invoice_number}.pdf`,
+              content: Buffer.from(pdfBuffer),
+              contentType: 'application/pdf',
+            },
+          ],
+        }
       )
+
+      if (!result.success) {
+        console.error('SMTP error:', result.error)
+        return NextResponse.json(
+          { error: 'Erreur lors de l\'envoi de l\'email' },
+          { status: 500 }
+        )
+      }
+    } else {
+      // Fallback to Resend
+      const { error: emailError } = await getResend().emails.send({
+        from: `${practitioner.practice_name || practitioner.first_name} <onboarding@resend.dev>`,
+        to: patient.email,
+        subject,
+        html: `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                p { margin: 0 0 10px; }
+              </style>
+            </head>
+            <body>${bodyHtml}</body>
+          </html>
+        `,
+        attachments: [
+          {
+            filename: `${invoice.invoice_number}.pdf`,
+            content: Buffer.from(pdfBuffer),
+          },
+        ],
+      })
+
+      if (emailError) {
+        console.error('Resend error:', emailError)
+        return NextResponse.json(
+          { error: 'Erreur lors de l\'envoi de l\'email' },
+          { status: 500 }
+        )
+      }
     }
 
     return NextResponse.json({ success: true })

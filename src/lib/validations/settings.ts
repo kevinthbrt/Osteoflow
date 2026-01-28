@@ -106,3 +106,145 @@ export const emailTemplateVariables = {
     { key: '{{practice_name}}', description: 'Nom du cabinet' },
   ],
 }
+
+// Email connection settings schema (SMTP/IMAP)
+export const emailSettingsSchema = z.object({
+  // SMTP (sending)
+  smtp_host: z
+    .string()
+    .min(1, 'Le serveur SMTP est requis'),
+  smtp_port: z
+    .number()
+    .int()
+    .min(1)
+    .max(65535)
+    .default(587),
+  smtp_secure: z
+    .boolean()
+    .default(false),
+  smtp_user: z
+    .string()
+    .min(1, 'L\'identifiant SMTP est requis'),
+  smtp_password: z
+    .string()
+    .min(1, 'Le mot de passe SMTP est requis'),
+
+  // IMAP (receiving)
+  imap_host: z
+    .string()
+    .min(1, 'Le serveur IMAP est requis'),
+  imap_port: z
+    .number()
+    .int()
+    .min(1)
+    .max(65535)
+    .default(993),
+  imap_secure: z
+    .boolean()
+    .default(true),
+  imap_user: z
+    .string()
+    .min(1, 'L\'identifiant IMAP est requis'),
+  imap_password: z
+    .string()
+    .min(1, 'Le mot de passe IMAP est requis'),
+
+  // Identity
+  from_name: z
+    .string()
+    .max(255)
+    .optional()
+    .or(z.literal('')),
+  from_email: z
+    .string()
+    .email('Format d\'email invalide'),
+
+  // Sync
+  sync_enabled: z
+    .boolean()
+    .default(true),
+})
+
+export type EmailSettingsFormData = z.infer<typeof emailSettingsSchema>
+
+// Preset configurations for common email providers
+export const emailProviderPresets = {
+  gmail: {
+    label: 'Gmail',
+    smtp_host: 'smtp.gmail.com',
+    smtp_port: 587,
+    smtp_secure: false,
+    imap_host: 'imap.gmail.com',
+    imap_port: 993,
+    imap_secure: true,
+    instructions: [
+      '1. Allez sur myaccount.google.com',
+      '2. Sécurité → Validation en 2 étapes (activez-la)',
+      '3. Sécurité → Mots de passe des applications',
+      '4. Créez un mot de passe pour "Mail"',
+      '5. Copiez le mot de passe généré (16 caractères)',
+    ],
+    helpUrl: 'https://support.google.com/accounts/answer/185833',
+  },
+  outlook: {
+    label: 'Outlook / Hotmail',
+    smtp_host: 'smtp-mail.outlook.com',
+    smtp_port: 587,
+    smtp_secure: false,
+    imap_host: 'outlook.office365.com',
+    imap_port: 993,
+    imap_secure: true,
+    instructions: [
+      '1. Allez sur account.microsoft.com',
+      '2. Sécurité → Options de sécurité avancées',
+      '3. Mots de passe d\'application → Créer',
+      '4. Copiez le mot de passe généré',
+    ],
+    helpUrl: 'https://support.microsoft.com/fr-fr/account-billing/utiliser-des-mots-de-passe-d-application',
+  },
+  yahoo: {
+    label: 'Yahoo Mail',
+    smtp_host: 'smtp.mail.yahoo.com',
+    smtp_port: 587,
+    smtp_secure: false,
+    imap_host: 'imap.mail.yahoo.com',
+    imap_port: 993,
+    imap_secure: true,
+    instructions: [
+      '1. Allez sur login.yahoo.com/account/security',
+      '2. Activez la validation en 2 étapes',
+      '3. Générez un mot de passe d\'application',
+      '4. Copiez le mot de passe généré',
+    ],
+    helpUrl: 'https://help.yahoo.com/kb/generate-third-party-passwords-sln15241.html',
+  },
+  ovh: {
+    label: 'OVH Mail',
+    smtp_host: 'ssl0.ovh.net',
+    smtp_port: 587,
+    smtp_secure: false,
+    imap_host: 'ssl0.ovh.net',
+    imap_port: 993,
+    imap_secure: true,
+    instructions: [
+      '1. Utilisez votre adresse email OVH complète',
+      '2. Utilisez votre mot de passe email OVH',
+      '3. Aucune configuration supplémentaire requise',
+    ],
+    helpUrl: 'https://docs.ovh.com/fr/emails/',
+  },
+  ionos: {
+    label: 'IONOS (1&1)',
+    smtp_host: 'smtp.ionos.fr',
+    smtp_port: 587,
+    smtp_secure: false,
+    imap_host: 'imap.ionos.fr',
+    imap_port: 993,
+    imap_secure: true,
+    instructions: [
+      '1. Utilisez votre adresse email IONOS complète',
+      '2. Utilisez votre mot de passe email IONOS',
+    ],
+    helpUrl: 'https://www.ionos.fr/assistance/email/',
+  },
+}
