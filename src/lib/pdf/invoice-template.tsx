@@ -245,7 +245,7 @@ export function createInvoicePDF(d: InvoicePDFData) {
         <View style={styles.header}>
           <View style={styles.leftCol}>
             <Text style={styles.title}>{practName}</Text>
-            {lines.length > 0 && lines.map((line, idx) => (
+            {lines.map((line, idx) => (
               <Text key={'line-' + String(idx)} style={styles.text}>{line}</Text>
             ))}
           </View>
