@@ -1,8 +1,5 @@
-import { createElement } from 'react'
 import { NextRequest, NextResponse } from 'next/server'
 import { renderToBuffer } from '@react-pdf/renderer'
-import type { DocumentProps } from '@react-pdf/renderer'
-import type { ReactElement } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { buildInvoicePDFData, InvoicePDF } from '@/lib/pdf/invoice-template'
 
@@ -74,9 +71,7 @@ export async function GET(
       patientName: pdfData.patientName,
       hasStamp: Boolean(pdfData.stampUrl),
     })
-    const pdfBuffer = await renderToBuffer(
-      createElement(InvoicePDF, { data: pdfData }) as ReactElement<DocumentProps>
-    )
+    const pdfBuffer = await renderToBuffer(InvoicePDF({ data: pdfData }))
 
     // Return PDF - convert Buffer to Uint8Array for NextResponse
     return new NextResponse(new Uint8Array(pdfBuffer), {
