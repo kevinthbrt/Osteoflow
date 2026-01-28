@@ -74,7 +74,7 @@ export async function GET(
     const pdfBuffer = await generateInvoicePdf(pdfData)
 
     // Return PDF - convert Buffer to Uint8Array for NextResponse
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="${invoice.invoice_number}.pdf"`,
