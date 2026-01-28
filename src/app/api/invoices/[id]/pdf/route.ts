@@ -109,10 +109,16 @@ export async function GET(
       paymentDate: payment ? formatDateForPDF(safeStr(payment.payment_date)) : formatDateForPDF(safeStr(invoice.issued_at)),
     }
 
+    // Log data for debugging
+    console.log('PDF Data:', JSON.stringify(pdfData, null, 2))
+
     // Generate PDF using pdf().toBuffer()
     const pdfDoc = createInvoicePDF(pdfData)
+    console.log('PDF Doc created')
     const pdfInstance = pdf(pdfDoc)
+    console.log('PDF Instance created')
     const pdfStream = await pdfInstance.toBuffer()
+    console.log('PDF Stream created')
 
     // Convert stream to buffer
     const chunks: Uint8Array[] = []
