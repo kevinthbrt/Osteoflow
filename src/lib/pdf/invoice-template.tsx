@@ -19,7 +19,7 @@ interface InvoicePDFProps {
   payments: Payment[]
 }
 
-interface InvoicePDFData {
+export interface InvoicePDFData {
   practitionerName: string
   practitionerSpecialty: string
   practitionerAddress: string
