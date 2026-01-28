@@ -39,234 +39,374 @@ export interface InvoicePDFData {
   stampUrl: string
 }
 
-const primaryColor = '#10B981'
+// Palette de couleurs moderne et professionnelle
+const colors = {
+  primary: '#0F766E', // Teal profond
+  primaryLight: '#14B8A6', // Teal clair
+  primaryBg: '#F0FDFA', // Fond teal très léger
+  dark: '#0F172A', // Slate 900
+  text: '#334155', // Slate 700
+  textLight: '#64748B', // Slate 500
+  textMuted: '#94A3B8', // Slate 400
+  border: '#E2E8F0', // Slate 200
+  borderLight: '#F1F5F9', // Slate 100
+  white: '#FFFFFF',
+  success: '#059669', // Emerald 600
+}
 
 const styles = StyleSheet.create({
   page: {
-    padding: 40,
+    padding: 50,
     fontSize: 10,
     fontFamily: 'Helvetica',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
+  },
+  // En-tête avec bande décorative
+  headerBand: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 8,
+    backgroundColor: colors.primary,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 30,
+    marginBottom: 40,
+    marginTop: 10,
   },
+  // Section praticien
   practitionerSection: {
-    width: '50%',
+    width: '55%',
   },
   practitionerName: {
-    fontSize: 12,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 2,
+    color: colors.dark,
+    marginBottom: 4,
+    letterSpacing: 0.5,
   },
   practitionerSpecialty: {
-    fontSize: 10,
-    color: '#6B7280',
-    marginBottom: 6,
+    fontSize: 11,
+    color: colors.primary,
+    marginBottom: 12,
+    fontWeight: 'bold',
+  },
+  practitionerInfo: {
+    marginTop: 8,
   },
   infoText: {
     fontSize: 9,
-    color: '#6B7280',
-    marginBottom: 2,
+    color: colors.textLight,
+    marginBottom: 3,
+    lineHeight: 1.4,
   },
-  patientSection: {
-    width: '45%',
+  infoLabel: {
+    fontSize: 8,
+    color: colors.textMuted,
+    marginBottom: 1,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  // Section titre facture
+  invoiceTitleSection: {
+    width: '40%',
     alignItems: 'flex-end',
   },
-  patientBox: {
-    backgroundColor: primaryColor,
-    padding: 12,
-    borderRadius: 4,
-  },
-  patientName: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  patientEmail: {
-    fontSize: 9,
-    color: '#FFFFFF',
-  },
-  metaSection: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginBottom: 20,
-  },
-  metaBox: {
-    backgroundColor: primaryColor,
-    paddingLeft: 12,
-    paddingRight: 12,
-    paddingTop: 6,
-    paddingBottom: 6,
-    borderRadius: 4,
-  },
-  metaText: {
-    fontSize: 9,
-    color: '#FFFFFF',
-  },
   invoiceTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
+  invoiceNumberContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
   },
-  invoiceLabel: {
-    fontSize: 14,
-    color: '#1F2937',
-    marginRight: 10,
+  invoiceNumberLabel: {
+    fontSize: 9,
+    color: colors.textMuted,
+    marginRight: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  invoiceNumberBox: {
-    backgroundColor: primaryColor,
-    paddingLeft: 12,
-    paddingRight: 12,
-    paddingTop: 6,
-    paddingBottom: 6,
-    borderRadius: 4,
-  },
-  invoiceNumberText: {
+  invoiceNumber: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: colors.dark,
   },
+  invoiceDate: {
+    fontSize: 10,
+    color: colors.textLight,
+    marginTop: 6,
+  },
+  // Section patient - style carte moderne
+  patientSection: {
+    backgroundColor: colors.primaryBg,
+    borderRadius: 8,
+    padding: 20,
+    marginBottom: 30,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  patientHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  patientLabel: {
+    fontSize: 8,
+    color: colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 6,
+    fontWeight: 'bold',
+  },
+  patientName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.dark,
+    marginBottom: 4,
+  },
+  patientEmail: {
+    fontSize: 10,
+    color: colors.textLight,
+  },
+  locationBadge: {
+    backgroundColor: colors.white,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  locationText: {
+    fontSize: 9,
+    color: colors.text,
+  },
+  // Table moderne
   table: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   tableHeader: {
     flexDirection: 'row',
-    borderBottomWidth: 2,
-    borderBottomColor: '#E5E7EB',
-    paddingBottom: 8,
-    marginBottom: 8,
+    backgroundColor: colors.dark,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    marginBottom: 2,
   },
   tableHeaderDesc: {
-    width: '70%',
+    width: '60%',
     fontSize: 9,
     fontWeight: 'bold',
-    color: '#6B7280',
+    color: colors.white,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  tableHeaderQty: {
+    width: '15%',
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: colors.white,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    textAlign: 'center',
   },
   tableHeaderAmount: {
-    width: '30%',
+    width: '25%',
     fontSize: 9,
     fontWeight: 'bold',
-    color: '#6B7280',
+    color: colors.white,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     textAlign: 'right',
   },
   tableRow: {
     flexDirection: 'row',
-    paddingTop: 12,
-    paddingBottom: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: colors.borderLight,
+    backgroundColor: colors.white,
   },
   tableDesc: {
-    width: '70%',
+    width: '60%',
+  },
+  tableQty: {
+    width: '15%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tableAmount: {
-    width: '30%',
+    width: '25%',
+    justifyContent: 'center',
     alignItems: 'flex-end',
   },
-  itemText: {
+  itemTitle: {
     fontSize: 11,
-    color: '#1F2937',
+    color: colors.dark,
+    fontWeight: 'bold',
+    marginBottom: 3,
   },
-  amountBox: {
-    backgroundColor: primaryColor,
-    paddingLeft: 10,
-    paddingRight: 10,
-    paddingTop: 4,
-    paddingBottom: 4,
-    borderRadius: 4,
+  itemSubtitle: {
+    fontSize: 9,
+    color: colors.textLight,
+  },
+  qtyText: {
+    fontSize: 10,
+    color: colors.text,
   },
   amountText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  totalSection: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 30,
-  },
-  totalLabel: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#1F2937',
-    marginRight: 15,
+    color: colors.dark,
   },
-  totalBox: {
-    backgroundColor: primaryColor,
-    paddingLeft: 15,
-    paddingRight: 15,
-    paddingTop: 8,
-    paddingBottom: 8,
-    borderRadius: 4,
-  },
-  totalText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  paymentSection: {
-    marginBottom: 30,
-  },
-  paymentRow: {
+  // Section totaux moderne
+  totalsSection: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 30,
+  },
+  totalsBox: {
+    width: 220,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  totalLabel: {
+    fontSize: 10,
+    color: colors.textLight,
+  },
+  totalValue: {
+    fontSize: 10,
+    color: colors.text,
+  },
+  grandTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: colors.primary,
+    borderRadius: 6,
+    marginTop: 4,
+  },
+  grandTotalLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: colors.white,
+  },
+  grandTotalValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.white,
+  },
+  // Section paiement moderne
+  paymentSection: {
+    backgroundColor: colors.borderLight,
+    borderRadius: 8,
+    padding: 20,
+    marginBottom: 30,
+  },
+  paymentTitle: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: colors.dark,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  paymentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  paymentItem: {
+    width: '50%',
+    marginBottom: 10,
   },
   paymentLabel: {
-    fontSize: 10,
-    color: '#6B7280',
-    marginRight: 10,
+    fontSize: 8,
+    color: colors.textMuted,
+    marginBottom: 3,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   paymentValue: {
     fontSize: 10,
-    color: '#1F2937',
-    width: 100,
-    textAlign: 'right',
+    color: colors.dark,
+    fontWeight: 'bold',
   },
   paymentBadge: {
-    backgroundColor: primaryColor,
-    paddingLeft: 8,
-    paddingRight: 8,
-    paddingTop: 3,
-    paddingBottom: 3,
-    borderRadius: 4,
+    backgroundColor: colors.success,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
   },
   paymentBadgeText: {
     fontSize: 9,
-    color: '#FFFFFF',
+    color: colors.white,
+    fontWeight: 'bold',
   },
+  // Section cachet/signature
   stampSection: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginTop: 20,
-    marginBottom: 30,
+    marginBottom: 40,
+  },
+  stampContainer: {
+    alignItems: 'center',
+  },
+  stampLabel: {
+    fontSize: 8,
+    color: colors.textMuted,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   stampImage: {
-    width: 150,
-    height: 80,
+    width: 140,
+    height: 70,
   },
+  // Footer moderne
   footer: {
     position: 'absolute',
     bottom: 30,
-    left: 40,
-    right: 40,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingTop: 10,
+    left: 50,
+    right: 50,
+  },
+  footerDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginBottom: 12,
+  },
+  footerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  footerLeft: {
+    width: '70%',
+  },
+  footerRight: {
+    width: '25%',
+    alignItems: 'flex-end',
   },
   footerText: {
     fontSize: 7,
-    color: '#9CA3AF',
-    textAlign: 'center',
+    color: colors.textMuted,
     marginBottom: 2,
+    lineHeight: 1.4,
+  },
+  footerBrand: {
+    fontSize: 8,
+    color: colors.primary,
+    fontWeight: 'bold',
   },
 })
 
@@ -403,28 +543,53 @@ export function InvoicePDF({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
+        {/* Bande decorative en haut */}
+        <View style={styles.headerBand} />
+
+        {/* En-tete: Praticien + Titre facture */}
         <View style={styles.header}>
           <View style={styles.practitionerSection}>
             <Text style={styles.practitionerName}>{toText(safeData.practitionerName)}</Text>
             {safeData.practitionerSpecialty ? (
               <Text style={styles.practitionerSpecialty}>{toText(safeData.practitionerSpecialty)}</Text>
             ) : null}
-            {safeData.practitionerAddress ? (
-              <Text style={styles.infoText}>{toText(safeData.practitionerAddress)}</Text>
-            ) : null}
-            {safeData.practitionerCityLine ? (
-              <Text style={styles.infoText}>{toText(safeData.practitionerCityLine)}</Text>
-            ) : null}
-            {safeData.practitionerSiret ? (
-              <Text style={styles.infoText}>{'N SIREN: ' + toText(safeData.practitionerSiret)}</Text>
-            ) : null}
-            {safeData.practitionerRpps ? (
-              <Text style={styles.infoText}>{'N RPPS: ' + toText(safeData.practitionerRpps)}</Text>
-            ) : null}
+            <View style={styles.practitionerInfo}>
+              {safeData.practitionerAddress ? (
+                <Text style={styles.infoText}>{toText(safeData.practitionerAddress)}</Text>
+              ) : null}
+              {safeData.practitionerCityLine ? (
+                <Text style={styles.infoText}>{toText(safeData.practitionerCityLine)}</Text>
+              ) : null}
+              {safeData.practitionerSiret ? (
+                <>
+                  <Text style={styles.infoLabel}>SIREN</Text>
+                  <Text style={styles.infoText}>{toText(safeData.practitionerSiret)}</Text>
+                </>
+              ) : null}
+              {safeData.practitionerRpps ? (
+                <>
+                  <Text style={styles.infoLabel}>RPPS</Text>
+                  <Text style={styles.infoText}>{toText(safeData.practitionerRpps)}</Text>
+                </>
+              ) : null}
+            </View>
           </View>
 
-          <View style={styles.patientSection}>
-            <View style={styles.patientBox}>
+          <View style={styles.invoiceTitleSection}>
+            <Text style={styles.invoiceTitle}>RECU</Text>
+            <View style={styles.invoiceNumberContainer}>
+              <Text style={styles.invoiceNumberLabel}>N</Text>
+              <Text style={styles.invoiceNumber}>{toText(safeData.invoiceNumber)}</Text>
+            </View>
+            <Text style={styles.invoiceDate}>{toText(safeData.locationLine)}</Text>
+          </View>
+        </View>
+
+        {/* Section Patient */}
+        <View style={styles.patientSection}>
+          <View style={styles.patientHeader}>
+            <View>
+              <Text style={styles.patientLabel}>Adresse au patient</Text>
               <Text style={styles.patientName}>{toText(safeData.patientName)}</Text>
               {safeData.patientEmail ? (
                 <Text style={styles.patientEmail}>{toText(safeData.patientEmail)}</Text>
@@ -433,76 +598,94 @@ export function InvoicePDF({
           </View>
         </View>
 
-        <View style={styles.metaSection}>
-          <View style={styles.metaBox}>
-            <Text style={styles.metaText}>{toText(safeData.locationLine)}</Text>
-          </View>
-        </View>
-
-        <View style={styles.invoiceTitle}>
-          <Text style={styles.invoiceLabel}>Recu d honoraires n</Text>
-          <View style={styles.invoiceNumberBox}>
-            <Text style={styles.invoiceNumberText}>{toText(safeData.invoiceNumber)}</Text>
-          </View>
-        </View>
-
+        {/* Table des prestations */}
         <View style={styles.table}>
           <View style={styles.tableHeader}>
-            <Text style={styles.tableHeaderDesc}>DESCRIPTION</Text>
-            <Text style={styles.tableHeaderAmount}>MONTANT</Text>
+            <Text style={styles.tableHeaderDesc}>Description</Text>
+            <Text style={styles.tableHeaderQty}>Qte</Text>
+            <Text style={styles.tableHeaderAmount}>Montant</Text>
           </View>
 
           <View style={styles.tableRow}>
             <View style={styles.tableDesc}>
-              <Text style={styles.itemText}>{'Type de séance - ' + toText(safeData.sessionTypeLabel)}</Text>
+              <Text style={styles.itemTitle}>{toText(safeData.sessionTypeLabel)}</Text>
+              <Text style={styles.itemSubtitle}>Consultation osteopathique</Text>
+            </View>
+            <View style={styles.tableQty}>
+              <Text style={styles.qtyText}>1</Text>
             </View>
             <View style={styles.tableAmount}>
-              <View style={styles.amountBox}>
-                <Text style={styles.amountText}>{toText(safeData.amount)}</Text>
+              <Text style={styles.amountText}>{toText(safeData.amount)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Section Totaux */}
+        <View style={styles.totalsSection}>
+          <View style={styles.totalsBox}>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Sous-total HT</Text>
+              <Text style={styles.totalValue}>{toText(safeData.amount)}</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>TVA (0%)</Text>
+              <Text style={styles.totalValue}>0.00 EUR</Text>
+            </View>
+            <View style={styles.grandTotalRow}>
+              <Text style={styles.grandTotalLabel}>Total TTC</Text>
+              <Text style={styles.grandTotalValue}>{toText(safeData.amount)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Section Paiement */}
+        <View style={styles.paymentSection}>
+          <Text style={styles.paymentTitle}>Informations de paiement</Text>
+          <View style={styles.paymentGrid}>
+            <View style={styles.paymentItem}>
+              <Text style={styles.paymentLabel}>Mode de reglement</Text>
+              <View style={styles.paymentBadge}>
+                <Text style={styles.paymentBadgeText}>{toText(safeData.paymentMethod)}</Text>
               </View>
             </View>
-          </View>
-        </View>
-
-        <View style={styles.totalSection}>
-          <Text style={styles.totalLabel}>Somme a regler</Text>
-          <View style={styles.totalBox}>
-            <Text style={styles.totalText}>{toText(safeData.amount)}</Text>
-          </View>
-        </View>
-
-        <View style={styles.paymentSection}>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Reglement</Text>
-            <View style={styles.paymentBadge}>
-              <Text style={styles.paymentBadgeText}>{toText(safeData.paymentMethod)}</Text>
+            <View style={styles.paymentItem}>
+              <Text style={styles.paymentLabel}>Type</Text>
+              <Text style={styles.paymentValue}>{toText(safeData.paymentType)}</Text>
+            </View>
+            <View style={styles.paymentItem}>
+              <Text style={styles.paymentLabel}>Date du reglement</Text>
+              <Text style={styles.paymentValue}>{toText(safeData.paymentDate)}</Text>
+            </View>
+            <View style={styles.paymentItem}>
+              <Text style={styles.paymentLabel}>Date de facturation</Text>
+              <Text style={styles.paymentValue}>{toText(safeData.invoiceDate)}</Text>
             </View>
           </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Type de reglement</Text>
-            <Text style={styles.paymentValue}>{toText(safeData.paymentType)}</Text>
-          </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Date du reglement</Text>
-            <Text style={styles.paymentValue}>{toText(safeData.paymentDate)}</Text>
-          </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Date de facturation</Text>
-            <Text style={styles.paymentValue}>{toText(safeData.invoiceDate)}</Text>
-          </View>
         </View>
 
+        {/* Cachet / Signature */}
         {safeData.stampUrl ? (
           <View style={styles.stampSection}>
-            <Image src={toText(safeData.stampUrl)} style={styles.stampImage} />
+            <View style={styles.stampContainer}>
+              <Text style={styles.stampLabel}>Cachet et signature</Text>
+              <Image src={toText(safeData.stampUrl)} style={styles.stampImage} />
+            </View>
           </View>
         ) : null}
 
+        {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>TVA non applicable selon article 261, 4-1 du CGI</Text>
-          <Text style={styles.footerText}>Absence d escompte pour paiement anticipe</Text>
-          <Text style={styles.footerText}>En cas de retard, penalites suivant le taux minimum legal en vigueur</Text>
-          <Text style={styles.footerText}>Indemnite forfaitaire pour frais de recouvrement: 40 euros</Text>
+          <View style={styles.footerDivider} />
+          <View style={styles.footerContent}>
+            <View style={styles.footerLeft}>
+              <Text style={styles.footerText}>TVA non applicable selon article 261, 4-1 du CGI</Text>
+              <Text style={styles.footerText}>Absence d escompte pour paiement anticipe - En cas de retard, penalites suivant le taux minimum legal en vigueur</Text>
+              <Text style={styles.footerText}>Indemnite forfaitaire pour frais de recouvrement: 40 euros</Text>
+            </View>
+            <View style={styles.footerRight}>
+              <Text style={styles.footerBrand}>Osteoflow</Text>
+            </View>
+          </View>
         </View>
       </Page>
     </Document>
