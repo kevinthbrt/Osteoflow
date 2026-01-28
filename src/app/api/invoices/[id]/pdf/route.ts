@@ -35,7 +35,8 @@ export async function GET(
         *,
         consultation:consultations (
           *,
-          patient:patients (*)
+          patient:patients (*),
+          session_type:session_types (*)
         ),
         payments (*)
       `)

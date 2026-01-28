@@ -50,7 +50,8 @@ export async function POST(request: NextRequest) {
         *,
         consultation:consultations (
           *,
-          patient:patients (*)
+          patient:patients (*),
+          session_type:session_types (*)
         ),
         payments (*)
       `)

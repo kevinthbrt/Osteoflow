@@ -6,6 +6,8 @@ export async function generateInvoicePdf(data: InvoicePDFData): Promise<Uint8Arr
   const doc = new PDFDocument({ size: 'A4', margin: 40 })
   const stream = new PassThrough()
   const chunks: Buffer[] = []
+  const pageWidth = 595.28
+  const margin = 40
 
   stream.on('data', (chunk) => {
     chunks.push(Buffer.from(chunk))
@@ -28,41 +30,57 @@ export async function generateInvoicePdf(data: InvoicePDFData): Promise<Uint8Arr
 
   doc
     .fillColor('#10B981')
-    .roundedRect(330, 40, 220, 40, 4)
+    .roundedRect(pageWidth - margin - 220, 40, 220, 44, 4)
     .fill()
-  doc.fillColor('#FFFFFF').fontSize(10).font('Helvetica-Bold').text(data.patientName, 340, 50)
+  doc.fillColor('#FFFFFF').fontSize(10).font('Helvetica-Bold').text(data.patientName, pageWidth - margin - 210, 52)
   if (data.patientEmail) {
-    doc.font('Helvetica').fontSize(8).text(data.patientEmail, 340, 64)
+    doc.font('Helvetica').fontSize(8).text(data.patientEmail, pageWidth - margin - 210, 66)
   }
 
-  doc.fillColor('#10B981').fontSize(9).text(data.locationLine, 350, 92)
+  doc.fillColor('#10B981').fontSize(9).text(data.locationLine, pageWidth - margin - 200, 96)
 
-  doc.fillColor('#1F2937').fontSize(12).font('Helvetica').text('Recu d honoraires n', 40, 140)
-  doc.fillColor('#10B981').font('Helvetica-Bold').text(data.invoiceNumber, 200, 140)
+  doc.fillColor('#1F2937').fontSize(12).font('Helvetica').text('Recu d honoraires n', margin, 140)
+  doc.fillColor('#10B981').font('Helvetica-Bold').text(data.invoiceNumber, margin + 160, 140)
 
-  doc.fillColor('#6B7280').fontSize(9).font('Helvetica-Bold').text('DESCRIPTION', 40, 180)
-  doc.text('MONTANT', 470, 180)
+  doc.fillColor('#6B7280').fontSize(9).font('Helvetica-Bold').text('DESCRIPTION', margin, 180)
+  doc.text('MONTANT', pageWidth - margin - 80, 180)
 
-  doc.fillColor('#1F2937').fontSize(10).font('Helvetica').text(`Seance du jour - ${data.reason}`, 40, 200)
-  doc.fillColor('#10B981').font('Helvetica-Bold').text(data.amount, 470, 200)
+  doc
+    .fillColor('#1F2937')
+    .fontSize(10)
+    .font('Helvetica')
+    .text(`Type de séance - ${data.sessionTypeLabel}`, margin, 200)
+  doc.fillColor('#10B981').font('Helvetica-Bold').text(data.amount, pageWidth - margin - 80, 200)
 
-  doc.fillColor('#1F2937').fontSize(11).font('Helvetica-Bold').text('Somme a regler', 330, 250)
-  doc.fillColor('#10B981').text(data.amount, 470, 250)
+  doc.fillColor('#1F2937').fontSize(11).font('Helvetica-Bold').text('Somme a regler', pageWidth - margin - 200, 250)
+  doc.fillColor('#10B981').text(data.amount, pageWidth - margin - 80, 250)
 
-  doc.fillColor('#6B7280').fontSize(9).font('Helvetica').text('Reglement', 330, 290)
-  doc.fillColor('#10B981').font('Helvetica-Bold').text(data.paymentMethod, 470, 290)
-  doc.fillColor('#6B7280').font('Helvetica').text('Type de reglement', 330, 304)
-  doc.fillColor('#1F2937').font('Helvetica').text(data.paymentType, 470, 304)
-  doc.fillColor('#6B7280').font('Helvetica').text('Date du reglement', 330, 318)
-  doc.fillColor('#1F2937').font('Helvetica').text(data.paymentDate, 470, 318)
-  doc.fillColor('#6B7280').font('Helvetica').text('Date de facturation', 330, 332)
-  doc.fillColor('#1F2937').font('Helvetica').text(data.invoiceDate, 470, 332)
+  doc.fillColor('#6B7280').fontSize(9).font('Helvetica').text('Reglement', pageWidth - margin - 200, 290)
+  doc.fillColor('#10B981').font('Helvetica-Bold').text(data.paymentMethod, pageWidth - margin - 80, 290)
+  doc.fillColor('#6B7280').font('Helvetica').text('Type de reglement', pageWidth - margin - 200, 304)
+  doc.fillColor('#1F2937').font('Helvetica').text(data.paymentType, pageWidth - margin - 80, 304)
+  doc.fillColor('#6B7280').font('Helvetica').text('Date du reglement', pageWidth - margin - 200, 318)
+  doc.fillColor('#1F2937').font('Helvetica').text(data.paymentDate, pageWidth - margin - 80, 318)
+  doc.fillColor('#6B7280').font('Helvetica').text('Date de facturation', pageWidth - margin - 200, 332)
+  doc.fillColor('#1F2937').font('Helvetica').text(data.invoiceDate, pageWidth - margin - 80, 332)
+
+  if (data.stampUrl) {
+    try {
+      const response = await fetch(data.stampUrl)
+      if (response.ok) {
+        const buffer = Buffer.from(await response.arrayBuffer())
+        doc.image(buffer, pageWidth - margin - 140, 650, { width: 120 })
+      }
+    } catch (error) {
+      console.warn('Invoice PDF: unable to load stamp image.', error)
+    }
+  }
 
   doc.fillColor('#9CA3AF').fontSize(7).font('Helvetica')
-  doc.text('TVA non applicable selon article 261, 4-1 du CGI', 40, 780)
-  doc.text('Absence d escompte pour paiement anticipe', 40, 790)
-  doc.text('En cas de retard, penalites suivant le taux minimum legal en vigueur', 40, 800)
-  doc.text('Indemnite forfaitaire pour frais de recouvrement: 40 euros', 40, 810)
+  doc.text('TVA non applicable selon article 261, 4-1 du CGI', margin, 780)
+  doc.text('Absence d escompte pour paiement anticipe', margin, 790)
+  doc.text('En cas de retard, penalites suivant le taux minimum legal en vigueur', margin, 800)
+  doc.text('Indemnite forfaitaire pour frais de recouvrement: 40 euros', margin, 810)
 
   doc.end()
 

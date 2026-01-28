@@ -30,7 +30,7 @@ export interface InvoicePDFData {
   patientEmail: string
   locationLine: string
   invoiceNumber: string
-  reason: string
+  sessionTypeLabel: string
   amount: string
   paymentMethod: string
   paymentType: string
@@ -335,7 +335,9 @@ export function buildInvoicePDFData({
   const practFirstName = normalizeText(practitioner?.first_name)
   const patLastName = normalizeText(patient?.last_name).toUpperCase()
   const patFirstName = normalizeText(patient?.first_name)
-  const reason = normalizeText(consultation?.reason) || 'Consultation'
+  const sessionTypeLabel = normalizeText(
+    (consultation as Consultation & { session_type?: { name?: string | null } })?.session_type?.name
+  ) || 'Type de séance'
   const paymentMethod = payment ? normalizeText(payment.method) : ''
   const method = paymentMethodLabels[paymentMethod] || 'Comptant'
   const invoiceNumber = normalizeText(invoice?.invoice_number)
@@ -363,7 +365,7 @@ export function buildInvoicePDFData({
     patientEmail: normalizeText(patientEmail),
     locationLine: normalizeText(locationLine),
     invoiceNumber: normalizeText(invoiceNumber),
-    reason: normalizeText(reason),
+    sessionTypeLabel: normalizeText(sessionTypeLabel),
     amount: normalizeText(formatAmountPDF(invoice?.amount)),
     paymentMethod: normalizeText(method),
     paymentType: 'Comptant',
@@ -389,7 +391,7 @@ export function InvoicePDF({
     patientEmail: normalizeText(data.patientEmail),
     locationLine: normalizeText(data.locationLine),
     invoiceNumber: normalizeText(data.invoiceNumber),
-    reason: normalizeText(data.reason),
+    sessionTypeLabel: normalizeText(data.sessionTypeLabel),
     amount: normalizeText(data.amount),
     paymentMethod: normalizeText(data.paymentMethod),
     paymentType: normalizeText(data.paymentType),
@@ -452,7 +454,7 @@ export function InvoicePDF({
 
           <View style={styles.tableRow}>
             <View style={styles.tableDesc}>
-              <Text style={styles.itemText}>{'Seance du jour - ' + toText(safeData.reason)}</Text>
+              <Text style={styles.itemText}>{'Type de séance - ' + toText(safeData.sessionTypeLabel)}</Text>
             </View>
             <View style={styles.tableAmount}>
               <View style={styles.amountBox}>
