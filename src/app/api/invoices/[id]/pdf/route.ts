@@ -66,6 +66,14 @@ export async function GET(
       practitioner,
       payments: invoice.payments || [],
     })
+    console.debug('Invoice PDF data (api/pdf):', {
+      invoiceId: invoice.id,
+      invoiceNumber: pdfData.invoiceNumber,
+      amount: pdfData.amount,
+      practitionerName: pdfData.practitionerName,
+      patientName: pdfData.patientName,
+      hasStamp: Boolean(pdfData.stampUrl),
+    })
     const pdfBuffer = await renderToBuffer(
       createElement(InvoicePDF, { data: pdfData }) as ReactElement<DocumentProps>
     )
