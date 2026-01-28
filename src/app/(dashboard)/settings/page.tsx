@@ -11,6 +11,9 @@ import {
   type EmailTemplateFormData,
   emailTemplateTypeLabels,
   emailTemplateVariables,
+  emailSettingsSchema,
+  type EmailSettingsFormData,
+  emailProviderPresets,
 } from '@/lib/validations/settings'
 import { defaultEmailTemplates } from '@/lib/email/templates'
 import { Button } from '@/components/ui/button'
@@ -22,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, Upload, X, Image } from 'lucide-react'
+import { Loader2, Building, Mail, FileText, Download, Trash2, Upload, X, Image, Link, CheckCircle2, XCircle, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react'
 import type { Practitioner, EmailTemplate, SessionType } from '@/types/database'
 
 interface PatientListItem {
@@ -64,6 +67,31 @@ export default function SettingsPage() {
   const [newSessionTypeName, setNewSessionTypeName] = useState('')
   const [newSessionTypePrice, setNewSessionTypePrice] = useState('')
   const [isSavingSessionType, setIsSavingSessionType] = useState(false)
+
+  // Email connection states
+  const [selectedProvider, setSelectedProvider] = useState<string>('')
+  const [emailSettings, setEmailSettings] = useState<{
+    id?: string
+    smtp_host?: string
+    smtp_port?: number
+    smtp_secure?: boolean
+    smtp_user?: string
+    imap_host?: string
+    imap_port?: number
+    imap_secure?: boolean
+    imap_user?: string
+    from_name?: string
+    from_email?: string
+    sync_enabled?: boolean
+    is_verified?: boolean
+    last_sync_at?: string
+    last_error?: string
+    last_error_at?: string
+  } | null>(null)
+  const [isSavingEmailSettings, setIsSavingEmailSettings] = useState(false)
+  const [isDeletingEmailSettings, setIsDeletingEmailSettings] = useState(false)
+  const [showEmailPassword, setShowEmailPassword] = useState(false)
+
   const { toast } = useToast()
   const supabase = createClient()
 
@@ -94,6 +122,24 @@ export default function SettingsPage() {
   })
 
   const templateBody = watchTemplate('body')
+
+  // Email settings form
+  const {
+    register: registerEmailSettings,
+    handleSubmit: handleSubmitEmailSettings,
+    setValue: setEmailSettingsValue,
+    reset: resetEmailSettings,
+    formState: { errors: emailSettingsErrors },
+  } = useForm<EmailSettingsFormData>({
+    resolver: zodResolver(emailSettingsSchema),
+    defaultValues: {
+      smtp_port: 587,
+      smtp_secure: false,
+      imap_port: 993,
+      imap_secure: true,
+      sync_enabled: true,
+    },
+  })
 
   // Fetch data
   useEffect(() => {
@@ -161,6 +207,31 @@ export default function SettingsPage() {
           } else if (sessionTypesData) {
             setSessionTypes(sessionTypesData)
           }
+
+          // Fetch email settings
+          try {
+            const response = await fetch('/api/emails/settings')
+            if (response.ok) {
+              const { settings } = await response.json()
+              if (settings) {
+                setEmailSettings(settings)
+                // Pre-fill form with existing settings
+                setEmailSettingsValue('smtp_host', settings.smtp_host || '')
+                setEmailSettingsValue('smtp_port', settings.smtp_port || 587)
+                setEmailSettingsValue('smtp_secure', settings.smtp_secure || false)
+                setEmailSettingsValue('smtp_user', settings.smtp_user || '')
+                setEmailSettingsValue('imap_host', settings.imap_host || '')
+                setEmailSettingsValue('imap_port', settings.imap_port || 993)
+                setEmailSettingsValue('imap_secure', settings.imap_secure || true)
+                setEmailSettingsValue('imap_user', settings.imap_user || '')
+                setEmailSettingsValue('from_name', settings.from_name || '')
+                setEmailSettingsValue('from_email', settings.from_email || '')
+                setEmailSettingsValue('sync_enabled', settings.sync_enabled ?? true)
+              }
+            }
+          } catch (emailError) {
+            console.error('Error fetching email settings:', emailError)
+          }
         }
       } catch (error) {
         console.error('Error fetching settings:', error)
@@ -175,7 +246,7 @@ export default function SettingsPage() {
     }
 
     fetchData()
-  }, [supabase, setSettingsValue, toast])
+  }, [supabase, setSettingsValue, setEmailSettingsValue, toast])
 
   // Load template content when type changes
   useEffect(() => {
@@ -549,6 +620,88 @@ export default function SettingsPage() {
     }
   }
 
+  // Handle provider selection
+  const handleProviderChange = (providerId: string) => {
+    setSelectedProvider(providerId)
+    if (providerId && emailProviderPresets[providerId as keyof typeof emailProviderPresets]) {
+      const preset = emailProviderPresets[providerId as keyof typeof emailProviderPresets]
+      setEmailSettingsValue('smtp_host', preset.smtp_host)
+      setEmailSettingsValue('smtp_port', preset.smtp_port)
+      setEmailSettingsValue('smtp_secure', preset.smtp_secure)
+      setEmailSettingsValue('imap_host', preset.imap_host)
+      setEmailSettingsValue('imap_port', preset.imap_port)
+      setEmailSettingsValue('imap_secure', preset.imap_secure)
+    }
+  }
+
+  // Save email settings
+  const onSaveEmailSettings = async (data: EmailSettingsFormData) => {
+    setIsSavingEmailSettings(true)
+
+    try {
+      const response = await fetch('/api/emails/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.details || result.error || 'Erreur de connexion')
+      }
+
+      setEmailSettings(result.settings)
+      toast({
+        variant: 'success',
+        title: 'Connexion email configurée',
+        description: 'Vos paramètres email ont été enregistrés avec succès',
+      })
+    } catch (error) {
+      console.error('Error saving email settings:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Erreur de connexion',
+        description: error instanceof Error ? error.message : 'Impossible de configurer la connexion email',
+      })
+    } finally {
+      setIsSavingEmailSettings(false)
+    }
+  }
+
+  // Delete email settings
+  const handleDeleteEmailSettings = async () => {
+    setIsDeletingEmailSettings(true)
+
+    try {
+      const response = await fetch('/api/emails/settings', {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la suppression')
+      }
+
+      setEmailSettings(null)
+      setSelectedProvider('')
+      resetEmailSettings()
+
+      toast({
+        title: 'Configuration supprimée',
+        description: 'Votre connexion email a été supprimée',
+      })
+    } catch (error) {
+      console.error('Error deleting email settings:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de supprimer la configuration',
+      })
+    } finally {
+      setIsDeletingEmailSettings(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -567,7 +720,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="profile">
             <Building className="mr-2 h-4 w-4" />
             Cabinet
@@ -576,9 +729,13 @@ export default function SettingsPage() {
             <FileText className="mr-2 h-4 w-4" />
             Facturation
           </TabsTrigger>
+          <TabsTrigger value="email-connection">
+            <Link className="mr-2 h-4 w-4" />
+            Connexion Email
+          </TabsTrigger>
           <TabsTrigger value="emails">
             <Mail className="mr-2 h-4 w-4" />
-            Emails
+            Templates
           </TabsTrigger>
           <TabsTrigger value="gdpr">
             <Download className="mr-2 h-4 w-4" />
@@ -926,6 +1083,295 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           </form>
+        </TabsContent>
+
+        {/* Email Connection Tab */}
+        <TabsContent value="email-connection">
+          <div className="space-y-6">
+            {/* Status Card */}
+            {emailSettings?.is_verified && (
+              <Card className="border-green-200 bg-green-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle2 className="h-8 w-8 text-green-600" />
+                      <div>
+                        <p className="font-medium text-green-800">Email connecté</p>
+                        <p className="text-sm text-green-700">{emailSettings.from_email}</p>
+                        {emailSettings.last_sync_at && (
+                          <p className="text-xs text-green-600">
+                            Dernière synchronisation: {new Date(emailSettings.last_sync_at).toLocaleString('fr-FR')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDeleteEmailSettings}
+                      disabled={isDeletingEmailSettings}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      {isDeletingEmailSettings ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                      <span className="ml-2">Déconnecter</span>
+                    </Button>
+                  </div>
+                  {emailSettings.last_error && (
+                    <div className="mt-4 p-3 bg-red-100 rounded-lg flex items-start gap-2">
+                      <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-red-800">Erreur de synchronisation</p>
+                        <p className="text-xs text-red-700">{emailSettings.last_error}</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Connecter votre messagerie</CardTitle>
+                <CardDescription>
+                  Envoyez et recevez des emails directement depuis Osteoflow via votre adresse email personnelle
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Provider Selection */}
+                <div className="space-y-3">
+                  <Label>1. Choisissez votre fournisseur email</Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                    {Object.entries(emailProviderPresets).map(([key, preset]) => (
+                      <Button
+                        key={key}
+                        type="button"
+                        variant={selectedProvider === key ? 'default' : 'outline'}
+                        className="h-auto py-3"
+                        onClick={() => handleProviderChange(key)}
+                      >
+                        {preset.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Instructions */}
+                {selectedProvider && emailProviderPresets[selectedProvider as keyof typeof emailProviderPresets] && (
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <div className="space-y-2">
+                        <p className="font-medium text-blue-900">
+                          2. Créez un mot de passe d&apos;application
+                        </p>
+                        <ol className="text-sm text-blue-800 space-y-1">
+                          {emailProviderPresets[selectedProvider as keyof typeof emailProviderPresets].instructions.map((instruction, i) => (
+                            <li key={i}>{instruction}</li>
+                          ))}
+                        </ol>
+                        <a
+                          href={emailProviderPresets[selectedProvider as keyof typeof emailProviderPresets].helpUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          Voir le guide complet
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Configuration Form */}
+                <form onSubmit={handleSubmitEmailSettings(onSaveEmailSettings)} className="space-y-6">
+                  <div className="space-y-3">
+                    <Label>3. Entrez vos identifiants</Label>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="from_email">Adresse email *</Label>
+                        <Input
+                          id="from_email"
+                          type="email"
+                          placeholder="votre.email@gmail.com"
+                          {...registerEmailSettings('from_email')}
+                        />
+                        {emailSettingsErrors.from_email && (
+                          <p className="text-sm text-destructive">{emailSettingsErrors.from_email.message}</p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="from_name">Nom d&apos;expéditeur</Label>
+                        <Input
+                          id="from_name"
+                          placeholder="Dr. Dupont - Cabinet Ostéo"
+                          {...registerEmailSettings('from_name')}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="smtp_user">Identifiant (email) *</Label>
+                        <Input
+                          id="smtp_user"
+                          placeholder="votre.email@gmail.com"
+                          {...registerEmailSettings('smtp_user')}
+                        />
+                        {emailSettingsErrors.smtp_user && (
+                          <p className="text-sm text-destructive">{emailSettingsErrors.smtp_user.message}</p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="smtp_password">Mot de passe d&apos;application *</Label>
+                        <div className="relative">
+                          <Input
+                            id="smtp_password"
+                            type={showEmailPassword ? 'text' : 'password'}
+                            placeholder="xxxx xxxx xxxx xxxx"
+                            {...registerEmailSettings('smtp_password')}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 h-7 px-2"
+                            onClick={() => setShowEmailPassword(!showEmailPassword)}
+                          >
+                            {showEmailPassword ? 'Masquer' : 'Afficher'}
+                          </Button>
+                        </div>
+                        {emailSettingsErrors.smtp_password && (
+                          <p className="text-sm text-destructive">{emailSettingsErrors.smtp_password.message}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Hidden fields for IMAP (same credentials) */}
+                    <input type="hidden" {...registerEmailSettings('imap_user')} value={registerEmailSettings('smtp_user').name} />
+                    <input type="hidden" {...registerEmailSettings('imap_password')} value={registerEmailSettings('smtp_password').name} />
+                  </div>
+
+                  {/* Advanced settings (collapsed by default) */}
+                  <details className="group">
+                    <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
+                      Paramètres avancés (SMTP/IMAP)
+                    </summary>
+                    <div className="mt-4 space-y-4 pl-4 border-l-2">
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="smtp_host">Serveur SMTP</Label>
+                          <Input id="smtp_host" {...registerEmailSettings('smtp_host')} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="smtp_port">Port SMTP</Label>
+                          <Input
+                            id="smtp_port"
+                            type="number"
+                            {...registerEmailSettings('smtp_port', { valueAsNumber: true })}
+                          />
+                        </div>
+                        <div className="flex items-end gap-2">
+                          <input
+                            type="checkbox"
+                            id="smtp_secure"
+                            {...registerEmailSettings('smtp_secure')}
+                            className="h-4 w-4"
+                          />
+                          <Label htmlFor="smtp_secure">SSL/TLS</Label>
+                        </div>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="imap_host">Serveur IMAP</Label>
+                          <Input id="imap_host" {...registerEmailSettings('imap_host')} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="imap_port">Port IMAP</Label>
+                          <Input
+                            id="imap_port"
+                            type="number"
+                            {...registerEmailSettings('imap_port', { valueAsNumber: true })}
+                          />
+                        </div>
+                        <div className="flex items-end gap-2">
+                          <input
+                            type="checkbox"
+                            id="imap_secure"
+                            {...registerEmailSettings('imap_secure')}
+                            className="h-4 w-4"
+                          />
+                          <Label htmlFor="imap_secure">SSL/TLS</Label>
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="sync_enabled"
+                      {...registerEmailSettings('sync_enabled')}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="sync_enabled">Activer la synchronisation des emails entrants</Label>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button type="submit" disabled={isSavingEmailSettings}>
+                      {isSavingEmailSettings && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {emailSettings?.is_verified ? 'Mettre à jour' : 'Tester et connecter'}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* Info Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Comment ça fonctionne ?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="text-center p-4">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                      <Mail className="h-6 w-6 text-primary" />
+                    </div>
+                    <h4 className="font-medium mb-1">Envoi</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Vos factures et messages partent depuis votre adresse email personnelle
+                    </p>
+                  </div>
+                  <div className="text-center p-4">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                      <RefreshCw className="h-6 w-6 text-primary" />
+                    </div>
+                    <h4 className="font-medium mb-1">Synchronisation</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Les réponses de vos patients apparaissent automatiquement dans Osteoflow
+                    </p>
+                  </div>
+                  <div className="text-center p-4">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                      <CheckCircle2 className="h-6 w-6 text-primary" />
+                    </div>
+                    <h4 className="font-medium mb-1">Sécurisé</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Mot de passe d&apos;application dédié, vos identifiants principaux restent protégés
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Emails Tab */}
