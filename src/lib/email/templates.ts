@@ -10,7 +10,7 @@ Merci de votre confiance.
 
 Cordialement,
 {{practitioner_name}}
-{{practice_name}}`,
+{{practitioner_specialty}}`,
   },
   follow_up_7d: {
     subject: 'Comment allez-vous ? - {{practice_name}}',
@@ -45,4 +45,64 @@ export function textToHtml(text: string): string {
     .split('\n')
     .map((line) => (line.trim() === '' ? '<br>' : `<p>${line}</p>`))
     .join('')
+}
+
+export function createInvoiceHtmlEmail({
+  bodyText,
+  practitionerName,
+  practiceName,
+  primaryColor = '#2563eb',
+  googleReviewUrl,
+}: {
+  bodyText: string
+  practitionerName: string
+  practiceName?: string | null
+  primaryColor?: string
+  googleReviewUrl?: string | null
+}): string {
+  const bodyHtml = textToHtml(bodyText)
+  const reviewSection = googleReviewUrl
+    ? `
+      <div style="margin-top: 24px; padding: 16px; border-radius: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0;">
+        <p style="margin: 0 0 12px 0; font-weight: 600; color: #0f172a;">Votre avis compte énormément</p>
+        <p style="margin: 0 0 16px 0; color: #475569;">
+          Quelques secondes suffisent pour partager votre expérience et aider d'autres patients.
+        </p>
+        <a href="${googleReviewUrl}" style="display: inline-block; padding: 10px 18px; background-color: ${primaryColor}; color: #ffffff; text-decoration: none; border-radius: 999px; font-weight: 600;">
+          Laisser un avis Google
+        </a>
+      </div>
+    `
+    : ''
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${practiceName || practitionerName}</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f1f5f9;">
+        <div style="max-width: 640px; margin: 0 auto; padding: 32px 16px;">
+          <div style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);">
+            <div style="padding: 24px 32px; background: linear-gradient(135deg, ${primaryColor} 0%, #0f172a 100%); color: #ffffff;">
+              <p style="margin: 0; font-size: 14px; opacity: 0.8;">Osteoflow</p>
+              <h1 style="margin: 8px 0 0; font-size: 22px;">Votre facture est disponible</h1>
+              <p style="margin: 8px 0 0; font-size: 15px; opacity: 0.9;">
+                ${practiceName || practitionerName}
+              </p>
+            </div>
+            <div style="padding: 32px;">
+              ${bodyHtml}
+              ${reviewSection}
+            </div>
+          </div>
+          <p style="text-align: center; margin-top: 16px; color: #94a3b8; font-size: 12px;">
+            Envoyé via Osteoflow
+          </p>
+        </div>
+      </body>
+    </html>
+  `
 }

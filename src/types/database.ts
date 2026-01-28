@@ -29,6 +29,7 @@ export interface Database {
           phone: string | null
           practice_name: string | null
           specialty: string | null
+          google_review_url: string | null
           address: string | null
           city: string | null
           postal_code: string | null
@@ -52,6 +53,7 @@ export interface Database {
           phone?: string | null
           practice_name?: string | null
           specialty?: string | null
+          google_review_url?: string | null
           address?: string | null
           city?: string | null
           postal_code?: string | null
@@ -75,6 +77,7 @@ export interface Database {
           phone?: string | null
           practice_name?: string | null
           specialty?: string | null
+          google_review_url?: string | null
           address?: string | null
           city?: string | null
           postal_code?: string | null

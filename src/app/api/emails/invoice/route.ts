@@ -5,11 +5,11 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { buildInvoicePDFData } from '@/lib/pdf/invoice-template'
 import {
   defaultEmailTemplates,
+  createInvoiceHtmlEmail,
   replaceTemplateVariables,
-  textToHtml,
 } from '@/lib/email/templates'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { sendEmail, createHtmlEmail } from '@/lib/email/smtp-service'
+import { sendEmail } from '@/lib/email/smtp-service'
 
 // Lazy initialization to avoid build-time errors
 const getResend = () => new Resend(process.env.RESEND_API_KEY)
@@ -99,12 +99,20 @@ export async function POST(request: NextRequest) {
       practice_name:
         practitioner.practice_name ||
         `${practitioner.first_name} ${practitioner.last_name}`,
+      practitioner_specialty: practitioner.specialty || 'Ostéopathe D.O',
+      google_review_url: practitioner.google_review_url || '',
     }
 
     // Replace variables in template
     const subject = replaceTemplateVariables(template.subject, variables)
     const bodyText = replaceTemplateVariables(template.body, variables)
-    const bodyHtml = textToHtml(bodyText)
+    const invoiceHtml = createInvoiceHtmlEmail({
+      bodyText,
+      practitionerName: variables.practitioner_name,
+      practiceName: practitioner.practice_name,
+      primaryColor: practitioner.primary_color,
+      googleReviewUrl: practitioner.google_review_url,
+    })
 
     // Generate PDF
     const pdfData = buildInvoicePDFData({
@@ -135,8 +143,6 @@ export async function POST(request: NextRequest) {
 
     if (emailSettings) {
       // Use practitioner's SMTP settings
-      const htmlEmail = createHtmlEmail(bodyText, practitioner)
-
       const result = await sendEmail(
         {
           smtp_host: emailSettings.smtp_host,
@@ -150,7 +156,7 @@ export async function POST(request: NextRequest) {
         {
           to: patient.email,
           subject,
-          html: htmlEmail,
+          html: invoiceHtml,
           attachments: [
             {
               filename: `${invoice.invoice_number}.pdf`,
@@ -174,19 +180,7 @@ export async function POST(request: NextRequest) {
         from: `${practitioner.practice_name || practitioner.first_name} <onboarding@resend.dev>`,
         to: patient.email,
         subject,
-        html: `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                p { margin: 0 0 10px; }
-              </style>
-            </head>
-            <body>${bodyHtml}</body>
-          </html>
-        `,
+        html: invoiceHtml,
         attachments: [
           {
             filename: `${invoice.invoice_number}.pdf`,
