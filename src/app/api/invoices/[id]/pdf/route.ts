@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { createClient } from '@/lib/supabase/server'
-import { InvoicePDF, InvoicePDFData } from '@/lib/pdf/invoice-template'
+import { createInvoicePDF, InvoicePDFData } from '@/lib/pdf/invoice-template'
 
 const paymentMethodLabels: Record<string, string> = {
   card: 'Carte bancaire',
@@ -115,7 +115,7 @@ export async function GET(
     }
 
     // Generate PDF
-    const pdfBuffer = await renderToBuffer(InvoicePDF(pdfData))
+    const pdfBuffer = await renderToBuffer(createInvoicePDF(pdfData))
 
     // Return PDF - convert Buffer to Uint8Array for NextResponse
     return new NextResponse(new Uint8Array(pdfBuffer), {
