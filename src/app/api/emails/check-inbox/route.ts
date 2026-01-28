@@ -115,43 +115,79 @@ export async function GET(request: Request) {
             .eq('email', email.from.email)
             .single()
 
-          if (!patient) {
-            // Email from unknown sender - skip (or could create a system to handle unknowns)
-            continue
-          }
-
-          // Find or create a conversation with this patient
+          // Find or create a conversation
           let conversationId: string
 
-          const { data: existingConversation } = await supabase
-            .from('conversations')
-            .select('id')
-            .eq('practitioner_id', settings.practitioner_id)
-            .eq('patient_id', patient.id)
-            .single()
-
-          if (existingConversation) {
-            conversationId = existingConversation.id
-          } else {
-            // Create new conversation
-            const { data: newConversation, error: convError } = await supabase
+          if (patient) {
+            // Patient found - find or create patient conversation
+            const { data: existingConversation } = await supabase
               .from('conversations')
-              .insert({
-                practitioner_id: settings.practitioner_id,
-                patient_id: patient.id,
-                subject: `Conversation avec ${patient.first_name} ${patient.last_name}`,
-                last_message_at: email.date.toISOString(),
-                unread_count: 1,
-              })
               .select('id')
+              .eq('practitioner_id', settings.practitioner_id)
+              .eq('patient_id', patient.id)
               .single()
 
-            if (convError || !newConversation) {
-              console.error('Error creating conversation:', convError)
-              continue
-            }
+            if (existingConversation) {
+              conversationId = existingConversation.id
+            } else {
+              // Create new patient conversation
+              const { data: newConversation, error: convError } = await supabase
+                .from('conversations')
+                .insert({
+                  practitioner_id: settings.practitioner_id,
+                  patient_id: patient.id,
+                  subject: `Conversation avec ${patient.first_name} ${patient.last_name}`,
+                  last_message_at: email.date.toISOString(),
+                  unread_count: 1,
+                })
+                .select('id')
+                .single()
 
-            conversationId = newConversation.id
+              if (convError || !newConversation) {
+                console.error('Error creating conversation:', convError)
+                continue
+              }
+
+              conversationId = newConversation.id
+            }
+          } else {
+            // Unknown sender - find or create external conversation
+            const { data: existingExtConv } = await supabase
+              .from('conversations')
+              .select('id')
+              .eq('practitioner_id', settings.practitioner_id)
+              .eq('external_email', email.from.email)
+              .is('patient_id', null)
+              .single()
+
+            if (existingExtConv) {
+              conversationId = existingExtConv.id
+            } else {
+              // Extract name from email (e.g., "John Doe <john@example.com>" -> "John Doe")
+              const senderName = email.from.name || email.from.email.split('@')[0]
+
+              // Create new external conversation
+              const { data: newExtConv, error: extConvError } = await supabase
+                .from('conversations')
+                .insert({
+                  practitioner_id: settings.practitioner_id,
+                  patient_id: null, // No linked patient
+                  external_email: email.from.email,
+                  external_name: senderName,
+                  subject: `Conversation avec ${senderName}`,
+                  last_message_at: email.date.toISOString(),
+                  unread_count: 1,
+                })
+                .select('id')
+                .single()
+
+              if (extConvError || !newExtConv) {
+                console.error('Error creating external conversation:', extConvError)
+                continue
+              }
+
+              conversationId = newExtConv.id
+            }
           }
 
           // Extract message content
