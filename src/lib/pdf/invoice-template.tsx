@@ -318,6 +318,8 @@ function normalizeText(value: unknown): string {
   return ''
 }
 
+const toText = (value: unknown): string => String(value ?? '')
+
 export function buildInvoicePDFData({
   invoice,
   consultation,
@@ -401,29 +403,29 @@ export function InvoicePDF({
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.practitionerSection}>
-            <Text style={styles.practitionerName}>{safeData.practitionerName}</Text>
+            <Text style={styles.practitionerName}>{toText(safeData.practitionerName)}</Text>
             {safeData.practitionerSpecialty ? (
-              <Text style={styles.practitionerSpecialty}>{safeData.practitionerSpecialty}</Text>
+              <Text style={styles.practitionerSpecialty}>{toText(safeData.practitionerSpecialty)}</Text>
             ) : null}
             {safeData.practitionerAddress ? (
-              <Text style={styles.infoText}>{safeData.practitionerAddress}</Text>
+              <Text style={styles.infoText}>{toText(safeData.practitionerAddress)}</Text>
             ) : null}
             {safeData.practitionerCityLine ? (
-              <Text style={styles.infoText}>{safeData.practitionerCityLine}</Text>
+              <Text style={styles.infoText}>{toText(safeData.practitionerCityLine)}</Text>
             ) : null}
             {safeData.practitionerSiret ? (
-              <Text style={styles.infoText}>{'N SIREN: ' + safeData.practitionerSiret}</Text>
+              <Text style={styles.infoText}>{'N SIREN: ' + toText(safeData.practitionerSiret)}</Text>
             ) : null}
             {safeData.practitionerRpps ? (
-              <Text style={styles.infoText}>{'N RPPS: ' + safeData.practitionerRpps}</Text>
+              <Text style={styles.infoText}>{'N RPPS: ' + toText(safeData.practitionerRpps)}</Text>
             ) : null}
           </View>
 
           <View style={styles.patientSection}>
             <View style={styles.patientBox}>
-              <Text style={styles.patientName}>{safeData.patientName}</Text>
+              <Text style={styles.patientName}>{toText(safeData.patientName)}</Text>
               {safeData.patientEmail ? (
-                <Text style={styles.patientEmail}>{safeData.patientEmail}</Text>
+                <Text style={styles.patientEmail}>{toText(safeData.patientEmail)}</Text>
               ) : null}
             </View>
           </View>
@@ -431,14 +433,14 @@ export function InvoicePDF({
 
         <View style={styles.metaSection}>
           <View style={styles.metaBox}>
-            <Text style={styles.metaText}>{safeData.locationLine}</Text>
+            <Text style={styles.metaText}>{toText(safeData.locationLine)}</Text>
           </View>
         </View>
 
         <View style={styles.invoiceTitle}>
           <Text style={styles.invoiceLabel}>Recu d honoraires n</Text>
           <View style={styles.invoiceNumberBox}>
-            <Text style={styles.invoiceNumberText}>{safeData.invoiceNumber}</Text>
+            <Text style={styles.invoiceNumberText}>{toText(safeData.invoiceNumber)}</Text>
           </View>
         </View>
 
@@ -450,11 +452,11 @@ export function InvoicePDF({
 
           <View style={styles.tableRow}>
             <View style={styles.tableDesc}>
-              <Text style={styles.itemText}>{'Seance du jour - ' + safeData.reason}</Text>
+              <Text style={styles.itemText}>{'Seance du jour - ' + toText(safeData.reason)}</Text>
             </View>
             <View style={styles.tableAmount}>
               <View style={styles.amountBox}>
-                <Text style={styles.amountText}>{safeData.amount}</Text>
+                <Text style={styles.amountText}>{toText(safeData.amount)}</Text>
               </View>
             </View>
           </View>
@@ -463,7 +465,7 @@ export function InvoicePDF({
         <View style={styles.totalSection}>
           <Text style={styles.totalLabel}>Somme a regler</Text>
           <View style={styles.totalBox}>
-            <Text style={styles.totalText}>{safeData.amount}</Text>
+            <Text style={styles.totalText}>{toText(safeData.amount)}</Text>
           </View>
         </View>
 
@@ -471,26 +473,26 @@ export function InvoicePDF({
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Reglement</Text>
             <View style={styles.paymentBadge}>
-              <Text style={styles.paymentBadgeText}>{safeData.paymentMethod}</Text>
+              <Text style={styles.paymentBadgeText}>{toText(safeData.paymentMethod)}</Text>
             </View>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Type de reglement</Text>
-            <Text style={styles.paymentValue}>{safeData.paymentType}</Text>
+            <Text style={styles.paymentValue}>{toText(safeData.paymentType)}</Text>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Date du reglement</Text>
-            <Text style={styles.paymentValue}>{safeData.paymentDate}</Text>
+            <Text style={styles.paymentValue}>{toText(safeData.paymentDate)}</Text>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Date de facturation</Text>
-            <Text style={styles.paymentValue}>{safeData.invoiceDate}</Text>
+            <Text style={styles.paymentValue}>{toText(safeData.invoiceDate)}</Text>
           </View>
         </View>
 
         {safeData.stampUrl ? (
           <View style={styles.stampSection}>
-            <Image src={safeData.stampUrl} style={styles.stampImage} />
+            <Image src={toText(safeData.stampUrl)} style={styles.stampImage} />
           </View>
         ) : null}
 
