@@ -77,7 +77,7 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
       return acc
     }, {} as Record<MedicalHistoryType, DraftMedicalHistoryEntry[]>)
 
-    return Object.entries(grouped)
+    return Object.entries(grouped) as [MedicalHistoryType, DraftMedicalHistoryEntry[]][]
   }, [draftEntries])
 
   const openHistoryDialog = (entry?: DraftMedicalHistoryEntry) => {
