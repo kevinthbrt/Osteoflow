@@ -1,19 +1,14 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
     },
   },
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '*.supabase.co',
-      },
-    ],
-  },
+  // Exclude native modules from webpack bundling (they're loaded by Node.js directly)
+  serverExternalPackages: ['better-sqlite3'],
 }
 
 export default nextConfig

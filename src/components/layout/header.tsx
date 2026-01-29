@@ -15,12 +15,17 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { LogOut, Settings, User, Bell, Search, HelpCircle } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
-import type { User as SupabaseUser } from '@supabase/supabase-js'
 import type { Practitioner } from '@/types/database'
 import { Input } from '@/components/ui/input'
 
+interface LocalUser {
+  id: string
+  email: string
+  user_metadata?: { first_name?: string; last_name?: string }
+}
+
 interface HeaderProps {
-  user: SupabaseUser
+  user: LocalUser
   practitioner: Practitioner | null
 }
 
@@ -81,28 +86,19 @@ export function Header({ user, practitioner }: HeaderProps) {
         console.error('Error fetching unread count:', error)
         setUnreadCount(0)
       } else {
-        const total = (data || []).reduce((sum, conv) => sum + (conv.unread_count || 0), 0)
+        const total = (data || []).reduce((sum: number, conv: any) => sum + (conv.unread_count || 0), 0)
         setUnreadCount(total)
       }
       setIsLoadingUnread(false)
     }
 
     fetchUnreadCount()
+    // Poll every 30 seconds (replaces Supabase real-time)
     const interval = setInterval(fetchUnreadCount, 30000)
-
-    const channel = supabase
-      .channel('conversations-unread')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'conversations' },
-        () => fetchUnreadCount()
-      )
-      .subscribe()
 
     return () => {
       isMounted = false
       clearInterval(interval)
-      supabase.removeChannel(channel)
     }
   }, [supabase])
 
@@ -214,7 +210,7 @@ export function Header({ user, practitioner }: HeaderProps) {
               className="rounded-lg py-2.5 text-destructive focus:text-destructive focus:bg-destructive/10"
             >
               <LogOut className="mr-3 h-4 w-4" />
-              <span>Déconnexion</span>
+              <span>Changer de praticien</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

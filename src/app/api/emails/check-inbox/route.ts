@@ -12,7 +12,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const secret = searchParams.get('secret')
 
-  if (secret !== process.env.CRON_SECRET) {
+  // Accept both env CRON_SECRET and local desktop cron secret
+  if (secret !== 'local-desktop-cron' && secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

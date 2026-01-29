@@ -1,62 +1,24 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+/**
+ * Server-side database client for Osteoflow desktop.
+ *
+ * Previously used @supabase/ssr to create a server client with cookie handling.
+ * Now returns a local SQLite-backed client with Supabase-compatible API.
+ *
+ * This is used by Server Components and API routes.
+ */
 
-type CookieOptions = {
-  name: string
-  value: string
-  options?: Record<string, unknown>
-}
-
-// Using 'any' for Database type to avoid strict typing issues with relational queries
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function createClient() {
-  const cookieStore = await cookies()
-
-  return createServerClient<any>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet: CookieOptions[]) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }: CookieOptions) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing user sessions.
-          }
-        },
-      },
-    }
-  )
-}
+import { createLocalClient } from '@/lib/database/query-builder'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function createServiceClient() {
-  const cookieStore = await cookies()
+export async function createClient(): Promise<any> {
+  return createLocalClient()
+}
 
-  return createServerClient<any>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet: CookieOptions[]) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }: CookieOptions) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {
-            // Ignore
-          }
-        },
-      },
-    }
-  )
+/**
+ * Service client with elevated privileges.
+ * In desktop mode, this is identical to createClient() since there's no RLS.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function createServiceClient(): Promise<any> {
+  return createLocalClient()
 }

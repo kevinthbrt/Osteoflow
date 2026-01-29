@@ -1,55 +1,66 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm } from 'react-hook-form'
 import { createClient } from '@/lib/supabase/client'
-import { loginSchema, type LoginFormData } from '@/lib/validations/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus, User } from 'lucide-react'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+
+interface PractitionerItem {
+  id: string
+  user_id: string
+  first_name: string
+  last_name: string
+  email: string
+  practice_name: string | null
+}
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
+  const [practitioners, setPractitioners] = useState<PractitionerItem[]>([])
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [email, setEmail] = useState('')
   const router = useRouter()
   const { toast } = useToast()
   const supabase = createClient()
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-  })
+  useEffect(() => {
+    // Load existing practitioners
+    async function load() {
+      const { data } = await supabase
+        .from('practitioners')
+        .select('id, user_id, first_name, last_name, email, practice_name')
+        .order('last_name')
+      if (data) {
+        setPractitioners(data)
+        if (data.length === 0) {
+          setShowCreateForm(true)
+        }
+      }
+    }
+    load()
+  }, [supabase])
 
-  const onSubmit = async (data: LoginFormData) => {
+  const handleSelectPractitioner = async (practitioner: PractitionerItem) => {
     setIsLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
+      // Sign in using the practitioner's email (password is ignored in desktop mode)
+      await supabase.auth.signInWithPassword({
+        email: practitioner.email,
+        password: 'local',
       })
-
-      if (error) {
-        toast({
-          variant: 'destructive',
-          title: 'Erreur de connexion',
-          description: error.message === 'Invalid login credentials'
-            ? 'Email ou mot de passe incorrect'
-            : error.message,
-        })
-        return
-      }
 
       toast({
         variant: 'success',
-        title: 'Connexion reussie',
-        description: 'Redirection en cours...',
+        title: 'Bienvenue',
+        description: `Connecté en tant que ${practitioner.first_name} ${practitioner.last_name}`,
       })
 
       router.push('/patients')
@@ -58,11 +69,69 @@ export default function LoginPage() {
       toast({
         variant: 'destructive',
         title: 'Erreur',
-        description: 'Une erreur inattendue est survenue',
+        description: 'Impossible de se connecter',
       })
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleCreatePractitioner = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Tous les champs sont requis',
+      })
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      // Create practitioner with a new user_id
+      const userId = crypto.randomUUID()
+      const now = new Date().toISOString()
+
+      const { error } = await supabase.from('practitioners').insert({
+        user_id: userId,
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        email: email.trim(),
+        created_at: now,
+        updated_at: now,
+      })
+
+      if (error) throw error
+
+      // Auto-login
+      await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: 'local',
+      })
+
+      toast({
+        variant: 'success',
+        title: 'Profil créé',
+        description: `Bienvenue, ${firstName} ${lastName} !`,
+      })
+
+      router.push('/patients')
+      router.refresh()
+    } catch (error) {
+      console.error('Error creating practitioner:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de créer le profil',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const getInitials = (first: string, last: string) => {
+    return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase()
   }
 
   return (
@@ -88,42 +157,107 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-2xl font-bold">Osteoflow</CardTitle>
           <CardDescription>
-            Connectez-vous pour accéder à votre espace
+            {showCreateForm
+              ? 'Créez votre profil praticien'
+              : 'Sélectionnez votre profil pour continuer'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="praticien@exemple.fr"
-                {...register('email')}
+          {!showCreateForm ? (
+            <div className="space-y-4">
+              {/* Practitioner list */}
+              <div className="space-y-2">
+                {practitioners.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => handleSelectPractitioner(p)}
+                    disabled={isLoading}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors text-left disabled:opacity-50"
+                  >
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground text-sm">
+                        {getInitials(p.first_name, p.last_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        {p.first_name} {p.last_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {p.practice_name || p.email}
+                      </p>
+                    </div>
+                    {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  </button>
+                ))}
+              </div>
+
+              {/* Add new practitioner button */}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowCreateForm(true)}
                 disabled={isLoading}
-              />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Ajouter un praticien
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                {...register('password')}
-                disabled={isLoading}
-              />
-              {errors.password && (
-                <p className="text-sm text-destructive">{errors.password.message}</p>
-              )}
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Se connecter
-            </Button>
-          </form>
+          ) : (
+            <form onSubmit={handleCreatePractitioner} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="first_name">Prénom *</Label>
+                  <Input
+                    id="first_name"
+                    placeholder="Jean"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="last_name">Nom *</Label>
+                  <Input
+                    id="last_name"
+                    placeholder="Dupont"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="praticien@exemple.fr"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="flex gap-2">
+                {practitioners.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowCreateForm(false)}
+                    disabled={isLoading}
+                    className="flex-1"
+                  >
+                    Retour
+                  </Button>
+                )}
+                <Button type="submit" disabled={isLoading} className="flex-1">
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <User className="mr-2 h-4 w-4" />
+                  Créer et continuer
+                </Button>
+              </div>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>

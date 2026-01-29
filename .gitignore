@@ -45,3 +45,15 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Electron
+/release/
+electron/*.js
+electron/*.js.map
+electron/*.d.ts
+!electron/tsconfig.json
+
+# SQLite database
+*.db
+*.db-journal
+*.db-wal

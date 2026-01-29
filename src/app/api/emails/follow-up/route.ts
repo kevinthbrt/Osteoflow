@@ -18,8 +18,9 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET
 
-    // If called from cron, verify secret
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    // If called from cron, verify secret (accept local desktop cron too)
+    const isLocalCron = authHeader === 'Bearer local-desktop-cron'
+    if (!isLocalCron && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
       // Try regular auth
       const supabase = await createClient()
       const { data: { user } } = await supabase.auth.getUser()

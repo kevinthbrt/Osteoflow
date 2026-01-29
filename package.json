@@ -1,11 +1,19 @@
 {
   "name": "osteoflow",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3456",
+    "dev:electron": "npm run build:electron && concurrently \"npm run dev\" \"wait-on http://localhost:3456 && electron .\"",
     "build": "next build",
-    "start": "next start",
+    "build:electron": "tsc -p electron/tsconfig.json",
+    "start": "next start -p 3456",
+    "start:electron": "npm run build && npm run build:electron && electron .",
+    "dist": "npm run build && npm run build:electron && electron-builder",
+    "dist:win": "npm run build && npm run build:electron && electron-builder --win",
+    "dist:mac": "npm run build && npm run build:electron && electron-builder --mac",
+    "postinstall": "electron-builder install-app-deps",
     "lint": "next lint",
     "test": "vitest",
     "test:e2e": "playwright test"
@@ -31,10 +39,9 @@
     "@radix-ui/react-tooltip": "^1.1.2",
     "@react-pdf/pdfkit": "^3.2.0",
     "@react-pdf/renderer": "^3.4.4",
-    "@supabase/ssr": "^0.5.1",
-    "@supabase/supabase-js": "^2.45.4",
     "@tanstack/react-query": "^5.56.2",
     "@tanstack/react-table": "^8.20.5",
+    "better-sqlite3": "^11.6.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
@@ -54,15 +61,55 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.47.2",
+    "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^20",
     "@types/nodemailer": "^7.0.9",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
     "eslint": "^8",
     "eslint-config-next": "14.2.12",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5",
-    "vitest": "^2.1.1"
+    "vitest": "^2.1.1",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.osteoflow.desktop",
+    "productName": "Osteoflow",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*.js",
+      ".next/**/*",
+      "src/**/*",
+      "public/**/*",
+      "package.json",
+      "next.config.ts"
+    ],
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.medical",
+      "icon": "public/icon.icns"
+    },
+    "win": {
+      "target": ["nsis", "zip"],
+      "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": ["fr"]
+    },
+    "extraResources": [
+      {
+        "from": "node_modules/better-sqlite3/build",
+        "to": "better-sqlite3/build"
+      }
+    ]
   }
 }
