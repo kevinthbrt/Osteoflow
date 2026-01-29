@@ -8,6 +8,8 @@ export interface AccountingRecapRow {
   byMethod: Record<string, { count: number; amount: string }>
 }
 
+const methodOrder = ['Carte', 'Espèces', 'Chèque', 'Virement', 'Autre']
+
 export interface AccountingPdfData {
   practitionerName: string
   periodLabel: string
@@ -75,8 +77,13 @@ export async function generateAccountingPdf(data: AccountingPdfData): Promise<Ui
 
   doc.font('Helvetica-Bold').fontSize(9).fillColor('#0F172A')
   doc.text('Date', margin, tableY)
-  doc.text('Consultations', margin + 160, tableY)
-  doc.text('Total', margin + 320, tableY)
+  doc.text('Consult.', margin + 110, tableY)
+  doc.text('Total', margin + 170, tableY)
+  doc.text('CB', margin + 250, tableY)
+  doc.text('Espèces', margin + 310, tableY)
+  doc.text('Chèque', margin + 390, tableY)
+  doc.text('Virement', margin + 460, tableY)
+  doc.text('Autre', margin + 535, tableY)
   tableY += 12
 
   doc.strokeColor('#E2E8F0')
@@ -91,8 +98,14 @@ export async function generateAccountingPdf(data: AccountingPdfData): Promise<Ui
     }
 
     doc.text(recap.date, margin, tableY)
-    doc.text(recap.count.toString(), margin + 180, tableY, { width: 80, align: 'left' })
-    doc.text(recap.total, margin + 320, tableY)
+    doc.text(recap.count.toString(), margin + 120, tableY, { width: 40, align: 'left' })
+    doc.text(recap.total, margin + 170, tableY)
+    const methodAmounts = methodOrder.map((label) => recap.byMethod[label]?.amount || '-')
+    doc.text(methodAmounts[0], margin + 250, tableY)
+    doc.text(methodAmounts[1], margin + 310, tableY)
+    doc.text(methodAmounts[2], margin + 390, tableY)
+    doc.text(methodAmounts[3], margin + 460, tableY)
+    doc.text(methodAmounts[4], margin + 535, tableY)
     tableY += 14
   }
 
