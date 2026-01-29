@@ -13,7 +13,7 @@
     "dist": "npm run build && npm run build:electron && electron-builder",
     "dist:win": "npm run build && npm run build:electron && electron-builder --win",
     "dist:mac": "npm run build && npm run build:electron && electron-builder --mac",
-    "postinstall": "electron-builder install-app-deps",
+    "rebuild:electron": "electron-builder install-app-deps",
     "lint": "next lint",
     "test": "vitest",
     "test:e2e": "playwright test"
