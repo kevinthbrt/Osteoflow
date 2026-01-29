@@ -73,8 +73,8 @@ async function runFollowUp(port: number): Promise<void> {
       return
     }
 
-    const data = await response.json()
-    if (data.sent > 0) {
+    const data = (await response.json()) as { sent?: number }
+    if (data.sent && data.sent > 0) {
       console.log(`[Cron] Sent ${data.sent} follow-up email(s)`)
     }
   } catch (error) {
@@ -97,8 +97,8 @@ async function runInboxSync(port: number): Promise<void> {
       return
     }
 
-    const data = await response.json()
-    if (data.newMessages > 0) {
+    const data = (await response.json()) as { newMessages?: number }
+    if (data.newMessages && data.newMessages > 0) {
       console.log(`[Cron] Synced ${data.newMessages} new message(s)`)
     }
   } catch (error) {
