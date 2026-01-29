@@ -241,12 +241,12 @@ function _createBrowserClient() {
     }),
     removeChannel: () => {},
 
-    // RPC (no-op)
+    // RPC (not available in desktop mode — returns error to trigger fallback)
     rpc: (_fn: string, _args?: any) => ({
       data: null,
-      error: null,
+      error: { message: 'RPC not available in desktop mode' },
       then(resolve: (value: any) => any) {
-        return Promise.resolve({ data: null, error: null }).then(resolve)
+        return Promise.resolve({ data: null, error: { message: 'RPC not available in desktop mode' } }).then(resolve)
       },
     }),
   }

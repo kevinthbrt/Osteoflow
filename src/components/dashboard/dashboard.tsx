@@ -311,10 +311,16 @@ export function Dashboard({
                             })}
                           </p>
                         </div>
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href={`/messages?patient=${patient.id}`}>
-                            <MessageCircle className="h-4 w-4" />
-                          </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            window.location.href = `/messages?patient=${patient.id}`
+                          }}
+                        >
+                          <MessageCircle className="h-4 w-4" />
                         </Button>
                       </Link>
                     )

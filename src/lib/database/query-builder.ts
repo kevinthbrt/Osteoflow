@@ -898,10 +898,10 @@ export function createLocalClient(currentUserId?: string) {
     }),
     removeChannel: () => {},
 
-    // RPC support (no-op, not used in current codebase)
+    // RPC (not available in desktop mode — returns error to trigger fallback)
     rpc: (_fn: string, _args?: any) => ({
       data: null,
-      error: null,
+      error: { message: 'RPC not available in desktop mode' },
     }),
   }
 }
