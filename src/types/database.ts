@@ -29,6 +29,7 @@ export interface Database {
           phone: string | null
           practice_name: string | null
           specialty: string | null
+          accountant_email: string | null
           google_review_url: string | null
           address: string | null
           city: string | null
@@ -53,6 +54,7 @@ export interface Database {
           phone?: string | null
           practice_name?: string | null
           specialty?: string | null
+          accountant_email?: string | null
           google_review_url?: string | null
           address?: string | null
           city?: string | null
@@ -77,6 +79,7 @@ export interface Database {
           phone?: string | null
           practice_name?: string | null
           specialty?: string | null
+          accountant_email?: string | null
           google_review_url?: string | null
           address?: string | null
           city?: string | null
@@ -104,6 +107,8 @@ export interface Database {
           phone: string
           email: string | null
           profession: string | null
+          sport_activity: string | null
+          primary_physician: string | null
           trauma_history: string | null
           medical_history: string | null
           surgical_history: string | null
@@ -123,6 +128,8 @@ export interface Database {
           phone: string
           email?: string | null
           profession?: string | null
+          sport_activity?: string | null
+          primary_physician?: string | null
           trauma_history?: string | null
           medical_history?: string | null
           surgical_history?: string | null
@@ -142,6 +149,8 @@ export interface Database {
           phone?: string
           email?: string | null
           profession?: string | null
+          sport_activity?: string | null
+          primary_physician?: string | null
           trauma_history?: string | null
           medical_history?: string | null
           surgical_history?: string | null

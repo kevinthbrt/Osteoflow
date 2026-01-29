@@ -117,10 +117,22 @@ export default async function PatientPage({ params }: PatientPageProps) {
                   </a>
                 </div>
               )}
-              {patient.profession && (
+             {patient.profession && (
+               <div className="flex items-center gap-2 text-sm">
+                 <Briefcase className="h-4 w-4 text-muted-foreground" />
+                 <span>{patient.profession}</span>
+               </div>
+             )}
+              {patient.sport_activity && (
                 <div className="flex items-center gap-2 text-sm">
-                  <Briefcase className="h-4 w-4 text-muted-foreground" />
-                  <span>{patient.profession}</span>
+                  <span className="text-muted-foreground">Activité sportive :</span>
+                  <span>{patient.sport_activity}</span>
+                </div>
+              )}
+              {patient.primary_physician && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Médecin traitant :</span>
+                  <span>{patient.primary_physician}</span>
                 </div>
               )}
             </CardContent>
@@ -131,49 +143,6 @@ export default async function PatientPage({ params }: PatientPageProps) {
             patientId={id}
             initialEntries={medicalHistoryEntries || []}
           />
-
-          {/* Legacy Medical History (text fields) */}
-          {(patient.trauma_history || patient.medical_history || patient.surgical_history || patient.family_history) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Antécédents (notes)</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {patient.trauma_history && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                      Traumatiques
-                    </h4>
-                    <p className="text-sm whitespace-pre-wrap">{patient.trauma_history}</p>
-                  </div>
-                )}
-                {patient.medical_history && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                      Médicaux
-                    </h4>
-                    <p className="text-sm whitespace-pre-wrap">{patient.medical_history}</p>
-                  </div>
-                )}
-                {patient.surgical_history && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                      Chirurgicaux
-                    </h4>
-                    <p className="text-sm whitespace-pre-wrap">{patient.surgical_history}</p>
-                  </div>
-                )}
-                {patient.family_history && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                      Familiaux
-                    </h4>
-                    <p className="text-sm whitespace-pre-wrap">{patient.family_history}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
 
           {/* Notes */}
           {patient.notes && (

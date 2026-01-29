@@ -12,6 +12,11 @@ export const practitionerSettingsSchema = z.object({
   email: z
     .string()
     .email('Format d\'email invalide'),
+  accountant_email: z
+    .string()
+    .email('Format d\'email invalide')
+    .optional()
+    .or(z.literal('')),
   phone: z
     .string()
     .max(20, 'Le téléphone ne peut pas dépasser 20 caractères')

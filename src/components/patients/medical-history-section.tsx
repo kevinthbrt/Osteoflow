@@ -270,7 +270,7 @@ export function MedicalHistorySection({ patientId, entries, onEntriesChange }: M
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg">Antécédents structurés</CardTitle>
+        <CardTitle className="text-lg">Antécédents</CardTitle>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm" onClick={() => openAddDialog()}>

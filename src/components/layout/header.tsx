@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -37,6 +38,8 @@ export function Header({ user, practitioner }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [isLoadingUnread, setIsLoadingUnread] = useState(true)
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -56,6 +59,52 @@ export function Header({ user, practitioner }: HeaderProps) {
   const currentPage = Object.entries(pageTitles).find(([path]) =>
     pathname.startsWith(path)
   )?.[1] || { title: 'Dashboard', description: 'Bienvenue sur Osteoflow' }
+
+  const unreadLabel = useMemo(() => {
+    if (unreadCount <= 0) return 'Aucune notification'
+    if (unreadCount > 99) return '99+ notifications'
+    return `${unreadCount} notification${unreadCount > 1 ? 's' : ''}`
+  }, [unreadCount])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchUnreadCount = async () => {
+      setIsLoadingUnread(true)
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('unread_count')
+        .gt('unread_count', 0)
+
+      if (!isMounted) return
+      if (error) {
+        console.error('Error fetching unread count:', error)
+        setUnreadCount(0)
+      } else {
+        const total = (data || []).reduce((sum, conv) => sum + (conv.unread_count || 0), 0)
+        setUnreadCount(total)
+      }
+      setIsLoadingUnread(false)
+    }
+
+    fetchUnreadCount()
+    const interval = setInterval(fetchUnreadCount, 30000)
+
+    const channel = supabase
+      .channel('conversations-unread')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversations' },
+        () => fetchUnreadCount()
+      )
+      .subscribe()
+
+    return () => {
+      isMounted = false
+      clearInterval(interval)
+      supabase.removeChannel(channel)
+    }
+  }, [supabase])
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl px-4 lg:px-8">
@@ -98,9 +147,18 @@ export function Header({ user, practitioner }: HeaderProps) {
           variant="ghost"
           size="icon"
           className="relative rounded-full text-muted-foreground hover:text-foreground"
+          onClick={() => router.push('/messages')}
+          aria-label={unreadLabel}
         >
           <Bell className="h-5 w-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[18px] rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-5 text-primary-foreground">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+          {isLoadingUnread && unreadCount === 0 && (
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 animate-pulse rounded-full bg-muted-foreground/60" />
+          )}
         </Button>
 
         {/* User menu */}

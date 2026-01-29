@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -358,6 +359,7 @@ export default function MessagesPage() {
           onSend={handleSendEmail}
           isSending={isSending}
           hasEmail={isValidEmail(getContactEmail(selectedConversation))}
+          previewName={getContactName(selectedConversation)}
           onQuickReply={(content) => setNewMessage(content)}
         />
       </div>
@@ -530,6 +532,7 @@ export default function MessagesPage() {
               onSend={handleSendEmail}
               isSending={isSending}
               hasEmail={isValidEmail(getContactEmail(selectedConversation))}
+              previewName={getContactName(selectedConversation)}
               onQuickReply={(content) => setNewMessage(content)}
             />
           </>
@@ -619,6 +622,7 @@ function MessageInput({
   onSend,
   isSending,
   hasEmail,
+  previewName,
   onQuickReply,
 }: {
   value: string
@@ -626,12 +630,23 @@ function MessageInput({
   onSend: () => void
   isSending: boolean
   hasEmail: boolean
+  previewName?: string
   onQuickReply: (content: string) => void
 }) {
   const [showQuickReplies, setShowQuickReplies] = useState(false)
+  const greeting = previewName ? `Bonjour ${previewName},` : 'Bonjour,'
+  const previewContent = value.trim()
+    ? `${greeting}\n\n${value}`
+    : `${greeting}\n\nVotre message apparaîtra ici.`
 
   return (
     <div className="p-4 border-t bg-background">
+      <div className="mb-3 rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/80">
+          Prévisualisation
+        </p>
+        <p className="mt-2 whitespace-pre-wrap text-foreground">{previewContent}</p>
+      </div>
       {showQuickReplies && (
         <QuickReplies
           onSelect={(content) => {
@@ -651,17 +666,12 @@ function MessageInput({
           <Sparkles className="h-4 w-4" />
         </Button>
         <div className="flex-1">
-          <Input
+          <Textarea
             placeholder="Écrivez votre message..."
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                onSend()
-              }
-            }}
             disabled={isSending}
+            rows={3}
           />
         </div>
         <Button

@@ -46,6 +46,12 @@ export default async function EditConsultationPage({ params }: EditConsultationP
     redirect('/login')
   }
 
+  const { data: medicalHistoryEntries } = await supabase
+    .from('medical_history_entries')
+    .select('*')
+    .eq('patient_id', patient.id)
+    .order('display_order', { ascending: true })
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -72,6 +78,7 @@ export default async function EditConsultationPage({ params }: EditConsultationP
         practitioner={practitioner}
         consultation={consultation}
         mode="edit"
+        medicalHistoryEntries={medicalHistoryEntries || []}
       />
     </div>
   )

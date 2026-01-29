@@ -32,7 +32,7 @@ import {
   CreditCard,
   Banknote,
   Loader2,
-  Save,
+  Mail,
 } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
@@ -63,8 +63,8 @@ export default function AccountingPage() {
   const [invoices, setInvoices] = useState<InvoiceWithDetails[]>([])
   const [summary, setSummary] = useState<AccountingSummary | null>(null)
   const [isExporting, setIsExporting] = useState(false)
-  const [showSaveDialog, setShowSaveDialog] = useState(false)
-  const [reportName, setReportName] = useState('')
+  const [showSendDialog, setShowSendDialog] = useState(false)
+  const [isSendingReport, setIsSendingReport] = useState(false)
   const { toast } = useToast()
   const supabase = createClient()
 
@@ -80,6 +80,8 @@ export default function AccountingPage() {
   })
   const [period, setPeriod] = useState<string>('month')
   const [paymentMethod, setPaymentMethod] = useState<string>('all')
+  const [sendStartDate, setSendStartDate] = useState<string>('')
+  const [sendEndDate, setSendEndDate] = useState<string>('')
 
   // Set dates based on period
   useEffect(() => {
@@ -338,56 +340,54 @@ export default function AccountingPage() {
     }
   }
 
-  // Save report preset
-  const handleSaveReport = async () => {
-    if (!reportName.trim()) {
+  const handleOpenSendDialog = () => {
+    setSendStartDate(startDate)
+    setSendEndDate(endDate)
+    setShowSendDialog(true)
+  }
+
+  const handleSendReport = async () => {
+    if (!sendStartDate || !sendEndDate) {
       toast({
         variant: 'destructive',
         title: 'Erreur',
-        description: 'Veuillez entrer un nom pour le rapport',
+        description: 'Veuillez sélectionner une période valide',
       })
       return
     }
 
+    setIsSendingReport(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Non authentifié')
-
-      const { data: practitioner } = await supabase
-        .from('practitioners')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
-
-      if (!practitioner) throw new Error('Praticien non trouvé')
-
-      const { error } = await supabase.from('saved_reports').insert({
-        practitioner_id: practitioner.id,
-        name: reportName,
-        filters: {
-          startDate,
-          endDate,
-          period,
-          paymentMethod,
-        },
+      const response = await fetch('/api/accounting/send-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startDate: sendStartDate,
+          endDate: sendEndDate,
+        }),
       })
 
-      if (error) throw error
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload.error || 'Erreur lors de l\'envoi')
+      }
 
       toast({
-        title: 'Rapport sauvegardé',
-        description: `Le rapport "${reportName}" a été sauvegardé`,
+        variant: 'success',
+        title: 'Envoi effectué',
+        description: 'Le récapitulatif a été envoyé à la comptable',
       })
 
-      setShowSaveDialog(false)
-      setReportName('')
+      setShowSendDialog(false)
     } catch (error) {
-      console.error('Error saving report:', error)
+      console.error('Error sending accounting report:', error)
       toast({
         variant: 'destructive',
         title: 'Erreur',
-        description: 'Impossible de sauvegarder le rapport',
+        description: error instanceof Error ? error.message : 'Impossible d\'envoyer le rapport',
       })
+    } finally {
+      setIsSendingReport(false)
     }
   }
 
@@ -401,9 +401,9 @@ export default function AccountingPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowSaveDialog(true)}>
-            <Save className="mr-2 h-4 w-4" />
-            Sauvegarder
+          <Button variant="outline" onClick={handleOpenSendDialog}>
+            <Mail className="mr-2 h-4 w-4" />
+            Envoi direct comptable
           </Button>
           <Button variant="outline" onClick={handleExportCSV}>
             <Download className="mr-2 h-4 w-4" />
@@ -662,34 +662,47 @@ export default function AccountingPage() {
         </CardContent>
       </Card>
 
-      {/* Save Report Dialog */}
-      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+      {/* Send Report Dialog */}
+      <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Sauvegarder le rapport</DialogTitle>
+            <DialogTitle>Envoyer le récapitulatif comptable</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Nom du rapport</Label>
+              <Label>Date début</Label>
               <Input
-                placeholder="Ex: Rapport mensuel janvier"
-                value={reportName}
-                onChange={(e) => setReportName(e.target.value)}
+                type="date"
+                value={sendStartDate}
+                onChange={(e) => setSendStartDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Date fin</Label>
+              <Input
+                type="date"
+                value={sendEndDate}
+                onChange={(e) => setSendEndDate(e.target.value)}
               />
             </div>
             <div className="text-sm text-muted-foreground">
-              <p>Filtres actuels :</p>
-              <ul className="list-disc list-inside mt-1">
-                <li>Période : {formatDate(startDate)} - {formatDate(endDate)}</li>
-                <li>Mode de paiement : {paymentMethod === 'all' ? 'Tous' : paymentMethodLabels[paymentMethod]}</li>
-              </ul>
+              Le PDF sera envoyé à l&apos;adresse comptable configurée dans les paramètres.
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+            <Button variant="outline" onClick={() => setShowSendDialog(false)}>
               Annuler
             </Button>
-            <Button onClick={handleSaveReport}>Sauvegarder</Button>
+            <Button onClick={handleSendReport} disabled={isSendingReport}>
+              {isSendingReport ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Envoi...
+                </>
+              ) : (
+                'Envoyer'
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
