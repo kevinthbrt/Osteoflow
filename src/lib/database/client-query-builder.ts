@@ -30,6 +30,7 @@ interface QueryDescriptor {
   conditions: Condition[]
   orders: OrderClause[]
   limitCount?: number
+  offsetCount?: number
   singleResult: boolean
   returnSelect: boolean
   returnSelectColumns?: string
@@ -151,6 +152,12 @@ class ClientQueryChain {
     return this
   }
 
+  range(from: number, to: number): ClientQueryChain {
+    this._descriptor.offsetCount = from
+    this._descriptor.limitCount = to - from + 1
+    return this
+  }
+
   single(): ClientQueryChain {
     this._descriptor.singleResult = true
     return this
@@ -174,11 +181,13 @@ class ClientQueryChain {
 }
 
 /**
- * Create a Supabase-compatible client that works in the browser.
- * All database operations are proxied through /api/db.
- * Auth operations are proxied through /api/auth/*.
+ * Singleton browser client instance.
+ * Prevents infinite re-rendering loops in React components that include
+ * the client in useEffect/useCallback dependency arrays.
  */
-export function createBrowserClient() {
+let _browserClient: ReturnType<typeof _createBrowserClient> | null = null
+
+function _createBrowserClient() {
   return {
     from: (table: string) => new ClientQueryChain(table),
 
@@ -241,4 +250,15 @@ export function createBrowserClient() {
       },
     }),
   }
+}
+
+/**
+ * Create (or return existing) browser-safe Supabase-compatible client.
+ * Returns a singleton to keep a stable reference across React renders.
+ */
+export function createBrowserClient() {
+  if (!_browserClient) {
+    _browserClient = _createBrowserClient()
+  }
+  return _browserClient
 }

@@ -57,8 +57,10 @@ export async function POST(request: Request) {
       }
     }
 
-    // Apply limit
-    if (descriptor.limitCount != null) {
+    // Apply limit / range
+    if (descriptor.offsetCount != null && descriptor.limitCount != null) {
+      chain = chain.range(descriptor.offsetCount, descriptor.offsetCount + descriptor.limitCount - 1)
+    } else if (descriptor.limitCount != null) {
       chain = chain.limit(descriptor.limitCount)
     }
 

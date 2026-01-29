@@ -353,6 +353,7 @@ export class QueryBuilder {
   private _conditions: Condition[] = []
   private _orders: OrderClause[] = []
   private _limitValue: number | null = null
+  private _offsetValue: number | null = null
   private _selectColumns = '*'
   private _operation: 'select' | 'insert' | 'update' | 'delete' = 'select'
   private _insertData: any = null
@@ -469,6 +470,12 @@ export class QueryBuilder {
 
   limit(count: number): QueryBuilder {
     this._limitValue = count
+    return this
+  }
+
+  range(from: number, to: number): QueryBuilder {
+    this._offsetValue = from
+    this._limitValue = to - from + 1
     return this
   }
 
@@ -650,6 +657,9 @@ export class QueryBuilder {
 
     if (this._limitValue !== null) {
       sql += ` LIMIT ${this._limitValue}`
+    }
+    if (this._offsetValue !== null) {
+      sql += ` OFFSET ${this._offsetValue}`
     }
 
     const rows = db.prepare(sql).all(...where.params) as any[]
