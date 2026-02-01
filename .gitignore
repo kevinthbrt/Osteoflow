@@ -51,6 +51,7 @@ next-env.d.ts
 electron/*.js
 electron/*.js.map
 electron/*.d.ts
+!electron/types.d.ts
 !electron/tsconfig.json
 
 # SQLite database
