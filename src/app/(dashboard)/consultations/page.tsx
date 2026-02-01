@@ -92,7 +92,7 @@ async function ConsultationsTableLoader({ page }: { page: number }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {consultations.map((consultation) => {
+          {consultations.map((consultation: any) => {
             const invoice = consultation.invoices?.[0]
             const patient = consultation.patient as { id: string; first_name: string; last_name: string } | null
 

@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen } from 'lucide-react'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff } from 'lucide-react'
 import type { Practitioner, SessionType } from '@/types/database'
 
 interface PatientListItem {
@@ -631,6 +631,10 @@ export default function SettingsPage() {
           <TabsTrigger value="storage">
             <HardDrive className="mr-2 h-4 w-4" />
             Stockage
+          </TabsTrigger>
+          <TabsTrigger value="security">
+            <Lock className="mr-2 h-4 w-4" />
+            Sécurité
           </TabsTrigger>
         </TabsList>
 
@@ -1364,6 +1368,11 @@ export default function SettingsPage() {
         <TabsContent value="storage">
           <StorageSettings />
         </TabsContent>
+
+        {/* Security Tab */}
+        <TabsContent value="security">
+          <PasswordSettings practitioner={practitioner} />
+        </TabsContent>
       </Tabs>
 
       {/* Delete Confirmation Dialog */}
@@ -1548,5 +1557,216 @@ function StorageSettings() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+/**
+ * Password settings component for setting/changing login password.
+ */
+function PasswordSettings({ practitioner }: { practitioner: Practitioner | null }) {
+  const [oldPassword, setOldPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showOld, setShowOld] = useState(false)
+  const [showNew, setShowNew] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [hasPassword, setHasPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const { toast } = useToast()
+  const supabase = createClient()
+
+  useEffect(() => {
+    async function checkPassword() {
+      if (!practitioner) return
+      try {
+        // Check if practitioner has a password by looking at the practitioner data
+        const { data } = await supabase
+          .from('practitioners')
+          .select('password_hash')
+          .eq('id', practitioner.id)
+          .single()
+        setHasPassword(!!data?.password_hash)
+      } catch {
+        // Ignore
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    checkPassword()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [practitioner?.id])
+
+  const handleSave = async () => {
+    if (!practitioner) return
+
+    if (newPassword.length < 4) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Le mot de passe doit contenir au moins 4 caractères',
+      })
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Les mots de passe ne correspondent pas',
+      })
+      return
+    }
+
+    if (hasPassword && !oldPassword) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Veuillez saisir votre ancien mot de passe',
+      })
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: practitioner.email,
+          password: newPassword,
+          oldPassword: hasPassword ? oldPassword : undefined,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        toast({
+          variant: 'destructive',
+          title: 'Erreur',
+          description: data.error || 'Impossible de modifier le mot de passe',
+        })
+        return
+      }
+
+      toast({
+        variant: 'success',
+        title: hasPassword ? 'Mot de passe modifié' : 'Mot de passe défini',
+        description: 'Votre mot de passe a été enregistré avec succès',
+      })
+
+      setOldPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setHasPassword(true)
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de modifier le mot de passe',
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Lock className="h-5 w-5 text-primary" />
+          {hasPassword ? 'Modifier le mot de passe' : 'Définir un mot de passe'}
+        </CardTitle>
+        <CardDescription>
+          {hasPassword
+            ? 'Changez votre mot de passe de connexion à l\u2019application.'
+            : 'Protégez l\u2019accès à votre compte en définissant un mot de passe.'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {hasPassword && (
+          <div className="space-y-2">
+            <Label htmlFor="old-password">Ancien mot de passe</Label>
+            <div className="relative">
+              <Input
+                id="old-password"
+                type={showOld ? 'text' : 'password'}
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                placeholder="Votre mot de passe actuel"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-7 px-2"
+                onClick={() => setShowOld(!showOld)}
+              >
+                {showOld ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="new-password">Nouveau mot de passe</Label>
+            <div className="relative">
+              <Input
+                id="new-password"
+                type={showNew ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="4 caractères minimum"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-7 px-2"
+                onClick={() => setShowNew(!showNew)}
+              >
+                {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Confirmer le mot de passe</Label>
+            <Input
+              id="confirm-password"
+              type={showNew ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirmer"
+            />
+            {confirmPassword && newPassword !== confirmPassword && (
+              <p className="text-sm text-destructive">
+                Les mots de passe ne correspondent pas
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <Button
+            onClick={handleSave}
+            disabled={isSaving || !newPassword || !confirmPassword || newPassword !== confirmPassword}
+          >
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {hasPassword ? 'Modifier le mot de passe' : 'Définir le mot de passe'}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

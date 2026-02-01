@@ -134,7 +134,7 @@ async function InvoicesTableLoader({ status }: { status?: string }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {invoices.map((invoice) => {
+          {invoices.map((invoice: any) => {
             const consultation = invoice.consultation as {
               id: string
               date_time: string

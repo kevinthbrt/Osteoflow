@@ -16,10 +16,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Search, MessageCircle, Loader2, Mail, User, Send } from 'lucide-react'
+import { Search, MessageCircle, Loader2, Mail, User, Send, Users, ArrowLeft, Sparkles } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback'
+import { QuickReplies } from '@/components/messages/quick-replies'
 import type { Patient } from '@/types/database'
 
 interface NewConversationModalProps {
@@ -47,6 +48,12 @@ export function NewConversationModal({
   const [manualMessage, setManualMessage] = useState('')
   const [isSendingManual, setIsSendingManual] = useState(false)
 
+  // Broadcast state
+  const [showBroadcast, setShowBroadcast] = useState(false)
+  const [broadcastContent, setBroadcastContent] = useState('')
+  const [isBroadcasting, setIsBroadcasting] = useState(false)
+  const [showQuickReplies, setShowQuickReplies] = useState(false)
+
   const { toast } = useToast()
   const supabase = createClient()
 
@@ -59,6 +66,9 @@ export function NewConversationModal({
       setManualName('')
       setManualMessage('')
       setActiveTab('patient')
+      setShowBroadcast(false)
+      setBroadcastContent('')
+      setShowQuickReplies(false)
     }
   }, [open])
 
@@ -310,6 +320,125 @@ export function NewConversationModal({
     }
   }
 
+  const handleBroadcast = async () => {
+    if (!broadcastContent.trim()) return
+    setIsBroadcasting(true)
+    try {
+      const res = await fetch('/api/messages/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: broadcastContent }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast({
+          variant: 'destructive',
+          title: 'Erreur',
+          description: data.error || 'Erreur lors de la diffusion',
+        })
+      } else {
+        toast({
+          variant: 'success',
+          title: 'Diffusion envoyée',
+          description: `${data.sent}/${data.total} email(s) envoyé(s)`,
+        })
+        onOpenChange(false)
+      }
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de diffuser le message',
+      })
+    } finally {
+      setIsBroadcasting(false)
+    }
+  }
+
+  // Broadcast compose view
+  if (showBroadcast) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setShowBroadcast(false)}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <Users className="h-5 w-5 text-primary" />
+              Diffuser à tous les patients
+            </DialogTitle>
+            <DialogDescription>
+              Envoyer un email à tous vos patients actifs ayant une adresse email.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {showQuickReplies && (
+              <QuickReplies
+                onSelect={(content) => {
+                  setBroadcastContent(content)
+                  setShowQuickReplies(false)
+                }}
+                onClose={() => setShowQuickReplies(false)}
+              />
+            )}
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowQuickReplies(!showQuickReplies)}
+              >
+                <Sparkles className="h-4 w-4 mr-1" />
+                Modèles
+              </Button>
+            </div>
+
+            <Textarea
+              placeholder="Votre message..."
+              value={broadcastContent}
+              onChange={(e) => setBroadcastContent(e.target.value)}
+              rows={6}
+              disabled={isBroadcasting}
+            />
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowBroadcast(false)}
+                disabled={isBroadcasting}
+              >
+                Retour
+              </Button>
+              <Button
+                onClick={handleBroadcast}
+                disabled={isBroadcasting || !broadcastContent.trim()}
+              >
+                {isBroadcasting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    Envoi en cours...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-1" />
+                    Envoyer à tous
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -338,6 +467,22 @@ export function NewConversationModal({
           {/* Patient Search Tab */}
           <TabsContent value="patient" className="mt-4">
             <div className="space-y-4">
+              {/* Broadcast option */}
+              <button
+                onClick={() => setShowBroadcast(true)}
+                className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-primary/30 hover:bg-primary/5 transition-colors text-left"
+              >
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Users className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-primary">Envoyer à tous les patients</p>
+                  <p className="text-sm text-muted-foreground">
+                    Diffuser un message à tous vos patients
+                  </p>
+                </div>
+              </button>
+
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -350,7 +495,7 @@ export function NewConversationModal({
               </div>
 
               {/* Fixed height container to prevent jumping */}
-              <div className="h-64 overflow-y-auto border rounded-lg">
+              <div className="h-56 overflow-y-auto border rounded-lg">
                 {isLoading ? (
                   <div className="p-2 space-y-2">
                     {[1, 2, 3].map((i) => (

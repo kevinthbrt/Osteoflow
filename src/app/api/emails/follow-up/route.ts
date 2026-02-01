@@ -31,29 +31,28 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient()
+    const now = new Date().toISOString()
 
-    // Get pending follow-up tasks that are due
+    console.log(`[FollowUp] Checking for pending tasks... (now=${now})`)
+
+    // Step 1: Get pending tasks with a simple query (no nested relations)
     const { data: tasks, error: tasksError } = await supabase
       .from('scheduled_tasks')
-      .select(`
-        *,
-        consultation:consultations (
-          *,
-          patient:patients (*)
-        )
-      `)
+      .select('*')
       .eq('type', 'follow_up_email')
       .eq('status', 'pending')
-      .lte('scheduled_for', new Date().toISOString())
+      .lte('scheduled_for', now)
       .limit(10)
 
     if (tasksError) {
-      console.error('Error fetching tasks:', tasksError)
+      console.error('[FollowUp] Error fetching tasks:', tasksError)
       return NextResponse.json(
         { error: 'Erreur lors de la récupération des tâches' },
         { status: 500 }
       )
     }
+
+    console.log(`[FollowUp] Found ${tasks?.length || 0} pending task(s)`)
 
     if (!tasks || tasks.length === 0) {
       return NextResponse.json({ message: 'Aucune tâche à traiter', processed: 0 })
@@ -64,15 +63,42 @@ export async function POST(request: NextRequest) {
 
     for (const task of tasks) {
       try {
-        const consultation = task.consultation
-        const patient = consultation?.patient
+        console.log(`[FollowUp] Processing task ${task.id} (consultation_id=${task.consultation_id})`)
 
-        if (!consultation || !patient) {
+        // Step 2: Get consultation separately
+        const { data: consultation } = await supabase
+          .from('consultations')
+          .select('*')
+          .eq('id', task.consultation_id)
+          .single()
+
+        if (!consultation) {
+          console.error(`[FollowUp] Consultation ${task.consultation_id} not found`)
           await supabase
             .from('scheduled_tasks')
             .update({
               status: 'failed',
-              error_message: 'Consultation ou patient non trouvé',
+              error_message: 'Consultation non trouvée',
+              executed_at: new Date().toISOString(),
+            })
+            .eq('id', task.id)
+          continue
+        }
+
+        // Step 3: Get patient separately
+        const { data: patient } = await supabase
+          .from('patients')
+          .select('*')
+          .eq('id', consultation.patient_id)
+          .single()
+
+        if (!patient) {
+          console.error(`[FollowUp] Patient not found for consultation ${consultation.id}`)
+          await supabase
+            .from('scheduled_tasks')
+            .update({
+              status: 'failed',
+              error_message: 'Patient non trouvé',
               executed_at: new Date().toISOString(),
             })
             .eq('id', task.id)
@@ -80,6 +106,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (!patient.email) {
+          console.error(`[FollowUp] Patient ${patient.id} has no email`)
           await supabase
             .from('scheduled_tasks')
             .update({
@@ -91,7 +118,7 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Get practitioner
+        // Step 4: Get practitioner
         const { data: practitioner } = await supabase
           .from('practitioners')
           .select('*')
@@ -99,6 +126,7 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (!practitioner) {
+          console.error(`[FollowUp] Practitioner ${task.practitioner_id} not found`)
           await supabase
             .from('scheduled_tasks')
             .update({
@@ -110,7 +138,7 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Get email template (custom or default)
+        // Step 5: Get email template (custom or default)
         const { data: customTemplate } = await supabase
           .from('email_templates')
           .select('*')
@@ -146,6 +174,8 @@ export async function POST(request: NextRequest) {
           googleReviewUrl: practitioner.google_review_url,
         })
 
+        console.log(`[FollowUp] Sending email to ${patient.email} for task ${task.id}`)
+
         // Try SMTP first (desktop mode), then fallback to Resend
         const { data: emailSettings } = await supabase
           .from('email_settings')
@@ -170,6 +200,7 @@ export async function POST(request: NextRequest) {
           if (!result.success) {
             throw new Error(`SMTP error: ${result.error}`)
           }
+          console.log(`[FollowUp] Email sent via SMTP to ${patient.email}`)
         } else {
           const { error: emailError } = await getResend().emails.send({
             from: `${practitioner.practice_name || practitioner.first_name} <${process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'}>`,
@@ -181,6 +212,7 @@ export async function POST(request: NextRequest) {
           if (emailError) {
             throw new Error(`Resend error: ${emailError.message}`)
           }
+          console.log(`[FollowUp] Email sent via Resend to ${patient.email}`)
         }
 
         // Mark task as completed
@@ -199,10 +231,12 @@ export async function POST(request: NextRequest) {
           .eq('id', consultation.id)
 
         processed++
+        console.log(`[FollowUp] Task ${task.id} completed successfully`)
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : 'Erreur inconnue'
         errors.push(`Task ${task.id}: ${errorMessage}`)
+        console.error(`[FollowUp] Task ${task.id} failed:`, errorMessage)
 
         await supabase
           .from('scheduled_tasks')
@@ -218,10 +252,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: `${processed} tâche(s) traitée(s)`,
       processed,
+      sent: processed,
       errors: errors.length > 0 ? errors : undefined,
     })
   } catch (error) {
-    console.error('Error processing follow-up emails:', error)
+    console.error('[FollowUp] Fatal error:', error)
     return NextResponse.json(
       { error: 'Erreur lors du traitement des emails de suivi' },
       { status: 500 }
@@ -249,13 +284,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
-    // Get consultation with patient
+    // Get consultation
     const { data: consultation, error: consultationError } = await supabase
       .from('consultations')
-      .select(`
-        *,
-        patient:patients (*)
-      `)
+      .select('*')
       .eq('id', consultationId)
       .single()
 
@@ -266,11 +298,16 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const patient = consultation.patient
+    // Get patient separately
+    const { data: patient } = await supabase
+      .from('patients')
+      .select('*')
+      .eq('id', consultation.patient_id)
+      .single()
 
-    if (!patient.email) {
+    if (!patient?.email) {
       return NextResponse.json(
-        { error: 'Le patient n\'a pas d\'adresse email' },
+        { error: "Le patient n'a pas d'adresse email" },
         { status: 400 }
       )
     }
@@ -345,7 +382,7 @@ export async function PUT(request: NextRequest) {
       )
       if (!result.success) {
         return NextResponse.json(
-          { error: 'Erreur lors de l\'envoi de l\'email' },
+          { error: "Erreur lors de l'envoi de l'email" },
           { status: 500 }
         )
       }
@@ -359,7 +396,7 @@ export async function PUT(request: NextRequest) {
 
       if (emailError) {
         return NextResponse.json(
-          { error: 'Erreur lors de l\'envoi de l\'email' },
+          { error: "Erreur lors de l'envoi de l'email" },
           { status: 500 }
         )
       }
@@ -375,7 +412,7 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     console.error('Error sending follow-up email:', error)
     return NextResponse.json(
-      { error: 'Erreur lors de l\'envoi de l\'email' },
+      { error: "Erreur lors de l'envoi de l'email" },
       { status: 500 }
     )
   }

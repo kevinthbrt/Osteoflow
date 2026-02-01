@@ -638,7 +638,7 @@ export class QueryBuilder {
     }
   }
 
-  private executeSelect(db: Database.Database): { data: any; error: any; count?: number } {
+  private executeSelect(db: any): { data: any; error: any; count?: number } {
     const where = this.buildWhereClause()
 
     // Count-only query
@@ -691,7 +691,7 @@ export class QueryBuilder {
     return result
   }
 
-  private executeInsert(db: Database.Database): { data: any; error: any } {
+  private executeInsert(db: any): { data: any; error: any } {
     const dataArray = Array.isArray(this._insertData) ? this._insertData : [this._insertData]
     const insertedRows: any[] = []
 
@@ -734,7 +734,7 @@ export class QueryBuilder {
     }
   }
 
-  private executeUpdate(db: Database.Database): { data: any; error: any } {
+  private executeUpdate(db: any): { data: any; error: any } {
     const where = this.buildWhereClause()
 
     // Set updated_at automatically only for tables that have the column
@@ -770,7 +770,7 @@ export class QueryBuilder {
     return { data: null, error: null }
   }
 
-  private executeDelete(db: Database.Database): { data: any; error: any } {
+  private executeDelete(db: any): { data: any; error: any } {
     const where = this.buildWhereClause()
     const sql = `DELETE FROM ${this._table}${where.sql}`
     db.prepare(sql).run(...where.params)

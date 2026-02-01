@@ -84,12 +84,12 @@ export default async function DashboardPage() {
   ])
 
   // Calculate month revenue
-  const monthlyRevenue = monthRevenue?.reduce((sum, inv) => sum + (inv.amount || 0), 0) || 0
+  const monthlyRevenue = monthRevenue?.reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0) || 0
 
   // Filter birthdays for next 7 days
   const now = new Date()
   const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-  const birthdaysThisWeek = (upcomingBirthdays || []).filter((p) => {
+  const birthdaysThisWeek = (upcomingBirthdays || []).filter((p: any) => {
     if (!p.birth_date) return false
     const bday = new Date(p.birth_date)
     const thisYearBday = new Date(now.getFullYear(), bday.getMonth(), bday.getDate())
@@ -100,7 +100,7 @@ export default async function DashboardPage() {
   }).slice(0, 3)
 
   // Transform recent consultations to fix patient type
-  const formattedConsultations = (recentConsultations || []).map((c) => ({
+  const formattedConsultations = (recentConsultations || []).map((c: any) => ({
     id: c.id as string,
     date_time: c.date_time as string,
     reason: c.reason as string,

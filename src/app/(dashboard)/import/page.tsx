@@ -566,7 +566,7 @@ export default function ImportPage() {
   // Render helpers
   // -----------------------------------------------------------------------
   const previewRows = dataRows.slice(0, 5)
-  const mappedFieldsSet = new Set(
+  const mappedFieldsSet = new Set<string>(
     Object.values(columnMapping).filter((v) => v !== '__ignore__'),
   )
 

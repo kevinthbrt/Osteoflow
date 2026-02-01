@@ -67,11 +67,12 @@ export async function POST(request: Request) {
 }
 
 /**
- * Set password for a practitioner.
+ * Set or change password for a practitioner.
+ * If the practitioner already has a password, oldPassword must be provided.
  */
 export async function PUT(request: Request) {
   try {
-    const { email, password } = await request.json()
+    const { email, password, oldPassword } = await request.json()
 
     if (!email || !password || password.length < 4) {
       return NextResponse.json(
@@ -81,6 +82,26 @@ export async function PUT(request: Request) {
     }
 
     const db = getDatabase()
+
+    // Check if practitioner has an existing password
+    const practitioner = db
+      .prepare('SELECT password_hash FROM practitioners WHERE email = ?')
+      .get(email) as { password_hash: string | null } | undefined
+
+    if (!practitioner) {
+      return NextResponse.json({ error: 'Praticien non trouvé' }, { status: 404 })
+    }
+
+    // If already has a password, verify old password
+    if (practitioner.password_hash) {
+      if (!oldPassword || !verifyPassword(oldPassword, practitioner.password_hash)) {
+        return NextResponse.json(
+          { error: 'Ancien mot de passe incorrect' },
+          { status: 403 }
+        )
+      }
+    }
+
     const hash = hashPassword(password)
     db.prepare('UPDATE practitioners SET password_hash = ? WHERE email = ?').run(hash, email)
 
