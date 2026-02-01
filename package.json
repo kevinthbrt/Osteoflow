@@ -88,13 +88,10 @@
       "electron/**/*.js",
       "electron/**/*.js.map",
       ".next/**/*",
-      "src/**/*",
-      "public/**/*",
       "package.json",
-      "next.config.ts",
-      "node_modules/**/*"
+      "next.config.ts"
     ],
-    "asar": true,
+    "asar": false,
     "publish": {
       "provider": "github",
       "owner": "kevinthbrt",
@@ -106,14 +103,12 @@
         "zip"
       ],
       "category": "public.app-category.medical",
-      "icon": "public/icon.icns",
       "minimumSystemVersion": "10.15.0"
     },
     "win": {
       "target": [
         "nsis"
-      ],
-      "icon": "public/icon.ico"
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -121,12 +116,6 @@
       "installerLanguages": [
         "fr"
       ]
-    },
-    "extraResources": [
-      {
-        "from": "node_modules/better-sqlite3/build",
-        "to": "better-sqlite3/build"
-      }
-    ]
+    }
   }
 }
