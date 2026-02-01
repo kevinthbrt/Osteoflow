@@ -201,12 +201,12 @@ function _createBrowserClient() {
         }
       },
 
-      signInWithPassword: async ({ email }: { email: string; password: string }) => {
+      signInWithPassword: async ({ email, password }: { email: string; password: string }) => {
         try {
           const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email }),
+            body: JSON.stringify({ email, password }),
           })
           return await res.json()
         } catch {

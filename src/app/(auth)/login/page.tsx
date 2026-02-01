@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, User } from 'lucide-react'
+import { Loader2, Plus, User, Lock, Eye, EyeOff } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 
 interface PractitionerItem {
@@ -18,6 +18,7 @@ interface PractitionerItem {
   last_name: string
   email: string
   practice_name: string | null
+  has_password: boolean
 }
 
 export default function LoginPage() {
@@ -27,20 +28,29 @@ export default function LoginPage() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [selectedPractitioner, setSelectedPractitioner] = useState<PractitionerItem | null>(null)
+  const [loginPassword, setLoginPassword] = useState('')
+  const [showLoginPassword, setShowLoginPassword] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
   const supabase = createClient()
 
   useEffect(() => {
-    // Load existing practitioners
     async function load() {
       const { data } = await supabase
         .from('practitioners')
-        .select('id, user_id, first_name, last_name, email, practice_name')
+        .select('id, user_id, first_name, last_name, email, practice_name, password_hash')
         .order('last_name')
       if (data) {
-        setPractitioners(data)
-        if (data.length === 0) {
+        const mapped = (data as any[]).map((p: any) => ({
+          ...p,
+          has_password: !!p.password_hash,
+          password_hash: undefined,
+        }))
+        setPractitioners(mapped)
+        if (mapped.length === 0) {
           setShowCreateForm(true)
         }
       }
@@ -49,13 +59,31 @@ export default function LoginPage() {
   }, [supabase])
 
   const handleSelectPractitioner = async (practitioner: PractitionerItem) => {
+    if (practitioner.has_password) {
+      setSelectedPractitioner(practitioner)
+      setLoginPassword('')
+      return
+    }
+    await doLogin(practitioner, '')
+  }
+
+  const doLogin = async (practitioner: PractitionerItem, pwd: string) => {
     setIsLoading(true)
     try {
-      // Sign in using the practitioner's email (password is ignored in desktop mode)
-      await supabase.auth.signInWithPassword({
+      const result = await supabase.auth.signInWithPassword({
         email: practitioner.email,
-        password: 'local',
+        password: pwd,
       })
+
+      if (result.error) {
+        toast({
+          variant: 'destructive',
+          title: 'Erreur',
+          description: result.error.message || 'Mot de passe incorrect',
+        })
+        setIsLoading(false)
+        return
+      }
 
       toast({
         variant: 'success',
@@ -76,6 +104,12 @@ export default function LoginPage() {
     }
   }
 
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedPractitioner) return
+    await doLogin(selectedPractitioner, loginPassword)
+  }
+
   const handleCreatePractitioner = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!firstName.trim() || !lastName.trim() || !email.trim()) {
@@ -87,9 +121,17 @@ export default function LoginPage() {
       return
     }
 
+    if (password && password.length < 4) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Le mot de passe doit contenir au moins 4 caractères',
+      })
+      return
+    }
+
     setIsLoading(true)
     try {
-      // Create practitioner with a new user_id
       const userId = crypto.randomUUID()
       const now = new Date().toISOString()
 
@@ -104,10 +146,19 @@ export default function LoginPage() {
 
       if (error) throw error
 
+      // Set password via API if provided
+      if (password) {
+        await fetch('/api/auth/login', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), password }),
+        })
+      }
+
       // Auto-login
       await supabase.auth.signInWithPassword({
         email: email.trim(),
-        password: 'local',
+        password: password || '',
       })
 
       toast({
@@ -159,13 +210,72 @@ export default function LoginPage() {
           <CardDescription>
             {showCreateForm
               ? 'Créez votre profil praticien'
+              : selectedPractitioner
+              ? `Entrez le mot de passe pour ${selectedPractitioner.first_name}`
               : 'Sélectionnez votre profil pour continuer'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!showCreateForm ? (
+          {selectedPractitioner ? (
+            <form onSubmit={handlePasswordLogin} className="space-y-4">
+              <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                <Avatar className="h-10 w-10">
+                  <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground text-sm">
+                    {getInitials(selectedPractitioner.first_name, selectedPractitioner.last_name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">
+                    {selectedPractitioner.first_name} {selectedPractitioner.last_name}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {selectedPractitioner.practice_name || selectedPractitioner.email}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="login_password">Mot de passe</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="login_password"
+                    type={showLoginPassword ? 'text' : 'password'}
+                    placeholder="Votre mot de passe"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    disabled={isLoading}
+                    className="pl-10 pr-10"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setSelectedPractitioner(null)}
+                  disabled={isLoading}
+                  className="flex-1"
+                >
+                  Retour
+                </Button>
+                <Button type="submit" disabled={isLoading || !loginPassword} className="flex-1">
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Se connecter
+                </Button>
+              </div>
+            </form>
+          ) : !showCreateForm ? (
             <div className="space-y-4">
-              {/* Practitioner list */}
               <div className="space-y-2">
                 {practitioners.map((p) => (
                   <button
@@ -187,12 +297,12 @@ export default function LoginPage() {
                         {p.practice_name || p.email}
                       </p>
                     </div>
+                    {p.has_password && <Lock className="h-4 w-4 text-muted-foreground" />}
                     {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                   </button>
                 ))}
               </div>
 
-              {/* Add new practitioner button */}
               <Button
                 variant="outline"
                 className="w-full"
@@ -237,6 +347,31 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Mot de passe (optionnel)</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="4 caractères minimum"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
+                    className="pl-10 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Protège l&apos;accès au profil au démarrage
+                </p>
               </div>
               <div className="flex gap-2">
                 {practitioners.length > 0 && (

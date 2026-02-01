@@ -273,11 +273,25 @@ CREATE TABLE IF NOT EXISTS app_config (
  * Called after the main schema is executed.
  */
 export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: string) => Array<Record<string, unknown>> }) {
-  // Check if check_number column exists on payments table
-  const cols = db.pragma('table_info(payments)') as Array<{ name: string }>
-  const hasCheckNumber = cols.some((c) => c.name === 'check_number')
-  if (!hasCheckNumber) {
+  // Add check_number to payments
+  const paymentCols = db.pragma('table_info(payments)') as Array<{ name: string }>
+  if (!paymentCols.some((c) => c.name === 'check_number')) {
     db.exec('ALTER TABLE payments ADD COLUMN check_number TEXT;')
+  }
+
+  // Add password_hash to practitioners
+  const practCols = db.pragma('table_info(practitioners)') as Array<{ name: string }>
+  if (!practCols.some((c) => c.name === 'password_hash')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN password_hash TEXT;')
+  }
+
+  // Add post-session advice columns to consultations
+  const consultCols = db.pragma('table_info(consultations)') as Array<{ name: string }>
+  if (!consultCols.some((c) => c.name === 'send_post_session_advice')) {
+    db.exec('ALTER TABLE consultations ADD COLUMN send_post_session_advice INTEGER DEFAULT 0;')
+  }
+  if (!consultCols.some((c) => c.name === 'post_session_advice_sent_at')) {
+    db.exec('ALTER TABLE consultations ADD COLUMN post_session_advice_sent_at TEXT;')
   }
 }
 
@@ -285,7 +299,7 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
  * Boolean fields that need conversion between SQLite (0/1) and JS (true/false).
  */
 export const BOOLEAN_FIELDS: Record<string, string[]> = {
-  consultations: ['follow_up_7d'],
+  consultations: ['follow_up_7d', 'send_post_session_advice'],
   session_types: ['is_active'],
   conversations: ['is_archived'],
   email_settings: ['smtp_secure', 'imap_secure', 'sync_enabled', 'is_verified'],

@@ -30,6 +30,7 @@ export const consultationSchema = z.object({
     .optional()
     .or(z.literal('')),
   follow_up_7d: z.boolean().optional().default(false),
+  send_post_session_advice: z.boolean().optional().default(false),
 })
 
 export type ConsultationFormData = z.infer<typeof consultationSchema>

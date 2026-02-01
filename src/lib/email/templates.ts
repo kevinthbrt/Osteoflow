@@ -22,6 +22,21 @@ Si vous avez des questions ou la moindre préoccupation, n'hésitez surtout pas 
 
 Je vous souhaite une excellente continuation.`,
   },
+  post_session_advice: {
+    subject: 'Conseils post-séance - {{practice_name}}',
+    body: `Bonjour {{patient_first_name}},
+
+Merci pour votre visite. Voici quelques conseils pour optimiser les bienfaits de votre séance :
+
+Bougez régulièrement et privilégiez la marche.
+Hydratez-vous bien dans les prochains jours.
+Reprenez vos activités physiques de manière progressive.
+Il est possible de ressentir quelques courbatures ou une légère fatigue dans les 24 à 48h. C'est tout à fait normal.
+
+N'hésitez pas à me contacter si vous avez la moindre question.
+
+Prenez soin de vous.`,
+  },
 }
 
 // Replace template variables
@@ -112,12 +127,14 @@ export function createFollowUpHtmlEmail({
   bodyText,
   practitionerName,
   practiceName,
+  specialty,
   primaryColor = '#2563eb',
   googleReviewUrl,
 }: {
   bodyText: string
   practitionerName: string
   practiceName?: string | null
+  specialty?: string | null
   primaryColor?: string
   googleReviewUrl?: string | null
 }): string {
@@ -179,7 +196,120 @@ export function createFollowUpHtmlEmail({
               <p style="margin: 0; font-size: 14px; color: #64748b; font-weight: 600;">
                 ${practitionerName}
               </p>
-              ${practiceName ? `<p style="margin: 4px 0 0; font-size: 13px; color: #94a3b8;">${practiceName}</p>` : ''}
+              ${specialty ? `<p style="margin: 4px 0 0; font-size: 13px; color: #94a3b8;">${specialty}</p>` : ''}
+              ${practiceName ? `<p style="margin: 2px 0 0; font-size: 13px; color: #94a3b8;">${practiceName}</p>` : ''}
+            </div>
+          </div>
+          <p style="text-align: center; margin-top: 16px; color: #94a3b8; font-size: 12px;">
+            Envoyé via Osteoflow
+          </p>
+        </div>
+      </body>
+    </html>
+  `
+}
+
+/**
+ * Create a beautiful HTML email for post-session advice.
+ * Includes standard osteopathy aftercare tips in French.
+ */
+export function createPostSessionAdviceHtmlEmail({
+  bodyText,
+  practitionerName,
+  practiceName,
+  specialty,
+  primaryColor = '#2563eb',
+  googleReviewUrl,
+}: {
+  bodyText: string
+  practitionerName: string
+  practiceName?: string | null
+  specialty?: string | null
+  primaryColor?: string
+  googleReviewUrl?: string | null
+}): string {
+  const bodyHtml = textToHtml(bodyText)
+  const reviewSection = googleReviewUrl
+    ? `
+      <div style="margin-top: 28px; padding: 20px; border-radius: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; text-align: center;">
+        <p style="margin: 0 0 8px 0; font-size: 15px; font-weight: 600; color: #0f172a;">Votre avis compte beaucoup</p>
+        <p style="margin: 0 0 16px 0; font-size: 14px; color: #64748b;">
+          Si vous avez apprécié votre prise en charge, un avis Google serait très précieux.
+        </p>
+        <a href="${googleReviewUrl}" style="display: inline-block; padding: 10px 24px; background-color: ${primaryColor}; color: #ffffff; text-decoration: none; border-radius: 999px; font-weight: 600; font-size: 14px;">
+          Laisser un avis
+        </a>
+      </div>
+    `
+    : ''
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Conseils post-séance - ${practiceName || practitionerName}</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f1f5f9;">
+        <div style="max-width: 640px; margin: 0 auto; padding: 32px 16px;">
+          <div style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);">
+            <!-- Header -->
+            <div style="padding: 28px 32px; background: linear-gradient(135deg, ${primaryColor} 0%, #0f172a 100%); color: #ffffff; text-align: center;">
+              <div style="width: 56px; height: 56px; margin: 0 auto 16px; background-color: rgba(255,255,255,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 28px; line-height: 56px;">&#9889;</span>
+              </div>
+              <h1 style="margin: 0; font-size: 22px; font-weight: 700;">Conseils après votre séance d'ostéopathie</h1>
+              <p style="margin: 8px 0 0; font-size: 15px; opacity: 0.85;">
+                ${practiceName || practitionerName}
+              </p>
+            </div>
+
+            <!-- Body -->
+            <div style="padding: 32px;">
+              <div style="font-size: 15px; line-height: 1.7; color: #334155;">
+                ${bodyHtml}
+              </div>
+
+              <!-- Advice cards -->
+              <div style="margin-top: 28px;">
+                <div style="padding: 16px 20px; border-radius: 12px; background-color: #f0fdf4; border-left: 4px solid #22c55e; margin-bottom: 12px;">
+                  <p style="margin: 0; font-size: 14px; color: #166534;">
+                    <strong>Bougez régulièrement :</strong> évitez de rester immobile trop longtemps, privilégiez la marche et les mouvements doux.
+                  </p>
+                </div>
+                <div style="padding: 16px 20px; border-radius: 12px; background-color: #eff6ff; border-left: 4px solid #3b82f6; margin-bottom: 12px;">
+                  <p style="margin: 0; font-size: 14px; color: #1e40af;">
+                    <strong>Hydratez-vous :</strong> buvez suffisamment d'eau dans les jours qui suivent votre séance.
+                  </p>
+                </div>
+                <div style="padding: 16px 20px; border-radius: 12px; background-color: #fefce8; border-left: 4px solid #eab308; margin-bottom: 12px;">
+                  <p style="margin: 0; font-size: 14px; color: #854d0e;">
+                    <strong>Reprise progressive :</strong> reprenez vos activités physiques de manière progressive.
+                  </p>
+                </div>
+                <div style="padding: 16px 20px; border-radius: 12px; background-color: #faf5ff; border-left: 4px solid #a855f7; margin-bottom: 12px;">
+                  <p style="margin: 0; font-size: 14px; color: #6b21a8;">
+                    <strong>Réactions normales :</strong> il est possible de ressentir quelques courbatures ou une légère fatigue dans les 24 à 48 heures suivant la séance. C'est tout à fait normal.
+                  </p>
+                </div>
+                <div style="padding: 16px 20px; border-radius: 12px; background-color: #fff1f2; border-left: 4px solid #f43f5e; margin-bottom: 0;">
+                  <p style="margin: 0; font-size: 14px; color: #9f1239;">
+                    <strong>Écoutez votre corps :</strong> en cas de douleur persistante ou inhabituelle, n'hésitez pas à me contacter.
+                  </p>
+                </div>
+              </div>
+
+              ${reviewSection}
+            </div>
+
+            <!-- Footer -->
+            <div style="padding: 20px 32px; background-color: #f8fafc; border-top: 1px solid #e2e8f0;">
+              <p style="margin: 0; font-size: 14px; color: #64748b; font-weight: 600;">
+                ${practitionerName}
+              </p>
+              ${specialty ? `<p style="margin: 4px 0 0; font-size: 13px; color: #94a3b8;">${specialty}</p>` : ''}
+              ${practiceName ? `<p style="margin: 2px 0 0; font-size: 13px; color: #94a3b8;">${practiceName}</p>` : ''}
             </div>
           </div>
           <p style="text-align: center; margin-top: 16px; color: #94a3b8; font-size: 12px;">

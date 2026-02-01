@@ -1,26 +1,42 @@
 /**
  * Sign in (select practitioner) API route.
- * In desktop mode, "sign in" means selecting a practitioner profile.
+ * In desktop mode, "sign in" means selecting a practitioner and verifying password.
  */
 
 import { NextResponse } from 'next/server'
 import { getDatabase } from '@/lib/database/connection'
+import { verifyPassword, hashPassword } from '@/lib/database/auth'
 
 export async function POST(request: Request) {
   try {
-    const { email } = await request.json()
+    const { email, password } = await request.json()
     const db = getDatabase()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const practitioner = db
       .prepare('SELECT * FROM practitioners WHERE email = ?')
-      .get(email) as { user_id: string; email: string; first_name: string; last_name: string } | undefined
+      .get(email) as {
+        user_id: string
+        email: string
+        first_name: string
+        last_name: string
+        password_hash: string | null
+      } | undefined
 
     if (!practitioner) {
       return NextResponse.json({
         data: { user: null },
-        error: { message: 'Invalid login credentials' },
+        error: { message: 'Identifiants incorrects' },
       })
+    }
+
+    // Verify password if practitioner has one set
+    if (practitioner.password_hash) {
+      if (!password || !verifyPassword(password, practitioner.password_hash)) {
+        return NextResponse.json({
+          data: { user: null },
+          error: { message: 'Mot de passe incorrect' },
+        })
+      }
     }
 
     // Store current user
@@ -47,5 +63,30 @@ export async function POST(request: Request) {
       data: { user: null },
       error: { message },
     }, { status: 500 })
+  }
+}
+
+/**
+ * Set password for a practitioner.
+ */
+export async function PUT(request: Request) {
+  try {
+    const { email, password } = await request.json()
+
+    if (!email || !password || password.length < 4) {
+      return NextResponse.json(
+        { error: 'Mot de passe requis (4 caractères minimum)' },
+        { status: 400 }
+      )
+    }
+
+    const db = getDatabase()
+    const hash = hashPassword(password)
+    db.prepare('UPDATE practitioners SET password_hash = ? WHERE email = ?').run(hash, email)
+
+    return NextResponse.json({ success: true })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to set password'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

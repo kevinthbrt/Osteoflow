@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   Users,
@@ -15,9 +15,13 @@ import {
   Sparkles,
   LayoutDashboard,
   TrendingUp,
+  LogOut,
+  Mail,
+  Upload,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { createClient } from '@/lib/supabase/client'
 
 const navigation = [
   { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard, description: 'Vue d\'ensemble' },
@@ -27,12 +31,22 @@ const navigation = [
   { name: 'Messagerie', href: '/messages', icon: MessageCircle, description: 'Communications' },
   { name: 'Statistiques', href: '/statistics', icon: TrendingUp, description: 'Analyses & tendances' },
   { name: 'Comptabilité', href: '/accounting', icon: BarChart3, description: 'Rapports' },
+  { name: 'Emails', href: '/scheduled-emails', icon: Mail, description: 'Emails programmés' },
+  { name: 'Importer CSV', href: '/import', icon: Upload, description: 'Importer des données' },
   { name: 'Paramètres', href: '/settings', icon: Settings, description: 'Configuration' },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createClient()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
 
   return (
     <>
@@ -135,15 +149,23 @@ export function Sidebar() {
           </nav>
 
           {/* Footer */}
-          <div className="border-t border-border/50 p-4">
-            <div className="rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 p-4">
+          <div className="border-t border-border/50 p-4 space-y-3">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all duration-200"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted/50">
+                <LogOut className="h-4 w-4" />
+              </div>
+              <span>Déconnexion</span>
+            </button>
+            <div className="rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 p-3">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-primary" />
+                <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center">
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-foreground">Version Pro</p>
-                  <p className="text-[10px] text-muted-foreground">v1.0.0</p>
+                  <p className="text-[10px] font-semibold text-foreground">Osteoflow v1.0.0</p>
                 </div>
               </div>
             </div>

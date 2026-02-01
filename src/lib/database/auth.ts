@@ -1,15 +1,16 @@
 /**
  * Local authentication system for Osteoflow desktop.
- * Replaces Supabase Auth with a simple practitioner selection mechanism.
+ * Replaces Supabase Auth with practitioner selection + password.
  *
  * In desktop mode:
- * - No email/password authentication (data is local)
- * - Users select their practitioner profile at startup
+ * - Users select their practitioner profile and enter their password
  * - Multiple practitioners supported (for remplacants)
  * - Session persisted in SQLite app_config table
+ * - Passwords are hashed with scrypt
  */
 
 import { getDatabase, generateUUID } from './connection'
+import crypto from 'crypto'
 
 export interface LocalUser {
   id: string
@@ -18,6 +19,25 @@ export interface LocalUser {
     first_name?: string
     last_name?: string
   }
+}
+
+/**
+ * Hash a password using scrypt.
+ */
+export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex')
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex')
+  return `${salt}:${hash}`
+}
+
+/**
+ * Verify a password against a stored hash.
+ */
+export function verifyPassword(password: string, stored: string): boolean {
+  const [salt, hash] = stored.split(':')
+  if (!salt || !hash) return false
+  const computedHash = crypto.scryptSync(password, salt, 64).toString('hex')
+  return hash === computedHash
 }
 
 /**
@@ -80,11 +100,17 @@ export function listPractitioners(): Array<{
   last_name: string
   email: string
   practice_name: string | null
+  has_password: boolean
 }> {
   const db = getDatabase()
-  return db
-    .prepare('SELECT id, user_id, first_name, last_name, email, practice_name FROM practitioners ORDER BY last_name, first_name')
+  const rows = db
+    .prepare('SELECT id, user_id, first_name, last_name, email, practice_name, password_hash FROM practitioners ORDER BY last_name, first_name')
     .all() as any[]
+  return rows.map((r) => ({
+    ...r,
+    has_password: !!r.password_hash,
+    password_hash: undefined,
+  }))
 }
 
 /**
@@ -96,15 +122,17 @@ export function createPractitioner(data: {
   last_name: string
   email: string
   practice_name?: string
+  password?: string
 }): string {
   const db = getDatabase()
   const userId = generateUUID()
   const practitionerId = generateUUID()
   const now = new Date().toISOString()
+  const passwordHash = data.password ? hashPassword(data.password) : null
 
   db.prepare(`
-    INSERT INTO practitioners (id, user_id, first_name, last_name, email, practice_name, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO practitioners (id, user_id, first_name, last_name, email, practice_name, password_hash, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     practitionerId,
     userId,
@@ -112,6 +140,7 @@ export function createPractitioner(data: {
     data.last_name,
     data.email,
     data.practice_name || null,
+    passwordHash,
     now,
     now
   )

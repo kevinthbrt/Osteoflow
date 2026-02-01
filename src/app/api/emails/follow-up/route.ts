@@ -141,6 +141,7 @@ export async function POST(request: NextRequest) {
           bodyText,
           practitionerName,
           practiceName: practitioner.practice_name,
+          specialty: practitioner.specialty,
           primaryColor: practitioner.primary_color || '#2563eb',
           googleReviewUrl: practitioner.google_review_url,
         })
