@@ -294,12 +294,15 @@ function fetchRelation(
       .prepare(`SELECT * FROM ${relation.table} WHERE ${fk.referencedColumn} IN (${placeholders})`)
       .all(...ids) as any[]
 
+    // Convert rows once so the same objects are used for grouping AND nested relations
+    const convertedRelated = relatedRows.map((r) => convertRow(relation.table, r))
+
     // Group by FK
     const grouped = new Map<string, any[]>()
-    for (const row of relatedRows) {
-      const key = row[fk.referencedColumn]
+    for (let i = 0; i < relatedRows.length; i++) {
+      const key = relatedRows[i][fk.referencedColumn]
       if (!grouped.has(key)) grouped.set(key, [])
-      grouped.get(key)!.push(convertRow(relation.table, row))
+      grouped.get(key)!.push(convertedRelated[i])
     }
 
     // Attach to parent rows
@@ -307,11 +310,10 @@ function fetchRelation(
       parentRow[relation.alias] = grouped.get(parentRow.id) || []
     }
 
-    // Handle nested relations
-    if (relation.nestedRelations.length > 0 && relatedRows.length > 0) {
-      const allConverted = relatedRows.map((r) => convertRow(relation.table, r))
+    // Handle nested relations on the SAME converted objects
+    if (relation.nestedRelations.length > 0 && convertedRelated.length > 0) {
       for (const nested of relation.nestedRelations) {
-        fetchRelation(relation.table, allConverted, nested)
+        fetchRelation(relation.table, convertedRelated, nested)
       }
     }
   }

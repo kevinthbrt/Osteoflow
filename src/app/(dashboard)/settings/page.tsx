@@ -25,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, Upload, X, Image, Link, CheckCircle2, XCircle, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react'
+import { Loader2, Building, Mail, FileText, Download, Trash2, Upload, X, Image, Link, CheckCircle2, XCircle, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen } from 'lucide-react'
 import type { Practitioner, EmailTemplate, SessionType } from '@/types/database'
 
 interface PatientListItem {
@@ -751,6 +751,10 @@ export default function SettingsPage() {
           <TabsTrigger value="gdpr">
             <Download className="mr-2 h-4 w-4" />
             RGPD
+          </TabsTrigger>
+          <TabsTrigger value="storage">
+            <HardDrive className="mr-2 h-4 w-4" />
+            Stockage
           </TabsTrigger>
         </TabsList>
 
@@ -1554,15 +1558,19 @@ export default function SettingsPage() {
               <div className="p-4 bg-muted rounded-lg">
                 <h4 className="font-medium mb-2">Informations RGPD</h4>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>Les données sont stockées de manière sécurisée sur Supabase (PostgreSQL)</li>
-                  <li>Chaque praticien n&apos;accède qu&apos;à ses propres données (RLS)</li>
+                  <li>Les données sont stockées localement sur votre ordinateur (SQLite)</li>
+                  <li>Aucune donnée ne transite par un serveur externe</li>
                   <li>L&apos;export inclut toutes les données du patient, consultations et factures</li>
                   <li>La suppression est définitive et irréversible</li>
-                  <li>Un journal d&apos;audit trace toutes les modifications</li>
                 </ul>
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Storage Tab */}
+        <TabsContent value="storage">
+          <StorageSettings />
         </TabsContent>
       </Tabs>
 
@@ -1588,6 +1596,165 @@ export default function SettingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  )
+}
+
+/**
+ * Storage settings component for managing database location.
+ */
+function StorageSettings() {
+  const [dbInfo, setDbInfo] = useState<{
+    currentDir: string
+    defaultDir: string
+    dbPath: string
+    dbExists: boolean
+    isCustom: boolean
+  } | null>(null)
+  const [newPath, setNewPath] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const { toast } = useToast()
+
+  useEffect(() => {
+    fetchDbInfo()
+  }, [])
+
+  const fetchDbInfo = async () => {
+    setIsLoading(true)
+    try {
+      const res = await fetch('/api/settings/database')
+      if (res.ok) {
+        const info = await res.json()
+        setDbInfo(info)
+        setNewPath(info.currentDir)
+      }
+    } catch (error) {
+      console.error('Error fetching db info:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    if (!newPath.trim()) return
+    setIsSaving(true)
+    try {
+      const res = await fetch('/api/settings/database', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ databaseDir: newPath.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast({ variant: 'destructive', title: 'Erreur', description: data.error })
+        return
+      }
+      toast({ title: 'Dossier mis à jour', description: 'Redémarrez l\'application pour appliquer.' })
+      fetchDbInfo()
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour le chemin' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleReset = async () => {
+    setIsSaving(true)
+    try {
+      const res = await fetch('/api/settings/database', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ databaseDir: null }),
+      })
+      if (res.ok) {
+        toast({ title: 'Réinitialisé', description: 'Dossier par défaut restauré. Redémarrez l\'application.' })
+        fetchDbInfo()
+      }
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de réinitialiser' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (isLoading) {
+    return <Card><CardContent className="p-6"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></CardContent></Card>
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <HardDrive className="h-5 w-5 text-primary" />
+            Dossier de stockage
+          </CardTitle>
+          <CardDescription>
+            Choisissez où stocker la base de données de l&apos;application.
+            Le fichier <code className="text-xs bg-muted px-1 rounded">osteoflow.db</code> sera
+            créé dans le dossier choisi.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {dbInfo && (
+            <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Emplacement actuel :</span>
+              </div>
+              <code className="text-xs block break-all bg-background p-2 rounded border">
+                {dbInfo.dbPath}
+              </code>
+              {dbInfo.isCustom && (
+                <Badge variant="outline" className="text-xs">Personnalisé</Badge>
+              )}
+            </div>
+          )}
+
+          <Separator />
+
+          <div className="space-y-2">
+            <Label htmlFor="db-path">Nouveau dossier de stockage</Label>
+            <div className="flex gap-2">
+              <Input
+                id="db-path"
+                value={newPath}
+                onChange={(e) => setNewPath(e.target.value)}
+                placeholder="/chemin/vers/dossier"
+                className="font-mono text-sm"
+              />
+              <Button onClick={handleSave} disabled={isSaving || !newPath.trim()}>
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Appliquer'}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Collez le chemin complet du dossier. Le dossier doit exister et être accessible en écriture.
+            </p>
+          </div>
+
+          {dbInfo?.isCustom && (
+            <Button variant="outline" size="sm" onClick={handleReset} disabled={isSaving}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Réinitialiser au dossier par défaut
+            </Button>
+          )}
+
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+              <div className="text-sm text-amber-800 dark:text-amber-200">
+                <p className="font-medium mb-1">Important</p>
+                <ul className="space-y-1 list-disc list-inside text-amber-700 dark:text-amber-300">
+                  <li>Changer le dossier ne déplace pas les données existantes</li>
+                  <li>Si vous changez le dossier, copiez manuellement <code className="text-xs bg-amber-100 dark:bg-amber-900 px-1 rounded">osteoflow.db</code> vers le nouveau dossier</li>
+                  <li>Redémarrez l&apos;application après le changement</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
