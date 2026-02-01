@@ -90,11 +90,12 @@ export async function generateAccountingPdf(data: AccountingPdfData): Promise<Ui
   let y = 115
   doc.font('Helvetica').fontSize(9).fillColor(MUTED)
   doc.text(data.periodLabel, margin, y)
-  doc.text(`Généré le ${data.generatedAt}`, margin, y, {
+  doc.font('Helvetica').fontSize(9).fillColor(MUTED)
+  doc.text(`Généré le ${data.generatedAt}`, margin, y + 14, {
     width: contentWidth,
     align: 'right',
   })
-  y += 20
+  y += 34
 
   // ── Summary cards ──
   const cardW = (contentWidth - 20) / 3

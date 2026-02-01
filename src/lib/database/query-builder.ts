@@ -737,9 +737,14 @@ export class QueryBuilder {
   private executeUpdate(db: Database.Database): { data: any; error: any } {
     const where = this.buildWhereClause()
 
-    // Set updated_at automatically if column exists
+    // Set updated_at automatically only for tables that have the column
+    const TABLES_WITH_UPDATED_AT = new Set([
+      'practitioners', 'patients', 'session_types', 'consultations',
+      'invoices', 'conversations', 'email_settings', 'email_templates',
+      'message_templates', 'medical_history_entries',
+    ])
     const data = { ...this._updateData }
-    if (!data.updated_at) {
+    if (!data.updated_at && TABLES_WITH_UPDATED_AT.has(this._table)) {
       data.updated_at = new Date().toISOString()
     }
 

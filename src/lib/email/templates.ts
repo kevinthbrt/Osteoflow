@@ -18,12 +18,9 @@ Cordialement,
 
 Votre séance du {{consultation_date}} remonte à quelques jours maintenant. Comment vous sentez-vous ?
 
-Il est tout à fait normal de ressentir certaines réactions dans les jours suivant une consultation. Si vous avez des questions ou la moindre préoccupation, n'hésitez surtout pas à me contacter. Je reste à votre entière disposition.
+Si vous avez des questions ou la moindre préoccupation, n'hésitez surtout pas à me contacter. Je reste à votre entière disposition.
 
-Je vous souhaite une excellente continuation,
-
-{{practitioner_name}}
-{{practice_name}}`,
+Je vous souhaite une excellente continuation.`,
   },
 }
 

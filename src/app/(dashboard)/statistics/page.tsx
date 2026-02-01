@@ -584,28 +584,44 @@ export default function StatisticsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-48 flex items-end gap-1">
-                      {consultationStats?.by_month && consultationStats.by_month.length > 0 ? (
-                        consultationStats.by_month.map(({ year, month, count }) => {
-                          const maxCount = Math.max(...consultationStats.by_month.map(m => m.count), 1)
-                          const height = (count / maxCount) * 100
-                          return (
-                            <div key={`${year}-${month}`} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                              <span className="text-xs font-medium">{count}</span>
-                              <div
-                                className="w-full bg-gradient-to-t from-primary to-primary/70 rounded-t transition-all hover:opacity-80"
-                                style={{ height: `${Math.max(height, 4)}%` }}
-                              />
-                              <span className="text-[10px] text-muted-foreground truncate">
-                                {monthNames[month - 1]} {year.toString().slice(2)}
+                    {consultationStats?.by_month && consultationStats.by_month.length > 0 ? (
+                      <div className="space-y-2">
+                        <div className="flex items-end gap-2" style={{ height: '200px' }}>
+                          {(() => {
+                            const maxCount = Math.max(...consultationStats.by_month.map(m => m.count), 1)
+                            return consultationStats.by_month.map(({ year, month, count }) => {
+                              const heightPct = (count / maxCount) * 100
+                              return (
+                                <div key={`${year}-${month}`} className="flex-1 flex flex-col items-center justify-end h-full min-w-[28px]">
+                                  <span className="text-xs font-semibold text-foreground mb-1">{count}</span>
+                                  <div
+                                    className="w-full max-w-[40px] mx-auto bg-gradient-to-t from-primary to-primary/60 rounded-t-md transition-all duration-300 hover:from-primary/90 hover:to-primary/50"
+                                    style={{ height: `${Math.max(heightPct, 6)}%` }}
+                                  />
+                                </div>
+                              )
+                            })
+                          })()}
+                        </div>
+                        <div className="flex gap-2">
+                          {consultationStats.by_month.map(({ year, month }) => (
+                            <div key={`label-${year}-${month}`} className="flex-1 text-center min-w-[28px]">
+                              <span className="text-[10px] text-muted-foreground">
+                                {monthNames[month - 1]}
+                              </span>
+                              <br />
+                              <span className="text-[10px] text-muted-foreground/60">
+                                {year.toString().slice(2)}
                               </span>
                             </div>
-                          )
-                        })
-                      ) : (
-                        <p className="w-full text-center text-muted-foreground py-8">Aucune donnée</p>
-                      )}
-                    </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-48">
+                        <p className="text-muted-foreground">Aucune donnée</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 

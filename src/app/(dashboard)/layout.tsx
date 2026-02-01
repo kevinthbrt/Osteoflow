@@ -37,11 +37,11 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-muted/30">
       <Sidebar />
       <div className="lg:pl-64">
         <Header user={user} practitioner={practitioner} />
-        <main className="p-4 lg:p-8">
+        <main className="p-4 lg:px-8 lg:py-6">
           {children}
         </main>
       </div>
