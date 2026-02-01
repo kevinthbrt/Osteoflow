@@ -9,6 +9,10 @@
 
 import { NextResponse } from 'next/server'
 import { createLocalClient } from '@/lib/database/query-builder'
+import { initServerCron } from '@/lib/server-cron'
+
+// Start background cron jobs on first request
+initServerCron()
 
 export async function POST(request: Request) {
   try {
