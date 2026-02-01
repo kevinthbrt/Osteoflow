@@ -73,7 +73,7 @@
     "eslint-config-next": "14.2.12",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5",
+    "typescript": "5.9.3",
     "vitest": "^2.1.1",
     "wait-on": "^8.0.1"
   },
@@ -92,18 +92,26 @@
       "next.config.ts"
     ],
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "category": "public.app-category.medical",
       "icon": "public/icon.icns"
     },
     "win": {
-      "target": ["nsis", "zip"],
+      "target": [
+        "nsis",
+        "zip"
+      ],
       "icon": "public/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "installerLanguages": ["fr"]
+      "installerLanguages": [
+        "fr"
+      ]
     },
     "extraResources": [
       {
