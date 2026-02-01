@@ -285,6 +285,7 @@ export interface Database {
           amount: number
           method: PaymentMethod
           payment_date: string
+          check_number: string | null
           notes: string | null
           created_at: string
         }
@@ -294,6 +295,7 @@ export interface Database {
           amount: number
           method: PaymentMethod
           payment_date?: string
+          check_number?: string | null
           notes?: string | null
           created_at?: string
         }
@@ -303,6 +305,7 @@ export interface Database {
           amount?: number
           method?: PaymentMethod
           payment_date?: string
+          check_number?: string | null
           notes?: string | null
           created_at?: string
         }

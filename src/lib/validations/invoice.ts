@@ -25,6 +25,11 @@ export const paymentSchema = z.object({
     required_error: 'Le mode de paiement est requis',
   }),
   payment_date: z.string().optional(),
+  check_number: z
+    .string()
+    .max(50, 'Le numéro de chèque ne peut pas dépasser 50 caractères')
+    .optional()
+    .or(z.literal('')),
   notes: z
     .string()
     .max(500, 'Les notes ne peuvent pas dépasser 500 caractères')

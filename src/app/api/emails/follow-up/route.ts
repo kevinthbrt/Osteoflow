@@ -4,8 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import {
   defaultEmailTemplates,
   replaceTemplateVariables,
-  textToHtml,
+  createFollowUpHtmlEmail,
 } from '@/lib/email/templates'
+import { sendEmail } from '@/lib/email/smtp-service'
 import { formatDate } from '@/lib/utils'
 
 // Lazy initialization to avoid build-time errors
@@ -134,30 +135,51 @@ export async function POST(request: NextRequest) {
         // Replace variables in template
         const subject = replaceTemplateVariables(template.subject, variables)
         const bodyText = replaceTemplateVariables(template.body, variables)
-        const bodyHtml = textToHtml(bodyText)
 
-        // Send email
-        const { error: emailError } = await getResend().emails.send({
-          from: `${practitioner.practice_name || practitioner.first_name} <onboarding@resend.dev>`,
-          to: patient.email,
-          subject,
-          html: `
-            <!DOCTYPE html>
-            <html>
-              <head>
-                <meta charset="utf-8">
-                <style>
-                  body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                  p { margin: 0 0 10px; }
-                </style>
-              </head>
-              <body>${bodyHtml}</body>
-            </html>
-          `,
+        const practitionerName = `${practitioner.first_name} ${practitioner.last_name}`
+        const htmlContent = createFollowUpHtmlEmail({
+          bodyText,
+          practitionerName,
+          practiceName: practitioner.practice_name,
+          primaryColor: practitioner.primary_color || '#2563eb',
+          googleReviewUrl: practitioner.google_review_url,
         })
 
-        if (emailError) {
-          throw new Error(`Resend error: ${emailError.message}`)
+        // Try SMTP first (desktop mode), then fallback to Resend
+        const { data: emailSettings } = await supabase
+          .from('email_settings')
+          .select('*')
+          .eq('practitioner_id', practitioner.id)
+          .eq('is_verified', true)
+          .single()
+
+        if (emailSettings) {
+          const result = await sendEmail(
+            {
+              smtp_host: emailSettings.smtp_host,
+              smtp_port: emailSettings.smtp_port,
+              smtp_secure: emailSettings.smtp_secure,
+              smtp_user: emailSettings.smtp_user,
+              smtp_password: emailSettings.smtp_password,
+              from_name: emailSettings.from_name,
+              from_email: emailSettings.from_email,
+            },
+            { to: patient.email, subject, html: htmlContent }
+          )
+          if (!result.success) {
+            throw new Error(`SMTP error: ${result.error}`)
+          }
+        } else {
+          const { error: emailError } = await getResend().emails.send({
+            from: `${practitioner.practice_name || practitioner.first_name} <${process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'}>`,
+            to: patient.email,
+            subject,
+            html: htmlContent,
+          })
+
+          if (emailError) {
+            throw new Error(`Resend error: ${emailError.message}`)
+          }
         }
 
         // Mark task as completed
@@ -288,33 +310,57 @@ export async function PUT(request: NextRequest) {
     // Replace variables
     const subject = replaceTemplateVariables(template.subject, variables)
     const bodyText = replaceTemplateVariables(template.body, variables)
-    const bodyHtml = textToHtml(bodyText)
 
-    // Send email
-    const { error: emailError } = await getResend().emails.send({
-      from: `${practitioner.practice_name || practitioner.first_name} <onboarding@resend.dev>`,
-      to: patient.email,
-      subject,
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              p { margin: 0 0 10px; }
-            </style>
-          </head>
-          <body>${bodyHtml}</body>
-        </html>
-      `,
+    const practitionerFullName = `${practitioner.first_name} ${practitioner.last_name}`
+    const htmlContent = createFollowUpHtmlEmail({
+      bodyText,
+      practitionerName: practitionerFullName,
+      practiceName: practitioner.practice_name,
+      primaryColor: practitioner.primary_color || '#2563eb',
+      googleReviewUrl: practitioner.google_review_url,
     })
 
-    if (emailError) {
-      return NextResponse.json(
-        { error: 'Erreur lors de l\'envoi de l\'email' },
-        { status: 500 }
+    // Try SMTP first (desktop mode), then fallback to Resend
+    const { data: emailSettings } = await supabase
+      .from('email_settings')
+      .select('*')
+      .eq('practitioner_id', practitioner.id)
+      .eq('is_verified', true)
+      .single()
+
+    if (emailSettings) {
+      const result = await sendEmail(
+        {
+          smtp_host: emailSettings.smtp_host,
+          smtp_port: emailSettings.smtp_port,
+          smtp_secure: emailSettings.smtp_secure,
+          smtp_user: emailSettings.smtp_user,
+          smtp_password: emailSettings.smtp_password,
+          from_name: emailSettings.from_name,
+          from_email: emailSettings.from_email,
+        },
+        { to: patient.email, subject, html: htmlContent }
       )
+      if (!result.success) {
+        return NextResponse.json(
+          { error: 'Erreur lors de l\'envoi de l\'email' },
+          { status: 500 }
+        )
+      }
+    } else {
+      const { error: emailError } = await getResend().emails.send({
+        from: `${practitioner.practice_name || practitioner.first_name} <${process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'}>`,
+        to: patient.email,
+        subject,
+        html: htmlContent,
+      })
+
+      if (emailError) {
+        return NextResponse.json(
+          { error: 'Erreur lors de l\'envoi de l\'email' },
+          { status: 500 }
+        )
+      }
     }
 
     // Update consultation

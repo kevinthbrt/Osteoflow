@@ -43,6 +43,7 @@ interface PaymentEntry {
   id: string
   amount: number
   method: 'card' | 'cash' | 'check' | 'transfer' | 'other'
+  check_number?: string
   notes?: string
 }
 
@@ -217,6 +218,7 @@ export function ConsultationForm({
               amount: p.amount,
               method: p.method,
               payment_date: new Date().toISOString().split('T')[0],
+              check_number: p.method === 'check' && p.check_number ? p.check_number : null,
               notes: p.notes || null,
             }))
 
@@ -520,6 +522,19 @@ export function ConsultationForm({
                           </SelectContent>
                         </Select>
                       </div>
+                      {payment.method === 'check' && (
+                        <div className="flex-1 space-y-2">
+                          <Label>N° chèque</Label>
+                          <Input
+                            type="text"
+                            placeholder="N° de chèque"
+                            value={payment.check_number || ''}
+                            onChange={(e) =>
+                              updatePayment(payment.id, 'check_number', e.target.value)
+                            }
+                          />
+                        </div>
+                      )}
                       {payments.length > 1 && (
                         <Button
                           type="button"

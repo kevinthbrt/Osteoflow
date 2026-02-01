@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS payments (
   amount REAL NOT NULL,
   method TEXT NOT NULL CHECK (method IN ('card', 'cash', 'check', 'transfer', 'other')),
   payment_date TEXT NOT NULL DEFAULT (date('now')),
+  check_number TEXT,
   notes TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
@@ -264,7 +265,21 @@ CREATE TABLE IF NOT EXISTS app_config (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
-`;
+
+`
+
+/**
+ * Run safe migrations that add columns if they don't already exist.
+ * Called after the main schema is executed.
+ */
+export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: string) => Array<Record<string, unknown>> }) {
+  // Check if check_number column exists on payments table
+  const cols = db.pragma('table_info(payments)') as Array<{ name: string }>
+  const hasCheckNumber = cols.some((c) => c.name === 'check_number')
+  if (!hasCheckNumber) {
+    db.exec('ALTER TABLE payments ADD COLUMN check_number TEXT;')
+  }
+}
 
 /**
  * Boolean fields that need conversion between SQLite (0/1) and JS (true/false).

@@ -67,6 +67,7 @@ export async function POST(request: Request) {
     const totalRevenue = safeInvoices.reduce((sum, inv) => sum + inv.amount, 0)
 
     const revenueByMethod: Record<string, number> = {}
+    const allCheckNumbers: string[] = []
     const dailyRecaps: Record<string, {
       date: string
       count: number
@@ -96,6 +97,11 @@ export async function POST(request: Request) {
         }
         dailyRecaps[recapDate].byMethod[payment.method].count += 1
         dailyRecaps[recapDate].byMethod[payment.method].amount += payment.amount
+
+        // Collect check numbers
+        if (payment.method === 'check' && payment.check_number) {
+          allCheckNumbers.push(`N° ${payment.check_number} (${recapDate} - ${formatCurrency(payment.amount)})`)
+        }
       }
     }
 
@@ -126,6 +132,7 @@ export async function POST(request: Request) {
           ])
         ),
       })),
+      checkNumbers: allCheckNumbers.length > 0 ? allCheckNumbers : undefined,
     }
 
     const pdfBytes = await generateAccountingPdf(pdfData)

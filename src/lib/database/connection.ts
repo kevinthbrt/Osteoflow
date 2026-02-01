@@ -8,7 +8,7 @@
 import Database from 'better-sqlite3'
 import path from 'path'
 import fs from 'fs'
-import { SCHEMA_SQL } from './schema'
+import { SCHEMA_SQL, runMigrations } from './schema'
 
 let db: Database.Database | null = null
 
@@ -101,6 +101,9 @@ export function getDatabase(): Database.Database {
 
   // Initialize schema
   db.exec(SCHEMA_SQL)
+
+  // Run migrations for existing databases
+  runMigrations(db)
 
   console.log('[Database] Schema initialized successfully')
 

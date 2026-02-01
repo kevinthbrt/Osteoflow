@@ -7,26 +7,20 @@ import { createClient } from '@/lib/supabase/client'
 import {
   practitionerSettingsSchema,
   type PractitionerSettingsFormData,
-  emailTemplateSchema,
-  type EmailTemplateFormData,
-  emailTemplateTypeLabels,
-  emailTemplateVariables,
   emailSettingsSchema,
   type EmailSettingsFormData,
   emailProviderPresets,
 } from '@/lib/validations/settings'
-import { defaultEmailTemplates } from '@/lib/email/templates'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, Upload, X, Image, Link, CheckCircle2, XCircle, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen } from 'lucide-react'
-import type { Practitioner, EmailTemplate, SessionType } from '@/types/database'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen } from 'lucide-react'
+import type { Practitioner, SessionType } from '@/types/database'
 
 interface PatientListItem {
   id: string
@@ -53,10 +47,8 @@ import {
 
 export default function SettingsPage() {
   const [practitioner, setPractitioner] = useState<Practitioner | null>(null)
-  const [emailTemplatesData, setEmailTemplatesData] = useState<EmailTemplate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [selectedTemplateType, setSelectedTemplateType] = useState<'invoice' | 'follow_up_7d'>('invoice')
   const [exportPatientId, setExportPatientId] = useState<string>('')
   const [patients, setPatients] = useState<PatientListItem[]>([])
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -104,24 +96,6 @@ export default function SettingsPage() {
   } = useForm<PractitionerSettingsFormData>({
     resolver: zodResolver(practitionerSettingsSchema),
   })
-
-  // Email template form
-  const {
-    register: registerTemplate,
-    handleSubmit: handleSubmitTemplate,
-    setValue: setTemplateValue,
-    watch: watchTemplate,
-    formState: { errors: templateErrors },
-  } = useForm<EmailTemplateFormData>({
-    resolver: zodResolver(emailTemplateSchema),
-    defaultValues: {
-      type: 'invoice',
-      subject: '',
-      body: '',
-    },
-  })
-
-  const templateBody = watchTemplate('body')
 
   // Email settings form
   const {
@@ -176,16 +150,6 @@ export default function SettingsPage() {
           setSettingsValue('invoice_prefix', practitionerData.invoice_prefix)
           setSettingsValue('primary_color', practitionerData.primary_color)
           setStampUrl(practitionerData.stamp_url)
-
-          // Get email templates
-          const { data: templates } = await supabase
-            .from('email_templates')
-            .select('*')
-            .eq('practitioner_id', practitionerData.id)
-
-          if (templates) {
-            setEmailTemplatesData(templates)
-          }
 
           // Get patients for export
           const { data: patientsData } = await supabase
@@ -250,23 +214,6 @@ export default function SettingsPage() {
     fetchData()
   }, [supabase, setSettingsValue, setEmailSettingsValue, toast])
 
-  // Load template content when type changes
-  useEffect(() => {
-    const existingTemplate = emailTemplatesData.find(
-      (t) => t.type === selectedTemplateType
-    )
-
-    if (existingTemplate) {
-      setTemplateValue('subject', existingTemplate.subject)
-      setTemplateValue('body', existingTemplate.body)
-    } else {
-      const defaultTemplate = defaultEmailTemplates[selectedTemplateType]
-      setTemplateValue('subject', defaultTemplate.subject)
-      setTemplateValue('body', defaultTemplate.body)
-    }
-    setTemplateValue('type', selectedTemplateType)
-  }, [selectedTemplateType, emailTemplatesData, setTemplateValue])
-
   // Save settings
   const onSaveSettings = async (data: PractitionerSettingsFormData) => {
     if (!practitioner) return
@@ -309,65 +256,6 @@ export default function SettingsPage() {
         variant: 'destructive',
         title: 'Erreur',
         description: 'Impossible de sauvegarder les paramètres',
-      })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  // Save email template
-  const onSaveTemplate = async (data: EmailTemplateFormData) => {
-    if (!practitioner) return
-
-    setIsSaving(true)
-
-    try {
-      const existingTemplate = emailTemplatesData.find(
-        (t) => t.type === data.type
-      )
-
-      if (existingTemplate) {
-        const { error } = await supabase
-          .from('email_templates')
-          .update({
-            subject: data.subject,
-            body: data.body,
-          })
-          .eq('id', existingTemplate.id)
-
-        if (error) throw error
-      } else {
-        const { error } = await supabase.from('email_templates').insert({
-          practitioner_id: practitioner.id,
-          type: data.type,
-          subject: data.subject,
-          body: data.body,
-        })
-
-        if (error) throw error
-      }
-
-      // Refresh templates
-      const { data: templates } = await supabase
-        .from('email_templates')
-        .select('*')
-        .eq('practitioner_id', practitioner.id)
-
-      if (templates) {
-        setEmailTemplatesData(templates)
-      }
-
-      toast({
-        variant: 'success',
-        title: 'Template enregistré',
-        description: 'Le template email a été sauvegardé',
-      })
-    } catch (error) {
-      console.error('Error saving template:', error)
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: 'Impossible de sauvegarder le template',
       })
     } finally {
       setIsSaving(false)
@@ -495,7 +383,7 @@ export default function SettingsPage() {
     }
   }
 
-  // Upload stamp image
+  // Upload stamp image (local file storage via API)
   const handleStampUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !practitioner) return
@@ -523,30 +411,22 @@ export default function SettingsPage() {
     setIsUploadingStamp(true)
 
     try {
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${practitioner.id}/stamp.${fileExt}`
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('practitioner_id', practitioner.id)
 
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('stamps')
-        .upload(fileName, file, { upsert: true })
+      const response = await fetch('/api/stamps/upload', {
+        method: 'POST',
+        body: formData,
+      })
 
-      if (uploadError) throw uploadError
+      const result = await response.json()
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('stamps')
-        .getPublicUrl(fileName)
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed')
+      }
 
-      // Update practitioner with stamp URL
-      const { error: updateError } = await supabase
-        .from('practitioners')
-        .update({ stamp_url: publicUrl })
-        .eq('id', practitioner.id)
-
-      if (updateError) throw updateError
-
-      setStampUrl(publicUrl)
+      setStampUrl(result.stampUrl)
 
       toast({
         variant: 'success',
@@ -743,10 +623,6 @@ export default function SettingsPage() {
           <TabsTrigger value="email-connection">
             <Link className="mr-2 h-4 w-4" />
             Connexion Email
-          </TabsTrigger>
-          <TabsTrigger value="emails">
-            <Mail className="mr-2 h-4 w-4" />
-            Templates
           </TabsTrigger>
           <TabsTrigger value="gdpr">
             <Download className="mr-2 h-4 w-4" />
@@ -1420,90 +1296,6 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-
-        {/* Emails Tab */}
-        <TabsContent value="emails">
-          <Card>
-            <CardHeader>
-              <CardTitle>Templates email</CardTitle>
-              <CardDescription>
-                Personnalisez vos emails automatiques
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex gap-2">
-                <Button
-                  variant={selectedTemplateType === 'invoice' ? 'default' : 'outline'}
-                  onClick={() => setSelectedTemplateType('invoice')}
-                >
-                  {emailTemplateTypeLabels.invoice}
-                </Button>
-                <Button
-                  variant={selectedTemplateType === 'follow_up_7d' ? 'default' : 'outline'}
-                  onClick={() => setSelectedTemplateType('follow_up_7d')}
-                >
-                  {emailTemplateTypeLabels.follow_up_7d}
-                </Button>
-              </div>
-
-              <form onSubmit={handleSubmitTemplate(onSaveTemplate)}>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="subject">Objet *</Label>
-                    <Input
-                      id="subject"
-                      {...registerTemplate('subject')}
-                    />
-                    {templateErrors.subject && (
-                      <p className="text-sm text-destructive">
-                        {templateErrors.subject.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="body">Contenu *</Label>
-                    <Textarea
-                      id="body"
-                      {...registerTemplate('body')}
-                      rows={10}
-                    />
-                    {templateErrors.body && (
-                      <p className="text-sm text-destructive">
-                        {templateErrors.body.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm font-medium mb-2">Variables disponibles :</p>
-                    <div className="flex flex-wrap gap-2">
-                      {emailTemplateVariables[selectedTemplateType].map((variable) => (
-                        <Badge
-                          key={variable.key}
-                          variant="outline"
-                          className="cursor-pointer"
-                          onClick={() => {
-                            setTemplateValue('body', templateBody + variable.key)
-                          }}
-                        >
-                          {variable.key}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button type="submit" disabled={isSaving}>
-                      {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Enregistrer le template
-                    </Button>
-                  </div>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         {/* GDPR Tab */}

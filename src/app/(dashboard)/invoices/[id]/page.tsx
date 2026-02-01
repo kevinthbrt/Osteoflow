@@ -360,6 +360,9 @@ export default function InvoicePage() {
                         <div>
                           <p className="font-medium">
                             {paymentMethodLabels[payment.method]}
+                            {payment.method === 'check' && payment.check_number && (
+                              <span className="text-muted-foreground font-normal"> - N° {payment.check_number}</span>
+                            )}
                           </p>
                           <p className="text-sm text-muted-foreground">
                             {formatDate(payment.payment_date)}
