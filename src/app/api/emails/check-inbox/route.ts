@@ -224,31 +224,20 @@ export async function GET(request: Request) {
             continue
           }
 
-          // Update conversation's last_message_at and unread_count
-          await supabase
-            .from('conversations')
-            .update({
-              last_message_at: email.date.toISOString(),
-              unread_count: supabase.rpc('increment_unread', { conv_id: conversationId }) || 1,
-            })
-            .eq('id', conversationId)
-
-          // Simple increment since rpc might not exist
+          // Update conversation's last_message_at and increment unread_count
           const { data: conv } = await supabase
             .from('conversations')
             .select('unread_count')
             .eq('id', conversationId)
             .single()
 
-          if (conv) {
-            await supabase
-              .from('conversations')
-              .update({
-                last_message_at: email.date.toISOString(),
-                unread_count: (conv.unread_count || 0) + 1,
-              })
-              .eq('id', conversationId)
-          }
+          await supabase
+            .from('conversations')
+            .update({
+              last_message_at: email.date.toISOString(),
+              unread_count: ((conv?.unread_count as number) || 0) + 1,
+            })
+            .eq('id', conversationId)
 
           matchedCount++
         }
