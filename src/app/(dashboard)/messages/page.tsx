@@ -30,6 +30,8 @@ import {
   ArrowLeft,
   Sparkles,
   Trash2,
+  Users,
+  Loader2,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -107,6 +109,9 @@ export default function MessagesPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [showNewModal, setShowNewModal] = useState(false)
   const [isMobileView, setIsMobileView] = useState(false)
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false)
+  const [broadcastContent, setBroadcastContent] = useState('')
+  const [isBroadcasting, setIsBroadcasting] = useState(false)
   const { toast } = useToast()
   const supabase = createClient()
 
@@ -377,10 +382,16 @@ export default function MessagesPage() {
               <MessageCircle className="h-5 w-5 text-primary" />
               Messagerie
             </h1>
-            <Button size="sm" onClick={() => setShowNewModal(true)}>
-              <Plus className="h-4 w-4 mr-1" />
-              Nouveau
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => setShowBroadcastModal(true)}>
+                <Users className="h-4 w-4 mr-1" />
+                Diffuser
+              </Button>
+              <Button size="sm" onClick={() => setShowNewModal(true)}>
+                <Plus className="h-4 w-4 mr-1" />
+                Nouveau
+              </Button>
+            </div>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -561,6 +572,91 @@ export default function MessagesPage() {
           setSelectedConversation(conv as Conversation)
         }}
       />
+
+      {/* Broadcast modal */}
+      {showBroadcastModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-background rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
+            <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Diffuser un message
+            </h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Envoyer un email à tous vos patients actifs ayant une adresse email.
+            </p>
+            <Textarea
+              placeholder="Votre message..."
+              value={broadcastContent}
+              onChange={(e) => setBroadcastContent(e.target.value)}
+              rows={6}
+              disabled={isBroadcasting}
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowBroadcastModal(false)
+                  setBroadcastContent('')
+                }}
+                disabled={isBroadcasting}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!broadcastContent.trim()) return
+                  setIsBroadcasting(true)
+                  try {
+                    const res = await fetch('/api/messages/broadcast', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ content: broadcastContent }),
+                    })
+                    const data = await res.json()
+                    if (!res.ok) {
+                      toast({
+                        variant: 'destructive',
+                        title: 'Erreur',
+                        description: data.error || 'Erreur lors de la diffusion',
+                      })
+                    } else {
+                      toast({
+                        variant: 'success',
+                        title: 'Diffusion envoyée',
+                        description: `${data.sent}/${data.total} email(s) envoyé(s)`,
+                      })
+                      setShowBroadcastModal(false)
+                      setBroadcastContent('')
+                      fetchConversations()
+                    }
+                  } catch {
+                    toast({
+                      variant: 'destructive',
+                      title: 'Erreur',
+                      description: 'Impossible de diffuser le message',
+                    })
+                  } finally {
+                    setIsBroadcasting(false)
+                  }
+                }}
+                disabled={isBroadcasting || !broadcastContent.trim()}
+              >
+                {isBroadcasting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    Envoi en cours...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-1" />
+                    Envoyer à tous
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

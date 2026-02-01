@@ -20,11 +20,11 @@ export function startCronJobs(port: number): void {
   console.log('[Cron] Starting background tasks...')
 
   // Follow-up emails (J+7)
-  // First run after 30 seconds, then every 15 minutes
+  // First run after 10 seconds, then every 15 minutes
   setTimeout(() => {
     runFollowUp(port)
     followUpInterval = setInterval(() => runFollowUp(port), FOLLOW_UP_INTERVAL)
-  }, 30_000)
+  }, 10_000)
 
   // Inbox sync
   // First run after 10 seconds, then every 5 minutes

@@ -317,6 +317,7 @@ export async function PUT(request: NextRequest) {
       bodyText,
       practitionerName: practitionerFullName,
       practiceName: practitioner.practice_name,
+      specialty: practitioner.specialty,
       primaryColor: practitioner.primary_color || '#2563eb',
       googleReviewUrl: practitioner.google_review_url,
     })

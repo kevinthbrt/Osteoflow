@@ -67,6 +67,7 @@ export function ConsultationForm({
   ])
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [createdInvoice, setCreatedInvoice] = useState<CreatedInvoice | null>(null)
+  const [sendPostSessionAdvice, setSendPostSessionAdvice] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
   const supabase = createClient()
@@ -247,6 +248,19 @@ export function ConsultationForm({
             consultation_id: newConsultation.id,
             scheduled_for: scheduledFor.toISOString(),
           })
+        }
+
+        // Send post-session advice email immediately if requested
+        if (sendPostSessionAdvice && newConsultation && patient.email) {
+          try {
+            await fetch('/api/emails/post-session-advice', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ consultationId: newConsultation.id }),
+            })
+          } catch (e) {
+            console.error('Error sending post-session advice:', e)
+          }
         }
 
         // Show invoice action modal if invoice was created
@@ -436,6 +450,24 @@ export function ConsultationForm({
           {followUp7d && !patient.email && (
             <p className="text-sm text-yellow-600 mt-2">
               Le patient n&apos;a pas d&apos;adresse email. L&apos;email de suivi ne pourra pas être envoyé.
+            </p>
+          )}
+          {mode === 'create' && (
+            <div className="flex items-center space-x-2 mt-4">
+              <Checkbox
+                id="send_post_session_advice"
+                checked={sendPostSessionAdvice}
+                onCheckedChange={(checked) => setSendPostSessionAdvice(!!checked)}
+                disabled={isLoading}
+              />
+              <Label htmlFor="send_post_session_advice" className="cursor-pointer">
+                Envoyer des conseils post-séance par email (immédiat)
+              </Label>
+            </div>
+          )}
+          {sendPostSessionAdvice && !patient.email && (
+            <p className="text-sm text-yellow-600 mt-2">
+              Le patient n&apos;a pas d&apos;adresse email. L&apos;email ne pourra pas être envoyé.
             </p>
           )}
         </CardContent>
