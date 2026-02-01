@@ -5,60 +5,40 @@
  * - Launch a local Next.js server
  * - Create the application window
  * - Run background cron jobs (follow-up emails, inbox checking)
+ * - Handle auto-updates via GitHub Releases
  * - Handle application lifecycle
  */
 
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell, dialog } from 'electron'
 import path from 'path'
 import { startCronJobs, stopCronJobs } from './cron'
 
 // Next.js server
 let nextServer: any = null
 let mainWindow: BrowserWindow | null = null
-const PORT = 3456 // Use a non-standard port to avoid conflicts
+const PORT = 3456
 const isDev = process.env.NODE_ENV === 'development'
 
 /**
  * Start the Next.js server programmatically.
  */
 async function startNextServer(): Promise<void> {
-  if (isDev) {
-    // In development, use next dev
-    const { default: next } = await import('next')
-    const nextApp = next({
-      dev: true,
-      dir: path.join(__dirname, '..'),
-      port: PORT,
+  const { default: next } = await import('next')
+  const nextApp = next({
+    dev: isDev,
+    dir: path.join(__dirname, '..'),
+    port: PORT,
+  })
+  await nextApp.prepare()
+  const handle = nextApp.getRequestHandler()
+  const http = await import('http')
+  nextServer = http.createServer((req: any, res: any) => handle(req, res))
+  await new Promise<void>((resolve) => {
+    nextServer.listen(PORT, () => {
+      console.log(`[Electron] Next.js server running on http://localhost:${PORT}`)
+      resolve()
     })
-    await nextApp.prepare()
-    const handle = nextApp.getRequestHandler()
-    const http = await import('http')
-    nextServer = http.createServer((req: any, res: any) => handle(req, res))
-    await new Promise<void>((resolve) => {
-      nextServer.listen(PORT, () => {
-        console.log(`[Electron] Next.js dev server running on http://localhost:${PORT}`)
-        resolve()
-      })
-    })
-  } else {
-    // In production, use the standalone Next.js server
-    const { default: next } = await import('next')
-    const nextApp = next({
-      dev: false,
-      dir: path.join(__dirname, '..'),
-      port: PORT,
-    })
-    await nextApp.prepare()
-    const handle = nextApp.getRequestHandler()
-    const http = await import('http')
-    nextServer = http.createServer((req: any, res: any) => handle(req, res))
-    await new Promise<void>((resolve) => {
-      nextServer.listen(PORT, () => {
-        console.log(`[Electron] Next.js server running on http://localhost:${PORT}`)
-        resolve()
-      })
-    })
-  }
+  })
 }
 
 /**
@@ -76,23 +56,18 @@ function createWindow(): void {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    // macOS specific
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 16, y: 16 },
-    // Windows specific
     autoHideMenuBar: true,
     show: false,
   })
 
-  // Show window when ready to avoid flash
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show()
   })
 
-  // Load the Next.js app
   mainWindow.loadURL(`http://localhost:${PORT}`)
 
-  // Open external links in browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http://localhost')) {
       return { action: 'allow' }
@@ -101,7 +76,6 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
-  // Open DevTools in development
   if (isDev) {
     mainWindow.webContents.openDevTools()
   }
@@ -112,20 +86,77 @@ function createWindow(): void {
 }
 
 /**
+ * Auto-updater: checks GitHub Releases for new versions.
+ * Only runs in production (packaged app).
+ */
+async function setupAutoUpdater(): Promise<void> {
+  if (isDev) return
+
+  try {
+    const { autoUpdater } = await import('electron-updater')
+
+    autoUpdater.autoDownload = false
+    autoUpdater.autoInstallOnAppQuit = true
+
+    autoUpdater.on('update-available', (info) => {
+      console.log(`[Updater] Update available: v${info.version}`)
+      dialog
+        .showMessageBox({
+          type: 'info',
+          title: 'Mise à jour disponible',
+          message: `La version ${info.version} d'Osteoflow est disponible.`,
+          detail: 'Voulez-vous la télécharger maintenant ?',
+          buttons: ['Télécharger', 'Plus tard'],
+          defaultId: 0,
+        })
+        .then(({ response }) => {
+          if (response === 0) {
+            autoUpdater.downloadUpdate()
+          }
+        })
+    })
+
+    autoUpdater.on('update-downloaded', () => {
+      console.log('[Updater] Update downloaded')
+      dialog
+        .showMessageBox({
+          type: 'info',
+          title: 'Mise à jour prête',
+          message: 'La mise à jour a été téléchargée.',
+          detail: "L'application va redémarrer pour appliquer la mise à jour.",
+          buttons: ['Redémarrer maintenant', 'Plus tard'],
+          defaultId: 0,
+        })
+        .then(({ response }) => {
+          if (response === 0) {
+            autoUpdater.quitAndInstall()
+          }
+        })
+    })
+
+    autoUpdater.on('error', (error) => {
+      console.error('[Updater] Error:', error.message)
+    })
+
+    // Check for updates 5s after launch, then every 4 hours
+    setTimeout(() => autoUpdater.checkForUpdates(), 5000)
+    setInterval(() => autoUpdater.checkForUpdates(), 4 * 60 * 60 * 1000)
+  } catch (error) {
+    console.error('[Updater] Failed to initialize:', error)
+  }
+}
+
+/**
  * Application lifecycle.
  */
 app.whenReady().then(async () => {
   console.log('[Electron] Starting Osteoflow...')
 
   try {
-    // Start Next.js server
     await startNextServer()
-
-    // Create the window
     createWindow()
-
-    // Start background cron jobs
     startCronJobs(PORT)
+    setupAutoUpdater()
 
     console.log('[Electron] Osteoflow ready!')
   } catch (error) {
@@ -133,7 +164,6 @@ app.whenReady().then(async () => {
     app.quit()
   }
 
-  // macOS: re-create window when dock icon is clicked
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow()
@@ -141,14 +171,12 @@ app.whenReady().then(async () => {
   })
 })
 
-// Quit when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
 })
 
-// Cleanup on quit
 app.on('before-quit', () => {
   console.log('[Electron] Shutting down...')
   stopCronJobs()

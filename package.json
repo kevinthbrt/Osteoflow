@@ -67,8 +67,9 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "concurrently": "^9.1.0",
-    "electron": "^33.2.0",
+    "electron": "^28.3.3",
     "electron-builder": "^25.1.8",
+    "electron-updater": "^6.3.9",
     "eslint": "^8",
     "eslint-config-next": "14.2.12",
     "postcss": "^8",
@@ -85,24 +86,32 @@
     },
     "files": [
       "electron/**/*.js",
+      "electron/**/*.js.map",
       ".next/**/*",
       "src/**/*",
       "public/**/*",
       "package.json",
-      "next.config.ts"
+      "next.config.ts",
+      "node_modules/**/*"
     ],
+    "asar": true,
+    "publish": {
+      "provider": "github",
+      "owner": "kevinthbrt",
+      "repo": "Osteoflow"
+    },
     "mac": {
       "target": [
         "dmg",
         "zip"
       ],
       "category": "public.app-category.medical",
-      "icon": "public/icon.icns"
+      "icon": "public/icon.icns",
+      "minimumSystemVersion": "10.15.0"
     },
     "win": {
       "target": [
-        "nsis",
-        "zip"
+        "nsis"
       ],
       "icon": "public/icon.ico"
     },
