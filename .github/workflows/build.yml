@@ -29,7 +29,7 @@ jobs:
         run: npm run build:electron
 
       - name: Rebuild native modules for Electron
-        run: npx electron-builder install-app-deps
+        run: npx --yes @electron/rebuild -f -w better-sqlite3
 
       - name: Build Mac installer
         run: npx electron-builder --mac --x64 --publish never
@@ -62,7 +62,7 @@ jobs:
         run: npm run build:electron
 
       - name: Rebuild native modules for Electron
-        run: npx electron-builder install-app-deps
+        run: npx --yes @electron/rebuild -f -w better-sqlite3
 
       - name: Build Windows installer
         run: npx electron-builder --win --publish never
