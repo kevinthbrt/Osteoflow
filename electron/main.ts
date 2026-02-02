@@ -39,9 +39,21 @@ async function startNextServer(): Promise<void> {
   } else {
     // Production: use NextServer directly (avoids spawning npm/npx)
     const appDir = path.join(__dirname, '..')
+
+    // Ensure NODE_ENV is set and CWD points to the app root so Next.js
+    // can resolve .next/static and other assets correctly in the packaged app.
+    ;(process.env as any).NODE_ENV = 'production'
+    process.chdir(appDir)
+
     const fs = await import('fs')
     const configPath = path.join(appDir, '.next', 'required-server-files.json')
     const requiredServerFiles = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+
+    const conf = {
+      ...requiredServerFiles.config,
+      distDir: '.next',
+      customServer: true,
+    }
 
     const NextServer = require('next/dist/server/next-server').default
     const nextApp = new NextServer({
@@ -49,12 +61,18 @@ async function startNextServer(): Promise<void> {
       port: PORT,
       dir: appDir,
       dev: false,
-      conf: requiredServerFiles.config,
+      conf,
     })
 
     const handle = nextApp.getRequestHandler()
     nextServer = http.createServer(async (req: any, res: any) => {
-      await handle(req, res)
+      try {
+        await handle(req, res)
+      } catch (err) {
+        console.error('[NextServer] Request error:', err)
+        res.statusCode = 500
+        res.end('Internal Server Error')
+      }
     })
   }
 
