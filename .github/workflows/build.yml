@@ -28,6 +28,9 @@ jobs:
       - name: Build Electron TypeScript
         run: npm run build:electron
 
+      - name: Rebuild native modules for Electron
+        run: npx electron-builder install-app-deps
+
       - name: Build Mac installer
         run: npx electron-builder --mac --x64 --publish never
 
@@ -57,6 +60,9 @@ jobs:
 
       - name: Build Electron TypeScript
         run: npm run build:electron
+
+      - name: Rebuild native modules for Electron
+        run: npx electron-builder install-app-deps
 
       - name: Build Windows installer
         run: npx electron-builder --win --publish never
