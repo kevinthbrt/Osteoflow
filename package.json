@@ -1,6 +1,6 @@
 {
   "name": "osteoflow",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -92,6 +92,7 @@
       "next.config.mjs"
     ],
     "asar": false,
+    "npmRebuild": false,
     "publish": {
       "provider": "github",
       "owner": "kevinthbrt",
