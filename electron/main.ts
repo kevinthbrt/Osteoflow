@@ -41,7 +41,7 @@ async function startNextServer(): Promise<void> {
     const appDir = path.join(__dirname, '..')
 
     // Ensure NODE_ENV is set and CWD points to the app root so Next.js
-    // can resolve .next/static and other assets correctly in the packaged app.
+    // can resolve assets correctly in the packaged app.
     ;(process.env as any).NODE_ENV = 'production'
     process.chdir(appDir)
 
@@ -65,7 +65,47 @@ async function startNextServer(): Promise<void> {
     })
 
     const handle = nextApp.getRequestHandler()
+
+    // MIME types for static file serving
+    const MIME_TYPES: Record<string, string> = {
+      '.js': 'application/javascript',
+      '.css': 'text/css',
+      '.json': 'application/json',
+      '.map': 'application/json',
+      '.woff': 'font/woff',
+      '.woff2': 'font/woff2',
+      '.ttf': 'font/ttf',
+      '.eot': 'application/vnd.ms-fontobject',
+      '.svg': 'image/svg+xml',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.ico': 'image/x-icon',
+      '.webp': 'image/webp',
+      '.txt': 'text/plain',
+    }
+
     nextServer = http.createServer(async (req: any, res: any) => {
+      const reqUrl = req.url || '/'
+
+      // Serve /_next/static/* files directly from .next/static/ on disk.
+      // This bypasses NextServer's internal path resolution which can fail
+      // in packaged Electron apps.
+      if (reqUrl.startsWith('/_next/static/')) {
+        const relativePath = reqUrl.replace('/_next/static/', '').split('?')[0]
+        const filePath = path.join(appDir, '.next', 'static', relativePath)
+        try {
+          const data = fs.readFileSync(filePath)
+          const ext = path.extname(filePath)
+          res.setHeader('Content-Type', MIME_TYPES[ext] || 'application/octet-stream')
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+          res.end(data)
+          return
+        } catch {
+          // File not found, fall through to NextServer
+        }
+      }
+
       try {
         await handle(req, res)
       } catch (err) {
