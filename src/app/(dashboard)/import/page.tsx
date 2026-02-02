@@ -28,6 +28,10 @@ type PatientField =
   | 'birth_date'
   | 'gender'
   | 'profession'
+  | 'trauma_history'
+  | 'medical_history'
+  | 'surgical_history'
+  | 'family_history'
 
 type ConsultationField =
   | 'consultation_date'
@@ -52,6 +56,10 @@ const PATIENT_FIELDS: FieldDefinition[] = [
   { key: 'birth_date', label: 'Date de naissance' },
   { key: 'gender', label: 'Sexe (M/F)' },
   { key: 'profession', label: 'Profession' },
+  { key: 'trauma_history', label: 'Antecedents traumatiques' },
+  { key: 'medical_history', label: 'Antecedents medicaux' },
+  { key: 'surgical_history', label: 'Antecedents chirurgicaux' },
+  { key: 'family_history', label: 'Antecedents familiaux' },
 ]
 
 const CONSULTATION_FIELDS: FieldDefinition[] = [
@@ -135,10 +143,32 @@ const COLUMN_ALIASES: Record<string, MappableField> = {
   anamnese: 'anamnesis',
   anamnesis: 'anamnesis',
   interrogatoire: 'anamnesis',
-  histoire: 'anamnesis',
   'histoire clinique': 'anamnesis',
-  antecedents: 'anamnesis',
-  'antécédents': 'anamnesis',
+  // trauma_history
+  'antecedents traumatiques': 'trauma_history',
+  'antécédents traumatiques': 'trauma_history',
+  'histoire traumatique': 'trauma_history',
+  traumatismes: 'trauma_history',
+  trauma: 'trauma_history',
+  // medical_history
+  'antecedents medicaux': 'medical_history',
+  'antécédents médicaux': 'medical_history',
+  'histoire medicale': 'medical_history',
+  'histoire médicale': 'medical_history',
+  antecedents: 'medical_history',
+  'antécédents': 'medical_history',
+  // surgical_history
+  'antecedents chirurgicaux': 'surgical_history',
+  'antécédents chirurgicaux': 'surgical_history',
+  chirurgie: 'surgical_history',
+  operations: 'surgical_history',
+  'opérations': 'surgical_history',
+  // family_history
+  'antecedents familiaux': 'family_history',
+  'antécédents familiaux': 'family_history',
+  'histoire familiale': 'family_history',
+  'heredite': 'family_history',
+  'hérédité': 'family_history',
   // examination
   examen: 'examination',
   'examen clinique': 'examination',
@@ -627,6 +657,18 @@ export default function ImportPage() {
 
         const professionVal = getValue('profession')
         if (professionVal) patient.profession = professionVal
+
+        const traumaVal = getValue('trauma_history')
+        if (traumaVal) patient.trauma_history = traumaVal
+
+        const medicalVal = getValue('medical_history')
+        if (medicalVal) patient.medical_history = medicalVal
+
+        const surgicalVal = getValue('surgical_history')
+        if (surgicalVal) patient.surgical_history = surgicalVal
+
+        const familyVal = getValue('family_history')
+        if (familyVal) patient.family_history = familyVal
 
         if (birthDateRaw) {
           const parsed = parseDateToISO(birthDateRaw)
