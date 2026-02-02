@@ -27,10 +27,18 @@ type PatientField =
   | 'birth_date'
   | 'gender'
   | 'profession'
-  | '__ignore__'
+
+type ConsultationField =
+  | 'consultation_date'
+  | 'reason'
+  | 'anamnesis'
+  | 'examination'
+  | 'advice'
+
+type MappableField = PatientField | ConsultationField | '__ignore__'
 
 interface FieldDefinition {
-  key: PatientField
+  key: PatientField | ConsultationField
   label: string
 }
 
@@ -44,9 +52,19 @@ const PATIENT_FIELDS: FieldDefinition[] = [
   { key: 'profession', label: 'Profession' },
 ]
 
+const CONSULTATION_FIELDS: FieldDefinition[] = [
+  { key: 'consultation_date', label: 'Date de consultation' },
+  { key: 'reason', label: 'Motif de consultation' },
+  { key: 'anamnesis', label: 'Anamnese' },
+  { key: 'examination', label: 'Examen clinique' },
+  { key: 'advice', label: 'Conseils' },
+]
+
+const ALL_FIELDS: FieldDefinition[] = [...PATIENT_FIELDS, ...CONSULTATION_FIELDS]
+
 // Mapping of common French CSV column headers to our internal field keys.
 // Keys are lowercased & trimmed before lookup.
-const COLUMN_ALIASES: Record<string, PatientField> = {
+const COLUMN_ALIASES: Record<string, MappableField> = {
   // last_name
   nom: 'last_name',
   last_name: 'last_name',
@@ -83,13 +101,56 @@ const COLUMN_ALIASES: Record<string, PatientField> = {
   profession: 'profession',
   metier: 'profession',
   'métier': 'profession',
+  // consultation_date
+  'date consultation': 'consultation_date',
+  'date de consultation': 'consultation_date',
+  'date rdv': 'consultation_date',
+  'date de rendez-vous': 'consultation_date',
+  'date rendez-vous': 'consultation_date',
+  'date seance': 'consultation_date',
+  'date de seance': 'consultation_date',
+  'date séance': 'consultation_date',
+  'date de séance': 'consultation_date',
+  date: 'consultation_date',
+  // reason
+  motif: 'reason',
+  'motif de consultation': 'reason',
+  'motif consultation': 'reason',
+  raison: 'reason',
+  objet: 'reason',
+  plainte: 'reason',
+  // anamnesis
+  'anamnèse': 'anamnesis',
+  anamnese: 'anamnesis',
+  anamnesis: 'anamnesis',
+  interrogatoire: 'anamnesis',
+  histoire: 'anamnesis',
+  'histoire clinique': 'anamnesis',
+  antecedents: 'anamnesis',
+  'antécédents': 'anamnesis',
+  // examination
+  examen: 'examination',
+  'examen clinique': 'examination',
+  examination: 'examination',
+  observation: 'examination',
+  'bilan clinique': 'examination',
+  bilan: 'examination',
+  // advice
+  conseil: 'advice',
+  conseils: 'advice',
+  advice: 'advice',
+  recommandations: 'advice',
+  'conseils post-seance': 'advice',
+  'conseils post-séance': 'advice',
+  traitement: 'advice',
 }
 
 type ImportStep = 'upload' | 'mapping' | 'importing' | 'done'
 
 interface ImportResult {
   total: number
-  imported: number
+  patientsImported: number
+  consultationsImported: number
   errors: { row: number; message: string }[]
 }
 
@@ -259,7 +320,7 @@ export default function ImportPage() {
   const [fileName, setFileName] = useState<string | null>(null)
   const [headers, setHeaders] = useState<string[]>([])
   const [dataRows, setDataRows] = useState<string[][]>([])
-  const [columnMapping, setColumnMapping] = useState<Record<number, PatientField>>({})
+  const [columnMapping, setColumnMapping] = useState<Record<number, MappableField>>({})
   const [isDragOver, setIsDragOver] = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [importProgress, setImportProgress] = useState(0)
@@ -269,9 +330,9 @@ export default function ImportPage() {
   // -----------------------------------------------------------------------
   // Auto-detect column mapping from headers
   // -----------------------------------------------------------------------
-  const autoDetectMapping = useCallback((csvHeaders: string[]): Record<number, PatientField> => {
-    const mapping: Record<number, PatientField> = {}
-    const usedFields = new Set<PatientField>()
+  const autoDetectMapping = useCallback((csvHeaders: string[]): Record<number, MappableField> => {
+    const mapping: Record<number, MappableField> = {}
+    const usedFields = new Set<MappableField>()
 
     csvHeaders.forEach((header, index) => {
       const normalized = header.toLowerCase().trim()
@@ -396,7 +457,7 @@ export default function ImportPage() {
             delete next[Number(key)]
           }
         }
-        next[colIndex] = value as PatientField
+        next[colIndex] = value as MappableField
       }
       return next
     })
@@ -464,21 +525,31 @@ export default function ImportPage() {
     }
 
     // Build reverse mapping: field -> column index
-    const fieldToCol: Partial<Record<PatientField, number>> = {}
+    const fieldToCol: Partial<Record<MappableField, number>> = {}
     for (const [colStr, field] of Object.entries(columnMapping)) {
       if (field !== '__ignore__') {
         fieldToCol[field] = Number(colStr)
       }
     }
 
+    // Check if any consultation fields are mapped
+    const hasConsultationMapping = CONSULTATION_FIELDS.some(
+      (f) => fieldToCol[f.key] !== undefined
+    )
+
     const errors: { row: number; message: string }[] = []
-    let imported = 0
+    let patientsImported = 0
+    let consultationsImported = 0
     const total = dataRows.length
+
+    // Track patients by name to avoid duplicates when multiple consultations
+    // exist for the same patient (common in practice software exports)
+    const patientMap = new Map<string, string>() // "lastName|firstName" -> patientId
 
     for (let i = 0; i < total; i++) {
       const row = dataRows[i]
 
-      const getValue = (field: PatientField): string => {
+      const getValue = (field: MappableField): string => {
         const colIdx = fieldToCol[field]
         if (colIdx === undefined) return ''
         return (row[colIdx] || '').trim()
@@ -493,56 +564,113 @@ export default function ImportPage() {
         continue
       }
 
-      // Build patient record
-      const genderRaw = getValue('gender')
-      const birthDateRaw = getValue('birth_date')
-      const phoneRaw = getValue('phone')
+      // Dedup key: same name = same patient
+      const patientKey = `${(lastName || 'Inconnu').toLowerCase()}|${(firstName || '').toLowerCase()}`
+      let patientId = patientMap.get(patientKey)
 
-      const patient: Record<string, string> = {
-        practitioner_id: practitionerId,
-        last_name: lastName || 'Inconnu',
-        first_name: firstName || '',
-        gender: normalizeGender(genderRaw),
-        phone: phoneRaw || '0000000000',
-      }
+      // Create patient if not already created
+      if (!patientId) {
+        const genderRaw = getValue('gender')
+        const birthDateRaw = getValue('birth_date')
+        const phoneRaw = getValue('phone')
 
-      // Email
-      const emailVal = getValue('email')
-      if (emailVal) patient.email = emailVal
-
-      // Profession
-      const professionVal = getValue('profession')
-      if (professionVal) patient.profession = professionVal
-
-      // Birth date
-      if (birthDateRaw) {
-        const parsed = parseDateToISO(birthDateRaw)
-        if (parsed) {
-          patient.birth_date = parsed
+        const patient: Record<string, string> = {
+          practitioner_id: practitionerId,
+          last_name: lastName || 'Inconnu',
+          first_name: firstName || '',
+          gender: normalizeGender(genderRaw),
+          phone: phoneRaw || '0000000000',
         }
-      }
 
-      try {
-        const { error } = await supabase.from('patients').insert(patient)
-        if (error) {
+        const emailVal = getValue('email')
+        if (emailVal) patient.email = emailVal
+
+        const professionVal = getValue('profession')
+        if (professionVal) patient.profession = professionVal
+
+        if (birthDateRaw) {
+          const parsed = parseDateToISO(birthDateRaw)
+          if (parsed) patient.birth_date = parsed
+        }
+
+        try {
+          const { data, error } = await supabase
+            .from('patients')
+            .insert(patient)
+            .select('id')
+            .single()
+
+          if (error || !data) {
+            errors.push({
+              row: i + 2,
+              message: error?.message || 'Erreur d\'insertion patient',
+            })
+            setImportProgress(Math.round(((i + 1) / total) * 100))
+            continue
+          }
+
+          patientId = data.id
+          patientMap.set(patientKey, data.id)
+          patientsImported++
+        } catch (err) {
           errors.push({
-            row: i + 2, // +2 because row 1 is header, data starts at row 2
-            message: error.message || 'Erreur d\'insertion',
+            row: i + 2,
+            message: err instanceof Error ? err.message : 'Erreur inconnue',
           })
-        } else {
-          imported++
+          setImportProgress(Math.round(((i + 1) / total) * 100))
+          continue
         }
-      } catch (err) {
-        errors.push({
-          row: i + 2,
-          message: err instanceof Error ? err.message : 'Erreur inconnue',
-        })
+      }
+
+      // Create consultation if consultation fields are mapped and have data
+      if (hasConsultationMapping && patientId) {
+        const reasonVal = getValue('reason')
+        const consultDateRaw = getValue('consultation_date')
+        const anamnesisVal = getValue('anamnesis')
+        const examinationVal = getValue('examination')
+        const adviceVal = getValue('advice')
+
+        // Only create consultation if there's at least a reason or a date
+        if (reasonVal || consultDateRaw) {
+          const consultation: Record<string, string> = {
+            patient_id: patientId,
+            reason: reasonVal || 'Consultation',
+          }
+
+          if (consultDateRaw) {
+            const parsed = parseDateToISO(consultDateRaw)
+            if (parsed) {
+              consultation.date_time = `${parsed}T09:00:00`
+            }
+          }
+
+          if (anamnesisVal) consultation.anamnesis = anamnesisVal
+          if (examinationVal) consultation.examination = examinationVal
+          if (adviceVal) consultation.advice = adviceVal
+
+          try {
+            const { error } = await supabase.from('consultations').insert(consultation)
+            if (error) {
+              errors.push({
+                row: i + 2,
+                message: `Consultation: ${error.message}`,
+              })
+            } else {
+              consultationsImported++
+            }
+          } catch (err) {
+            errors.push({
+              row: i + 2,
+              message: `Consultation: ${err instanceof Error ? err.message : 'Erreur inconnue'}`,
+            })
+          }
+        }
       }
 
       setImportProgress(Math.round(((i + 1) / total) * 100))
     }
 
-    setImportResult({ total, imported, errors })
+    setImportResult({ total, patientsImported, consultationsImported, errors })
     setStep('done')
   }, [columnMapping, dataRows, toast])
 
@@ -574,9 +702,9 @@ export default function ImportPage() {
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Import de patients</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Import CSV</h1>
         <p className="text-muted-foreground">
-          Importez vos patients depuis un fichier CSV (export d&apos;un autre logiciel)
+          Importez vos patients et leurs consultations depuis un fichier CSV (export d&apos;un autre logiciel)
         </p>
       </div>
 
@@ -652,16 +780,29 @@ export default function ImportPage() {
               />
             </div>
 
-            <div className="mt-6 p-4 bg-muted rounded-lg">
+            <div className="mt-6 p-4 bg-muted rounded-lg space-y-3">
               <h4 className="font-medium mb-2 text-sm">Colonnes reconnues automatiquement</h4>
-              <div className="flex flex-wrap gap-2">
-                {PATIENT_FIELDS.map((f) => (
-                  <Badge key={f.key} variant="outline" className="text-xs">
-                    {f.label}
-                  </Badge>
-                ))}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Patient</p>
+                <div className="flex flex-wrap gap-2">
+                  {PATIENT_FIELDS.map((f) => (
+                    <Badge key={f.key} variant="outline" className="text-xs">
+                      {f.label}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Consultation</p>
+                <div className="flex flex-wrap gap-2">
+                  {CONSULTATION_FIELDS.map((f) => (
+                    <Badge key={f.key} variant="outline" className="text-xs">
+                      {f.label}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
                 Les en-tetes courants en francais et anglais sont detectes
                 automatiquement. Vous pourrez ajuster le mapping manuellement.
               </p>
@@ -720,7 +861,27 @@ export default function ImportPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__ignore__">-- Ignorer --</SelectItem>
+                        <SelectItem value="__patient_header__" disabled className="text-xs font-semibold text-muted-foreground">
+                          — Patient —
+                        </SelectItem>
                         {PATIENT_FIELDS.map((f) => {
+                          const alreadyMapped =
+                            mappedFieldsSet.has(f.key) && columnMapping[index] !== f.key
+                          return (
+                            <SelectItem
+                              key={f.key}
+                              value={f.key}
+                              disabled={alreadyMapped}
+                            >
+                              {f.label}
+                              {alreadyMapped ? ' (deja assigne)' : ''}
+                            </SelectItem>
+                          )
+                        })}
+                        <SelectItem value="__consult_header__" disabled className="text-xs font-semibold text-muted-foreground">
+                          — Consultation —
+                        </SelectItem>
+                        {CONSULTATION_FIELDS.map((f) => {
                           const alreadyMapped =
                             mappedFieldsSet.has(f.key) && columnMapping[index] !== f.key
                           return (
@@ -746,16 +907,35 @@ export default function ImportPage() {
               </div>
 
               {/* Mapping summary */}
-              <div className="mt-6 flex flex-wrap gap-2">
-                {PATIENT_FIELDS.map((f) => (
-                  <Badge
-                    key={f.key}
-                    variant={mappedFieldsSet.has(f.key) ? 'success' : 'outline'}
-                    className="text-xs"
-                  >
-                    {f.label}: {mappedFieldsSet.has(f.key) ? 'OK' : 'non mappe'}
-                  </Badge>
-                ))}
+              <div className="mt-6 space-y-2">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Patient</p>
+                  <div className="flex flex-wrap gap-2">
+                    {PATIENT_FIELDS.map((f) => (
+                      <Badge
+                        key={f.key}
+                        variant={mappedFieldsSet.has(f.key) ? 'success' : 'outline'}
+                        className="text-xs"
+                      >
+                        {f.label}: {mappedFieldsSet.has(f.key) ? 'OK' : 'non mappe'}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Consultation (optionnel)</p>
+                  <div className="flex flex-wrap gap-2">
+                    {CONSULTATION_FIELDS.map((f) => (
+                      <Badge
+                        key={f.key}
+                        variant={mappedFieldsSet.has(f.key) ? 'success' : 'outline'}
+                        className="text-xs"
+                      >
+                        {f.label}: {mappedFieldsSet.has(f.key) ? 'OK' : 'non mappe'}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -784,7 +964,7 @@ export default function ImportPage() {
                           <div>{header}</div>
                           {columnMapping[i] && columnMapping[i] !== '__ignore__' && (
                             <Badge variant="secondary" className="text-[10px] mt-0.5">
-                              {PATIENT_FIELDS.find((f) => f.key === columnMapping[i])?.label}
+                              {ALL_FIELDS.find((f) => f.key === columnMapping[i])?.label}
                             </Badge>
                           )}
                         </th>
@@ -822,7 +1002,7 @@ export default function ImportPage() {
             </Button>
             <Button onClick={handleImport}>
               <Upload className="mr-2 h-4 w-4" />
-              Importer {dataRows.length} patient{dataRows.length > 1 ? 's' : ''}
+              Importer {dataRows.length} ligne{dataRows.length > 1 ? 's' : ''}
             </Button>
           </div>
         </>
@@ -871,7 +1051,7 @@ export default function ImportPage() {
             className={
               importResult.errors.length === 0
                 ? 'border-green-200'
-                : importResult.imported === 0
+                : importResult.patientsImported === 0
                   ? 'border-red-200'
                   : 'border-yellow-200'
             }
@@ -880,7 +1060,7 @@ export default function ImportPage() {
               <div className="flex flex-col items-center gap-4 py-6">
                 {importResult.errors.length === 0 ? (
                   <CheckCircle2 className="h-12 w-12 text-green-500" />
-                ) : importResult.imported === 0 ? (
+                ) : importResult.patientsImported === 0 ? (
                   <AlertCircle className="h-12 w-12 text-red-500" />
                 ) : (
                   <AlertCircle className="h-12 w-12 text-yellow-500" />
@@ -890,7 +1070,7 @@ export default function ImportPage() {
                   <h2 className="text-xl font-semibold">
                     {importResult.errors.length === 0
                       ? 'Import termine avec succes !'
-                      : importResult.imported === 0
+                      : importResult.patientsImported === 0
                         ? 'Echec de l\'import'
                         : 'Import termine avec des erreurs'}
                   </h2>
@@ -899,12 +1079,22 @@ export default function ImportPage() {
                 <div className="flex gap-6 mt-2">
                   <div className="text-center">
                     <p className="text-2xl font-bold text-green-600">
-                      {importResult.imported}
+                      {importResult.patientsImported}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      patient{importResult.imported > 1 ? 's' : ''} importe{importResult.imported > 1 ? 's' : ''}
+                      patient{importResult.patientsImported > 1 ? 's' : ''}
                     </p>
                   </div>
+                  {importResult.consultationsImported > 0 && (
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-green-600">
+                        {importResult.consultationsImported}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        consultation{importResult.consultationsImported > 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  )}
                   {importResult.errors.length > 0 && (
                     <div className="text-center">
                       <p className="text-2xl font-bold text-red-600">
@@ -920,7 +1110,7 @@ export default function ImportPage() {
                       {importResult.total}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      total
+                      ligne{importResult.total > 1 ? 's' : ''}
                     </p>
                   </div>
                 </div>
