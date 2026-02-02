@@ -109,9 +109,11 @@ async function startNextServer(): Promise<void> {
       try {
         await handle(req, res)
       } catch (err) {
-        console.error('[NextServer] Request error:', err)
+        const message = err instanceof Error ? err.message : 'Unknown error'
+        console.error('[NextServer] Request error:', message)
         res.statusCode = 500
-        res.end('Internal Server Error')
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ error: message }))
       }
     })
   }
