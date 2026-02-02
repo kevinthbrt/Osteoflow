@@ -23,16 +23,41 @@ const isDev = process.env.NODE_ENV === 'development'
  * Start the Next.js server programmatically.
  */
 async function startNextServer(): Promise<void> {
-  const { default: next } = await import('next')
-  const nextApp = next({
-    dev: isDev,
-    dir: path.join(__dirname, '..'),
-    port: PORT,
-  })
-  await nextApp.prepare()
-  const handle = nextApp.getRequestHandler()
   const http = await import('http')
-  nextServer = http.createServer((req: any, res: any) => handle(req, res))
+
+  if (isDev) {
+    // Development: use the full next() API for hot reload
+    const { default: next } = await import('next')
+    const nextApp = next({
+      dev: true,
+      dir: path.join(__dirname, '..'),
+      port: PORT,
+    })
+    await nextApp.prepare()
+    const handle = nextApp.getRequestHandler()
+    nextServer = http.createServer((req: any, res: any) => handle(req, res))
+  } else {
+    // Production: use NextServer directly (avoids spawning npm/npx)
+    const appDir = path.join(__dirname, '..')
+    const fs = await import('fs')
+    const configPath = path.join(appDir, '.next', 'required-server-files.json')
+    const requiredServerFiles = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+
+    const NextServer = require('next/dist/server/next-server').default
+    const nextApp = new NextServer({
+      hostname: 'localhost',
+      port: PORT,
+      dir: appDir,
+      dev: false,
+      conf: requiredServerFiles.config,
+    })
+
+    const handle = nextApp.getRequestHandler()
+    nextServer = http.createServer(async (req: any, res: any) => {
+      await handle(req, res)
+    })
+  }
+
   await new Promise<void>((resolve) => {
     nextServer.listen(PORT, () => {
       console.log(`[Electron] Next.js server running on http://localhost:${PORT}`)

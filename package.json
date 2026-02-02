@@ -89,7 +89,7 @@
       "electron/**/*.js.map",
       ".next/**/*",
       "package.json",
-      "next.config.ts"
+      "next.config.mjs"
     ],
     "asar": false,
     "publish": {
