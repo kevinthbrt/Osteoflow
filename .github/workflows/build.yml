@@ -63,11 +63,6 @@ jobs:
 
       - name: Rebuild native modules for Electron
         run: npx electron-builder install-app-deps
-        env:
-          npm_config_build_from_source: true
-
-      - name: Verify native module
-        run: node -e "try { require('better-sqlite3'); console.log('OK: better-sqlite3 loaded') } catch(e) { console.log('Module info:', e.message) }"
 
       - name: Build Windows installer
         run: npx electron-builder --win --publish never
