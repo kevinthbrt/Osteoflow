@@ -22,6 +22,7 @@ import { Upload, FileText, CheckCircle2, AlertCircle, Loader2 } from 'lucide-rea
 type PatientField =
   | 'last_name'
   | 'first_name'
+  | 'full_name'
   | 'email'
   | 'phone'
   | 'birth_date'
@@ -45,6 +46,7 @@ interface FieldDefinition {
 const PATIENT_FIELDS: FieldDefinition[] = [
   { key: 'last_name', label: 'Nom' },
   { key: 'first_name', label: 'Prenom' },
+  { key: 'full_name', label: 'Nom Prenom (combine)' },
   { key: 'email', label: 'Email' },
   { key: 'phone', label: 'Telephone' },
   { key: 'birth_date', label: 'Date de naissance' },
@@ -70,6 +72,15 @@ const COLUMN_ALIASES: Record<string, MappableField> = {
   last_name: 'last_name',
   'nom de famille': 'last_name',
   nom_famille: 'last_name',
+  // full_name (combined)
+  'nom prenom': 'full_name',
+  'nom prénom': 'full_name',
+  'nom et prenom': 'full_name',
+  'nom et prénom': 'full_name',
+  patient: 'full_name',
+  'nom complet': 'full_name',
+  'nom_prenom': 'full_name',
+  'nom patient': 'full_name',
   // first_name
   prenom: 'first_name',
   'prénom': 'first_name',
@@ -469,11 +480,11 @@ export default function ImportPage() {
   const handleImport = useCallback(async () => {
     // Validate required mappings
     const mappedFields = new Set(Object.values(columnMapping).filter((v) => v !== '__ignore__'))
-    if (!mappedFields.has('last_name')) {
+    if (!mappedFields.has('last_name') && !mappedFields.has('full_name')) {
       toast({
         variant: 'destructive',
         title: 'Mapping incomplet',
-        description: 'Le champ "Nom" est obligatoire pour l\'import.',
+        description: 'Le champ "Nom" ou "Nom Prenom (combine)" est obligatoire.',
       })
       return
     }
@@ -555,8 +566,16 @@ export default function ImportPage() {
         return (row[colIdx] || '').trim()
       }
 
-      const lastName = getValue('last_name')
-      const firstName = getValue('first_name')
+      let lastName = getValue('last_name')
+      let firstName = getValue('first_name')
+
+      // Handle combined "Nom Prénom" column: split into last_name + first_name
+      const fullNameVal = getValue('full_name')
+      if (fullNameVal && !lastName) {
+        const parts = fullNameVal.split(/\s+/)
+        lastName = parts[0] || ''
+        firstName = parts.slice(1).join(' ')
+      }
 
       // Skip empty rows
       if (!lastName && !firstName) {
@@ -568,7 +587,28 @@ export default function ImportPage() {
       const patientKey = `${(lastName || 'Inconnu').toLowerCase()}|${(firstName || '').toLowerCase()}`
       let patientId = patientMap.get(patientKey)
 
-      // Create patient if not already created
+      // Create patient if not already created in this import batch
+      if (!patientId) {
+        // Look up existing patient in database (useful when importing a second
+        // CSV, e.g. consultations, after patients have already been imported)
+        try {
+          const { data: existingPatient } = await supabase
+            .from('patients')
+            .select('id')
+            .eq('practitioner_id', practitionerId)
+            .ilike('last_name', lastName || 'Inconnu')
+            .ilike('first_name', firstName || '')
+            .single()
+
+          if (existingPatient) {
+            patientId = existingPatient.id
+            patientMap.set(patientKey, existingPatient.id)
+          }
+        } catch {
+          // No existing patient found, will create below
+        }
+      }
+
       if (!patientId) {
         const genderRaw = getValue('gender')
         const birthDateRaw = getValue('birth_date')
