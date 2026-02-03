@@ -38,6 +38,7 @@ jobs:
           path: |
             release/*.dmg
             release/*.zip
+            release/*.yml
 
   build-windows:
     runs-on: windows-latest
@@ -65,7 +66,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: release/*.exe
+          path: |
+            release/*.exe
+            release/*.yml
 
   release:
     needs: [build-mac, build-windows]
