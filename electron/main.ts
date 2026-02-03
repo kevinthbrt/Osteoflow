@@ -55,7 +55,26 @@ async function startNextServer(): Promise<void> {
       process.env.NODE_PATH,
     ].filter(Boolean).join(path.delimiter)
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require('module').Module._initPaths()
+    const Module = require('module')
+    Module.Module._initPaths()
+
+    // Patch Node.js module resolution to handle Turbopack's hashed external
+    // module names. Turbopack (Next.js 16) appends a hash to external module
+    // names in compiled output (e.g., "better-sqlite3-90e2652d1716b047" instead
+    // of "better-sqlite3"). This patch strips the hash on resolution failure
+    // and retries with the original module name.
+    const originalResolve = Module.Module._resolveFilename
+    Module.Module._resolveFilename = function(request: string, ...args: unknown[]) {
+      try {
+        return originalResolve.call(this, request, ...args)
+      } catch (err: unknown) {
+        const stripped = request.replace(/-[a-f0-9]{16,}$/, '')
+        if (stripped !== request) {
+          return originalResolve.call(this, stripped, ...args)
+        }
+        throw err
+      }
+    }
 
     const fs = await import('fs')
     const configPath = path.join(appDir, '.next', 'required-server-files.json')
