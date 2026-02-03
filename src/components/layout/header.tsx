@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/db/client'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -50,7 +50,7 @@ const pageTitles: Record<string, { title: string; description: string }> = {
 export function Header({ user, practitioner }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const supabase = createClient()
+  const db = createClient()
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoadingUnread, setIsLoadingUnread] = useState(true)
 
@@ -63,7 +63,7 @@ export function Header({ user, practitioner }: HeaderProps) {
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
+    await db.auth.signOut()
     router.push('/login')
     router.refresh()
   }
@@ -93,7 +93,7 @@ export function Header({ user, practitioner }: HeaderProps) {
 
     const fetchUnreadCount = async () => {
       setIsLoadingUnread(true)
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('conversations')
         .select('unread_count')
         .gt('unread_count', 0)
@@ -116,7 +116,7 @@ export function Header({ user, practitioner }: HeaderProps) {
       isMounted = false
       clearInterval(interval)
     }
-  }, [supabase])
+  }, [db])
 
   // Patient search
   const searchPatients = useCallback(async (query: string) => {
@@ -128,7 +128,7 @@ export function Header({ user, practitioner }: HeaderProps) {
 
     setIsSearching(true)
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('patients')
         .select('id, first_name, last_name, phone, email')
         .is('archived_at', null)
@@ -148,7 +148,7 @@ export function Header({ user, practitioner }: HeaderProps) {
     } finally {
       setIsSearching(false)
     }
-  }, [supabase])
+  }, [db])
 
   // Debounced search
   useEffect(() => {

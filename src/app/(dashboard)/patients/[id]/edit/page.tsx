@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/db/server'
 import { PatientForm } from '@/components/patients/patient-form'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
@@ -11,9 +11,9 @@ interface EditPatientPageProps {
 
 export default async function EditPatientPage({ params }: EditPatientPageProps) {
   const { id } = await params
-  const supabase = await createClient()
+  const db = await createClient()
 
-  const { data: patient, error } = await supabase
+  const { data: patient, error } = await db
     .from('patients')
     .select('*')
     .eq('id', id)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/db/server'
 import {
   defaultEmailTemplates,
   replaceTemplateVariables,
@@ -23,20 +23,20 @@ export async function POST(request: NextRequest) {
     const isLocalCron = authHeader === 'Bearer local-desktop-cron'
     if (!isLocalCron && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
       // Try regular auth
-      const supabase = await createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      const db = await createClient()
+      const { data: { user } } = await db.auth.getUser()
       if (!user) {
         return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
       }
     }
 
-    const supabase = await createClient()
+    const db = await createClient()
     const now = new Date().toISOString()
 
     console.log(`[FollowUp] Checking for pending tasks... (now=${now})`)
 
     // Step 1: Get pending tasks with a simple query (no nested relations)
-    const { data: tasks, error: tasksError } = await supabase
+    const { data: tasks, error: tasksError } = await db
       .from('scheduled_tasks')
       .select('*')
       .eq('type', 'follow_up_email')
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         console.log(`[FollowUp] Processing task ${task.id} (consultation_id=${task.consultation_id})`)
 
         // Step 2: Get consultation separately
-        const { data: consultation } = await supabase
+        const { data: consultation } = await db
           .from('consultations')
           .select('*')
           .eq('id', task.consultation_id)
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
         if (!consultation) {
           console.error(`[FollowUp] Consultation ${task.consultation_id} not found`)
-          await supabase
+          await db
             .from('scheduled_tasks')
             .update({
               status: 'failed',
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Step 3: Get patient separately
-        const { data: patient } = await supabase
+        const { data: patient } = await db
           .from('patients')
           .select('*')
           .eq('id', consultation.patient_id)
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
         if (!patient) {
           console.error(`[FollowUp] Patient not found for consultation ${consultation.id}`)
-          await supabase
+          await db
             .from('scheduled_tasks')
             .update({
               status: 'failed',
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
 
         if (!patient.email) {
           console.error(`[FollowUp] Patient ${patient.id} has no email`)
-          await supabase
+          await db
             .from('scheduled_tasks')
             .update({
               status: 'failed',
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Step 4: Get practitioner
-        const { data: practitioner } = await supabase
+        const { data: practitioner } = await db
           .from('practitioners')
           .select('*')
           .eq('id', task.practitioner_id)
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
 
         if (!practitioner) {
           console.error(`[FollowUp] Practitioner ${task.practitioner_id} not found`)
-          await supabase
+          await db
             .from('scheduled_tasks')
             .update({
               status: 'failed',
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Step 5: Get email template (custom or default)
-        const { data: customTemplate } = await supabase
+        const { data: customTemplate } = await db
           .from('email_templates')
           .select('*')
           .eq('practitioner_id', practitioner.id)
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
         console.log(`[FollowUp] Sending email to ${patient.email} for task ${task.id}`)
 
         // Try SMTP first (desktop mode), then fallback to Resend
-        const { data: emailSettings } = await supabase
+        const { data: emailSettings } = await db
           .from('email_settings')
           .select('*')
           .eq('practitioner_id', practitioner.id)
@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Mark task as completed
-        await supabase
+        await db
           .from('scheduled_tasks')
           .update({
             status: 'completed',
@@ -225,7 +225,7 @@ export async function POST(request: NextRequest) {
           .eq('id', task.id)
 
         // Update consultation follow_up_sent_at
-        await supabase
+        await db
           .from('consultations')
           .update({ follow_up_sent_at: new Date().toISOString() })
           .eq('id', consultation.id)
@@ -238,7 +238,7 @@ export async function POST(request: NextRequest) {
         errors.push(`Task ${task.id}: ${errorMessage}`)
         console.error(`[FollowUp] Task ${task.id} failed:`, errorMessage)
 
-        await supabase
+        await db
           .from('scheduled_tasks')
           .update({
             status: 'failed',
@@ -276,16 +276,16 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const db = await createClient()
 
     // Check authentication
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await db.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
     // Get consultation
-    const { data: consultation, error: consultationError } = await supabase
+    const { data: consultation, error: consultationError } = await db
       .from('consultations')
       .select('*')
       .eq('id', consultationId)
@@ -299,7 +299,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get patient separately
-    const { data: patient } = await supabase
+    const { data: patient } = await db
       .from('patients')
       .select('*')
       .eq('id', consultation.patient_id)
@@ -313,7 +313,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get practitioner
-    const { data: practitioner } = await supabase
+    const { data: practitioner } = await db
       .from('practitioners')
       .select('*')
       .eq('user_id', user.id)
@@ -324,7 +324,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get email template
-    const { data: customTemplate } = await supabase
+    const { data: customTemplate } = await db
       .from('email_templates')
       .select('*')
       .eq('practitioner_id', practitioner.id)
@@ -360,7 +360,7 @@ export async function PUT(request: NextRequest) {
     })
 
     // Try SMTP first (desktop mode), then fallback to Resend
-    const { data: emailSettings } = await supabase
+    const { data: emailSettings } = await db
       .from('email_settings')
       .select('*')
       .eq('practitioner_id', practitioner.id)
@@ -403,7 +403,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update consultation
-    await supabase
+    await db
       .from('consultations')
       .update({ follow_up_sent_at: new Date().toISOString() })
       .eq('id', consultationId)

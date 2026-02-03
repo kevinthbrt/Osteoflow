@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/db/server'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,9 +16,9 @@ interface PatientPageProps {
 
 export default async function PatientPage({ params }: PatientPageProps) {
   const { id } = await params
-  const supabase = await createClient()
+  const db = await createClient()
 
-  const { data: patient, error } = await supabase
+  const { data: patient, error } = await db
     .from('patients')
     .select('*')
     .eq('id', id)
@@ -29,7 +29,7 @@ export default async function PatientPage({ params }: PatientPageProps) {
   }
 
   // Get consultations with invoices
-  const { data: consultations } = await supabase
+  const { data: consultations } = await db
     .from('consultations')
     .select(`
       *,
@@ -39,7 +39,7 @@ export default async function PatientPage({ params }: PatientPageProps) {
     .order('date_time', { ascending: false })
 
   // Get medical history entries
-  const { data: medicalHistoryEntries } = await supabase
+  const { data: medicalHistoryEntries } = await db
     .from('medical_history_entries')
     .select('*')
     .eq('patient_id', id)

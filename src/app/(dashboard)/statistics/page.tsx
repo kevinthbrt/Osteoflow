@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/db/client'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -90,7 +90,7 @@ export default function StatisticsPage() {
   const [ageGroupFilter, setAgeGroupFilter] = useState<string>('all')
 
   const { toast } = useToast()
-  const supabase = createClient()
+  const db = createClient()
 
   const fetchStats = useCallback(async () => {
     setIsLoading(true)
@@ -101,18 +101,18 @@ export default function StatisticsPage() {
 
       // Try to use RPC functions first
       const [patientRes, consultationRes, revenueRes] = await Promise.all([
-        supabase.rpc('get_patient_statistics', {
+        db.rpc('get_patient_statistics', {
           p_start_date: startDate,
           p_end_date: endDate,
           p_gender: gender,
         }),
-        supabase.rpc('get_consultation_statistics', {
+        db.rpc('get_consultation_statistics', {
           p_start_date: startDate,
           p_end_date: endDate,
           p_gender: gender,
           p_age_group: ageGroup,
         }),
-        supabase.rpc('get_revenue_statistics', {
+        db.rpc('get_revenue_statistics', {
           p_start_date: startDate,
           p_end_date: endDate,
         }),
@@ -135,7 +135,7 @@ export default function StatisticsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [startDate, endDate, genderFilter, ageGroupFilter, supabase])
+  }, [startDate, endDate, genderFilter, ageGroupFilter, db])
 
   // Fallback: Direct queries when RPC functions are not available
   const fetchStatsDirect = async () => {
@@ -143,7 +143,7 @@ export default function StatisticsPage() {
       const gender = genderFilter === 'all' ? null : genderFilter
 
       // Fetch patients
-      let patientsQuery = supabase
+      let patientsQuery = db
         .from('patients')
         .select('id, gender, birth_date, created_at')
         .is('archived_at', null)
@@ -155,7 +155,7 @@ export default function StatisticsPage() {
       const { data: patients } = await patientsQuery
 
       // Fetch consultations
-      const { data: consultations } = await supabase
+      const { data: consultations } = await db
         .from('consultations')
         .select(`
           id,

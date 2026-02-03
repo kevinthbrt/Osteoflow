@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/db/server'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -81,9 +81,9 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
 }
 
 async function InvoicesTableLoader({ status }: { status?: string }) {
-  const supabase = await createClient()
+  const db = await createClient()
 
-  let query = supabase
+  let query = db
     .from('invoices')
     .select(`
       *,

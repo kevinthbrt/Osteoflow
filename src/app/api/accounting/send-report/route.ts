@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/db/server'
 import { sendEmail, createHtmlEmail } from '@/lib/email/smtp-service'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { generateAccountingPdf } from '@/lib/pdf/accounting-pdfkit'
@@ -23,13 +23,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Période invalide' }, { status: 400 })
     }
 
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const db = await createClient()
+    const { data: { user } } = await db.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: practitioner, error: practitionerError } = await supabase
+    const { data: practitioner, error: practitionerError } = await db
       .from('practitioners')
       .select('id, first_name, last_name, practice_name, accountant_email, email')
       .eq('user_id', user.id)
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { data: invoices, error: invoiceError } = await supabase
+    const { data: invoices, error: invoiceError } = await db
       .from('invoices')
       .select(`
         *,

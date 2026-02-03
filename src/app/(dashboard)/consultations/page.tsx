@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/db/server'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -43,11 +43,11 @@ export default async function ConsultationsPage({ searchParams }: ConsultationsP
 }
 
 async function ConsultationsTableLoader({ page }: { page: number }) {
-  const supabase = await createClient()
+  const db = await createClient()
   const limit = 20
   const offset = (page - 1) * limit
 
-  const { data: consultations, error } = await supabase
+  const { data: consultations, error } = await db
     .from('consultations')
     .select(`
       *,

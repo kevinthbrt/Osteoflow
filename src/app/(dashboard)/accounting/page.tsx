@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/db/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -66,7 +66,7 @@ export default function AccountingPage() {
   const [showSendDialog, setShowSendDialog] = useState(false)
   const [isSendingReport, setIsSendingReport] = useState(false)
   const { toast } = useToast()
-  const supabase = createClient()
+  const db = createClient()
 
   // Filters
   const [startDate, setStartDate] = useState(() => {
@@ -115,7 +115,7 @@ export default function AccountingPage() {
       setIsLoading(true)
 
       try {
-        let query = supabase
+        let query = db
           .from('invoices')
           .select(`
             *,
@@ -180,7 +180,7 @@ export default function AccountingPage() {
     }
 
     fetchData()
-  }, [startDate, endDate, paymentMethod, supabase, toast])
+  }, [startDate, endDate, paymentMethod, db, toast])
 
   // Group invoices by date for daily recap
   const getDailyRecaps = () => {

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/db/server'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
 
@@ -8,15 +8,15 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const db = await createClient()
+  const { data: { user } } = await db.auth.getUser()
 
   if (!user) {
     redirect('/login')
   }
 
   // Get practitioner profile
-  const { data: practitioner } = await supabase
+  const { data: practitioner } = await db
     .from('practitioners')
     .select('*')
     .eq('user_id', user.id)
@@ -24,7 +24,7 @@ export default async function DashboardLayout({
 
   // If no practitioner profile exists, create one
   if (!practitioner) {
-    const { error } = await supabase.from('practitioners').insert({
+    const { error } = await db.from('practitioners').insert({
       user_id: user.id,
       first_name: user.user_metadata.first_name || 'Praticien',
       last_name: user.user_metadata.last_name || '',

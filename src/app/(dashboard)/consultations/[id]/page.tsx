@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/db/server'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,9 +15,9 @@ interface ConsultationPageProps {
 
 export default async function ConsultationPage({ params }: ConsultationPageProps) {
   const { id } = await params
-  const supabase = await createClient()
+  const db = await createClient()
 
-  const { data: consultation, error } = await supabase
+  const { data: consultation, error } = await db
     .from('consultations')
     .select(`
       *,

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/db/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
@@ -522,12 +522,12 @@ export default function ImportPage() {
     setStep('importing')
     setImportProgress(0)
 
-    const supabase = createClient()
+    const db = createClient()
 
     // Get current practitioner
     let practitionerId: string
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await db.auth.getUser()
       if (!user) {
         toast({
           variant: 'destructive',
@@ -538,7 +538,7 @@ export default function ImportPage() {
         return
       }
 
-      const { data: practitioner, error: practError } = await supabase
+      const { data: practitioner, error: practError } = await db
         .from('practitioners')
         .select('id')
         .eq('user_id', user.id)
@@ -622,7 +622,7 @@ export default function ImportPage() {
         // Look up existing patient in database (useful when importing a second
         // CSV, e.g. consultations, after patients have already been imported)
         try {
-          const { data: existingPatient } = await supabase
+          const { data: existingPatient } = await db
             .from('patients')
             .select('id')
             .eq('practitioner_id', practitionerId)
@@ -676,7 +676,7 @@ export default function ImportPage() {
         }
 
         try {
-          const { data, error } = await supabase
+          const { data, error } = await db
             .from('patients')
             .insert(patient)
             .select('id')
@@ -731,7 +731,7 @@ export default function ImportPage() {
           if (adviceVal) consultation.advice = adviceVal
 
           try {
-            const { error } = await supabase.from('consultations').insert(consultation)
+            const { error } = await db.from('consultations').insert(consultation)
             if (error) {
               errors.push({
                 row: i + 2,

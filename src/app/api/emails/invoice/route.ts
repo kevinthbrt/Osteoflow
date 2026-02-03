@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { generateInvoicePdf } from '@/lib/pdf/invoice-pdfkit'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/db/server'
 import { buildInvoicePDFData } from '@/lib/pdf/invoice-template'
 import {
   defaultEmailTemplates,
@@ -25,16 +25,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const db = await createClient()
 
     // Check authentication
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await db.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
     // Get practitioner
-    const { data: practitioner, error: practitionerError } = await supabase
+    const { data: practitioner, error: practitionerError } = await db
       .from('practitioners')
       .select('*')
       .eq('user_id', user.id)
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get invoice with all relations
-    const { data: invoice, error: invoiceError } = await supabase
+    const { data: invoice, error: invoiceError } = await db
       .from('invoices')
       .select(`
         *,
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get email template (custom or default)
-    const { data: customTemplate } = await supabase
+    const { data: customTemplate } = await db
       .from('email_templates')
       .select('*')
       .eq('practitioner_id', practitioner.id)

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/db/client'
 import { MedicalHistorySection } from './medical-history-section'
 import type { MedicalHistoryEntry } from '@/types/database'
 
@@ -17,10 +17,10 @@ export function MedicalHistorySectionWrapper({
 }: MedicalHistorySectionWrapperProps) {
   const [entries, setEntries] = useState<MedicalHistoryEntry[]>(initialEntries)
   const router = useRouter()
-  const supabase = createClient()
+  const db = createClient()
 
   const refreshEntries = useCallback(async () => {
-    const { data } = await supabase
+    const { data } = await db
       .from('medical_history_entries')
       .select('*')
       .eq('patient_id', patientId)
@@ -30,7 +30,7 @@ export function MedicalHistorySectionWrapper({
       setEntries(data)
     }
     router.refresh()
-  }, [patientId, supabase, router])
+  }, [patientId, db, router])
 
   return (
     <MedicalHistorySection

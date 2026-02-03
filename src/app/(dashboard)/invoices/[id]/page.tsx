@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/db/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -59,7 +59,7 @@ export default function InvoicePage() {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
+  const db = createClient()
   const [invoice, setInvoice] = useState<InvoiceWithDetails | null>(null)
   const [practitioner, setPractitioner] = useState<Practitioner | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -71,7 +71,7 @@ export default function InvoicePage() {
       const id = params.id as string
 
       // Get invoice with relations
-      const { data: invoiceData, error: invoiceError } = await supabase
+      const { data: invoiceData, error: invoiceError } = await db
         .from('invoices')
         .select(`
           *,
@@ -92,9 +92,9 @@ export default function InvoicePage() {
       setInvoice(invoiceData as InvoiceWithDetails)
 
       // Get practitioner
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await db.auth.getUser()
       if (user) {
-        const { data: practitionerData } = await supabase
+        const { data: practitionerData } = await db
           .from('practitioners')
           .select('*')
           .eq('user_id', user.id)
@@ -107,7 +107,7 @@ export default function InvoicePage() {
     }
 
     fetchData()
-  }, [params.id, supabase, router])
+  }, [params.id, db, router])
 
   const handleStatusChange = async (newStatus: string) => {
     if (!invoice) return
@@ -121,7 +121,7 @@ export default function InvoicePage() {
       updates.paid_at = new Date().toISOString()
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from('invoices')
       .update(updates)
       .eq('id', invoice.id)

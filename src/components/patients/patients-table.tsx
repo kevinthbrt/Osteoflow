@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { MoreHorizontal, Edit, Trash2, Archive, Eye, Calendar } from 'lucide-react'
 import { formatDate, formatPhone, calculateAge } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/db/client'
 import { useToast } from '@/hooks/use-toast'
 import type { Patient } from '@/types/database'
 
@@ -44,10 +44,10 @@ export function PatientsTable({ patients }: PatientsTableProps) {
   const [deletePatient, setDeletePatient] = useState<Patient | null>(null)
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
+  const db = createClient()
 
   const handleArchive = async (patient: Patient) => {
-    const { error } = await supabase
+    const { error } = await db
       .from('patients')
       .update({ archived_at: new Date().toISOString() })
       .eq('id', patient.id)
@@ -71,7 +71,7 @@ export function PatientsTable({ patients }: PatientsTableProps) {
   const handleDelete = async () => {
     if (!deletePatient) return
 
-    const { error } = await supabase
+    const { error } = await db
       .from('patients')
       .delete()
       .eq('id', deletePatient.id)

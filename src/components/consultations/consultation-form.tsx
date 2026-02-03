@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/db/client'
 import {
   consultationWithInvoiceSchema,
   type ConsultationWithInvoiceFormData,
@@ -70,7 +70,7 @@ export function ConsultationForm({
   const [sendPostSessionAdvice, setSendPostSessionAdvice] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
+  const db = createClient()
 
   const now = new Date()
   const defaultDateTime = consultation?.date_time
@@ -106,7 +106,7 @@ export function ConsultationForm({
 
   useEffect(() => {
     async function loadSessionTypes() {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('session_types')
         .select('*')
         .eq('practitioner_id', practitioner.id)
@@ -124,7 +124,7 @@ export function ConsultationForm({
     }
 
     loadSessionTypes()
-  }, [supabase, practitioner.id])
+  }, [db, practitioner.id])
 
   const addPayment = () => {
     setPayments([
@@ -167,7 +167,7 @@ export function ConsultationForm({
     try {
       if (mode === 'create') {
         // Create consultation
-        const { data: newConsultation, error: consultationError } = await supabase
+        const { data: newConsultation, error: consultationError } = await db
           .from('consultations')
           .insert({
             patient_id: data.patient_id,
@@ -195,7 +195,7 @@ export function ConsultationForm({
             practitioner.invoice_next_number
           )
 
-          const { data: newInvoice, error: invoiceError } = await supabase
+          const { data: newInvoice, error: invoiceError } = await db
             .from('invoices')
             .insert({
               consultation_id: newConsultation.id,
@@ -223,14 +223,14 @@ export function ConsultationForm({
               notes: p.notes || null,
             }))
 
-            const { error: paymentsError } = await supabase
+            const { error: paymentsError } = await db
               .from('payments')
               .insert(paymentInserts)
 
             if (paymentsError) throw paymentsError
 
             // Update practitioner's next invoice number
-            await supabase
+            await db
               .from('practitioners')
               .update({ invoice_next_number: practitioner.invoice_next_number + 1 })
               .eq('id', practitioner.id)
@@ -242,7 +242,7 @@ export function ConsultationForm({
           const scheduledFor = new Date(data.date_time)
           scheduledFor.setDate(scheduledFor.getDate() + 7)
 
-          await supabase.from('scheduled_tasks').insert({
+          await db.from('scheduled_tasks').insert({
             practitioner_id: practitioner.id,
             type: 'follow_up_email',
             consultation_id: newConsultation.id,
@@ -283,7 +283,7 @@ export function ConsultationForm({
         router.push(`/patients/${patient.id}`)
       } else if (consultation) {
         // Update consultation
-        const { error } = await supabase
+        const { error } = await db
           .from('consultations')
           .update({
             date_time: data.date_time,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateInvoicePdf } from '@/lib/pdf/invoice-pdfkit'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/db/server'
 import { buildInvoicePDFData } from '@/lib/pdf/invoice-template'
 
 export async function GET(
@@ -9,16 +9,16 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const supabase = await createClient()
+    const db = await createClient()
 
     // Check authentication
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await db.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
     // Get practitioner
-    const { data: practitioner, error: practitionerError } = await supabase
+    const { data: practitioner, error: practitionerError } = await db
       .from('practitioners')
       .select('*')
       .eq('user_id', user.id)
@@ -29,7 +29,7 @@ export async function GET(
     }
 
     // Get invoice with all relations
-    const { data: invoice, error: invoiceError } = await supabase
+    const { data: invoice, error: invoiceError } = await db
       .from('invoices')
       .select(`
         *,

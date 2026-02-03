@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/db/server'
 import { sendEmail, createHtmlEmail } from '@/lib/email/smtp-service'
 
 export async function POST(request: Request) {
@@ -13,14 +13,14 @@ export async function POST(request: Request) {
       )
     }
 
-    const supabase = await createClient()
+    const db = await createClient()
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await db.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
-    const { data: practitioner } = await supabase
+    const { data: practitioner } = await db
       .from('practitioners')
       .select('*')
       .eq('user_id', user.id)
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     }
 
     // Get email settings
-    const { data: emailSettings } = await supabase
+    const { data: emailSettings } = await db
       .from('email_settings')
       .select('*')
       .eq('practitioner_id', practitioner.id)
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     }
 
     // Get all active patients with email
-    const { data: patients, error: patientsError } = await supabase
+    const { data: patients, error: patientsError } = await db
       .from('patients')
       .select('id, first_name, last_name, email')
       .eq('practitioner_id', practitioner.id)
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
 
         // Get or create conversation
         let conversationId: string | null = null
-        const { data: existingConv } = await supabase
+        const { data: existingConv } = await db
           .from('conversations')
           .select('id')
           .eq('practitioner_id', practitioner.id)
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
         if (existingConv) {
           conversationId = existingConv.id
         } else {
-          const { data: newConv } = await supabase
+          const { data: newConv } = await db
             .from('conversations')
             .insert({
               practitioner_id: practitioner.id,
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
         }
 
         if (conversationId) {
-          await supabase.from('messages').insert({
+          await db.from('messages').insert({
             conversation_id: conversationId,
             content,
             direction: 'outgoing',
@@ -134,7 +134,7 @@ export async function POST(request: Request) {
             from_email: emailSettings.from_email,
           })
 
-          await supabase
+          await db
             .from('conversations')
             .update({ last_message_at: new Date().toISOString() })
             .eq('id', conversationId)

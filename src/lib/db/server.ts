@@ -1,8 +1,7 @@
 /**
  * Server-side database client for Osteoflow desktop.
  *
- * Previously used @supabase/ssr to create a server client with cookie handling.
- * Now returns a local SQLite-backed client with Supabase-compatible API.
+ * Returns a local SQLite-backed query builder client.
  *
  * This is used by Server Components and API routes.
  */

@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/db/server'
 import { ConsultationForm } from '@/components/consultations/consultation-form'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,10 +12,10 @@ interface NewConsultationPageProps {
 
 export default async function NewConsultationPage({ params }: NewConsultationPageProps) {
   const { id } = await params
-  const supabase = await createClient()
+  const db = await createClient()
 
   // Get patient
-  const { data: patient, error: patientError } = await supabase
+  const { data: patient, error: patientError } = await db
     .from('patients')
     .select('*')
     .eq('id', id)
@@ -26,12 +26,12 @@ export default async function NewConsultationPage({ params }: NewConsultationPag
   }
 
   // Get practitioner
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await db.auth.getUser()
   if (!user) {
     redirect('/login')
   }
 
-  const { data: practitioner, error: practitionerError } = await supabase
+  const { data: practitioner, error: practitionerError } = await db
     .from('practitioners')
     .select('*')
     .eq('user_id', user.id)
@@ -41,7 +41,7 @@ export default async function NewConsultationPage({ params }: NewConsultationPag
     redirect('/login')
   }
 
-  const { data: medicalHistoryEntries } = await supabase
+  const { data: medicalHistoryEntries } = await db
     .from('medical_history_entries')
     .select('*')
     .eq('patient_id', id)

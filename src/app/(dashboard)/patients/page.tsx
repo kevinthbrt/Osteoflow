@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/db/server'
 import { PatientsTable } from '@/components/patients/patients-table'
 import { PatientSearch } from '@/components/patients/patient-search'
 import { Button } from '@/components/ui/button'
@@ -45,11 +45,11 @@ async function PatientsTableLoader({
 }: {
   searchParams: { q?: string; archived?: string }
 }) {
-  const supabase = await createClient()
+  const db = await createClient()
   const query = searchParams.q || ''
   const includeArchived = searchParams.archived === 'true'
 
-  let dbQuery = supabase
+  let dbQuery = db
     .from('patients')
     .select('*')
     .order('updated_at', { ascending: false })

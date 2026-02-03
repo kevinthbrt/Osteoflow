@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/db/client'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -90,15 +90,15 @@ export default function ScheduledEmailsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed' | 'failed'>('all')
   const [search, setSearch] = useState('')
-  const supabase = createClient()
+  const db = createClient()
 
   const loadTasks = useCallback(async () => {
     setIsLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await db.auth.getUser()
       if (!user) return
 
-      const { data: practitioner } = await supabase
+      const { data: practitioner } = await db
         .from('practitioners')
         .select('id')
         .eq('user_id', user.id)
@@ -106,7 +106,7 @@ export default function ScheduledEmailsPage() {
 
       if (!practitioner) return
 
-      let query = supabase
+      let query = db
         .from('scheduled_tasks')
         .select(`*, consultation:consultations (date_time, reason, patient:patients (first_name, last_name, email))`)
         .eq('practitioner_id', practitioner.id)
@@ -129,7 +129,7 @@ export default function ScheduledEmailsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase, filter])
+  }, [db, filter])
 
   useEffect(() => {
     loadTasks()

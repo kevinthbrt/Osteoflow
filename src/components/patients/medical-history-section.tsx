@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/db/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -102,7 +102,7 @@ export function MedicalHistorySection({ patientId, entries, onEntriesChange }: M
   const [editingEntry, setEditingEntry] = useState<MedicalHistoryEntry | null>(null)
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const { toast } = useToast()
-  const supabase = createClient()
+  const db = createClient()
 
   // Group entries by type
   const groupedEntries = entries.reduce((acc, entry) => {
@@ -193,7 +193,7 @@ export function MedicalHistorySection({ patientId, entries, onEntriesChange }: M
 
       if (editingEntry) {
         // Update existing entry
-        const { error } = await supabase
+        const { error } = await db
           .from('medical_history_entries')
           .update(data)
           .eq('id', editingEntry.id)
@@ -207,7 +207,7 @@ export function MedicalHistorySection({ patientId, entries, onEntriesChange }: M
         })
       } else {
         // Insert new entry
-        const { error } = await supabase
+        const { error } = await db
           .from('medical_history_entries')
           .insert(data)
 
@@ -242,7 +242,7 @@ export function MedicalHistorySection({ patientId, entries, onEntriesChange }: M
     }
 
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from('medical_history_entries')
         .delete()
         .eq('id', entry.id)

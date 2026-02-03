@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/db/client'
 import { patientSchema, type PatientFormData } from '@/lib/validations/patient'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,7 +44,7 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
   const [historyFormData, setHistoryFormData] = useState<HistoryFormData>(initialHistoryFormData)
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
+  const db = createClient()
 
   const {
     register,
@@ -155,7 +155,7 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
 
     try {
       // Get current practitioner
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await db.auth.getUser()
       if (!user) {
         toast({
           variant: 'destructive',
@@ -165,7 +165,7 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
         return
       }
 
-      const { data: practitioner } = await supabase
+      const { data: practitioner } = await db
         .from('practitioners')
         .select('id')
         .eq('user_id', user.id)
@@ -191,7 +191,7 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
       }
 
       if (mode === 'create') {
-        const { data: newPatient, error } = await supabase
+        const { data: newPatient, error } = await db
           .from('patients')
           .insert({
             ...cleanedData,
@@ -216,7 +216,7 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
             display_order: index,
           }))
 
-          const { error: historyError } = await supabase
+          const { error: historyError } = await db
             .from('medical_history_entries')
             .insert(historyPayload)
 
@@ -231,7 +231,7 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
 
         router.push(`/patients/${newPatient.id}`)
       } else if (patient) {
-        const { error } = await supabase
+        const { error } = await db
           .from('patients')
           .update(cleanedData)
           .eq('id', patient.id)

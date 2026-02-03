@@ -45,6 +45,18 @@ async function startNextServer(): Promise<void> {
     ;(process.env as any).NODE_ENV = 'production'
     process.chdir(appDir)
 
+    // Register the app's node_modules in Node.js module resolution paths.
+    // Next.js serverExternalPackages (better-sqlite3) are loaded via require()
+    // from compiled code in .next/server/. Without this, Node.js may not walk
+    // up far enough to find node_modules at the app root.
+    const nodeModulesPath = path.join(appDir, 'node_modules')
+    process.env.NODE_PATH = [
+      nodeModulesPath,
+      process.env.NODE_PATH,
+    ].filter(Boolean).join(path.delimiter)
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require('module').Module._initPaths()
+
     const fs = await import('fs')
     const configPath = path.join(appDir, '.next', 'required-server-files.json')
     const requiredServerFiles = JSON.parse(fs.readFileSync(configPath, 'utf8'))

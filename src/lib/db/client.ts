@@ -1,8 +1,7 @@
 /**
  * Client-side database client for Osteoflow desktop.
  *
- * Previously used @supabase/ssr to create a browser client.
- * Now returns a browser-safe client that proxies database operations
+ * Returns a browser-safe client that proxies database operations
  * through API routes (/api/db, /api/auth/*).
  *
  * This is used by 'use client' components which cannot import Node.js modules.

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/db/client'
 import {
   practitionerSettingsSchema,
   type PractitionerSettingsFormData,
@@ -85,7 +85,7 @@ export default function SettingsPage() {
   const [showEmailPassword, setShowEmailPassword] = useState(false)
 
   const { toast } = useToast()
-  const supabase = createClient()
+  const db = createClient()
 
   // Settings form
   const {
@@ -119,11 +119,11 @@ export default function SettingsPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
+        const { data: { user } } = await db.auth.getUser()
         if (!user) return
 
         // Get practitioner
-        const { data: practitionerData } = await supabase
+        const { data: practitionerData } = await db
           .from('practitioners')
           .select('*')
           .eq('user_id', user.id)
@@ -152,7 +152,7 @@ export default function SettingsPage() {
           setStampUrl(practitionerData.stamp_url)
 
           // Get patients for export
-          const { data: patientsData } = await supabase
+          const { data: patientsData } = await db
             .from('patients')
             .select('id, first_name, last_name')
             .eq('practitioner_id', practitionerData.id)
@@ -162,7 +162,7 @@ export default function SettingsPage() {
             setPatients(patientsData)
           }
 
-          const { data: sessionTypesData, error: sessionTypesError } = await supabase
+          const { data: sessionTypesData, error: sessionTypesError } = await db
             .from('session_types')
             .select('*')
             .eq('practitioner_id', practitionerData.id)
@@ -212,7 +212,7 @@ export default function SettingsPage() {
     }
 
     fetchData()
-  }, [supabase, setSettingsValue, setEmailSettingsValue, toast])
+  }, [db, setSettingsValue, setEmailSettingsValue, toast])
 
   // Save settings
   const onSaveSettings = async (data: PractitionerSettingsFormData) => {
@@ -221,7 +221,7 @@ export default function SettingsPage() {
     setIsSaving(true)
 
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from('practitioners')
         .update({
           first_name: data.first_name,
@@ -278,7 +278,7 @@ export default function SettingsPage() {
     setIsSavingSessionType(true)
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('session_types')
         .insert({
           practitioner_id: practitioner.id,
@@ -328,7 +328,7 @@ export default function SettingsPage() {
 
     try {
       // Get patient with all related data
-      const { data: patient } = await supabase
+      const { data: patient } = await db
         .from('patients')
         .select(`
           *,
@@ -451,7 +451,7 @@ export default function SettingsPage() {
 
     try {
       // Update practitioner to remove stamp URL
-      const { error } = await supabase
+      const { error } = await db
         .from('practitioners')
         .update({ stamp_url: null })
         .eq('id', practitioner.id)
@@ -479,7 +479,7 @@ export default function SettingsPage() {
     if (!exportPatientId) return
 
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from('patients')
         .delete()
         .eq('id', exportPatientId)
@@ -1573,14 +1573,14 @@ function PasswordSettings({ practitioner }: { practitioner: Practitioner | null 
   const [hasPassword, setHasPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
-  const supabase = createClient()
+  const db = createClient()
 
   useEffect(() => {
     async function checkPassword() {
       if (!practitioner) return
       try {
         // Check if practitioner has a password by looking at the practitioner data
-        const { data } = await supabase
+        const { data } = await db
           .from('practitioners')
           .select('password_hash')
           .eq('id', practitioner.id)

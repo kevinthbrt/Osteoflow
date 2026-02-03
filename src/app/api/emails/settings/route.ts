@@ -1,20 +1,20 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/db/server'
 import { testSmtpConnection } from '@/lib/email/smtp-service'
 import { testImapConnection } from '@/lib/email/imap-service'
 import { emailSettingsSchema } from '@/lib/validations/settings'
 
 // GET /api/emails/settings - Get current email settings
 export async function GET() {
-  const supabase = await createClient()
+  const db = await createClient()
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  const { data: { user }, error: authError } = await db.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   // Get practitioner
-  const { data: practitioner } = await supabase
+  const { data: practitioner } = await db
     .from('practitioners')
     .select('id')
     .eq('user_id', user.id)
@@ -25,7 +25,7 @@ export async function GET() {
   }
 
   // Get email settings (without password for security)
-  const { data: settings, error } = await supabase
+  const { data: settings, error } = await db
     .from('email_settings')
     .select(`
       id,
@@ -60,15 +60,15 @@ export async function GET() {
 
 // POST /api/emails/settings - Create or update email settings
 export async function POST(request: Request) {
-  const supabase = await createClient()
+  const db = await createClient()
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  const { data: { user }, error: authError } = await db.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   // Get practitioner
-  const { data: practitioner } = await supabase
+  const { data: practitioner } = await db
     .from('practitioners')
     .select('id, first_name, last_name, practice_name')
     .eq('user_id', user.id)
@@ -132,7 +132,7 @@ export async function POST(request: Request) {
   }
 
   // Check if settings already exist
-  const { data: existingSettings } = await supabase
+  const { data: existingSettings } = await db
     .from('email_settings')
     .select('id')
     .eq('practitioner_id', practitioner.id)
@@ -164,7 +164,7 @@ export async function POST(request: Request) {
   let result
   if (existingSettings) {
     // Update existing
-    const { data: updated, error } = await supabase
+    const { data: updated, error } = await db
       .from('email_settings')
       .update(settingsData)
       .eq('id', existingSettings.id)
@@ -178,7 +178,7 @@ export async function POST(request: Request) {
     result = updated
   } else {
     // Insert new
-    const { data: inserted, error } = await supabase
+    const { data: inserted, error } = await db
       .from('email_settings')
       .insert(settingsData)
       .select()
@@ -203,15 +203,15 @@ export async function POST(request: Request) {
 
 // DELETE /api/emails/settings - Remove email settings
 export async function DELETE() {
-  const supabase = await createClient()
+  const db = await createClient()
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  const { data: { user }, error: authError } = await db.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   // Get practitioner
-  const { data: practitioner } = await supabase
+  const { data: practitioner } = await db
     .from('practitioners')
     .select('id')
     .eq('user_id', user.id)
@@ -221,7 +221,7 @@ export async function DELETE() {
     return NextResponse.json({ error: 'Practitioner not found' }, { status: 404 })
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('email_settings')
     .delete()
     .eq('practitioner_id', practitioner.id)

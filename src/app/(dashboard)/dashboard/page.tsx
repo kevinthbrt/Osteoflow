@@ -1,17 +1,17 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/db/server'
 import { Dashboard } from '@/components/dashboard/dashboard'
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const db = await createClient()
+  const { data: { user } } = await db.auth.getUser()
 
   if (!user) {
     redirect('/login')
   }
 
   // Get practitioner
-  const { data: practitioner } = await supabase
+  const { data: practitioner } = await db
     .from('practitioners')
     .select('*')
     .eq('user_id', user.id)
@@ -37,34 +37,34 @@ export default async function DashboardPage() {
     { count: unreadMessages },
   ] = await Promise.all([
     // Total active patients
-    supabase
+    db
       .from('patients')
       .select('*', { count: 'exact', head: true })
       .is('archived_at', null),
 
     // Today's consultations
-    supabase
+    db
       .from('consultations')
       .select('*', { count: 'exact', head: true })
       .gte('date_time', startOfDay)
       .lte('date_time', endOfDay),
 
     // This month's revenue
-    supabase
+    db
       .from('invoices')
       .select('amount')
       .eq('status', 'paid')
       .gte('paid_at', startOfMonth),
 
     // Upcoming birthdays (next 7 days)
-    supabase
+    db
       .from('patients')
       .select('id, first_name, last_name, birth_date')
       .is('archived_at', null)
       .order('birth_date'),
 
     // Recent consultations
-    supabase
+    db
       .from('consultations')
       .select(`
         id,
@@ -77,7 +77,7 @@ export default async function DashboardPage() {
       .limit(5),
 
     // Unread messages
-    supabase
+    db
       .from('conversations')
       .select('*', { count: 'exact', head: true })
       .gt('unread_count', 0),

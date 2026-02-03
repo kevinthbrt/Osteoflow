@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/db/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -109,7 +109,7 @@ export default function MessagesPage() {
   const [showNewModal, setShowNewModal] = useState(false)
   const [isMobileView, setIsMobileView] = useState(false)
   const { toast } = useToast()
-  const supabase = createClient()
+  const db = createClient()
   const hasLoadedRef = useRef(false)
 
   // Check for mobile view
@@ -127,7 +127,7 @@ export default function MessagesPage() {
       setIsLoading(true)
     }
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('conversations')
         .select(`
           id,
@@ -170,7 +170,7 @@ export default function MessagesPage() {
   // Fetch messages for selected conversation
   const fetchMessages = useCallback(async (conversationId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
@@ -180,14 +180,14 @@ export default function MessagesPage() {
       setMessages(data as Message[])
 
       // Mark as read
-      await supabase
+      await db
         .from('conversations')
         .update({ unread_count: 0 })
         .eq('id', conversationId)
     } catch (error) {
       console.error('Error fetching messages:', error)
     }
-  }, [supabase])
+  }, [db])
 
   useEffect(() => {
     if (selectedConversation) {
@@ -253,14 +253,14 @@ export default function MessagesPage() {
 
     setIsDeleting(true)
     try {
-      const { error: messagesError } = await supabase
+      const { error: messagesError } = await db
         .from('messages')
         .delete()
         .eq('conversation_id', selectedConversation.id)
 
       if (messagesError) throw messagesError
 
-      const { error: conversationError } = await supabase
+      const { error: conversationError } = await db
         .from('conversations')
         .delete()
         .eq('id', selectedConversation.id)

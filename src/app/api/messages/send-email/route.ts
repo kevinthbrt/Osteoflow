@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/db/server'
 import { sendEmail, createHtmlEmail } from '@/lib/email/smtp-service'
 
 const getResend = () => new Resend(process.env.RESEND_API_KEY)
@@ -16,15 +16,15 @@ export async function POST(request: Request) {
       )
     }
 
-    const supabase = await createClient()
+    const db = await createClient()
 
     // Get practitioner info
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await db.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: practitioner } = await supabase
+    const { data: practitioner } = await db
       .from('practitioners')
       .select('*')
       .eq('user_id', user.id)
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
     }
 
     // Save message to database
-    const { error: messageError } = await supabase.from('messages').insert({
+    const { error: messageError } = await db.from('messages').insert({
       conversation_id: conversationId,
       content,
       direction: 'outgoing',

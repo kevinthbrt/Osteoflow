@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/db/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,11 +35,11 @@ export default function LoginPage() {
   const [showLoginPassword, setShowLoginPassword] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
+  const db = createClient()
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
+      const { data } = await db
         .from('practitioners')
         .select('id, user_id, first_name, last_name, email, practice_name, password_hash')
         .order('last_name')
@@ -56,7 +56,7 @@ export default function LoginPage() {
       }
     }
     load()
-  }, [supabase])
+  }, [db])
 
   const handleSelectPractitioner = async (practitioner: PractitionerItem) => {
     if (practitioner.has_password) {
@@ -70,7 +70,7 @@ export default function LoginPage() {
   const doLogin = async (practitioner: PractitionerItem, pwd: string) => {
     setIsLoading(true)
     try {
-      const result = await supabase.auth.signInWithPassword({
+      const result = await db.auth.signInWithPassword({
         email: practitioner.email,
         password: pwd,
       })
@@ -135,7 +135,7 @@ export default function LoginPage() {
       const userId = crypto.randomUUID()
       const now = new Date().toISOString()
 
-      const { error } = await supabase.from('practitioners').insert({
+      const { error } = await db.from('practitioners').insert({
         user_id: userId,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
@@ -156,7 +156,7 @@ export default function LoginPage() {
       }
 
       // Auto-login
-      await supabase.auth.signInWithPassword({
+      await db.auth.signInWithPassword({
         email: email.trim(),
         password: password || '',
       })

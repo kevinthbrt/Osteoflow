@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/db/server'
 import { fetchNewEmails, htmlToPlainText, extractReplyContent } from '@/lib/email/imap-service'
 
 // This endpoint is called by cron to check all practitioners' inboxes
@@ -17,11 +17,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = await createServiceClient()
+  const db = await createServiceClient()
 
   try {
     // Fetch all practitioners with enabled email sync
-    const { data: emailSettings, error: settingsError } = await supabase
+    const { data: emailSettings, error: settingsError } = await db
       .from('email_settings')
       .select(`
         id,
@@ -76,7 +76,7 @@ export async function GET(request: Request) {
 
         if (!fetchResult.success) {
           // Update error status
-          await supabase
+          await db
             .from('email_settings')
             .update({
               last_error: fetchResult.error,
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
         // Process each email
         for (const email of fetchResult.emails) {
           // Check if this email is already processed (by external_email_id)
-          const { data: existingMsg } = await supabase
+          const { data: existingMsg } = await db
             .from('messages')
             .select('id')
             .eq('external_email_id', email.messageId)
@@ -109,7 +109,7 @@ export async function GET(request: Request) {
           }
 
           // Try to find a matching patient by email
-          const { data: patient } = await supabase
+          const { data: patient } = await db
             .from('patients')
             .select('id, first_name, last_name, email')
             .eq('practitioner_id', settings.practitioner_id)
@@ -121,7 +121,7 @@ export async function GET(request: Request) {
 
           if (patient) {
             // Patient found - find or create patient conversation
-            const { data: existingConversation } = await supabase
+            const { data: existingConversation } = await db
               .from('conversations')
               .select('id')
               .eq('practitioner_id', settings.practitioner_id)
@@ -132,7 +132,7 @@ export async function GET(request: Request) {
               conversationId = existingConversation.id
             } else {
               // Create new patient conversation
-              const { data: newConversation, error: convError } = await supabase
+              const { data: newConversation, error: convError } = await db
                 .from('conversations')
                 .insert({
                   practitioner_id: settings.practitioner_id,
@@ -153,7 +153,7 @@ export async function GET(request: Request) {
             }
           } else {
             // Unknown sender - find or create external conversation
-            const { data: existingExtConv } = await supabase
+            const { data: existingExtConv } = await db
               .from('conversations')
               .select('id')
               .eq('practitioner_id', settings.practitioner_id)
@@ -168,7 +168,7 @@ export async function GET(request: Request) {
               const senderName = email.from.name || email.from.email.split('@')[0]
 
               // Create new external conversation
-              const { data: newExtConv, error: extConvError } = await supabase
+              const { data: newExtConv, error: extConvError } = await db
                 .from('conversations')
                 .insert({
                   practitioner_id: settings.practitioner_id,
@@ -205,7 +205,7 @@ export async function GET(request: Request) {
           }
 
           // Create the message
-          const { error: msgError } = await supabase.from('messages').insert({
+          const { error: msgError } = await db.from('messages').insert({
             conversation_id: conversationId,
             content: content.substring(0, 10000), // Limit content length
             direction: 'incoming',
@@ -225,13 +225,13 @@ export async function GET(request: Request) {
           }
 
           // Update conversation's last_message_at and increment unread_count
-          const { data: conv } = await supabase
+          const { data: conv } = await db
             .from('conversations')
             .select('unread_count')
             .eq('id', conversationId)
             .single()
 
-          await supabase
+          await db
             .from('conversations')
             .update({
               last_message_at: email.date.toISOString(),
@@ -243,7 +243,7 @@ export async function GET(request: Request) {
         }
 
         // Update last sync UID and clear error
-        await supabase
+        await db
           .from('email_settings')
           .update({
             last_sync_uid: fetchResult.lastUid,
