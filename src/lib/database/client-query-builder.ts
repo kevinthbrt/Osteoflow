@@ -175,7 +175,21 @@ class ClientQueryChain {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(this._descriptor),
     })
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (!res.ok) {
+          // Try to parse JSON error, fall back to status text
+          const text = await res.text()
+          try {
+            return JSON.parse(text)
+          } catch {
+            return {
+              data: null,
+              error: { message: `Server error (${res.status}): ${text || res.statusText}` },
+            }
+          }
+        }
+        return res.json()
+      })
       .then(resolve, reject)
   }
 }
@@ -195,7 +209,12 @@ function _createBrowserClient() {
       getUser: async () => {
         try {
           const res = await fetch('/api/auth/user')
-          return await res.json()
+          const text = await res.text()
+          try {
+            return JSON.parse(text)
+          } catch {
+            return { data: { user: null }, error: { message: `Server error: ${text}` } }
+          }
         } catch {
           return { data: { user: null }, error: { message: 'Failed to get user' } }
         }
@@ -208,7 +227,12 @@ function _createBrowserClient() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
           })
-          return await res.json()
+          const text = await res.text()
+          try {
+            return JSON.parse(text)
+          } catch {
+            return { data: { user: null }, error: { message: `Server error: ${text}` } }
+          }
         } catch {
           return { data: { user: null }, error: { message: 'Login failed' } }
         }
@@ -217,7 +241,12 @@ function _createBrowserClient() {
       signOut: async () => {
         try {
           const res = await fetch('/api/auth/logout', { method: 'POST' })
-          return await res.json()
+          const text = await res.text()
+          try {
+            return JSON.parse(text)
+          } catch {
+            return { error: { message: `Server error: ${text}` } }
+          }
         } catch {
           return { error: { message: 'Logout failed' } }
         }
