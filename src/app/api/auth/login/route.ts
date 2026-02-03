@@ -4,11 +4,12 @@
  */
 
 import { NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/database/connection'
-import { verifyPassword, hashPassword } from '@/lib/database/auth'
 
 export async function POST(request: Request) {
   try {
+    const { getDatabase } = await import('@/lib/database/connection')
+    const { verifyPassword } = await import('@/lib/database/auth')
+
     const { email, password } = await request.json()
     const db = getDatabase()
 
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Login failed'
+    console.error('[API/auth/login] Error:', message)
     return NextResponse.json({
       data: { user: null },
       error: { message },
@@ -72,6 +74,9 @@ export async function POST(request: Request) {
  */
 export async function PUT(request: Request) {
   try {
+    const { getDatabase } = await import('@/lib/database/connection')
+    const { verifyPassword, hashPassword } = await import('@/lib/database/auth')
+
     const { email, password, oldPassword } = await request.json()
 
     if (!email || !password || password.length < 4) {
@@ -108,6 +113,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: true })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to set password'
+    console.error('[API/auth/login PUT] Error:', message)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

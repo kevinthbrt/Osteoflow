@@ -4,10 +4,10 @@
  */
 
 import { NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/database/auth'
 
 export async function GET() {
   try {
+    const { getCurrentUser } = await import('@/lib/database/auth')
     const user = getCurrentUser()
     if (!user) {
       return NextResponse.json({
@@ -22,6 +22,7 @@ export async function GET() {
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Auth error'
+    console.error('[API/auth/user] Error:', message)
     return NextResponse.json({
       data: { user: null },
       error: { message },

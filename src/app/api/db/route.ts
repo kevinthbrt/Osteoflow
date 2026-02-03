@@ -5,17 +5,30 @@
  * using the server-side SQLite query builder. This allows client components
  * (which run in the browser) to interact with the database without importing
  * Node.js modules directly.
+ *
+ * All database-related imports are dynamic so that module loading errors
+ * (e.g. missing better-sqlite3 native binary) are caught by the try/catch
+ * and returned as JSON instead of a generic 500 "Internal Server Error".
  */
 
 import { NextResponse } from 'next/server'
-import { createLocalClient } from '@/lib/database/query-builder'
-import { initServerCron } from '@/lib/server-cron'
 
-// Start background cron jobs on first request
-initServerCron()
+let cronInitialized = false
 
 export async function POST(request: Request) {
   try {
+    const { createLocalClient } = await import('@/lib/database/query-builder')
+
+    if (!cronInitialized) {
+      try {
+        const { initServerCron } = await import('@/lib/server-cron')
+        initServerCron()
+      } catch {
+        // Cron is non-critical, don't block queries
+      }
+      cronInitialized = true
+    }
+
     const descriptor = await request.json()
     const client = createLocalClient()
 
@@ -77,6 +90,7 @@ export async function POST(request: Request) {
     return NextResponse.json(result)
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Database query failed'
+    console.error('[API/db] Error:', message)
     return NextResponse.json({ data: null, error: { message } }, { status: 500 })
   }
 }
