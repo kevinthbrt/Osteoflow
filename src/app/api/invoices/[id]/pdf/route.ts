@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateInvoicePdf } from '@/lib/pdf/invoice-pdfkit'
-import { createClient } from '@/lib/db/server'
-import { buildInvoicePDFData } from '@/lib/pdf/invoice-template'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { generateInvoicePdf } = await import('@/lib/pdf/invoice-pdfkit')
+    const { createClient } = await import('@/lib/db/server')
+    const { buildInvoicePDFData } = await import('@/lib/pdf/invoice-template')
+
     const { id } = await params
     const db = await createClient()
 

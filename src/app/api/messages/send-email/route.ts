@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
-import { Resend } from 'resend'
-import { createClient, createServiceClient } from '@/lib/db/server'
-import { sendEmail, createHtmlEmail } from '@/lib/email/smtp-service'
-
-const getResend = () => new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request: Request) {
   try {
+    const { Resend } = await import('resend')
+    const { createClient, createServiceClient } = await import('@/lib/db/server')
+    const { sendEmail, createHtmlEmail } = await import('@/lib/email/smtp-service')
+    const getResend = () => new Resend(process.env.RESEND_API_KEY)
+
     const { conversationId, patientEmail, patientName, content } = await request.json()
 
     if (!conversationId || !patientEmail || !content) {

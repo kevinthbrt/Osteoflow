@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/db/server'
-import { fetchNewEmails, htmlToPlainText, extractReplyContent } from '@/lib/email/imap-service'
 
 // This endpoint is called by cron to check all practitioners' inboxes
 // GET /api/emails/check-inbox?secret=CRON_SECRET
@@ -17,9 +15,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const db = await createServiceClient()
-
   try {
+    const { createServiceClient } = await import('@/lib/db/server')
+    const { fetchNewEmails, htmlToPlainText, extractReplyContent } = await import('@/lib/email/imap-service')
+    const db = await createServiceClient()
     // Fetch all practitioners with enabled email sync
     const { data: emailSettings, error: settingsError } = await db
       .from('email_settings')

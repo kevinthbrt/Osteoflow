@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/db/server'
-import { sendEmail, createHtmlEmail } from '@/lib/email/smtp-service'
 
 export async function POST(request: Request) {
   try {
+    const { createClient } = await import('@/lib/db/server')
+    const { sendEmail, createHtmlEmail } = await import('@/lib/email/smtp-service')
+
     const { content } = await request.json()
 
     if (!content) {
