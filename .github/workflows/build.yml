@@ -28,11 +28,8 @@ jobs:
       - name: Build Electron TypeScript
         run: npm run build:electron
 
-      - name: Rebuild native modules for Electron
-        run: npx --yes @electron/rebuild -f -w better-sqlite3
-
-      - name: Build Mac installer
-        run: npx electron-builder --mac --x64 --publish never
+      - name: Build Mac installer (arm64 + x64)
+        run: npx electron-builder --mac --arm64 --x64 --publish never
 
       - name: Upload Mac artifacts
         uses: actions/upload-artifact@v4
@@ -60,9 +57,6 @@ jobs:
 
       - name: Build Electron TypeScript
         run: npm run build:electron
-
-      - name: Rebuild native modules for Electron
-        run: npx --yes @electron/rebuild -f -w better-sqlite3
 
       - name: Build Windows installer
         run: npx electron-builder --win --publish never
