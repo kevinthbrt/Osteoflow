@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
-import { createClient } from '@/lib/db/server'
-import {
-  defaultEmailTemplates,
-  replaceTemplateVariables,
-  createFollowUpHtmlEmail,
-} from '@/lib/email/templates'
-import { sendEmail } from '@/lib/email/smtp-service'
-import { formatDate } from '@/lib/utils'
-
-// Lazy initialization to avoid build-time errors
-const getResend = () => new Resend(process.env.RESEND_API_KEY)
 
 // This endpoint can be called by a cron job to process pending follow-up tasks
 export async function POST(request: NextRequest) {
   try {
+    const { Resend } = await import('resend')
+    const { createClient } = await import('@/lib/db/server')
+    const { defaultEmailTemplates, replaceTemplateVariables, createFollowUpHtmlEmail } = await import('@/lib/email/templates')
+    const { sendEmail } = await import('@/lib/email/smtp-service')
+    const { formatDate } = await import('@/lib/utils')
+    const getResend = () => new Resend(process.env.RESEND_API_KEY)
     // Verify cron secret or admin auth
     const authHeader = request.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET
@@ -267,6 +261,13 @@ export async function POST(request: NextRequest) {
 // Manual trigger for a specific consultation
 export async function PUT(request: NextRequest) {
   try {
+    const { Resend } = await import('resend')
+    const { createClient } = await import('@/lib/db/server')
+    const { defaultEmailTemplates, replaceTemplateVariables, createFollowUpHtmlEmail } = await import('@/lib/email/templates')
+    const { sendEmail } = await import('@/lib/email/smtp-service')
+    const { formatDate } = await import('@/lib/utils')
+    const getResend = () => new Resend(process.env.RESEND_API_KEY)
+
     const { consultationId } = await request.json()
 
     if (!consultationId) {

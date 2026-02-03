@@ -1,11 +1,4 @@
 import { NextResponse } from 'next/server'
-import { Resend } from 'resend'
-import { createClient, createServiceClient } from '@/lib/db/server'
-import { sendEmail, createHtmlEmail } from '@/lib/email/smtp-service'
-import { formatCurrency, formatDate } from '@/lib/utils'
-import { generateAccountingPdf } from '@/lib/pdf/accounting-pdfkit'
-
-const getResend = () => new Resend(process.env.RESEND_API_KEY)
 
 const paymentMethodLabels: Record<string, string> = {
   card: 'Carte',
@@ -17,6 +10,13 @@ const paymentMethodLabels: Record<string, string> = {
 
 export async function POST(request: Request) {
   try {
+    const { Resend } = await import('resend')
+    const { createClient, createServiceClient } = await import('@/lib/db/server')
+    const { sendEmail, createHtmlEmail } = await import('@/lib/email/smtp-service')
+    const { formatCurrency, formatDate } = await import('@/lib/utils')
+    const { generateAccountingPdf } = await import('@/lib/pdf/accounting-pdfkit')
+    const getResend = () => new Resend(process.env.RESEND_API_KEY)
+
     const { startDate, endDate } = await request.json()
 
     if (!startDate || !endDate) {

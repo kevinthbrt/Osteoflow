@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/db/server'
-import { createPostSessionAdviceHtmlEmail } from '@/lib/email/templates'
-import { sendEmail } from '@/lib/email/smtp-service'
-import { formatDate } from '@/lib/utils'
 
 export async function POST(request: NextRequest) {
   try {
+    const { createClient } = await import('@/lib/db/server')
+    const { createPostSessionAdviceHtmlEmail } = await import('@/lib/email/templates')
+    const { sendEmail } = await import('@/lib/email/smtp-service')
+    const { formatDate } = await import('@/lib/utils')
+
     const { consultationId } = await request.json()
 
     if (!consultationId) {

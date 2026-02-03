@@ -1,21 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
-import { generateInvoicePdf } from '@/lib/pdf/invoice-pdfkit'
-import { createClient, createServiceClient } from '@/lib/db/server'
-import { buildInvoicePDFData } from '@/lib/pdf/invoice-template'
-import {
-  defaultEmailTemplates,
-  createInvoiceHtmlEmail,
-  replaceTemplateVariables,
-} from '@/lib/email/templates'
-import { formatDate, formatCurrency } from '@/lib/utils'
-import { sendEmail } from '@/lib/email/smtp-service'
-
-// Lazy initialization to avoid build-time errors
-const getResend = () => new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request: NextRequest) {
   try {
+    const { Resend } = await import('resend')
+    const { generateInvoicePdf } = await import('@/lib/pdf/invoice-pdfkit')
+    const { createClient, createServiceClient } = await import('@/lib/db/server')
+    const { buildInvoicePDFData } = await import('@/lib/pdf/invoice-template')
+    const { defaultEmailTemplates, createInvoiceHtmlEmail, replaceTemplateVariables } = await import('@/lib/email/templates')
+    const { formatDate, formatCurrency } = await import('@/lib/utils')
+    const { sendEmail } = await import('@/lib/email/smtp-service')
+    const getResend = () => new Resend(process.env.RESEND_API_KEY)
+
     const { invoiceId } = await request.json()
 
     if (!invoiceId) {
