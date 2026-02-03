@@ -1,6 +1,11 @@
-import nodemailer from 'nodemailer'
 import type { Transporter } from 'nodemailer'
 import type SMTPTransport from 'nodemailer/lib/smtp-transport'
+
+// Runtime require hidden from Turbopack's static analysis.
+// Same fix as better-sqlite3: prevents Turbopack from appending a hash
+// to the module name in compiled output.
+// eslint-disable-next-line no-eval
+const nodemailer = eval('require')('nodemailer') as { createTransport: (...args: unknown[]) => Transporter<SMTPTransport.SentMessageInfo> }
 
 export interface EmailSettings {
   smtp_host: string

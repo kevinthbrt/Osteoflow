@@ -1,4 +1,10 @@
-import { ImapFlow } from 'imapflow'
+import type { ImapFlow as ImapFlowType } from 'imapflow'
+
+// Runtime require hidden from Turbopack's static analysis.
+// Same fix as better-sqlite3: prevents Turbopack from appending a hash
+// to the module name in compiled output.
+// eslint-disable-next-line no-eval
+const { ImapFlow } = eval('require')('imapflow') as { ImapFlow: new (...args: ConstructorParameters<typeof ImapFlowType>) => ImapFlowType }
 
 export interface ImapSettings {
   imap_host: string
@@ -37,7 +43,7 @@ export interface FetchEmailsResult {
 /**
  * Create an IMAP client
  */
-function createImapClient(settings: ImapSettings): ImapFlow {
+function createImapClient(settings: ImapSettings): ImapFlowType {
   return new ImapFlow({
     host: settings.imap_host,
     port: settings.imap_port,
