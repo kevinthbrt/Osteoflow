@@ -1,6 +1,6 @@
 {
   "name": "osteoflow",
-  "version": "1.0.10",
+  "version": "1.0.12",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
