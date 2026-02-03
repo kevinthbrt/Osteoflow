@@ -5,12 +5,20 @@
  * or in a custom directory specified via config.json.
  */
 
-import Database from 'better-sqlite3'
+import type BetterSqlite3 from 'better-sqlite3'
 import path from 'path'
 import fs from 'fs'
 import { SCHEMA_SQL, runMigrations } from './schema'
 
-let db: Database.Database | null = null
+// Runtime require hidden from Turbopack's static analysis.
+// Turbopack (Next.js 16) appends a hash to external module names in compiled output
+// (e.g., "better-sqlite3-90e2652d1716b047") which fails to resolve in
+// the packaged Electron app. Using eval('require') prevents Turbopack from
+// transforming the module name.
+// eslint-disable-next-line no-eval
+const Database = eval('require')('better-sqlite3') as typeof BetterSqlite3
+
+let db: BetterSqlite3.Database | null = null
 
 /**
  * Get the default app data directory (platform-specific).
@@ -86,7 +94,7 @@ function getDatabasePath(): string {
  * Get or create the SQLite database connection.
  * Initializes the schema on first connection.
  */
-export function getDatabase(): Database.Database {
+export function getDatabase(): BetterSqlite3.Database {
   if (db) return db
 
   const dbPath = getDatabasePath()
