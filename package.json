@@ -1,6 +1,6 @@
 {
   "name": "osteoflow",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -77,6 +77,9 @@
     "typescript": "5.9.3",
     "vitest": "^2.1.1",
     "wait-on": "^8.0.1"
+  },
+  "overrides": {
+    "nodemailer": "^6.10.1"
   },
   "build": {
     "appId": "com.osteoflow.desktop",
