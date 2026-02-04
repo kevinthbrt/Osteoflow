@@ -176,9 +176,12 @@ export async function POST(request: Request) {
 
       if (!result.success) {
         console.error('SMTP error:', result.error)
-        return NextResponse.json({ error: 'Erreur lors de l\'envoi de l\'email' }, { status: 500 })
+        return NextResponse.json(
+          { error: `Erreur SMTP: ${result.error || 'Échec de l\'envoi'}` },
+          { status: 500 }
+        )
       }
-    } else {
+    } else if (process.env.RESEND_API_KEY) {
       const resend = getResend()
       const { error: emailError } = await resend.emails.send({
         from: `${practitioner.first_name} ${practitioner.last_name} <${process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'}>`,
@@ -195,13 +198,19 @@ export async function POST(request: Request) {
 
       if (emailError) {
         console.error('Resend error:', emailError)
-        return NextResponse.json({ error: 'Erreur lors de l\'envoi de l\'email' }, { status: 500 })
+        return NextResponse.json({ error: 'Erreur lors de l\'envoi de l\'email via Resend' }, { status: 500 })
       }
+    } else {
+      return NextResponse.json(
+        { error: 'Aucun service email configuré. Veuillez configurer vos paramètres SMTP dans les réglages.' },
+        { status: 400 }
+      )
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error sending accounting report:', error)
-    return NextResponse.json({ error: 'Erreur lors de l\'envoi du rapport' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Erreur inconnue'
+    return NextResponse.json({ error: `Erreur lors de l'envoi du rapport: ${message}` }, { status: 500 })
   }
 }
