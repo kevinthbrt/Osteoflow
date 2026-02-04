@@ -99,7 +99,8 @@
     "publish": {
       "provider": "github",
       "owner": "kevinthbrt",
-      "repo": "Osteoflow"
+      "repo": "Osteoflow",
+      "releaseType": "release"
     },
     "mac": {
       "target": [
