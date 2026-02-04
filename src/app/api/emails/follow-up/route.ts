@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
             throw new Error(`SMTP error: ${result.error}`)
           }
           console.log(`[FollowUp] Email sent via SMTP to ${patient.email}`)
-        } else {
+        } else if (process.env.RESEND_API_KEY) {
           const { error: emailError } = await getResend().emails.send({
             from: `${practitioner.practice_name || practitioner.first_name} <${process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'}>`,
             to: patient.email,
@@ -207,6 +207,8 @@ export async function POST(request: NextRequest) {
             throw new Error(`Resend error: ${emailError.message}`)
           }
           console.log(`[FollowUp] Email sent via Resend to ${patient.email}`)
+        } else {
+          throw new Error('Aucun service email configuré (SMTP ou Resend)')
         }
 
         // Mark task as completed
@@ -383,11 +385,11 @@ export async function PUT(request: NextRequest) {
       )
       if (!result.success) {
         return NextResponse.json(
-          { error: "Erreur lors de l'envoi de l'email" },
+          { error: `Erreur SMTP: ${result.error || 'Échec de l\'envoi'}` },
           { status: 500 }
         )
       }
-    } else {
+    } else if (process.env.RESEND_API_KEY) {
       const { error: emailError } = await getResend().emails.send({
         from: `${practitioner.practice_name || practitioner.first_name} <${process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'}>`,
         to: patient.email,
@@ -397,10 +399,15 @@ export async function PUT(request: NextRequest) {
 
       if (emailError) {
         return NextResponse.json(
-          { error: "Erreur lors de l'envoi de l'email" },
+          { error: 'Erreur lors de l\'envoi de l\'email via Resend' },
           { status: 500 }
         )
       }
+    } else {
+      return NextResponse.json(
+        { error: 'Aucun service email configuré. Veuillez configurer vos paramètres SMTP dans les réglages.' },
+        { status: 400 }
+      )
     }
 
     // Update consultation
@@ -412,8 +419,9 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error sending follow-up email:', error)
+    const message = error instanceof Error ? error.message : 'Erreur inconnue'
     return NextResponse.json(
-      { error: "Erreur lors de l'envoi de l'email" },
+      { error: `Erreur lors de l'envoi de l'email: ${message}` },
       { status: 500 }
     )
   }

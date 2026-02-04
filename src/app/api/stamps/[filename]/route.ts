@@ -34,7 +34,7 @@ export async function GET(
       return NextResponse.json({ error: 'File not found' }, { status: 404 })
     }
 
-    const ext = path.extname(filename).slice(1).toLowerCase()
+    const ext = (path.extname(filename || '').slice(1) || 'png').toLowerCase()
     const contentType = MIME_TYPES[ext] || 'application/octet-stream'
     const fileBuffer = fs.readFileSync(filePath)
 

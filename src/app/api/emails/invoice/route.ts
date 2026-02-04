@@ -58,7 +58,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Facture non trouvée' }, { status: 404 })
     }
 
-    const patient = invoice.consultation.patient
+    // Safely access nested relations
+    const consultation = invoice.consultation
+    if (!consultation) {
+      return NextResponse.json(
+        { error: 'Consultation associée non trouvée' },
+        { status: 404 }
+      )
+    }
+
+    const patient = consultation.patient
+    if (!patient) {
+      return NextResponse.json(
+        { error: 'Patient associé non trouvé' },
+        { status: 404 }
+      )
+    }
 
     // Check patient has email
     if (!patient.email) {
@@ -110,22 +125,31 @@ export async function POST(request: NextRequest) {
     })
 
     // Generate PDF
-    const pdfData = buildInvoicePDFData({
-      invoice,
-      consultation: invoice.consultation,
-      patient,
-      practitioner,
-      payments: invoice.payments || [],
-    })
-    console.debug('Invoice PDF data (api/email):', {
-      invoiceId: invoice.id,
-      invoiceNumber: pdfData.invoiceNumber,
-      amount: pdfData.amount,
-      practitionerName: pdfData.practitionerName,
-      patientName: pdfData.patientName,
-      hasStamp: Boolean(pdfData.stampUrl),
-    })
-    const pdfBuffer = await generateInvoicePdf(pdfData)
+    let pdfBuffer: Uint8Array
+    try {
+      const pdfData = buildInvoicePDFData({
+        invoice,
+        consultation,
+        patient,
+        practitioner,
+        payments: invoice.payments || [],
+      })
+      console.debug('Invoice PDF data (api/email):', {
+        invoiceId: invoice.id,
+        invoiceNumber: pdfData.invoiceNumber,
+        amount: pdfData.amount,
+        practitionerName: pdfData.practitionerName,
+        patientName: pdfData.patientName,
+        hasStamp: Boolean(pdfData.stampUrl),
+      })
+      pdfBuffer = await generateInvoicePdf(pdfData)
+    } catch (pdfError) {
+      console.error('PDF generation error:', pdfError)
+      return NextResponse.json(
+        { error: 'Erreur lors de la génération du PDF' },
+        { status: 500 }
+      )
+    }
 
     // Check if practitioner has custom email settings
     const serviceClient = await createServiceClient()
@@ -165,14 +189,14 @@ export async function POST(request: NextRequest) {
       if (!result.success) {
         console.error('SMTP error:', result.error)
         return NextResponse.json(
-          { error: 'Erreur lors de l\'envoi de l\'email' },
+          { error: `Erreur SMTP: ${result.error || 'Échec de l\'envoi'}` },
           { status: 500 }
         )
       }
-    } else {
-      // Fallback to Resend
+    } else if (process.env.RESEND_API_KEY) {
+      // Fallback to Resend only if API key is configured
       const { error: emailError } = await getResend().emails.send({
-        from: `${practitioner.practice_name || practitioner.first_name} <onboarding@resend.dev>`,
+        from: `${practitioner.practice_name || practitioner.first_name} <${process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'}>`,
         to: patient.email,
         subject,
         html: invoiceHtml,
@@ -187,17 +211,24 @@ export async function POST(request: NextRequest) {
       if (emailError) {
         console.error('Resend error:', emailError)
         return NextResponse.json(
-          { error: 'Erreur lors de l\'envoi de l\'email' },
+          { error: 'Erreur lors de l\'envoi de l\'email via Resend' },
           { status: 500 }
         )
       }
+    } else {
+      // No email sending method available
+      return NextResponse.json(
+        { error: 'Aucun service email configuré. Veuillez configurer vos paramètres SMTP dans les réglages.' },
+        { status: 400 }
+      )
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error sending invoice email:', error)
+    const message = error instanceof Error ? error.message : 'Erreur inconnue'
     return NextResponse.json(
-      { error: 'Erreur lors de l\'envoi de l\'email' },
+      { error: `Erreur lors de l'envoi de l'email: ${message}` },
       { status: 500 }
     )
   }
