@@ -1,6 +1,6 @@
 /**
  * Stamp/signature upload API route for desktop mode.
- * Saves the uploaded image to the app data directory and returns a local URL.
+ * Accepts a base64-encoded image via JSON and saves it to the app data directory.
  */
 
 import { NextResponse } from 'next/server'
@@ -9,81 +9,65 @@ import { createLocalClient } from '@/lib/database/query-builder'
 import path from 'path'
 import fs from 'fs'
 
-/** Derive a safe file extension from MIME type or file name. */
-function getExtension(file: File): string {
-  // Prefer deriving from MIME type (always available on File objects)
-  const mimeExt: Record<string, string> = {
-    'image/png': 'png',
-    'image/jpeg': 'jpg',
-    'image/jpg': 'jpg',
-    'image/gif': 'gif',
-    'image/webp': 'webp',
-    'image/svg+xml': 'svg',
-  }
-
-  const fileType = typeof file.type === 'string' ? file.type : ''
-  if (mimeExt[fileType]) {
-    return mimeExt[fileType]
-  }
-
-  // Fallback: extract from file name
-  const fileName = typeof file.name === 'string' ? file.name : ''
-  if (fileName) {
-    const parts = fileName.split('.')
-    if (parts.length > 1) {
-      return parts.pop()!.toLowerCase()
-    }
-  }
-
-  return 'png'
+const MIME_TO_EXT: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'image/svg+xml': 'svg',
 }
 
 export async function POST(request: Request) {
   try {
-    let formData: FormData
+    let body: { file?: string; practitioner_id?: string; mimetype?: string; filename?: string }
     try {
-      formData = await request.formData()
-    } catch (parseError) {
-      console.error('Error parsing form data:', parseError)
+      body = await request.json()
+    } catch {
       return NextResponse.json(
-        { error: 'Erreur lors de la lecture du fichier. Veuillez réessayer.' },
+        { error: 'Corps de requête invalide' },
         { status: 400 }
       )
     }
 
-    const file = formData.get('file')
-    const practitionerId = formData.get('practitioner_id') as string | null
+    const { file: base64Data, practitioner_id: practitionerId, mimetype, filename } = body
 
-    if (!file || !practitionerId) {
+    if (!base64Data || !practitionerId) {
       return NextResponse.json(
         { error: 'Fichier et practitioner_id requis' },
         { status: 400 }
       )
     }
 
-    // Ensure we have a File/Blob object, not a string
-    if (typeof file === 'string') {
-      return NextResponse.json(
-        { error: 'Le champ file doit être un fichier, pas du texte' },
-        { status: 400 }
-      )
-    }
+    // Strip data URI prefix if present (e.g. "data:image/png;base64,...")
+    const base64 = base64Data.replace(/^data:[^;]+;base64,/, '')
 
-    const fileObj = file as File
+    // Decode to buffer
+    const buffer = Buffer.from(base64, 'base64')
 
-    // Validate file type
-    const fileType = typeof fileObj.type === 'string' ? fileObj.type : ''
-    if (!fileType.startsWith('image/')) {
-      return NextResponse.json(
-        { error: 'Le fichier doit être une image' },
-        { status: 400 }
-      )
-    }
-
-    // Validate file size (max 2MB)
-    if (fileObj.size > 2 * 1024 * 1024) {
+    // Validate size (max 2MB)
+    if (buffer.length > 2 * 1024 * 1024) {
       return NextResponse.json(
         { error: "L'image ne doit pas dépasser 2 Mo" },
+        { status: 400 }
+      )
+    }
+
+    // Determine extension from MIME type, then filename, fallback to png
+    let ext = 'png'
+    if (mimetype && MIME_TO_EXT[mimetype]) {
+      ext = MIME_TO_EXT[mimetype]
+    } else if (filename) {
+      const parts = filename.split('.')
+      if (parts.length > 1) {
+        ext = parts.pop()!.toLowerCase()
+      }
+    }
+
+    // Validate it's an image MIME type
+    if (mimetype && !mimetype.startsWith('image/')) {
+      return NextResponse.json(
+        { error: 'Le fichier doit être une image' },
         { status: 400 }
       )
     }
@@ -95,15 +79,12 @@ export async function POST(request: Request) {
     }
 
     // Save file
-    const ext = getExtension(fileObj)
-    const fileName = `${practitionerId}.${ext}`
-    const filePath = path.join(stampsDir, fileName)
-
-    const buffer = Buffer.from(await fileObj.arrayBuffer())
+    const stampFileName = `${practitionerId}.${ext}`
+    const filePath = path.join(stampsDir, stampFileName)
     fs.writeFileSync(filePath, buffer)
 
     // The stamp URL will be served via the /api/stamps/[filename] route
-    const stampUrl = `/api/stamps/${fileName}`
+    const stampUrl = `/api/stamps/${stampFileName}`
 
     // Update practitioner record
     const client = createLocalClient()

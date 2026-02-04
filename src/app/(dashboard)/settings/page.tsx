@@ -411,13 +411,23 @@ export default function SettingsPage() {
     setIsUploadingStamp(true)
 
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('practitioner_id', practitioner.id)
+      // Read file as base64 data URI (avoids FormData multipart parsing issues in Electron)
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = () => reject(reader.error)
+        reader.readAsDataURL(file)
+      })
 
       const response = await fetch('/api/stamps/upload', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          file: base64,
+          practitioner_id: practitioner.id,
+          mimetype: file.type,
+          filename: file.name,
+        }),
       })
 
       const result = await response.json()
