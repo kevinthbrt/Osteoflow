@@ -71,14 +71,14 @@ export async function POST(request: Request) {
       if (!result.success) {
         console.error('SMTP error:', result.error)
         return NextResponse.json(
-          { error: 'Failed to send email' },
+          { error: `Erreur SMTP: ${result.error || 'Échec de l\'envoi'}` },
           { status: 500 }
         )
       }
 
       emailMessageId = result.messageId
-    } else {
-      // Fallback to Resend
+    } else if (process.env.RESEND_API_KEY) {
+      // Fallback to Resend only if API key is configured
       const resend = getResend()
       const { data: emailData, error: emailError } = await resend.emails.send({
         from: `${practitioner.first_name} ${practitioner.last_name} <${process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'}>`,
@@ -127,6 +127,11 @@ export async function POST(request: Request) {
       }
 
       emailMessageId = emailData?.id
+    } else {
+      return NextResponse.json(
+        { error: 'Aucun service email configuré. Veuillez configurer vos paramètres SMTP dans les réglages.' },
+        { status: 400 }
+      )
     }
 
     // Save message to database
