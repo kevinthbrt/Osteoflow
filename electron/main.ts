@@ -227,13 +227,27 @@ async function setupAutoUpdater(): Promise<void> {
         })
         .then(({ response }) => {
           if (response === 0) {
+            console.log('[Updater] Starting download...')
             autoUpdater.downloadUpdate()
           }
         })
     })
 
+    ;(autoUpdater as unknown as { on: (event: string, listener: (progress: { percent: number }) => void) => void }).on('download-progress', (progress) => {
+      const percent = Math.round(progress.percent)
+      console.log(`[Updater] Download progress: ${percent}%`)
+      if (mainWindow) {
+        mainWindow.setProgressBar(percent / 100)
+        mainWindow.setTitle(`Osteoflow — Téléchargement ${percent}%`)
+      }
+    })
+
     autoUpdater.on('update-downloaded', () => {
       console.log('[Updater] Update downloaded')
+      if (mainWindow) {
+        mainWindow.setProgressBar(-1)
+        mainWindow.setTitle('Osteoflow')
+      }
       dialog
         .showMessageBox({
           type: 'info',
@@ -252,6 +266,16 @@ async function setupAutoUpdater(): Promise<void> {
 
     autoUpdater.on('error', (error) => {
       console.error('[Updater] Error:', error.message)
+      if (mainWindow) {
+        mainWindow.setProgressBar(-1)
+        mainWindow.setTitle('Osteoflow')
+      }
+      dialog.showMessageBox({
+        type: 'error',
+        title: 'Erreur de mise à jour',
+        message: 'Le téléchargement de la mise à jour a échoué.',
+        detail: error.message,
+      })
     })
 
     // Check for updates 5s after launch, then every 4 hours
