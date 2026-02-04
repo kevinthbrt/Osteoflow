@@ -13,6 +13,35 @@ import { app, BrowserWindow, shell, dialog } from 'electron'
 import path from 'path'
 import { startCronJobs, stopCronJobs } from './cron'
 
+// Polyfill diagnostics_channel.tracingChannel for Node.js 18 (Electron 28).
+// nodemailer v7+ requires this API which was added in Node.js 20.
+// Without this polyfill, any email-related API call crashes with:
+//   "diagChan.tracingChannel is not a function"
+{
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const dc = require('diagnostics_channel')
+  if (typeof dc.tracingChannel !== 'function') {
+    const noop = () => {}
+    const noopChannel = {
+      subscribe: noop, unsubscribe: noop, publish: noop,
+      hasSubscribers: false, bindStore: noop, unbindStore: noop,
+    }
+    dc.tracingChannel = () => ({
+      start: { ...noopChannel },
+      end: { ...noopChannel },
+      asyncStart: { ...noopChannel },
+      asyncEnd: { ...noopChannel },
+      error: { ...noopChannel },
+      subscribe: noop,
+      unsubscribe: noop,
+      traceSync: (fn: any, _ctx: any, thisArg: any, ...args: any[]) => fn.apply(thisArg, args),
+      tracePromise: (fn: any, _ctx: any, thisArg: any, ...args: any[]) => fn.apply(thisArg, args),
+      traceCallback: (fn: any, _pos: any, _ctx: any, thisArg: any, ...args: any[]) => fn.apply(thisArg, args),
+    })
+    console.log('[Electron] Installed diagnostics_channel.tracingChannel polyfill')
+  }
+}
+
 // Next.js server
 let nextServer: any = null
 let mainWindow: BrowserWindow | null = null
