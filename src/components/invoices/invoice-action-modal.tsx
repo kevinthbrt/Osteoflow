@@ -103,7 +103,8 @@ export function InvoiceActionModal({
           })
 
           if (!emailResponse.ok) {
-            throw new Error('Échec de l\'envoi de l\'email')
+            const result = await emailResponse.json().catch(() => ({}))
+            throw new Error(result.error || 'Échec de l\'envoi de l\'email')
           }
 
           toast({
