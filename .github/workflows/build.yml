@@ -28,17 +28,10 @@ jobs:
       - name: Build Electron TypeScript
         run: npm run build:electron
 
-      - name: Build Mac installer (arm64 + x64)
-        run: npx electron-builder --mac --arm64 --x64 --publish never
-
-      - name: Upload Mac artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: mac-installer
-          path: |
-            release/*.dmg
-            release/*.zip
-            release/*.yml
+      - name: Build & publish Mac installer
+        run: npx electron-builder --mac --arm64 --x64 --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-windows:
     runs-on: windows-latest
@@ -59,35 +52,7 @@ jobs:
       - name: Build Electron TypeScript
         run: npm run build:electron
 
-      - name: Build Windows installer
-        run: npx electron-builder --win --publish never
-
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-installer
-          path: |
-            release/*.exe
-            release/*.yml
-
-  release:
-    needs: [build-mac, build-windows]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Mac installer
-        uses: actions/download-artifact@v4
-        with:
-          name: mac-installer
-          path: artifacts
-
-      - name: Download Windows installer
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-installer
-          path: artifacts
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/*
-          generate_release_notes: true
+      - name: Build & publish Windows installer
+        run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
