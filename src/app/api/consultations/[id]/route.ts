@@ -60,6 +60,7 @@ export async function DELETE(
       await db.from('invoices').delete().eq('consultation_id', id)
     }
 
+    await db.from('scheduled_tasks').delete().eq('consultation_id', id)
     await db.from('consultations').delete().eq('id', id)
 
     return NextResponse.json({ success: true })
