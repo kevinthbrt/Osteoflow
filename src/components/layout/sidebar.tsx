@@ -22,6 +22,7 @@ import {
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/db/client'
+import packageJson from '../../../package.json'
 
 const navigation = [
   { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard, description: 'Vue d\'ensemble' },
@@ -165,7 +166,7 @@ export function Sidebar() {
                   <Sparkles className="w-3.5 h-3.5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold text-foreground">Osteoflow v1.0.0</p>
+                  <p className="text-[10px] font-semibold text-foreground">Osteoflow v{packageJson.version}</p>
                 </div>
               </div>
             </div>
