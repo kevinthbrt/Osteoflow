@@ -79,6 +79,19 @@ export async function POST(request: NextRequest) {
           continue
         }
 
+        // Guard against sending the same follow-up twice (duplicate tasks)
+        if (consultation.follow_up_sent_at) {
+          console.log(`[FollowUp] Consultation ${consultation.id} already sent, skipping task ${task.id}`)
+          await db
+            .from('scheduled_tasks')
+            .update({
+              status: 'completed',
+              executed_at: new Date().toISOString(),
+            })
+            .eq('id', task.id)
+          continue
+        }
+
         // Step 3: Get patient separately
         const { data: patient } = await db
           .from('patients')
