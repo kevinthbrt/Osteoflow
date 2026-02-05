@@ -58,13 +58,19 @@ export async function GET(
     }
 
     // Generate PDF
-    const pdfData = buildInvoicePDFData({
+    let pdfData = buildInvoicePDFData({
       invoice,
       consultation: invoice.consultation,
       patient: invoice.consultation.patient,
       practitioner,
       payments: invoice.payments || [],
     })
+    if (pdfData.stampUrl && pdfData.stampUrl.startsWith('/')) {
+      pdfData = {
+        ...pdfData,
+        stampUrl: new URL(pdfData.stampUrl, request.nextUrl.origin).toString(),
+      }
+    }
     console.debug('Invoice PDF data (api/pdf):', {
       invoiceId: invoice.id,
       invoiceNumber: pdfData.invoiceNumber,

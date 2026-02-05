@@ -127,13 +127,19 @@ export async function POST(request: NextRequest) {
     // Generate PDF
     let pdfBuffer: Uint8Array
     try {
-      const pdfData = buildInvoicePDFData({
+      let pdfData = buildInvoicePDFData({
         invoice,
         consultation,
         patient,
         practitioner,
         payments: invoice.payments || [],
       })
+      if (pdfData.stampUrl && pdfData.stampUrl.startsWith('/')) {
+        pdfData = {
+          ...pdfData,
+          stampUrl: new URL(pdfData.stampUrl, request.nextUrl.origin).toString(),
+        }
+      }
       console.debug('Invoice PDF data (api/email):', {
         invoiceId: invoice.id,
         invoiceNumber: pdfData.invoiceNumber,
