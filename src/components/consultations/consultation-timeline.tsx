@@ -1,11 +1,25 @@
 'use client'
 
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { useToast } from '@/hooks/use-toast'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels } from '@/lib/validations/invoice'
-import { FileText, Edit, Eye, Clock, CheckCircle, AlertCircle } from 'lucide-react'
+import { FileText, Edit, Eye, Clock, CheckCircle, AlertCircle, Trash2 } from 'lucide-react'
 import type { Consultation, Invoice } from '@/types/database'
 
 interface ConsultationWithInvoice extends Consultation {
@@ -21,6 +35,37 @@ export function ConsultationTimeline({
   consultations,
   patientId,
 }: ConsultationTimelineProps) {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const handleDelete = async (consultationId: string) => {
+    setDeletingId(consultationId)
+    try {
+      const res = await fetch(`/api/consultations/${consultationId}`, {
+        method: 'DELETE',
+      })
+      const result = await res.json()
+      if (!res.ok) {
+        throw new Error(result.error || 'Erreur lors de la suppression')
+      }
+      toast({
+        variant: 'success',
+        title: 'Consultation supprimée',
+        description: 'La consultation et sa facture associée ont été supprimées.',
+      })
+      router.refresh()
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: error instanceof Error ? error.message : 'Impossible de supprimer la consultation',
+      })
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   if (consultations.length === 0) {
     return (
       <div className="text-center py-8">
@@ -153,6 +198,37 @@ export function ConsultationTimeline({
                       </Link>
                     </Button>
                   )}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        disabled={deletingId === consultation.id}
+                      >
+                        <Trash2 className="mr-1 h-3 w-3" />
+                        Supprimer
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Supprimer cette consultation ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Cette action est irréversible. La consultation
+                          {invoice ? ', sa facture et les paiements associés seront' : ' sera'} définitivement supprimé{invoice ? 's' : 'e'}.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(consultation.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Supprimer
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             </div>
