@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { ArrowLeft, Edit, User, FileText, Clock, CheckCircle, AlertCircle } from 'lucide-react'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels } from '@/lib/validations/invoice'
+import { ConsultationPaymentEditor } from '@/components/consultations/consultation-payment-editor'
 
 interface ConsultationPageProps {
   params: Promise<{ id: string }>
@@ -190,44 +191,47 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
 
           {/* Invoice */}
           {invoice && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Facture
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Numéro</span>
-                  <span className="font-mono">{invoice.invoice_number}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Montant</span>
-                  <span className="font-bold">{formatCurrency(invoice.amount)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Statut</span>
-                  <Badge
-                    variant={
-                      invoice.status === 'paid'
-                        ? 'success'
-                        : invoice.status === 'cancelled'
-                        ? 'destructive'
-                        : 'outline'
-                    }
-                  >
-                    {invoiceStatusLabels[invoice.status]}
-                  </Badge>
-                </div>
-                <Separator />
-                <Button variant="outline" className="w-full" asChild>
-                  <Link href={`/invoices/${invoice.id}`}>
-                    Voir la facture
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Facture
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Numéro</span>
+                    <span className="font-mono">{invoice.invoice_number}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Montant</span>
+                    <span className="font-bold">{formatCurrency(invoice.amount)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Statut</span>
+                    <Badge
+                      variant={
+                        invoice.status === 'paid'
+                          ? 'success'
+                          : invoice.status === 'cancelled'
+                          ? 'destructive'
+                          : 'outline'
+                      }
+                    >
+                      {invoiceStatusLabels[invoice.status]}
+                    </Badge>
+                  </div>
+                  <Separator />
+                  <Button variant="outline" className="w-full" asChild>
+                    <Link href={`/invoices/${invoice.id}`}>
+                      Voir la facture
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+              <ConsultationPaymentEditor payments={invoice.payments || []} />
+            </>
           )}
 
           {/* Patient Quick Info */}
