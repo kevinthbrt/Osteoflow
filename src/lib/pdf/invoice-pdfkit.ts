@@ -1,4 +1,11 @@
-import PDFDocument from '@react-pdf/pdfkit'
+// Use eval('require') to bypass Turbopack's module name hashing.
+// Turbopack appends a hash (e.g. "@react-pdf/pdfkit-6af1ef86d07dc41c") which
+// breaks ESM resolution in production Electron. eval'd require is invisible
+// to the bundler and goes through the CJS _resolveFilename patch instead.
+// eslint-disable-next-line no-eval
+const _require = eval('require') as NodeRequire
+const PDFDocument = (_require('@react-pdf/pdfkit').default ?? _require('@react-pdf/pdfkit')) as typeof import('@react-pdf/pdfkit')['default']
+
 import { PassThrough } from 'stream'
 import type { InvoicePDFData } from '@/lib/pdf/invoice-template'
 
