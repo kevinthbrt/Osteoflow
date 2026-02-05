@@ -1,9 +1,4 @@
-// Use eval('require') to bypass Turbopack's module name hashing.
-// See invoice-pdfkit.ts for detailed explanation.
-// eslint-disable-next-line no-eval
-const _require = eval('require') as NodeRequire
-const PDFDocument = (_require('@react-pdf/pdfkit').default ?? _require('@react-pdf/pdfkit')) as typeof import('@react-pdf/pdfkit')['default']
-
+import PDFDocument from '@react-pdf/pdfkit'
 import { PassThrough } from 'stream'
 
 export interface AccountingRecapRow {
