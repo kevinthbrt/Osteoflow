@@ -6,7 +6,7 @@ const nextConfig = {
     },
   },
   // Exclude native modules from webpack bundling (they're loaded by Node.js directly)
-  serverExternalPackages: ['better-sqlite3', 'nodemailer', 'imapflow', '@react-pdf/pdfkit', '@react-pdf/renderer'],
+  serverExternalPackages: ['better-sqlite3', 'nodemailer', 'imapflow'],
 }
 
 export default nextConfig
