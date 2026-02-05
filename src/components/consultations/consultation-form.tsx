@@ -194,6 +194,9 @@ export function ConsultationForm({
             practitioner.invoice_prefix,
             practitioner.invoice_next_number
           )
+          const consultationDate = new Date(data.date_time)
+          const consultationDateIso = consultationDate.toISOString()
+          const consultationDateOnly = consultationDateIso.split('T')[0]
 
           const { data: newInvoice, error: invoiceError } = await db
             .from('invoices')
@@ -202,8 +205,8 @@ export function ConsultationForm({
               invoice_number: invoiceNumber,
               amount: totalPayments,
               status: 'paid',
-              issued_at: new Date().toISOString(),
-              paid_at: new Date().toISOString(),
+              issued_at: consultationDateIso,
+              paid_at: consultationDateIso,
             })
             .select()
             .single()
@@ -218,7 +221,7 @@ export function ConsultationForm({
               invoice_id: newInvoice.id,
               amount: p.amount,
               method: p.method,
-              payment_date: new Date().toISOString().split('T')[0],
+              payment_date: consultationDateOnly,
               check_number: p.method === 'check' && p.check_number ? p.check_number : null,
               notes: p.notes || null,
             }))
