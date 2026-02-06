@@ -9,7 +9,7 @@ Application web de gestion de cabinet d'ostéopathie : patients, consultations, 
 - **Facturation** : Génération PDF, paiements multiples/fractionnés, statuts
 - **Emails** : Templates personnalisables, envoi automatique de factures et suivis
 - **Comptabilité** : Tableaux de bord, filtres, exports CSV/Excel
-- **RGPD** : Export/suppression des données, journaux d'audit, RLS Supabase
+- **RGPD** : Export/suppression des données, journaux d'audit
 
 ## Stack technique
 
@@ -18,7 +18,7 @@ Application web de gestion de cabinet d'ostéopathie : patients, consultations, 
 | Frontend | Next.js 14+ (App Router), TypeScript, Tailwind CSS |
 | UI | shadcn/ui (Radix), Lucide Icons |
 | State | TanStack Query |
-| Backend | Supabase (PostgreSQL, Auth, Storage) |
+| Backend | Base locale SQLite |
 | Email | Resend |
 | PDF | @react-pdf/renderer |
 | Validation | Zod |
@@ -30,7 +30,6 @@ Application web de gestion de cabinet d'ostéopathie : patients, consultations, 
 ### Prérequis
 
 - Node.js 18+
-- Compte Supabase
 - Compte Resend (pour les emails)
 
 ### 1. Cloner le projet
@@ -41,12 +40,10 @@ cd osteoflow
 npm install
 ```
 
-### 2. Configuration Supabase
+### 2. Base de données locale
 
-1. Créez un projet sur [Supabase](https://supabase.com)
-2. Exécutez le fichier de migration SQL dans l'éditeur SQL de Supabase :
-   - Ouvrez `supabase/migrations/001_initial_schema.sql`
-   - Copiez et exécutez dans Supabase Dashboard > SQL Editor
+La base de données locale est initialisée automatiquement au démarrage de l'application
+et stockée dans le profil utilisateur de la machine. Aucune configuration externe n'est requise.
 
 ### 3. Variables d'environnement
 
@@ -59,11 +56,6 @@ cp .env.local.example .env.local
 Remplissez les variables :
 
 ```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://votre-projet.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=votre-anon-key
-SUPABASE_SERVICE_ROLE_KEY=votre-service-role-key
-
 # Resend (Email)
 RESEND_API_KEY=re_votre_api_key
 
@@ -76,7 +68,7 @@ CRON_SECRET=votre-secret-cron
 
 ### 4. Créer un utilisateur admin
 
-Dans Supabase Dashboard > Authentication > Users, créez un utilisateur.
+Créez un utilisateur depuis l'écran de connexion au premier lancement.
 
 ### 5. Lancer le développement
 
@@ -135,7 +127,7 @@ osteoflow/
 │   │   ├── consultations/     # Composants consultations
 │   │   └── invoices/          # Composants factures
 │   ├── lib/
-│   │   ├── supabase/          # Clients Supabase
+│   │   ├── database/          # Client base locale
 │   │   ├── validations/       # Schémas Zod
 │   │   ├── utils/             # Helpers
 │   │   ├── pdf/               # Template PDF
@@ -143,8 +135,6 @@ osteoflow/
 │   ├── hooks/                 # React hooks
 │   ├── types/                 # Types TypeScript
 │   └── styles/                # CSS global
-├── supabase/
-│   └── migrations/            # SQL migrations
 ├── tests/
 │   ├── unit/                  # Tests unitaires
 │   └── e2e/                   # Tests E2E
@@ -155,13 +145,13 @@ osteoflow/
 
 ### Où sont stockées les données ?
 
-- **Base de données** : Supabase (PostgreSQL) avec chiffrement au repos
-- **Fichiers** : Supabase Storage (optionnel pour les PDFs)
-- **Sessions** : Cookies sécurisés via Supabase Auth
+- **Base de données** : SQLite locale (stockée sur la machine)
+- **Fichiers** : Stockage local (optionnel pour les PDFs)
+- **Sessions** : Cookies locaux
 
-### Row Level Security (RLS)
+### Isolation des données
 
-Chaque praticien ne peut accéder qu'à ses propres données grâce aux politiques RLS de PostgreSQL. Toutes les requêtes sont automatiquement filtrées.
+Chaque praticien ne peut accéder qu'à ses propres données via les règles applicatives et les contrôles d'accès côté serveur.
 
 ### Journal d'audit
 
@@ -186,29 +176,29 @@ Pour les champs cliniques sensibles (anamnèse, examen, conseils), un chiffremen
 - ❌ Recherche full-text impossible sur les champs chiffrés
 - ❌ Perte de données si perte de clé
 
-**Choix actuel** : Non implémenté par défaut (complexité vs. bénéfice pour un cabinet individuel). Le chiffrement au repos de Supabase est suffisant pour la plupart des cas.
+**Choix actuel** : Non implémenté par défaut (complexité vs. bénéfice pour un cabinet individuel). Le chiffrement au repos du disque est suffisant pour la plupart des cas.
 
 ## Checklist Production
 
 ### Sécurité
 
 - [ ] Variables d'environnement sécurisées (pas de secrets dans le code)
-- [ ] RLS activé sur toutes les tables
-- [ ] Rate limiting sur l'API Supabase
+- [ ] Contrôles d'accès sur toutes les routes
+- [ ] Rate limiting sur l'API locale
 - [ ] HTTPS obligatoire
 - [ ] Cookies sécurisés (HttpOnly, Secure, SameSite)
 - [ ] Validation Zod sur tous les inputs
 
 ### Backups
 
-- [ ] Activer les backups automatiques Supabase (Pro plan)
-- [ ] Ou configurer pg_dump manuellement
+- [ ] Mettre en place des backups locaux automatisés
+- [ ] Ou configurer un export manuel régulier
 - [ ] Tester la restauration régulièrement
 
 ### Monitoring
 
 - [ ] Activer les logs Vercel
-- [ ] Configurer les alertes Supabase
+- [ ] Configurer des alertes système (optionnel)
 - [ ] Monitorer les erreurs (Sentry optionnel)
 
 ### Performance
@@ -231,7 +221,7 @@ Pour les champs cliniques sensibles (anamnèse, examen, conseils), un chiffremen
 # Tests unitaires
 npm run test
 
-# Tests E2E (nécessite une instance Supabase de test)
+# Tests E2E
 npm run test:e2e
 ```
 
@@ -279,13 +269,11 @@ Modifiez la couleur principale dans Paramètres > Facturation ou dans `src/style
 - API Routes intégrées
 - Middleware pour l'auth
 
-### Pourquoi Supabase ?
+### Pourquoi une base locale ?
 
-- PostgreSQL complet avec RLS
-- Auth intégrée (sessions sécurisées)
-- Storage pour les fichiers
-- Temps réel optionnel
-- Hébergement EU possible
+- Fonctionne hors-ligne
+- Installation simplifiée
+- Données conservées sur la machine
 
 ### Pourquoi pas de stockage PDF ?
 
@@ -294,7 +282,7 @@ Les PDFs sont générés à la volée pour :
 - Toujours avoir la version à jour
 - Simplifier la suppression RGPD
 
-Si vous préférez stocker les PDFs, utilisez Supabase Storage.
+Si vous préférez stocker les PDFs, utilisez un stockage local ou un service externe de votre choix.
 
 ## Support
 

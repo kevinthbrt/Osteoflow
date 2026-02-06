@@ -68,6 +68,7 @@ export function ConsultationForm({
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [createdInvoice, setCreatedInvoice] = useState<CreatedInvoice | null>(null)
   const [sendPostSessionAdvice, setSendPostSessionAdvice] = useState(false)
+  const [contactEmail, setContactEmail] = useState(patient.email || '')
   const router = useRouter()
   const { toast } = useToast()
   const db = createClient()
@@ -101,6 +102,10 @@ export function ConsultationForm({
 
   const followUp7d = watch('follow_up_7d')
   const selectedSessionTypeId = watch('session_type_id')
+  const effectiveEmail = contactEmail.trim() || patient.email || ''
+  const shouldCollectEmail =
+    !patient.email &&
+    (followUp7d || sendPostSessionAdvice || (mode === 'create' && createInvoice))
 
   const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0)
 
@@ -165,6 +170,17 @@ export function ConsultationForm({
     setIsLoading(true)
 
     try {
+      let resolvedEmail = patient.email || null
+      if (!patient.email && contactEmail.trim()) {
+        const { error: patientUpdateError } = await db
+          .from('patients')
+          .update({ email: contactEmail.trim() })
+          .eq('id', patient.id)
+
+        if (patientUpdateError) throw patientUpdateError
+        resolvedEmail = contactEmail.trim()
+      }
+
       if (mode === 'create') {
         // Create consultation
         const { data: newConsultation, error: consultationError } = await db
@@ -254,7 +270,7 @@ export function ConsultationForm({
         }
 
         // Send post-session advice email immediately if requested
-        if (sendPostSessionAdvice && newConsultation && patient.email) {
+        if (sendPostSessionAdvice && newConsultation && resolvedEmail) {
           try {
             await fetch('/api/emails/post-session-advice', {
               method: 'POST',
@@ -450,7 +466,7 @@ export function ConsultationForm({
               Demander des nouvelles à J+7 (email automatique)
             </Label>
           </div>
-          {followUp7d && !patient.email && (
+          {followUp7d && !effectiveEmail && (
             <p className="text-sm text-yellow-600 mt-2">
               Le patient n&apos;a pas d&apos;adresse email. L&apos;email de suivi ne pourra pas être envoyé.
             </p>
@@ -468,10 +484,26 @@ export function ConsultationForm({
               </Label>
             </div>
           )}
-          {sendPostSessionAdvice && !patient.email && (
+          {sendPostSessionAdvice && !effectiveEmail && (
             <p className="text-sm text-yellow-600 mt-2">
               Le patient n&apos;a pas d&apos;adresse email. L&apos;email ne pourra pas être envoyé.
             </p>
+          )}
+          {shouldCollectEmail && (
+            <div className="mt-4 space-y-2">
+              <Label htmlFor="contact_email">Adresse email du patient</Label>
+              <Input
+                id="contact_email"
+                type="email"
+                placeholder="email@exemple.com"
+                value={contactEmail}
+                onChange={(event) => setContactEmail(event.target.value)}
+                disabled={isLoading}
+              />
+              <p className="text-xs text-muted-foreground">
+                Indispensable pour l&apos;envoi des emails (suivi, conseils immédiats ou facture).
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -626,7 +658,7 @@ export function ConsultationForm({
           onOpenChange={setShowInvoiceModal}
           invoiceId={createdInvoice.id}
           invoiceNumber={createdInvoice.invoice_number}
-          patientEmail={patient.email}
+          patientEmail={effectiveEmail || undefined}
           patientName={`${patient.last_name} ${patient.first_name}`}
           onComplete={() => {
             router.push(`/patients/${patient.id}`)

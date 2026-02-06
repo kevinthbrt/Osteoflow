@@ -1,10 +1,20 @@
 'use client'
 
 import Link from 'next/link'
+import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import {
   Users,
   Calendar,
@@ -42,6 +52,12 @@ interface DashboardProps {
     reason: string
     patient: { id: string; first_name: string; last_name: string } | null
   }>
+  patientsForConsultation: Array<{
+    id: string
+    first_name: string
+    last_name: string
+    email?: string | null
+  }>
 }
 
 export function Dashboard({
@@ -49,13 +65,25 @@ export function Dashboard({
   stats,
   birthdaysThisWeek,
   recentConsultations,
+  patientsForConsultation,
 }: DashboardProps) {
+  const [isNewConsultationOpen, setIsNewConsultationOpen] = useState(false)
+  const [patientSearch, setPatientSearch] = useState('')
+  const router = useRouter()
   const greeting = () => {
     const hour = new Date().getHours()
     if (hour < 12) return 'Bonjour'
     if (hour < 18) return 'Bon après-midi'
     return 'Bonsoir'
   }
+
+  const filteredPatients = useMemo(() => {
+    const query = patientSearch.trim().toLowerCase()
+    if (!query) return patientsForConsultation
+    return patientsForConsultation.filter((patient) =>
+      `${patient.first_name} ${patient.last_name}`.toLowerCase().includes(query)
+    )
+  }, [patientSearch, patientsForConsultation])
 
   const quickActions = [
     {
@@ -92,26 +120,88 @@ export function Dashboard({
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
         <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="h-5 w-5" />
-            <span className="text-sm font-medium text-primary-foreground/80">
-              {new Date().toLocaleDateString('fr-FR', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-              })}
-            </span>
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="h-5 w-5" />
+                <span className="text-sm font-medium text-primary-foreground/80">
+                  {new Date().toLocaleDateString('fr-FR', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                  })}
+                </span>
+              </div>
+              <h1 className="text-3xl font-bold mb-1">
+                {greeting()}, {practitioner.first_name} !
+              </h1>
+              <p className="text-primary-foreground/80">
+                {stats.todayConsultations > 0
+                  ? `Vous avez ${stats.todayConsultations} consultation${
+                      stats.todayConsultations > 1 ? 's' : ''
+                    } aujourd'hui`
+                  : "Pas de consultation prévue aujourd'hui"}
+              </p>
+            </div>
+            <Button
+              className="gap-2 bg-white text-primary hover:bg-white/90"
+              onClick={() => setIsNewConsultationOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Nouvelle consultation
+            </Button>
           </div>
-          <h1 className="text-3xl font-bold mb-1">
-            {greeting()}, {practitioner.first_name} !
-          </h1>
-          <p className="text-primary-foreground/80">
-            {stats.todayConsultations > 0
-              ? `Vous avez ${stats.todayConsultations} consultation${
-                  stats.todayConsultations > 1 ? 's' : ''
-                } aujourd'hui`
-              : "Pas de consultation prévue aujourd'hui"}
-          </p>
+          <Dialog open={isNewConsultationOpen} onOpenChange={setIsNewConsultationOpen}>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Nouvelle consultation</DialogTitle>
+                <DialogDescription>
+                  Recherchez un patient pour créer une consultation.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Rechercher par nom ou prénom..."
+                    value={patientSearch}
+                    onChange={(event) => setPatientSearch(event.target.value)}
+                  />
+                </div>
+                <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                  {filteredPatients.length === 0 ? (
+                    <div className="text-center text-sm text-muted-foreground py-6">
+                      Aucun patient trouvé.
+                    </div>
+                  ) : (
+                    filteredPatients.map((patient) => (
+                      <button
+                        key={patient.id}
+                        type="button"
+                        onClick={() => {
+                          setIsNewConsultationOpen(false)
+                          setPatientSearch('')
+                          router.push(`/patients/${patient.id}/consultation/new`)
+                        }}
+                        className="w-full rounded-lg border border-border/60 px-4 py-3 text-left transition hover:border-primary/40 hover:bg-muted/60"
+                      >
+                        <p className="font-medium">
+                          {patient.first_name} {patient.last_name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {patient.email || 'Email non renseigné'}
+                        </p>
+                      </button>
+                    ))
+                  )}
+                </div>
+                <div className="flex justify-end">
+                  <Button variant="outline" asChild>
+                    <Link href="/patients/new">Créer un nouveau patient</Link>
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
