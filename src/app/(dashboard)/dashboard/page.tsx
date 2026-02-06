@@ -35,6 +35,7 @@ export default async function DashboardPage() {
     { data: upcomingBirthdays },
     { data: recentConsultations },
     { count: unreadMessages },
+    { data: patientsForConsultation },
   ] = await Promise.all([
     // Total active patients
     db
@@ -81,6 +82,14 @@ export default async function DashboardPage() {
       .from('conversations')
       .select('*', { count: 'exact', head: true })
       .gt('unread_count', 0),
+
+    // Patients for quick consultation creation
+    db
+      .from('patients')
+      .select('id, first_name, last_name, email')
+      .is('archived_at', null)
+      .order('last_name')
+      .order('first_name'),
   ])
 
   // Calculate month revenue
@@ -118,6 +127,7 @@ export default async function DashboardPage() {
       }}
       birthdaysThisWeek={birthdaysThisWeek}
       recentConsultations={formattedConsultations}
+      patientsForConsultation={patientsForConsultation || []}
     />
   )
 }
