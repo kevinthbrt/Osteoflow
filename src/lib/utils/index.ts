@@ -7,10 +7,12 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatDate(date: Date | string, options?: Intl.DateTimeFormatOptions): string {
   const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleDateString('fr-FR', options ?? {
+  return d.toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
+    timeZone: 'Europe/Paris',
+    ...options,
   })
 }
 
@@ -22,6 +24,7 @@ export function formatDateTime(date: Date | string): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Europe/Paris',
   })
 }
 

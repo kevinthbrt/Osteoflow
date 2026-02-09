@@ -29,6 +29,7 @@ import { generateInvoiceNumber } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
+import { PastConsultationsPreview } from '@/components/consultations/past-consultations-preview'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -37,6 +38,7 @@ interface ConsultationFormProps {
   consultation?: Consultation
   mode: 'create' | 'edit'
   medicalHistoryEntries?: MedicalHistoryEntry[]
+  pastConsultations?: Consultation[]
 }
 
 interface PaymentEntry {
@@ -68,7 +70,9 @@ export function ConsultationForm({
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [createdInvoice, setCreatedInvoice] = useState<CreatedInvoice | null>(null)
   const [sendPostSessionAdvice, setSendPostSessionAdvice] = useState(false)
-  const [contactEmail, setContactEmail] = useState(patient.email || '')
+  const [patientEmail, setPatientEmail] = useState(patient.email || '')
+  const [patientPhone, setPatientPhone] = useState(patient.phone || '')
+  const [patientProfession, setPatientProfession] = useState(patient.profession || '')
   const router = useRouter()
   const { toast } = useToast()
   const db = createClient()
@@ -102,10 +106,7 @@ export function ConsultationForm({
 
   const followUp7d = watch('follow_up_7d')
   const selectedSessionTypeId = watch('session_type_id')
-  const effectiveEmail = contactEmail.trim() || patient.email || ''
-  const shouldCollectEmail =
-    !patient.email &&
-    (followUp7d || sendPostSessionAdvice || (mode === 'create' && createInvoice))
+  const effectiveEmail = patientEmail.trim()
 
   const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0)
 
@@ -170,16 +171,30 @@ export function ConsultationForm({
     setIsLoading(true)
 
     try {
-      let resolvedEmail = patient.email || null
-      if (!patient.email && contactEmail.trim()) {
+      const trimmedEmail = patientEmail.trim()
+      const trimmedPhone = patientPhone.trim()
+      const trimmedProfession = patientProfession.trim()
+
+      const patientUpdates: Partial<Patient> = {}
+      if (trimmedEmail !== (patient.email || '')) {
+        patientUpdates.email = trimmedEmail || null
+      }
+      if (trimmedPhone && trimmedPhone !== patient.phone) {
+        patientUpdates.phone = trimmedPhone
+      }
+      if (trimmedProfession !== (patient.profession || '')) {
+        patientUpdates.profession = trimmedProfession || null
+      }
+
+      if (Object.keys(patientUpdates).length > 0) {
         const { error: patientUpdateError } = await db
           .from('patients')
-          .update({ email: contactEmail.trim() })
+          .update(patientUpdates)
           .eq('id', patient.id)
 
         if (patientUpdateError) throw patientUpdateError
-        resolvedEmail = contactEmail.trim()
       }
+      const resolvedEmail = trimmedEmail || null
 
       if (mode === 'create') {
         // Create consultation
@@ -399,6 +414,49 @@ export function ConsultationForm({
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Infos patient</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="patient_email">Email</Label>
+            <Input
+              id="patient_email"
+              type="email"
+              value={patientEmail}
+              onChange={(event) => setPatientEmail(event.target.value)}
+              disabled={isLoading}
+              placeholder="email@exemple.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="patient_phone">Téléphone</Label>
+            <Input
+              id="patient_phone"
+              type="tel"
+              value={patientPhone}
+              onChange={(event) => setPatientPhone(event.target.value)}
+              disabled={isLoading}
+              placeholder="06 12 34 56 78"
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="patient_profession">Profession</Label>
+            <Input
+              id="patient_profession"
+              value={patientProfession}
+              onChange={(event) => setPatientProfession(event.target.value)}
+              disabled={isLoading}
+              placeholder="Profession"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground sm:col-span-2">
+            Les modifications sont enregistrées avec la consultation.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Clinical Content */}
       <Card>
         <CardHeader>
@@ -488,22 +546,6 @@ export function ConsultationForm({
             <p className="text-sm text-yellow-600 mt-2">
               Le patient n&apos;a pas d&apos;adresse email. L&apos;email ne pourra pas être envoyé.
             </p>
-          )}
-          {shouldCollectEmail && (
-            <div className="mt-4 space-y-2">
-              <Label htmlFor="contact_email">Adresse email du patient</Label>
-              <Input
-                id="contact_email"
-                type="email"
-                placeholder="email@exemple.com"
-                value={contactEmail}
-                onChange={(event) => setContactEmail(event.target.value)}
-                disabled={isLoading}
-              />
-              <p className="text-xs text-muted-foreground">
-                Indispensable pour l&apos;envoi des emails (suivi, conseils immédiats ou facture).
-              </p>
-            </div>
           )}
         </CardContent>
       </Card>
@@ -672,11 +714,17 @@ export function ConsultationForm({
   if (medicalHistoryEntries) {
     return (
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        <div className="lg:sticky lg:top-6 self-start">
+        <div className="lg:sticky lg:top-6 self-start space-y-6">
           <MedicalHistorySectionWrapper
             patientId={patient.id}
             initialEntries={medicalHistoryEntries}
           />
+          {pastConsultations && (
+            <PastConsultationsPreview
+              patientId={patient.id}
+              consultations={pastConsultations}
+            />
+          )}
         </div>
         <div>{formContent}</div>
       </div>
