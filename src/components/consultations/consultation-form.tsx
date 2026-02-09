@@ -60,6 +60,7 @@ export function ConsultationForm({
   consultation,
   mode,
   medicalHistoryEntries,
+  pastConsultations,
 }: ConsultationFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [createInvoice, setCreateInvoice] = useState(mode === 'create')
