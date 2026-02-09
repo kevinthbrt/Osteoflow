@@ -23,6 +23,12 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Eye, Pencil } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime } from '@/lib/utils'
@@ -30,7 +36,6 @@ import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 import { EditPatientModal } from '@/components/patients/edit-patient-modal'
-import Link from 'next/link'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -66,6 +71,7 @@ export function ConsultationForm({
   const [isLoading, setIsLoading] = useState(false)
   const [showEditPatient, setShowEditPatient] = useState(false)
   const [currentPatient, setCurrentPatient] = useState<Patient>(patient)
+  const [viewingConsultation, setViewingConsultation] = useState<Consultation | null>(null)
   const [createInvoice, setCreateInvoice] = useState(mode === 'create')
   const [sessionTypes, setSessionTypes] = useState<SessionType[]>([])
   const [payments, setPayments] = useState<PaymentEntry[]>([
@@ -736,10 +742,11 @@ export function ConsultationForm({
               </CardHeader>
               <CardContent className="space-y-3">
                 {pastConsultations.map((c) => (
-                  <Link
+                  <button
                     key={c.id}
-                    href={`/consultations/${c.id}`}
-                    className="block rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                    type="button"
+                    onClick={() => setViewingConsultation(c)}
+                    className="block w-full text-left rounded-lg border p-3 hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-center justify-between mb-1">
                       <p className="text-xs font-medium text-muted-foreground">
@@ -753,11 +760,60 @@ export function ConsultationForm({
                         {c.examination}
                       </p>
                     )}
-                  </Link>
+                  </button>
                 ))}
               </CardContent>
             </Card>
           )}
+
+          {/* Past Consultation Detail Modal */}
+          <Dialog open={!!viewingConsultation} onOpenChange={(open) => !open && setViewingConsultation(null)}>
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+              {viewingConsultation && (
+                <>
+                  <DialogHeader>
+                    <DialogTitle>
+                      Consultation du {formatDateTime(viewingConsultation.date_time)}
+                    </DialogTitle>
+                    <p className="text-sm text-muted-foreground">{viewingConsultation.reason}</p>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-2">
+                    {viewingConsultation.anamnesis && (
+                      <div>
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                          Anamnèse
+                        </h4>
+                        <p className="text-sm whitespace-pre-wrap">{viewingConsultation.anamnesis}</p>
+                      </div>
+                    )}
+                    {viewingConsultation.examination && (
+                      <div>
+                        <Separator />
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1 mt-3">
+                          Examen clinique et manipulations
+                        </h4>
+                        <p className="text-sm whitespace-pre-wrap">{viewingConsultation.examination}</p>
+                      </div>
+                    )}
+                    {viewingConsultation.advice && (
+                      <div>
+                        <Separator />
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1 mt-3">
+                          Conseils donnés
+                        </h4>
+                        <p className="text-sm whitespace-pre-wrap">{viewingConsultation.advice}</p>
+                      </div>
+                    )}
+                    {!viewingConsultation.anamnesis && !viewingConsultation.examination && !viewingConsultation.advice && (
+                      <p className="text-sm text-muted-foreground italic">
+                        Aucun contenu clinique renseigné
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
         <div>{formContent}</div>
       </div>
