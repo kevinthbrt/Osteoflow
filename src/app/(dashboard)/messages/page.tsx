@@ -140,6 +140,7 @@ export default function MessagesPage() {
           patient:patients (id, first_name, last_name, email, phone)
         `)
         .eq('is_archived', false)
+        .isNot('patient_id', null)
         .order('last_message_at', { ascending: false })
 
       if (error) throw error

@@ -19,7 +19,7 @@ import { getDatabase, generateUUID } from './connection'
 import { BOOLEAN_FIELDS, JSON_FIELDS } from './schema'
 
 interface Condition {
-  type: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'is' | 'like' | 'ilike' | 'in' | 'or'
+  type: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'is' | 'isNot' | 'like' | 'ilike' | 'in' | 'or'
   column: string
   value: any
 }
@@ -442,6 +442,11 @@ export class QueryBuilder {
     return this
   }
 
+  isNot(column: string, value: null): QueryBuilder {
+    this._conditions.push({ type: 'isNot', column, value })
+    return this
+  }
+
   like(column: string, value: string): QueryBuilder {
     this._conditions.push({ type: 'like', column, value })
     return this
@@ -580,6 +585,14 @@ export class QueryBuilder {
             clauses.push(`${cond.column} IS NULL`)
           } else {
             clauses.push(`${cond.column} IS ?`)
+            params.push(cond.value)
+          }
+          break
+        case 'isNot':
+          if (cond.value === null) {
+            clauses.push(`${cond.column} IS NOT NULL`)
+          } else {
+            clauses.push(`${cond.column} IS NOT ?`)
             params.push(cond.value)
           }
           break

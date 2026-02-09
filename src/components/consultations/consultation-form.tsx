@@ -24,11 +24,13 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck } from 'lucide-react'
-import { generateInvoiceNumber } from '@/lib/utils'
+import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Eye, Pencil } from 'lucide-react'
+import { generateInvoiceNumber, formatDateTime } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
+import { EditPatientModal } from '@/components/patients/edit-patient-modal'
+import Link from 'next/link'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -37,6 +39,7 @@ interface ConsultationFormProps {
   consultation?: Consultation
   mode: 'create' | 'edit'
   medicalHistoryEntries?: MedicalHistoryEntry[]
+  pastConsultations?: Consultation[]
 }
 
 interface PaymentEntry {
@@ -58,8 +61,11 @@ export function ConsultationForm({
   consultation,
   mode,
   medicalHistoryEntries,
+  pastConsultations,
 }: ConsultationFormProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [showEditPatient, setShowEditPatient] = useState(false)
+  const [currentPatient, setCurrentPatient] = useState<Patient>(patient)
   const [createInvoice, setCreateInvoice] = useState(mode === 'create')
   const [sessionTypes, setSessionTypes] = useState<SessionType[]>([])
   const [payments, setPayments] = useState<PaymentEntry[]>([
@@ -68,15 +74,23 @@ export function ConsultationForm({
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [createdInvoice, setCreatedInvoice] = useState<CreatedInvoice | null>(null)
   const [sendPostSessionAdvice, setSendPostSessionAdvice] = useState(false)
-  const [contactEmail, setContactEmail] = useState(patient.email || '')
+  const [contactEmail, setContactEmail] = useState(currentPatient.email || '')
   const router = useRouter()
   const { toast } = useToast()
   const db = createClient()
 
   const now = new Date()
+  const toLocalDateTimeString = (d: Date) => {
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    return `${year}-${month}-${day}T${hours}:${minutes}`
+  }
   const defaultDateTime = consultation?.date_time
-    ? new Date(consultation.date_time).toISOString().slice(0, 16)
-    : now.toISOString().slice(0, 16)
+    ? toLocalDateTimeString(new Date(consultation.date_time))
+    : toLocalDateTimeString(now)
 
   const {
     register,
@@ -87,7 +101,7 @@ export function ConsultationForm({
   } = useForm<ConsultationWithInvoiceFormData>({
     resolver: zodResolver(consultationWithInvoiceSchema),
     defaultValues: {
-      patient_id: patient.id,
+      patient_id: currentPatient.id,
       date_time: defaultDateTime,
       session_type_id: consultation?.session_type_id ?? null,
       reason: consultation?.reason || '',
@@ -102,9 +116,9 @@ export function ConsultationForm({
 
   const followUp7d = watch('follow_up_7d')
   const selectedSessionTypeId = watch('session_type_id')
-  const effectiveEmail = contactEmail.trim() || patient.email || ''
+  const effectiveEmail = contactEmail.trim() || currentPatient.email || ''
   const shouldCollectEmail =
-    !patient.email &&
+    !currentPatient.email &&
     (followUp7d || sendPostSessionAdvice || (mode === 'create' && createInvoice))
 
   const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0)
@@ -170,12 +184,12 @@ export function ConsultationForm({
     setIsLoading(true)
 
     try {
-      let resolvedEmail = patient.email || null
-      if (!patient.email && contactEmail.trim()) {
+      let resolvedEmail = currentPatient.email || null
+      if (!currentPatient.email && contactEmail.trim()) {
         const { error: patientUpdateError } = await db
           .from('patients')
           .update({ email: contactEmail.trim() })
-          .eq('id', patient.id)
+          .eq('id', currentPatient.id)
 
         if (patientUpdateError) throw patientUpdateError
         resolvedEmail = contactEmail.trim()
@@ -299,7 +313,7 @@ export function ConsultationForm({
           description: 'La consultation a été créée',
         })
 
-        router.push(`/patients/${patient.id}`)
+        router.push(`/patients/${currentPatient.id}`)
       } else if (consultation) {
         // Update consultation
         const { error } = await db
@@ -659,24 +673,91 @@ export function ConsultationForm({
           invoiceId={createdInvoice.id}
           invoiceNumber={createdInvoice.invoice_number}
           patientEmail={effectiveEmail || undefined}
-          patientName={`${patient.last_name} ${patient.first_name}`}
+          patientName={`${currentPatient.last_name} ${currentPatient.first_name}`}
           onComplete={() => {
-            router.push(`/patients/${patient.id}`)
+            router.push(`/patients/${currentPatient.id}`)
             router.refresh()
           }}
         />
       )}
+
+      {/* Edit Patient Modal */}
+      <EditPatientModal
+        open={showEditPatient}
+        onOpenChange={setShowEditPatient}
+        patient={currentPatient}
+        onUpdated={(updatedPatient) => {
+          setCurrentPatient(updatedPatient)
+          setContactEmail(updatedPatient.email || '')
+        }}
+      />
     </form>
   )
 
   if (medicalHistoryEntries) {
     return (
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        <div className="lg:sticky lg:top-6 self-start">
+        <div className="lg:sticky lg:top-6 self-start space-y-6">
+          {/* Edit Patient Button */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Patient</CardTitle>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowEditPatient(true)}
+                >
+                  <Pencil className="mr-1 h-3 w-3" />
+                  Modifier
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="text-sm space-y-1">
+              <p className="font-medium">{currentPatient.last_name} {currentPatient.first_name}</p>
+              {currentPatient.phone && <p className="text-muted-foreground">{currentPatient.phone}</p>}
+              {currentPatient.email && <p className="text-muted-foreground">{currentPatient.email}</p>}
+              {currentPatient.profession && <p className="text-muted-foreground">{currentPatient.profession}</p>}
+            </CardContent>
+          </Card>
+
           <MedicalHistorySectionWrapper
-            patientId={patient.id}
+            patientId={currentPatient.id}
             initialEntries={medicalHistoryEntries}
           />
+
+          {/* Past Consultations */}
+          {pastConsultations && pastConsultations.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Consultations passées</CardTitle>
+                <p className="text-xs text-muted-foreground">{pastConsultations.length} consultation{pastConsultations.length > 1 ? 's' : ''}</p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {pastConsultations.map((c) => (
+                  <Link
+                    key={c.id}
+                    href={`/consultations/${c.id}`}
+                    className="block rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {formatDateTime(c.date_time)}
+                      </p>
+                      <Eye className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium line-clamp-1">{c.reason}</p>
+                    {c.examination && (
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {c.examination}
+                      </p>
+                    )}
+                  </Link>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
         <div>{formContent}</div>
       </div>

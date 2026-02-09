@@ -119,6 +119,11 @@ class ClientQueryChain {
     return this
   }
 
+  isNot(column: string, value: null): ClientQueryChain {
+    this._descriptor.conditions.push({ type: 'isNot', column, value })
+    return this
+  }
+
   like(column: string, value: string): ClientQueryChain {
     this._descriptor.conditions.push({ type: 'like', column, value })
     return this
