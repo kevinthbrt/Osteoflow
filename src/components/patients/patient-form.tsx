@@ -86,6 +86,8 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
       const imported = localStorage.getItem('doctolib_patient_import')
       if (imported) {
         const data = JSON.parse(imported)
+        if (data.lastName) setValue('last_name', data.lastName)
+        if (data.firstName) setValue('first_name', data.firstName)
         if (data.phone) setValue('phone', data.phone)
         if (data.email) setValue('email', data.email)
         if (data.gender) setValue('gender', data.gender === 'F' ? 'F' : 'M')

@@ -72,48 +72,64 @@ const SCRAPE_CALENDAR_SCRIPT = `
 `
 
 // Script to scrape patient details from an open appointment overlay
+// Doctolib puts labels and values on separate lines:
+// "Tél (portable) : "  -> next line -> "06 87 93 86 04"
+// "E-mail : "           -> next line -> "email@example.com"
 const SCRAPE_PATIENT_SCRIPT = `
 (function() {
   try {
     const patient = {};
-    const body = document.body.innerText;
+    const lines = document.body.innerText.split('\\n').map(l => l.trim()).filter(Boolean);
 
-    // Extract name from the header
-    const nameHeader = document.querySelector('[class*="patient"] h2, [class*="patient"] h3, [class*="sidebar"] h2');
-    if (nameHeader) {
-      patient.displayName = nameHeader.textContent.trim();
+    // Helper: find value on the line after a label
+    function getValueAfterLabel(label) {
+      for (let i = 0; i < lines.length - 1; i++) {
+        if (lines[i].toLowerCase().includes(label.toLowerCase())) {
+          const val = lines[i + 1];
+          if (val && val !== 'Ajouter' && val.length > 1) return val;
+        }
+      }
+      return null;
     }
 
-    // Look for specific info labels
-    const allText = document.body.innerHTML;
+    // Last name + First name (lines after "Madame"/"Monsieur")
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i] === 'Madame' || lines[i] === 'Monsieur') {
+        if (lines[i + 1]) patient.lastName = lines[i + 1];
+        if (lines[i + 2]) patient.firstName = lines[i + 2];
+        break;
+      }
+    }
+
+    // Gender + birth date: "F, 22/12/1987 (38 ans)"
+    for (const line of lines) {
+      const m = line.match(/^([MF]),\\s*(\\d{2}\\/\\d{2}\\/\\d{4})\\s*\\((\\d+)\\s*ans\\)/);
+      if (m) {
+        patient.gender = m[1];
+        patient.birthDate = m[2];
+        patient.age = parseInt(m[3]);
+        break;
+      }
+    }
 
     // Phone
-    const phoneMatch = body.match(/T[eé]l(?:\\s*\\([^)]*\\))?\\s*:\\s*([\\d\\s.+]+)/i);
-    if (phoneMatch) patient.phone = phoneMatch[1].trim();
+    const phone = getValueAfterLabel('Tél (portable)') || getValueAfterLabel('Tél (fixe)');
+    if (phone) patient.phone = phone;
 
     // Email
-    const emailMatch = body.match(/E-?mail\\s*:\\s*([^\\s]+@[^\\s]+)/i);
-    if (emailMatch) patient.email = emailMatch[1].trim();
-
-    // Birth date and gender
-    const birthMatch = body.match(/([MF]),\\s*(\\d{2}\\/\\d{2}\\/\\d{4})\\s*\\((\\d+)\\s*ans\\)/);
-    if (birthMatch) {
-      patient.gender = birthMatch[1];
-      patient.birthDate = birthMatch[2];
-      patient.age = parseInt(birthMatch[3]);
-    }
+    const email = getValueAfterLabel('E-mail');
+    if (email && email.includes('@')) patient.email = email;
 
     // Médecin traitant
-    const doctorMatch = body.match(/M[eé]decin traitant\\s*:\\s*([^\\n]+)/i);
-    if (doctorMatch && !doctorMatch[1].includes('Ajouter')) {
-      patient.primaryPhysician = doctorMatch[1].trim();
-    }
+    const doctor = getValueAfterLabel('Médecin traitant');
+    if (doctor) patient.primaryPhysician = doctor;
 
     // Lieu de naissance
-    const birthPlaceMatch = body.match(/Lieu de naissance\\s*:\\s*([^\\n]+)/i);
-    if (birthPlaceMatch) patient.birthPlace = birthPlaceMatch[1].trim();
+    const birthPlace = getValueAfterLabel('Lieu de naissance');
+    if (birthPlace) patient.birthPlace = birthPlace;
 
-    return JSON.stringify({ success: true, patient });
+    const hasData = patient.lastName || patient.phone || patient.email || patient.birthDate;
+    return JSON.stringify({ success: hasData, patient });
   } catch (err) {
     return JSON.stringify({ success: false, error: err.message });
   }
