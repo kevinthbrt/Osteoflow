@@ -78,58 +78,105 @@ const SCRAPE_CALENDAR_SCRIPT = `
 const SCRAPE_PATIENT_SCRIPT = `
 (function() {
   try {
-    const patient = {};
-    const lines = document.body.innerText.split('\\n').map(l => l.trim()).filter(Boolean);
+    var patient = {};
+    var text = document.body.innerText;
+    var lines = text.split(String.fromCharCode(10)).map(function(l) { return l.trim(); }).filter(Boolean);
 
-    // Helper: find value on the line after a label
+    // Helper: find value after a label - checks same line (after colon) and next line
     function getValueAfterLabel(label) {
-      for (let i = 0; i < lines.length - 1; i++) {
-        if (lines[i].toLowerCase().includes(label.toLowerCase())) {
-          const val = lines[i + 1];
-          if (val && val !== 'Ajouter' && val.length > 1) return val;
+      for (var i = 0; i < lines.length; i++) {
+        if (lines[i].toLowerCase().indexOf(label.toLowerCase()) !== -1) {
+          // Check if value is on the same line after a colon
+          var colonIdx = lines[i].indexOf(':');
+          if (colonIdx !== -1) {
+            var sameLineVal = lines[i].substring(colonIdx + 1).trim();
+            if (sameLineVal && sameLineVal.length > 1 && sameLineVal !== 'Ajouter') return sameLineVal;
+          }
+          // Otherwise check next line
+          if (i + 1 < lines.length) {
+            var nextVal = lines[i + 1];
+            if (nextVal && nextVal !== 'Ajouter' && nextVal.length > 1) return nextVal;
+          }
         }
       }
       return null;
     }
 
     // Last name + First name (lines after "Madame"/"Monsieur")
-    for (let i = 0; i < lines.length; i++) {
+    // Skip "Identité provisoire" or similar non-name lines
+    for (var i = 0; i < lines.length; i++) {
       if (lines[i] === 'Madame' || lines[i] === 'Monsieur') {
-        if (lines[i + 1]) patient.lastName = lines[i + 1];
-        if (lines[i + 2]) patient.firstName = lines[i + 2];
+        var offset = 1;
+        // Skip lines that are not actual names (like "Identité provisoire")
+        while (i + offset < lines.length) {
+          var candidate = lines[i + offset];
+          if (candidate.indexOf('dentit') !== -1 || candidate.indexOf('provisoire') !== -1) {
+            offset++;
+            continue;
+          }
+          break;
+        }
+        if (lines[i + offset]) patient.lastName = lines[i + offset];
+        if (lines[i + offset + 1]) {
+          // Skip "né(e)" lines for firstName
+          var fnCandidate = lines[i + offset + 1];
+          if (fnCandidate.indexOf('(e)') !== -1 || fnCandidate.indexOf('née') !== -1) {
+            // The firstName might be before the "né(e)" line, try next
+          } else {
+            patient.firstName = fnCandidate;
+          }
+        }
         break;
       }
     }
 
     // Gender + birth date: "F, 22/12/1987 (38 ans)"
-    for (const line of lines) {
-      const m = line.match(/^([MF]),\\s*(\\d{2}\\/\\d{2}\\/\\d{4})\\s*\\((\\d+)\\s*ans\\)/);
-      if (m) {
-        patient.gender = m[1];
-        patient.birthDate = m[2];
-        patient.age = parseInt(m[3]);
+    for (var j = 0; j < lines.length; j++) {
+      var line = lines[j];
+      // Match pattern like "F, 22/12/1987 (38 ans)" or "M, 01/05/1990 (35 ans)"
+      if ((line.charAt(0) === 'F' || line.charAt(0) === 'M') && line.charAt(1) === ',') {
+        var parts = line.split(',');
+        if (parts.length >= 2) {
+          patient.gender = parts[0].trim();
+          var rest = parts.slice(1).join(',').trim();
+          // Extract date: DD/MM/YYYY
+          var dateMatch = rest.match(/(\\d{2})\\/(\\d{2})\\/(\\d{4})/);
+          if (dateMatch) {
+            patient.birthDate = dateMatch[1] + '/' + dateMatch[2] + '/' + dateMatch[3];
+          }
+          // Extract age
+          var ageMatch = rest.match(/(\\d+)\\s*ans/);
+          if (ageMatch) {
+            patient.age = parseInt(ageMatch[1]);
+          }
+        }
         break;
       }
     }
 
     // Phone
-    const phone = getValueAfterLabel('Tél (portable)') || getValueAfterLabel('Tél (fixe)');
-    if (phone) patient.phone = phone;
+    var phone = getValueAfterLabel('portable') || getValueAfterLabel('fixe');
+    if (phone) {
+      // Clean phone: keep only digits and spaces
+      var cleanPhone = phone.replace(/[^0-9\\s+]/g, '').trim();
+      if (cleanPhone.length >= 10) patient.phone = cleanPhone;
+      else if (phone.length >= 10) patient.phone = phone;
+    }
 
     // Email
-    const email = getValueAfterLabel('E-mail');
-    if (email && email.includes('@')) patient.email = email;
+    var email = getValueAfterLabel('E-mail') || getValueAfterLabel('email');
+    if (email && email.indexOf('@') !== -1) patient.email = email;
 
     // Médecin traitant
-    const doctor = getValueAfterLabel('Médecin traitant');
+    var doctor = getValueAfterLabel('decin traitant');
     if (doctor) patient.primaryPhysician = doctor;
 
     // Lieu de naissance
-    const birthPlace = getValueAfterLabel('Lieu de naissance');
+    var birthPlace = getValueAfterLabel('Lieu de naissance');
     if (birthPlace) patient.birthPlace = birthPlace;
 
-    const hasData = patient.lastName || patient.phone || patient.email || patient.birthDate;
-    return JSON.stringify({ success: hasData, patient });
+    var hasData = patient.lastName || patient.phone || patient.email || patient.birthDate;
+    return JSON.stringify({ success: !!hasData, patient: patient });
   } catch (err) {
     return JSON.stringify({ success: false, error: err.message });
   }
