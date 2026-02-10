@@ -178,7 +178,14 @@ export function DoctolibAppointments({ existingPatients }: DoctolibAppointmentsP
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => router.push(`/patients/new?lastName=${encodeURIComponent(apt.lastName)}&firstName=${encodeURIComponent(apt.firstName)}`)}
+                    onClick={() => {
+                      // Store patient info in localStorage so the patient form can pre-fill
+                      localStorage.setItem('doctolib_patient_import', JSON.stringify({
+                        lastName: apt.lastName,
+                        firstName: apt.firstName,
+                      }))
+                      router.push(`/patients/new?lastName=${encodeURIComponent(apt.lastName)}&firstName=${encodeURIComponent(apt.firstName)}`)
+                    }}
                     title="Cr\u00e9er un nouveau patient"
                   >
                     <UserPlus className="h-4 w-4" />
