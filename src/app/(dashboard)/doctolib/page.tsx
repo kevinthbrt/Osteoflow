@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { useToast } from '@/hooks/use-toast'
 import {
   ArrowLeft,
   ArrowRight,
@@ -10,26 +12,184 @@ import {
   ExternalLink,
   Home,
   Loader2,
+  RefreshCw,
+  Download,
 } from 'lucide-react'
 
 const DOCTOLIB_HOME = 'https://pro.doctolib.fr'
+const DOCTOLIB_CALENDAR = 'https://pro.doctolib.fr/calendar/today/day'
+
+// Script injected into the Doctolib webview to scrape today's appointments
+const SCRAPE_CALENDAR_SCRIPT = `
+(function() {
+  try {
+    const appointments = [];
+
+    // Strategy 1: Look for event elements in the calendar grid
+    // Doctolib uses various class names for events
+    const eventSelectors = [
+      '[class*="event"]',
+      '[class*="appointment"]',
+      '[class*="slot"]',
+      '[data-event]',
+      '[data-appointment]',
+    ];
+
+    let eventElements = [];
+    for (const selector of eventSelectors) {
+      const found = document.querySelectorAll(selector);
+      if (found.length > 0) {
+        eventElements = [...found];
+        break;
+      }
+    }
+
+    // Strategy 2: If no events found by class, search all elements for time+name pattern
+    if (eventElements.length === 0) {
+      const allElements = document.querySelectorAll('div, span, a');
+      const timeRegex = /^\\s*(\\d{1,2}[h:]\\d{2})\\s+([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸÇŒÆ][A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸÇŒÆa-zàâäéèêëïîôùûüÿçœæ\\s-]+)/;
+      for (const el of allElements) {
+        const text = el.textContent?.trim() || '';
+        if (timeRegex.test(text) && text.length < 100 && el.children.length < 5) {
+          eventElements.push(el);
+        }
+      }
+    }
+
+    // Parse appointments from found elements
+    const timeNameRegex = /^\\s*(\\d{1,2})[h:](\\d{2})\\s+(.+?)\\s*$/;
+    const seen = new Set();
+
+    for (const el of eventElements) {
+      const text = (el.textContent || '').trim().split('\\n')[0].trim();
+      const match = text.match(timeNameRegex);
+      if (match) {
+        const time = match[1].padStart(2, '0') + ':' + match[2];
+        const fullName = match[3].trim();
+        const key = time + '|' + fullName;
+        if (!seen.has(key)) {
+          seen.add(key);
+          // Try to split into last name and first name
+          // Doctolib typically shows "LASTNAME Firstname"
+          const parts = fullName.split(/\\s+/);
+          let lastName = '';
+          let firstName = '';
+          for (let i = 0; i < parts.length; i++) {
+            if (parts[i] === parts[i].toUpperCase() && parts[i].length > 1) {
+              lastName += (lastName ? ' ' : '') + parts[i];
+            } else {
+              firstName = parts.slice(i).join(' ');
+              break;
+            }
+          }
+          if (!firstName && lastName) {
+            firstName = lastName;
+            lastName = '';
+          }
+          appointments.push({
+            time,
+            fullName,
+            lastName: lastName || fullName,
+            firstName: firstName || '',
+          });
+        }
+      }
+    }
+
+    // Sort by time
+    appointments.sort((a, b) => a.time.localeCompare(b.time));
+
+    return JSON.stringify({
+      success: true,
+      date: new Date().toISOString().slice(0, 10),
+      count: appointments.length,
+      appointments,
+    });
+  } catch (err) {
+    return JSON.stringify({ success: false, error: err.message });
+  }
+})();
+`
+
+// Script to scrape patient details from an open appointment overlay
+const SCRAPE_PATIENT_SCRIPT = `
+(function() {
+  try {
+    const patient = {};
+    const body = document.body.innerText;
+
+    // Extract name from the header
+    const nameHeader = document.querySelector('[class*="patient"] h2, [class*="patient"] h3, [class*="sidebar"] h2');
+    if (nameHeader) {
+      patient.displayName = nameHeader.textContent.trim();
+    }
+
+    // Look for specific info labels
+    const allText = document.body.innerHTML;
+
+    // Phone
+    const phoneMatch = body.match(/T[eé]l(?:\\s*\\([^)]*\\))?\\s*:\\s*([\\d\\s.+]+)/i);
+    if (phoneMatch) patient.phone = phoneMatch[1].trim();
+
+    // Email
+    const emailMatch = body.match(/E-?mail\\s*:\\s*([^\\s]+@[^\\s]+)/i);
+    if (emailMatch) patient.email = emailMatch[1].trim();
+
+    // Birth date and gender
+    const birthMatch = body.match(/([MF]),\\s*(\\d{2}\\/\\d{2}\\/\\d{4})\\s*\\((\\d+)\\s*ans\\)/);
+    if (birthMatch) {
+      patient.gender = birthMatch[1];
+      patient.birthDate = birthMatch[2];
+      patient.age = parseInt(birthMatch[3]);
+    }
+
+    // Médecin traitant
+    const doctorMatch = body.match(/M[eé]decin traitant\\s*:\\s*([^\\n]+)/i);
+    if (doctorMatch && !doctorMatch[1].includes('Ajouter')) {
+      patient.primaryPhysician = doctorMatch[1].trim();
+    }
+
+    // Lieu de naissance
+    const birthPlaceMatch = body.match(/Lieu de naissance\\s*:\\s*([^\\n]+)/i);
+    if (birthPlaceMatch) patient.birthPlace = birthPlaceMatch[1].trim();
+
+    return JSON.stringify({ success: true, patient });
+  } catch (err) {
+    return JSON.stringify({ success: false, error: err.message });
+  }
+})();
+`
+
+export interface DoctolibAppointment {
+  time: string
+  fullName: string
+  lastName: string
+  firstName: string
+}
+
+export interface DoctolibSyncData {
+  date: string
+  syncedAt: string
+  appointments: DoctolibAppointment[]
+}
 
 export default function DoctolibPage() {
   const webviewRef = useRef<any>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isSyncing, setIsSyncing] = useState(false)
   const [currentUrl, setCurrentUrl] = useState(DOCTOLIB_HOME)
   const [canGoBack, setCanGoBack] = useState(false)
   const [canGoForward, setCanGoForward] = useState(false)
   const [isElectron, setIsElectron] = useState(false)
+  const [syncCount, setSyncCount] = useState<number | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
-    // Check if running in Electron
     setIsElectron(!!(window as any).electronAPI?.isDesktop)
   }, [])
 
   useEffect(() => {
     if (!isElectron) return
-
     const webview = webviewRef.current
     if (!webview) return
 
@@ -50,13 +210,120 @@ export default function DoctolibPage() {
     }
   }, [isElectron])
 
+  // Load sync count from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('doctolib_sync')
+      if (stored) {
+        const data: DoctolibSyncData = JSON.parse(stored)
+        const today = new Date().toISOString().slice(0, 10)
+        if (data.date === today) {
+          setSyncCount(data.appointments.length)
+        }
+      }
+    } catch { /* ignore */ }
+  }, [])
+
+  const handleSyncCalendar = useCallback(async () => {
+    const webview = webviewRef.current
+    if (!webview) return
+
+    setIsSyncing(true)
+
+    try {
+      // First navigate to today's calendar if not already there
+      const currentWebviewUrl = webview.getURL()
+      if (!currentWebviewUrl.includes('/calendar')) {
+        webview.loadURL(DOCTOLIB_CALENDAR)
+        // Wait for page to load
+        await new Promise<void>((resolve) => {
+          const handler = () => {
+            webview.removeEventListener('did-stop-loading', handler)
+            // Wait a bit more for React to render
+            setTimeout(resolve, 2000)
+          }
+          webview.addEventListener('did-stop-loading', handler)
+        })
+      } else {
+        // Wait for any pending renders
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+      }
+
+      const resultStr = await webview.executeJavaScript(SCRAPE_CALENDAR_SCRIPT)
+      const result = JSON.parse(resultStr)
+
+      if (result.success) {
+        const syncData: DoctolibSyncData = {
+          date: result.date,
+          syncedAt: new Date().toISOString(),
+          appointments: result.appointments,
+        }
+        localStorage.setItem('doctolib_sync', JSON.stringify(syncData))
+        setSyncCount(result.count)
+
+        toast({
+          variant: 'success',
+          title: 'Agenda synchronis\u00e9',
+          description: `${result.count} rendez-vous trouv\u00e9${result.count > 1 ? 's' : ''} pour aujourd'hui`,
+        })
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Erreur de synchronisation',
+          description: result.error || 'Impossible de lire l\'agenda. Assurez-vous d\'\u00eatre connect\u00e9 \u00e0 Doctolib.',
+        })
+      }
+    } catch (error) {
+      console.error('Doctolib sync error:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Erreur de synchronisation',
+        description: 'Assurez-vous d\'\u00eatre connect\u00e9 \u00e0 Doctolib et sur la page agenda.',
+      })
+    } finally {
+      setIsSyncing(false)
+    }
+  }, [toast])
+
+  const handleImportPatient = useCallback(async () => {
+    const webview = webviewRef.current
+    if (!webview) return
+
+    try {
+      const resultStr = await webview.executeJavaScript(SCRAPE_PATIENT_SCRIPT)
+      const result = JSON.parse(resultStr)
+
+      if (result.success && result.patient) {
+        localStorage.setItem('doctolib_patient_import', JSON.stringify(result.patient))
+        toast({
+          variant: 'success',
+          title: 'Infos patient r\u00e9cup\u00e9r\u00e9es',
+          description: 'Les informations ont \u00e9t\u00e9 copi\u00e9es. Allez cr\u00e9er un nouveau patient pour les utiliser.',
+        })
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Aucune info trouv\u00e9e',
+          description: 'Ouvrez d\'abord un rendez-vous dans Doctolib pour voir la fiche patient.',
+        })
+      }
+    } catch (error) {
+      console.error('Patient import error:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de r\u00e9cup\u00e9rer les informations du patient.',
+      })
+    }
+  }, [toast])
+
   if (!isElectron) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-center">
         <ExternalLink className="h-16 w-16 text-muted-foreground/50 mb-4" />
         <h2 className="text-xl font-semibold mb-2">Doctolib</h2>
         <p className="text-muted-foreground mb-4">
-          L&apos;intégration Doctolib est disponible uniquement dans l&apos;application de bureau.
+          L&apos;int&eacute;gration Doctolib est disponible uniquement dans l&apos;application de bureau.
         </p>
         <Button asChild variant="outline">
           <a href={DOCTOLIB_HOME} target="_blank" rel="noopener noreferrer">
@@ -102,7 +369,7 @@ export default function DoctolibPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => webviewRef.current?.loadURL(DOCTOLIB_HOME)}
+          onClick={() => webviewRef.current?.loadURL(DOCTOLIB_CALENDAR)}
         >
           <Home className="h-4 w-4" />
         </Button>
@@ -111,6 +378,38 @@ export default function DoctolibPage() {
           readOnly
           className="flex-1 text-xs h-8 bg-muted/50"
         />
+
+        {/* Import patient info button */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleImportPatient}
+          title="Importer les infos du patient affiché"
+        >
+          <Download className="mr-1 h-4 w-4" />
+          Importer patient
+        </Button>
+
+        {/* Sync button */}
+        <Button
+          variant="default"
+          size="sm"
+          onClick={handleSyncCalendar}
+          disabled={isSyncing}
+        >
+          {isSyncing ? (
+            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-1 h-4 w-4" />
+          )}
+          Synchroniser
+          {syncCount !== null && (
+            <Badge variant="secondary" className="ml-2">
+              {syncCount}
+            </Badge>
+          )}
+        </Button>
+
         <Button
           variant="ghost"
           size="icon"
@@ -127,7 +426,7 @@ export default function DoctolibPage() {
       <div className="flex-1 relative">
         <webview
           ref={webviewRef}
-          src={DOCTOLIB_HOME}
+          src={DOCTOLIB_CALENDAR}
           style={{ width: '100%', height: '100%' }}
           partition="persist:doctolib"
         />
