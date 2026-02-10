@@ -24,76 +24,36 @@ const SCRAPE_CALENDAR_SCRIPT = `
 (function() {
   try {
     const appointments = [];
-
-    // Strategy 1: Look for event elements in the calendar grid
-    // Doctolib uses various class names for events
-    const eventSelectors = [
-      '[class*="event"]',
-      '[class*="appointment"]',
-      '[class*="slot"]',
-      '[data-event]',
-      '[data-appointment]',
-    ];
-
-    let eventElements = [];
-    for (const selector of eventSelectors) {
-      const found = document.querySelectorAll(selector);
-      if (found.length > 0) {
-        eventElements = [...found];
-        break;
-      }
-    }
-
-    // Strategy 2: If no events found by class, search all elements for time+name pattern
-    if (eventElements.length === 0) {
-      const allElements = document.querySelectorAll('div, span, a');
-      const timeRegex = /^\\s*(\\d{1,2}[h:]\\d{2})\\s+([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸÇŒÆ][A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸÇŒÆa-zàâäéèêëïîôùûüÿçœæ\\s-]+)/;
-      for (const el of allElements) {
-        const text = el.textContent?.trim() || '';
-        if (timeRegex.test(text) && text.length < 100 && el.children.length < 5) {
-          eventElements.push(el);
-        }
-      }
-    }
-
-    // Parse appointments from found elements
-    const timeNameRegex = /^\\s*(\\d{1,2})[h:](\\d{2})\\s+(.+?)\\s*$/;
     const seen = new Set();
 
-    for (const el of eventElements) {
-      const text = (el.textContent || '').trim().split('\\n')[0].trim();
-      const match = text.match(timeNameRegex);
-      if (match) {
-        const time = match[1].padStart(2, '0') + ':' + match[2];
-        const fullName = match[3].trim();
-        const key = time + '|' + fullName;
-        if (!seen.has(key)) {
-          seen.add(key);
-          // Try to split into last name and first name
-          // Doctolib typically shows "LASTNAME Firstname"
-          const parts = fullName.split(/\\s+/);
-          let lastName = '';
-          let firstName = '';
-          for (let i = 0; i < parts.length; i++) {
-            if (parts[i] === parts[i].toUpperCase() && parts[i].length > 1) {
-              lastName += (lastName ? ' ' : '') + parts[i];
-            } else {
-              firstName = parts.slice(i).join(' ');
-              break;
-            }
-          }
-          if (!firstName && lastName) {
-            firstName = lastName;
-            lastName = '';
-          }
-          appointments.push({
-            time,
-            fullName,
-            lastName: lastName || fullName,
-            firstName: firstName || '',
-          });
-        }
-      }
+    // Doctolib uses .dc-event for appointment blocks
+    // Text format: "HH:MM\\nLASTNAME\\nFirstname\\n@" (newline-separated)
+    const events = document.querySelectorAll('.dc-event');
+
+    for (const el of events) {
+      const lines = (el.innerText || '').split('\\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) continue;
+
+      // First line should be the time (HH:MM)
+      const timeMatch = lines[0].match(/^(\\d{1,2})[h:](\\d{2})$/);
+      if (!timeMatch) continue;
+
+      const time = timeMatch[1].padStart(2, '0') + ':' + timeMatch[2];
+
+      // Remaining lines are name parts (last name, first name, possibly @ or icons)
+      // Filter out single-char lines like "@"
+      const nameParts = lines.slice(1).filter(l => l.length > 1);
+      if (nameParts.length === 0) continue;
+
+      let lastName = nameParts[0] || '';
+      let firstName = nameParts.length > 1 ? nameParts[1] : '';
+      const fullName = (lastName + ' ' + firstName).trim();
+
+      const key = time + '|' + fullName;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      appointments.push({ time, fullName, lastName, firstName });
     }
 
     // Sort by time
