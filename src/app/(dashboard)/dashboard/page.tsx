@@ -81,7 +81,7 @@ export default async function DashboardPage() {
     db
       .from('conversations')
       .select('*', { count: 'exact', head: true })
-      .not('patient_id', 'is', null)
+      .isNot('patient_id', null)
       .gt('unread_count', 0),
 
     // Patients for quick consultation creation

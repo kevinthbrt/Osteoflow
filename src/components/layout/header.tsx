@@ -96,7 +96,7 @@ export function Header({ user, practitioner }: HeaderProps) {
       const { data, error } = await db
         .from('conversations')
         .select('unread_count')
-        .not('patient_id', 'is', null)
+        .isNot('patient_id', null)
         .gt('unread_count', 0)
 
       if (!isMounted) return
