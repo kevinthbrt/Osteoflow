@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createClient } from '@/lib/db/client'
@@ -43,7 +43,6 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
   const [historyFormData, setHistoryFormData] = useState<HistoryFormData>(initialHistoryFormData)
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { toast } = useToast()
   const db = createClient()
 
@@ -70,40 +69,6 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
   })
 
   const gender = watch('gender')
-
-  // Pre-fill from Doctolib import (URL params or localStorage)
-  useEffect(() => {
-    if (mode !== 'create') return
-
-    // From URL query params (from dashboard Doctolib widget)
-    const urlLastName = searchParams.get('lastName')
-    const urlFirstName = searchParams.get('firstName')
-    if (urlLastName) setValue('last_name', urlLastName)
-    if (urlFirstName) setValue('first_name', urlFirstName)
-
-    // From localStorage (from Doctolib "Importer patient" button)
-    try {
-      const imported = localStorage.getItem('doctolib_patient_import')
-      if (imported) {
-        const data = JSON.parse(imported)
-        if (data.lastName) setValue('last_name', data.lastName)
-        if (data.firstName) setValue('first_name', data.firstName)
-        if (data.phone) setValue('phone', data.phone)
-        if (data.email) setValue('email', data.email)
-        if (data.gender) setValue('gender', data.gender === 'F' ? 'F' : 'M')
-        if (data.primaryPhysician) setValue('primary_physician', data.primaryPhysician)
-        if (data.birthDate) {
-          // Convert DD/MM/YYYY to YYYY-MM-DD
-          const parts = data.birthDate.split('/')
-          if (parts.length === 3) {
-            setValue('birth_date', `${parts[2]}-${parts[1]}-${parts[0]}`)
-          }
-        }
-        // Clear after use
-        localStorage.removeItem('doctolib_patient_import')
-      }
-    } catch { /* ignore */ }
-  }, [mode, searchParams, setValue])
 
   const groupedDraftEntries = useMemo(() => {
     const grouped = draftEntries.reduce((acc, entry) => {

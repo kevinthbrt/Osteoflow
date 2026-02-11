@@ -482,6 +482,35 @@ export interface Database {
           updated_at?: string
         }
       }
+      consultation_attachments: {
+        Row: {
+          id: string
+          consultation_id: string
+          filename: string
+          original_name: string
+          mime_type: string | null
+          file_size: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          consultation_id: string
+          filename: string
+          original_name: string
+          mime_type?: string | null
+          file_size?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          consultation_id?: string
+          filename?: string
+          original_name?: string
+          mime_type?: string | null
+          file_size?: number | null
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -522,6 +551,7 @@ export type ScheduledTask = Tables<'scheduled_tasks'>
 export type AuditLog = Tables<'audit_logs'>
 export type SavedReport = Tables<'saved_reports'>
 export type MedicalHistoryEntry = Tables<'medical_history_entries'>
+export type ConsultationAttachment = Tables<'consultation_attachments'>
 
 // Extended types with relations
 export interface PatientWithConsultations extends Patient {

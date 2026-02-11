@@ -247,6 +247,17 @@ CREATE TABLE IF NOT EXISTS medical_history_entries (
   updated_at TEXT DEFAULT (datetime('now'))
 );
 
+-- Consultation attachments
+CREATE TABLE IF NOT EXISTS consultation_attachments (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  consultation_id TEXT NOT NULL REFERENCES consultations(id),
+  filename TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  mime_type TEXT,
+  file_size INTEGER,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_patients_practitioner ON patients(practitioner_id);
 CREATE INDEX IF NOT EXISTS idx_patients_archived ON patients(archived_at);
@@ -259,6 +270,7 @@ CREATE INDEX IF NOT EXISTS idx_conversations_practitioner ON conversations(pract
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status ON scheduled_tasks(status, scheduled_for);
 CREATE INDEX IF NOT EXISTS idx_medical_history_patient ON medical_history_entries(patient_id);
+CREATE INDEX IF NOT EXISTS idx_consultation_attachments_consultation ON consultation_attachments(consultation_id);
 
 -- App config table (for storing current practitioner, etc.)
 CREATE TABLE IF NOT EXISTS app_config (

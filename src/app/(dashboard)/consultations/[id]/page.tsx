@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Edit, User, FileText, Clock, CheckCircle, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Edit, User, FileText, Clock, CheckCircle, AlertCircle, Paperclip, Image as ImageIcon } from 'lucide-react'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels } from '@/lib/validations/invoice'
 import { ConsultationPaymentEditor } from '@/components/consultations/consultation-payment-editor'
@@ -37,6 +37,13 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
 
   const patient = consultation.patient as typeof consultation.patient & { id: string; first_name: string; last_name: string; gender: string }
   const invoice = consultation.invoices?.[0]
+
+  // Fetch attachments
+  const { data: attachments } = await db
+    .from('consultation_attachments')
+    .select('*')
+    .eq('consultation_id', id)
+    .order('created_at')
 
   return (
     <div className="space-y-6">
@@ -147,6 +154,47 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
               )}
             </CardContent>
           </Card>
+
+          {/* Attachments */}
+          {attachments && attachments.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Paperclip className="h-5 w-5" />
+                  Pièces jointes ({attachments.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {attachments.map((att: { id: string; original_name: string; mime_type: string | null; file_size: number | null }) => {
+                    const ext = att.original_name.split('.').pop()?.toLowerCase() || ''
+                    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)
+                    const Icon = isImage ? ImageIcon : FileText
+                    const sizeStr = att.file_size
+                      ? att.file_size < 1024 * 1024
+                        ? `${(att.file_size / 1024).toFixed(1)} Ko`
+                        : `${(att.file_size / (1024 * 1024)).toFixed(1)} Mo`
+                      : ''
+                    return (
+                      <a
+                        key={att.id}
+                        href={`/api/attachments/${att.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                      >
+                        <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                        <span className="text-sm truncate flex-1">{att.original_name}</span>
+                        {sizeStr && (
+                          <span className="text-xs text-muted-foreground flex-shrink-0">{sizeStr}</span>
+                        )}
+                      </a>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Sidebar */}

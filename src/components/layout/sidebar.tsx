@@ -18,7 +18,6 @@ import {
   LogOut,
   Mail,
   Upload,
-  CalendarClock,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -34,7 +33,7 @@ const navigation = [
   { name: 'Statistiques', href: '/statistics', icon: TrendingUp, description: 'Analyses & tendances' },
   { name: 'Comptabilité', href: '/accounting', icon: BarChart3, description: 'Rapports' },
   { name: 'Emails', href: '/scheduled-emails', icon: Mail, description: 'Emails programmés' },
-  { name: 'Doctolib', href: '/doctolib', icon: CalendarClock, description: 'Agenda Doctolib' },
+
   { name: 'Importer CSV', href: '/import', icon: Upload, description: 'Importer des données' },
   { name: 'Paramètres', href: '/settings', icon: Settings, description: 'Configuration' },
 ]
