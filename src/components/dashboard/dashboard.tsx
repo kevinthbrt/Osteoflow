@@ -91,41 +91,81 @@ export function Dashboard({
       label: 'Nouveau patient',
       href: '/patients/new',
       icon: Users,
-      color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+      color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+      iconBg: 'from-indigo-500 to-indigo-600',
     },
     {
       label: 'Messagerie',
       href: '/messages',
       icon: MessageCircle,
-      color: 'bg-green-500/10 text-green-600 dark:text-green-400',
+      color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+      iconBg: 'from-emerald-500 to-emerald-600',
       badge: stats.unreadMessages > 0 ? stats.unreadMessages : undefined,
     },
     {
       label: 'Factures',
       href: '/invoices',
       icon: FileText,
-      color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+      color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+      iconBg: 'from-violet-500 to-violet-600',
     },
     {
       label: 'Comptabilité',
       href: '/accounting',
       icon: BarChart3,
-      color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
+      color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+      iconBg: 'from-amber-500 to-amber-600',
+    },
+  ]
+
+  const statCards = [
+    {
+      label: 'Patients actifs',
+      value: stats.totalPatients,
+      icon: Users,
+      gradient: 'from-indigo-500 to-indigo-600',
+      bg: 'bg-indigo-500/10',
+      text: 'text-indigo-600 dark:text-indigo-400',
+    },
+    {
+      label: "Consultations aujourd'hui",
+      value: stats.todayConsultations,
+      icon: Calendar,
+      gradient: 'from-emerald-500 to-teal-600',
+      bg: 'bg-emerald-500/10',
+      text: 'text-emerald-600 dark:text-emerald-400',
+    },
+    {
+      label: 'CA du mois',
+      value: formatCurrency(stats.monthlyRevenue),
+      icon: TrendingUp,
+      gradient: 'from-violet-500 to-purple-600',
+      bg: 'bg-violet-500/10',
+      text: 'text-violet-600 dark:text-violet-400',
+    },
+    {
+      label: 'Messages non lus',
+      value: stats.unreadMessages,
+      icon: MessageCircle,
+      gradient: 'from-amber-500 to-orange-600',
+      bg: 'bg-amber-500/10',
+      text: 'text-amber-600 dark:text-amber-400',
     },
   ]
 
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Welcome header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-8 text-primary-foreground">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+      <div className="relative overflow-hidden rounded-2xl p-8 text-white gradient-primary">
+        <div className="absolute top-0 right-0 w-72 h-72 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-xl" />
+        <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/3 blur-lg" />
+        <div className="absolute top-1/2 right-1/4 w-20 h-20 bg-white/5 rounded-full animate-float" />
         <div className="relative z-10">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="h-5 w-5" />
-                <span className="text-sm font-medium text-primary-foreground/80">
+                <Sparkles className="h-5 w-5 text-white/80" />
+                <span className="text-sm font-medium text-white/70">
                   {new Date().toLocaleDateString('fr-FR', {
                     weekday: 'long',
                     day: 'numeric',
@@ -136,7 +176,7 @@ export function Dashboard({
               <h1 className="text-3xl font-bold mb-1">
                 {greeting()}, {practitioner.first_name} !
               </h1>
-              <p className="text-primary-foreground/80">
+              <p className="text-white/70">
                 {stats.todayConsultations > 0
                   ? `Vous avez ${stats.todayConsultations} consultation${
                       stats.todayConsultations > 1 ? 's' : ''
@@ -145,7 +185,7 @@ export function Dashboard({
               </p>
             </div>
             <Button
-              className="gap-2 bg-white text-primary hover:bg-white/90"
+              className="gap-2 bg-white/15 text-white border border-white/20 hover:bg-white/25 backdrop-blur-sm"
               onClick={() => setIsNewConsultationOpen(true)}
             >
               <Plus className="h-4 w-4" />
@@ -183,7 +223,7 @@ export function Dashboard({
                           setPatientSearch('')
                           router.push(`/patients/${patient.id}/consultation/new`)
                         }}
-                        className="w-full rounded-lg border border-border/60 px-4 py-3 text-left transition hover:border-primary/40 hover:bg-muted/60"
+                        className="w-full rounded-xl border border-border/60 px-4 py-3 text-left transition-all duration-200 hover:border-primary/40 hover:bg-accent/50 hover:shadow-sm"
                       >
                         <p className="font-medium">
                           {patient.first_name} {patient.last_name}
@@ -210,9 +250,9 @@ export function Dashboard({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {quickActions.map((action) => (
           <Link key={action.href} href={action.href}>
-            <Card className="hover:shadow-lg hover:-translate-y-1 transition-all duration-200 cursor-pointer h-full">
+            <Card className="card-hover cursor-pointer h-full border-border/30 hover:border-primary/20">
               <CardContent className="p-4 flex flex-col items-center text-center gap-3">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${action.color}`}>
+                <div className={`relative w-12 h-12 rounded-2xl flex items-center justify-center ${action.color}`}>
                   <action.icon className="h-6 w-6" />
                   {action.badge && (
                     <Badge className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center">
@@ -228,62 +268,22 @@ export function Dashboard({
       </div>
 
       {/* Stats cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="stat-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Patients actifs</p>
-                <p className="text-3xl font-bold mt-1">{stats.totalPatients}</p>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 stagger-children">
+        {statCards.map((stat) => (
+          <Card key={stat.label} className="stat-card">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                  <p className="text-3xl font-bold mt-1">{stat.value}</p>
+                </div>
+                <div className={`w-12 h-12 rounded-2xl ${stat.bg} flex items-center justify-center`}>
+                  <stat.icon className={`h-6 w-6 ${stat.text}`} />
+                </div>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                <Users className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="stat-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Consultations aujourd'hui</p>
-                <p className="text-3xl font-bold mt-1">{stats.todayConsultations}</p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
-                <Calendar className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="stat-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">CA du mois</p>
-                <p className="text-3xl font-bold mt-1">{formatCurrency(stats.monthlyRevenue)}</p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="stat-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Messages non lus</p>
-                <p className="text-3xl font-bold mt-1">{stats.unreadMessages}</p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center">
-                <MessageCircle className="h-6 w-6 text-orange-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -322,7 +322,7 @@ export function Dashboard({
                   <Link
                     key={consultation.id}
                     href={`/consultations/${consultation.id}`}
-                    className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                    className="flex items-center gap-4 p-3 rounded-xl hover:bg-accent/50 transition-all duration-200"
                   >
                     <Avatar className="h-10 w-10">
                       <AvatarFallback className="bg-primary/10 text-primary text-sm">
@@ -385,7 +385,7 @@ export function Dashboard({
                       <Link
                         key={patient.id}
                         href={`/patients/${patient.id}`}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                        className="flex items-center gap-3 p-2 rounded-xl hover:bg-accent/50 transition-all duration-200"
                       >
                         <div className="w-10 h-10 rounded-full bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center">
                           <Cake className="h-5 w-5 text-pink-500" />
@@ -422,11 +422,11 @@ export function Dashboard({
           </Card>
 
           {/* Tips card */}
-          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+          <Card className="bg-gradient-to-br from-indigo-500/5 via-violet-500/5 to-purple-500/10 border-primary/15">
             <CardContent className="p-6">
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="h-5 w-5 text-primary" />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 gradient-primary">
+                  <Sparkles className="h-5 w-5 text-white" />
                 </div>
                 <div>
                   <h3 className="font-semibold mb-1">Astuce du jour</h3>
