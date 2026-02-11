@@ -77,10 +77,11 @@ export default async function DashboardPage() {
       .order('date_time', { ascending: false })
       .limit(5),
 
-    // Unread messages
+    // Unread messages (only from patient conversations, matching the messages page filter)
     db
       .from('conversations')
       .select('*', { count: 'exact', head: true })
+      .not('patient_id', 'is', null)
       .gt('unread_count', 0),
 
     // Patients for quick consultation creation
