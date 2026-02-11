@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Eye, Pencil } from 'lucide-react'
-import { generateInvoiceNumber, formatDateTime } from '@/lib/utils'
+import { generateInvoiceNumber, formatDateTime, formatDate } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
@@ -722,6 +722,12 @@ export function ConsultationForm({
             </CardHeader>
             <CardContent className="text-sm space-y-1">
               <p className="font-medium">{currentPatient.last_name} {currentPatient.first_name}</p>
+              {currentPatient.gender && (
+                <p className="text-muted-foreground">{currentPatient.gender === 'M' ? 'Homme' : 'Femme'}</p>
+              )}
+              {currentPatient.birth_date && (
+                <p className="text-muted-foreground">{formatDate(currentPatient.birth_date)}</p>
+              )}
               {currentPatient.phone && <p className="text-muted-foreground">{currentPatient.phone}</p>}
               {currentPatient.email && <p className="text-muted-foreground">{currentPatient.email}</p>}
               {currentPatient.profession && <p className="text-muted-foreground">{currentPatient.profession}</p>}
