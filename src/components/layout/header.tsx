@@ -191,7 +191,7 @@ export function Header({ user, practitioner }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border/40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 border-b border-border/40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
       <div className="flex h-16 items-center gap-4 px-6 lg:px-8">
         {/* Spacer for mobile menu button */}
         <div className="w-10 lg:hidden" />
@@ -216,7 +216,7 @@ export function Header({ user, practitioner }: HeaderProps) {
               onFocus={() => {
                 if (searchResults.length > 0) setShowResults(true)
               }}
-              className="pl-10 w-72 bg-muted/40 border-0 focus-visible:ring-1 focus-visible:ring-primary/50 h-9"
+              className="pl-10 w-72 bg-muted/40 border-0 focus-visible:ring-1 focus-visible:ring-primary/30 h-9 rounded-xl"
             />
             {isSearching && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -227,7 +227,7 @@ export function Header({ user, practitioner }: HeaderProps) {
 
           {/* Search results dropdown */}
           {showResults && (
-            <div className="absolute top-full mt-2 w-full bg-white dark:bg-gray-900 rounded-xl border border-border shadow-lg overflow-hidden z-50">
+            <div className="absolute top-full mt-2 w-full bg-white dark:bg-slate-900 rounded-2xl border border-border/50 shadow-xl overflow-hidden z-50">
               {searchResults.length === 0 ? (
                 <div className="px-4 py-3 text-sm text-muted-foreground text-center">
                   Aucun patient trouvé
@@ -238,7 +238,7 @@ export function Header({ user, practitioner }: HeaderProps) {
                     <button
                       key={patient.id}
                       onClick={() => handleSelectPatient(patient.id)}
-                      className="w-full text-left px-4 py-2.5 hover:bg-muted/50 transition-colors flex items-center gap-3"
+                      className="w-full text-left px-4 py-2.5 hover:bg-accent/50 transition-colors flex items-center gap-3"
                     >
                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                         <span className="text-xs font-semibold text-primary">
@@ -283,7 +283,7 @@ export function Header({ user, practitioner }: HeaderProps) {
           >
             <Bell className="h-4 w-4" />
             {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] rounded-full bg-primary px-1 text-[9px] font-semibold leading-4 text-primary-foreground">
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] rounded-full px-1 text-[9px] font-semibold leading-4 text-white gradient-primary">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
@@ -300,10 +300,10 @@ export function Header({ user, practitioner }: HeaderProps) {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="relative h-9 gap-2 rounded-full pl-1 pr-3 hover:bg-muted/50"
+                className="relative h-9 gap-2 rounded-full pl-1 pr-3 hover:bg-accent/50"
               >
                 <Avatar className="h-7 w-7">
-                  <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground text-xs font-medium">
+                  <AvatarFallback className="text-white text-xs font-medium gradient-primary">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
@@ -312,11 +312,11 @@ export function Header({ user, practitioner }: HeaderProps) {
                 </span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-64 p-2" align="end" forceMount>
-              <DropdownMenuLabel className="font-normal p-3 bg-muted/50 rounded-lg mb-2">
+            <DropdownMenuContent className="w-64 p-2 rounded-2xl" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal p-3 bg-accent/50 rounded-xl mb-2">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+                    <AvatarFallback className="text-white gradient-primary">
                       {initials}
                     </AvatarFallback>
                   </Avatar>
@@ -330,14 +330,14 @@ export function Header({ user, practitioner }: HeaderProps) {
               </DropdownMenuLabel>
               <DropdownMenuItem
                 onClick={() => router.push('/settings')}
-                className="rounded-lg py-2.5"
+                className="rounded-xl py-2.5"
               >
                 <User className="mr-3 h-4 w-4" />
                 <span>Mon profil</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => router.push('/settings')}
-                className="rounded-lg py-2.5"
+                className="rounded-xl py-2.5"
               >
                 <Settings className="mr-3 h-4 w-4" />
                 <span>Paramètres</span>
@@ -345,7 +345,7 @@ export function Header({ user, practitioner }: HeaderProps) {
               <DropdownMenuSeparator className="my-2" />
               <DropdownMenuItem
                 onClick={handleSignOut}
-                className="rounded-lg py-2.5 text-destructive focus:text-destructive focus:bg-destructive/10"
+                className="rounded-xl py-2.5 text-destructive focus:text-destructive focus:bg-destructive/10"
               >
                 <LogOut className="mr-3 h-4 w-4" />
                 <span>Changer de praticien</span>
