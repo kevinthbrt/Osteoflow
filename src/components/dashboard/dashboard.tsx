@@ -30,7 +30,7 @@ import {
   Settings,
 } from 'lucide-react'
 import { formatCurrency, formatDateTime, getInitials } from '@/lib/utils'
-import { DoctolibAppointments } from '@/components/dashboard/doctolib-appointments'
+
 import type { Practitioner } from '@/types/database'
 
 interface DashboardProps {
@@ -285,9 +285,6 @@ export function Dashboard({
           </CardContent>
         </Card>
       </div>
-
-      {/* Doctolib Appointments */}
-      <DoctolibAppointments existingPatients={patientsForConsultation} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Recent consultations */}
