@@ -30,13 +30,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Eye, Pencil } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Eye, Pencil, Paperclip, Upload, FileText, Image, X } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 import { EditPatientModal } from '@/components/patients/edit-patient-modal'
-import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry } from '@/types/database'
+import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment } from '@/types/database'
 
 interface ConsultationFormProps {
   patient: Patient
@@ -81,6 +81,9 @@ export function ConsultationForm({
   const [createdInvoice, setCreatedInvoice] = useState<CreatedInvoice | null>(null)
   const [sendPostSessionAdvice, setSendPostSessionAdvice] = useState(false)
   const [contactEmail, setContactEmail] = useState(currentPatient.email || '')
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [existingAttachments, setExistingAttachments] = useState<ConsultationAttachment[]>([])
+  const [isDragging, setIsDragging] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
   const db = createClient()
@@ -151,6 +154,23 @@ export function ConsultationForm({
     loadSessionTypes()
   }, [db, practitioner.id])
 
+  // Load existing attachments in edit mode
+  useEffect(() => {
+    if (mode !== 'edit' || !consultation) return
+
+    async function loadAttachments() {
+      const { data } = await db
+        .from('consultation_attachments')
+        .select('*')
+        .eq('consultation_id', consultation!.id)
+        .order('created_at')
+
+      if (data) setExistingAttachments(data as ConsultationAttachment[])
+    }
+
+    loadAttachments()
+  }, [mode, consultation, db])
+
   const addPayment = () => {
     setPayments([
       ...payments,
@@ -186,6 +206,66 @@ export function ConsultationForm({
     }
   }
 
+  const uploadAttachments = async (consultationId: string) => {
+    for (const file of pendingFiles) {
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result as string)
+        reader.readAsDataURL(file)
+      })
+
+      await fetch('/api/attachments/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          file: base64,
+          consultation_id: consultationId,
+          original_name: file.name,
+          mimetype: file.type,
+        }),
+      })
+    }
+  }
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    const res = await fetch(`/api/attachments/${attachmentId}`, { method: 'DELETE' })
+    if (res.ok) {
+      setExistingAttachments((prev) => prev.filter((a) => a.id !== attachmentId))
+      toast({ variant: 'success', title: 'Pièce jointe supprimée' })
+    }
+  }
+
+  const handleFileDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const files = Array.from(e.dataTransfer.files)
+    setPendingFiles((prev) => [...prev, ...files])
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files)
+      setPendingFiles((prev) => [...prev, ...files])
+    }
+    e.target.value = '' // Reset so same file can be re-selected
+  }
+
+  const removePendingFile = (index: number) => {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} o`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+  }
+
+  const getFileIcon = (name: string) => {
+    const ext = name.split('.').pop()?.toLowerCase() || ''
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return Image
+    return FileText
+  }
+
   const onSubmit = async (data: ConsultationWithInvoiceFormData) => {
     setIsLoading(true)
 
@@ -219,6 +299,11 @@ export function ConsultationForm({
           .single()
 
         if (consultationError) throw consultationError
+
+        // Upload pending attachments
+        if (pendingFiles.length > 0 && newConsultation) {
+          await uploadAttachments(newConsultation.id)
+        }
 
         // Variables for invoice to access outside the block
         let invoiceId: string | null = null
@@ -336,6 +421,11 @@ export function ConsultationForm({
           .eq('id', consultation.id)
 
         if (error) throw error
+
+        // Upload pending attachments
+        if (pendingFiles.length > 0) {
+          await uploadAttachments(consultation.id)
+        }
 
         toast({
           variant: 'success',
@@ -466,6 +556,124 @@ export function ConsultationForm({
               <p className="text-sm text-destructive">{errors.advice.message}</p>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Attachments */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Paperclip className="h-5 w-5" />
+            Pièces jointes
+          </CardTitle>
+          <CardDescription>
+            Comptes rendus, radios, ordonnances, etc.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Drop zone */}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleFileDrop}
+            className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+              isDragging
+                ? 'border-primary bg-primary/5'
+                : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+            }`}
+            onClick={() => document.getElementById('attachment-input')?.click()}
+          >
+            <Upload className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+            <p className="text-sm text-muted-foreground">
+              Glissez-déposez vos fichiers ici ou <span className="text-primary underline">parcourir</span>
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              PDF, images, documents (max 20 Mo par fichier)
+            </p>
+            <input
+              id="attachment-input"
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+              accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.dicom,.dcm"
+            />
+          </div>
+
+          {/* Existing attachments (edit mode) */}
+          {existingAttachments.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Fichiers existants</p>
+              {existingAttachments.map((att) => {
+                const Icon = getFileIcon(att.original_name)
+                return (
+                  <div
+                    key={att.id}
+                    className="flex items-center justify-between rounded-lg border p-3"
+                  >
+                    <a
+                      href={`/api/attachments/${att.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 min-w-0 flex-1 hover:underline"
+                    >
+                      <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                      <span className="text-sm truncate">{att.original_name}</span>
+                      {att.file_size && (
+                        <span className="text-xs text-muted-foreground flex-shrink-0">
+                          {formatFileSize(att.file_size)}
+                        </span>
+                      )}
+                    </a>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="flex-shrink-0 h-8 w-8"
+                      onClick={() => handleDeleteAttachment(att.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Pending files (not yet uploaded) */}
+          {pendingFiles.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">
+                Fichiers à envoyer ({pendingFiles.length})
+              </p>
+              {pendingFiles.map((file, index) => {
+                const Icon = getFileIcon(file.name)
+                return (
+                  <div
+                    key={`${file.name}-${index}`}
+                    className="flex items-center justify-between rounded-lg border border-dashed p-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                      <span className="text-sm truncate">{file.name}</span>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">
+                        {formatFileSize(file.size)}
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="flex-shrink-0 h-8 w-8"
+                      onClick={() => removePendingFile(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
