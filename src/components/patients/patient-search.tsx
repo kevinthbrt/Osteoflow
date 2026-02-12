@@ -19,6 +19,7 @@ export function PatientSearch() {
     } else {
       params.delete('q')
     }
+    params.delete('page')
     router.push(`${pathname}?${params.toString()}`)
   }, 300)
 
@@ -29,6 +30,7 @@ export function PatientSearch() {
     } else {
       params.delete('archived')
     }
+    params.delete('page')
     router.push(`${pathname}?${params.toString()}`)
   }
 

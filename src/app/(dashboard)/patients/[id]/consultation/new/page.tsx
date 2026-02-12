@@ -47,13 +47,14 @@ export default async function NewConsultationPage({ params }: NewConsultationPag
     .eq('patient_id', id)
     .order('display_order', { ascending: true })
 
-  // Fetch past consultations for this patient
+  // Fetch recent past consultations for this patient (last 20)
   const { data: pastConsultations } = await db
     .from('consultations')
     .select('*')
     .eq('patient_id', id)
     .is('archived_at', null)
     .order('date_time', { ascending: false })
+    .limit(20)
 
   return (
     <div className="space-y-6">
