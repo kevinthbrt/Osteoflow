@@ -261,7 +261,12 @@ CREATE TABLE IF NOT EXISTS consultation_attachments (
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_patients_practitioner ON patients(practitioner_id);
 CREATE INDEX IF NOT EXISTS idx_patients_archived ON patients(archived_at);
+CREATE INDEX IF NOT EXISTS idx_patients_name ON patients(last_name COLLATE NOCASE, first_name COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS idx_patients_phone ON patients(phone);
+CREATE INDEX IF NOT EXISTS idx_patients_email ON patients(email COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS idx_patients_updated ON patients(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_consultations_patient ON consultations(patient_id);
+CREATE INDEX IF NOT EXISTS idx_consultations_patient_date ON consultations(patient_id, date_time DESC);
 CREATE INDEX IF NOT EXISTS idx_consultations_datetime ON consultations(date_time);
 CREATE INDEX IF NOT EXISTS idx_invoices_consultation ON invoices(consultation_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);

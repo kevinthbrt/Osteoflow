@@ -7,8 +7,10 @@ import { Plus } from 'lucide-react'
 import Link from 'next/link'
 import { Skeleton } from '@/components/ui/skeleton'
 
+const PAGE_SIZE = 50
+
 interface PatientsPageProps {
-  searchParams: Promise<{ q?: string; archived?: string }>
+  searchParams: Promise<{ q?: string; archived?: string; page?: string }>
 }
 
 export default async function PatientsPage({ searchParams }: PatientsPageProps) {
@@ -43,28 +45,41 @@ export default async function PatientsPage({ searchParams }: PatientsPageProps) 
 async function PatientsTableLoader({
   searchParams,
 }: {
-  searchParams: { q?: string; archived?: string }
+  searchParams: { q?: string; archived?: string; page?: string }
 }) {
   const db = await createClient()
   const query = searchParams.q || ''
   const includeArchived = searchParams.archived === 'true'
+  const currentPage = Math.max(1, parseInt(searchParams.page || '1', 10) || 1)
+  const offset = (currentPage - 1) * PAGE_SIZE
+
+  // Build base conditions for both count and data queries
+  let countQuery = db
+    .from('patients')
+    .select('*', { count: 'exact', head: true })
 
   let dbQuery = db
     .from('patients')
     .select('*')
     .order('updated_at', { ascending: false })
+    .limit(PAGE_SIZE)
+    .range(offset, offset + PAGE_SIZE - 1)
 
   if (!includeArchived) {
+    countQuery = countQuery.is('archived_at', null)
     dbQuery = dbQuery.is('archived_at', null)
   }
 
   if (query) {
-    dbQuery = dbQuery.or(
-      `first_name.ilike.%${query}%,last_name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`
-    )
+    const orFilter = `first_name.ilike.%${query}%,last_name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`
+    countQuery = countQuery.or(orFilter)
+    dbQuery = dbQuery.or(orFilter)
   }
 
-  const { data: patients, error } = await dbQuery
+  const [{ count }, { data: patients, error }] = await Promise.all([
+    countQuery,
+    dbQuery,
+  ])
 
   if (error) {
     console.error('Error fetching patients:', error)
@@ -75,7 +90,17 @@ async function PatientsTableLoader({
     )
   }
 
-  return <PatientsTable patients={patients || []} />
+  const totalCount = count || 0
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+
+  return (
+    <PatientsTable
+      patients={patients || []}
+      currentPage={currentPage}
+      totalPages={totalPages}
+      totalCount={totalCount}
+    />
+  )
 }
 
 function PatientsTableSkeleton() {

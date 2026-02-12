@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import {
   Table,
   TableBody,
@@ -30,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { MoreHorizontal, Edit, Trash2, Archive, Eye, Calendar } from 'lucide-react'
+import { MoreHorizontal, Edit, Trash2, Archive, Eye, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatDate, formatPhone, calculateAge } from '@/lib/utils'
 import { createClient } from '@/lib/db/client'
 import { useToast } from '@/hooks/use-toast'
@@ -38,13 +38,28 @@ import type { Patient } from '@/types/database'
 
 interface PatientsTableProps {
   patients: Patient[]
+  currentPage: number
+  totalPages: number
+  totalCount: number
 }
 
-export function PatientsTable({ patients }: PatientsTableProps) {
+export function PatientsTable({ patients, currentPage, totalPages, totalCount }: PatientsTableProps) {
   const [deletePatient, setDeletePatient] = useState<Patient | null>(null)
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const db = createClient()
+
+  const navigateToPage = (page: number) => {
+    const params = new URLSearchParams(searchParams)
+    if (page > 1) {
+      params.set('page', String(page))
+    } else {
+      params.delete('page')
+    }
+    router.push(`${pathname}?${params.toString()}`)
+  }
 
   const handleArchive = async (patient: Patient) => {
     const { error } = await db
@@ -93,7 +108,7 @@ export function PatientsTable({ patients }: PatientsTableProps) {
     router.refresh()
   }
 
-  if (patients.length === 0) {
+  if (patients.length === 0 && currentPage === 1) {
     return (
       <div className="text-center py-10 border rounded-lg bg-muted/50">
         <p className="text-muted-foreground">Aucun patient trouvé</p>
@@ -190,6 +205,38 @@ export function PatientsTable({ patients }: PatientsTableProps) {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-sm text-muted-foreground">
+            {totalCount} patient{totalCount > 1 ? 's' : ''} au total
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateToPage(currentPage - 1)}
+              disabled={currentPage <= 1}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Précédent
+            </Button>
+            <span className="text-sm text-muted-foreground px-2">
+              Page {currentPage} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateToPage(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+            >
+              Suivant
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <AlertDialog open={!!deletePatient} onOpenChange={() => setDeletePatient(null)}>
         <AlertDialogContent>
