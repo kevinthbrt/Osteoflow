@@ -80,10 +80,12 @@ export function Dashboard({
 
   const filteredPatients = useMemo(() => {
     const query = patientSearch.trim().toLowerCase()
-    if (!query) return patientsForConsultation
-    return patientsForConsultation.filter((patient) =>
-      `${patient.first_name} ${patient.last_name}`.toLowerCase().includes(query)
-    )
+    if (!query) return []
+    return patientsForConsultation
+      .filter((patient) =>
+        `${patient.first_name} ${patient.last_name}`.toLowerCase().includes(query)
+      )
+      .slice(0, 50)
   }, [patientSearch, patientsForConsultation])
 
   const quickActions = [
@@ -209,7 +211,11 @@ export function Dashboard({
                   />
                 </div>
                 <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-                  {filteredPatients.length === 0 ? (
+                  {!patientSearch.trim() ? (
+                    <div className="text-center text-sm text-muted-foreground py-6">
+                      Tapez un nom pour rechercher un patient.
+                    </div>
+                  ) : filteredPatients.length === 0 ? (
                     <div className="text-center text-sm text-muted-foreground py-6">
                       Aucun patient trouvé.
                     </div>
