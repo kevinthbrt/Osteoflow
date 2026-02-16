@@ -965,12 +965,12 @@ export function ConsultationForm({
           Annuler
         </Button>
         {activeTab === 'consultation' ? (
-          <Button type="button" onClick={() => setActiveTab('suivi-facturation')} className="gap-2">
+          <Button key="next-tab" type="button" onClick={(e) => { e.preventDefault(); setActiveTab('suivi-facturation') }} className="gap-2">
             Passer au suivi et à la facturation
             <ArrowRight className="h-4 w-4" />
           </Button>
         ) : (
-          <Button type="submit" disabled={isLoading} className="gap-2">
+          <Button key="submit" type="submit" disabled={isLoading} className="gap-2">
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {mode === 'create' ? (
               <>
