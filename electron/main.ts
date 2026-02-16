@@ -9,7 +9,7 @@
  * - Handle application lifecycle
  */
 
-import { app, BrowserWindow, shell, dialog } from 'electron'
+import { app, BrowserWindow, shell, dialog, Notification } from 'electron'
 import path from 'path'
 import { startCronJobs, stopCronJobs } from './cron'
 
@@ -241,71 +241,37 @@ async function setupAutoUpdater(): Promise<void> {
   try {
     const { autoUpdater } = await import('electron-updater')
 
-    autoUpdater.autoDownload = false
+    // Silent background download — no interruption during work
+    autoUpdater.autoDownload = true
     autoUpdater.autoInstallOnAppQuit = true
 
     autoUpdater.on('update-available', (info) => {
-      console.log(`[Updater] Update available: v${info.version}`)
-      dialog
-        .showMessageBox({
-          type: 'info',
-          title: 'Mise à jour disponible',
-          message: `La version ${info.version} d'Osteoflow est disponible.`,
-          detail: 'Voulez-vous la télécharger maintenant ?',
-          buttons: ['Télécharger', 'Plus tard'],
-          defaultId: 0,
-        })
-        .then(({ response }) => {
-          if (response === 0) {
-            console.log('[Updater] Starting download...')
-            autoUpdater.downloadUpdate()
-          }
-        })
+      console.log(`[Updater] Update available: v${info.version} — downloading silently...`)
     })
 
     ;(autoUpdater as unknown as { on: (event: string, listener: (progress: { percent: number }) => void) => void }).on('download-progress', (progress) => {
       const percent = Math.round(progress.percent)
       console.log(`[Updater] Download progress: ${percent}%`)
-      if (mainWindow) {
-        mainWindow.setProgressBar(percent / 100)
-        mainWindow.setTitle(`Osteoflow — Téléchargement ${percent}%`)
-      }
     })
 
-    autoUpdater.on('update-downloaded', () => {
-      console.log('[Updater] Update downloaded')
-      if (mainWindow) {
-        mainWindow.setProgressBar(-1)
-        mainWindow.setTitle('Osteoflow')
-      }
-      dialog
-        .showMessageBox({
-          type: 'info',
+    autoUpdater.on('update-downloaded', (info) => {
+      console.log(`[Updater] Update v${info.version} downloaded — ready to install`)
+      // Non-blocking notification: user can restart when convenient
+      if (Notification.isSupported()) {
+        const notif = new Notification({
           title: 'Mise à jour prête',
-          message: 'La mise à jour a été téléchargée.',
-          detail: "L'application va redémarrer pour appliquer la mise à jour.",
-          buttons: ['Redémarrer maintenant', 'Plus tard'],
-          defaultId: 0,
+          body: `La version ${info.version} sera appliquée au prochain redémarrage.`,
+          silent: true,
         })
-        .then(({ response }) => {
-          if (response === 0) {
-            autoUpdater.quitAndInstall()
-          }
+        notif.on('click', () => {
+          autoUpdater.quitAndInstall()
         })
+        notif.show()
+      }
     })
 
     autoUpdater.on('error', (error) => {
       console.error('[Updater] Error:', error.message)
-      if (mainWindow) {
-        mainWindow.setProgressBar(-1)
-        mainWindow.setTitle('Osteoflow')
-      }
-      dialog.showMessageBox({
-        type: 'error',
-        title: 'Erreur de mise à jour',
-        message: 'Le téléchargement de la mise à jour a échoué.',
-        detail: error.message,
-      })
     })
 
     // Check for updates 5s after launch, then every 4 hours
