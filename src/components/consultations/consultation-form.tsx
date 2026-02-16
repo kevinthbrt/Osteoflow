@@ -31,7 +31,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
@@ -488,32 +488,24 @@ export function ConsultationForm({
   const examination = watch('examination')
   const advice = watch('advice')
   const consultationFilled = !!(reason && (anamnesis || examination || advice))
-  const documentsFilled = pendingFiles.length > 0 || existingAttachments.length > 0 || followUp7d || sendPostSessionAdvice
-  const facturationFilled = createInvoice && totalPayments > 0
+  const suiviFacturationFilled = followUp7d || sendPostSessionAdvice || (createInvoice && totalPayments > 0)
 
   const formContent = (
     <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className={`grid w-full ${mode === 'create' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="consultation" className="gap-2">
             <ClipboardList className="h-4 w-4" />
             <span className="hidden sm:inline">Consultation</span>
             <span className="sm:hidden">Consult.</span>
             {consultationFilled && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
           </TabsTrigger>
-          <TabsTrigger value="documents" className="gap-2">
-            <Paperclip className="h-4 w-4" />
-            <span className="hidden sm:inline">Documents & Suivi</span>
-            <span className="sm:hidden">Docs</span>
-            {documentsFilled && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
+          <TabsTrigger value="suivi-facturation" className="gap-2">
+            <CalendarCheck className="h-4 w-4" />
+            <span className="hidden sm:inline">Suivi et facturation</span>
+            <span className="sm:hidden">Suivi</span>
+            {suiviFacturationFilled && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
           </TabsTrigger>
-          {mode === 'create' && (
-            <TabsTrigger value="facturation" className="gap-2">
-              <CreditCard className="h-4 w-4" />
-              Facturation
-              {facturationFilled && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
-            </TabsTrigger>
-          )}
         </TabsList>
 
         {/* Tab 1: Consultation */}
@@ -553,29 +545,6 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Type de séance (facturation)</Label>
-                <Select
-                  value={selectedSessionTypeId || 'none'}
-                  onValueChange={handleSessionTypeChange}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un type de séance" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Aucun</SelectItem>
-                    {sessionTypes.map((type) => (
-                      <SelectItem key={type.id} value={type.id}>
-                        {type.name} - {Number(type.price).toFixed(2)} €
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Le type de séance sera affiché sur la facture à la place du motif.
-                </p>
-              </div>
             </CardContent>
           </Card>
 
@@ -641,10 +610,7 @@ export function ConsultationForm({
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* Tab 2: Documents & Suivi */}
-        <TabsContent value="documents" forceMount className="data-[state=inactive]:hidden data-[state=active]:animate-fade-in mt-4 space-y-6">
           {/* Attachments */}
           <Card>
             <CardHeader>
@@ -762,6 +728,44 @@ export function ConsultationForm({
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Tab 2: Suivi et facturation */}
+        <TabsContent value="suivi-facturation" forceMount className="data-[state=inactive]:hidden data-[state=active]:animate-fade-in mt-4 space-y-6">
+          {/* Type de séance */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Type de séance</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label>Type de séance (facturation)</Label>
+                <Select
+                  value={selectedSessionTypeId || 'none'}
+                  onValueChange={handleSessionTypeChange}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un type de séance" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucun</SelectItem>
+                    {sessionTypes.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.name} - {Number(type.price).toFixed(2)} €
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Le type de séance sera affiché sur la facture à la place du motif.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Follow-up */}
           <Card>
@@ -824,11 +828,9 @@ export function ConsultationForm({
               )}
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* Tab 3: Facturation (create mode only) */}
-        {mode === 'create' && (
-          <TabsContent value="facturation" forceMount className="data-[state=inactive]:hidden data-[state=active]:animate-fade-in mt-4 space-y-6">
+          {/* Facturation (create mode only) */}
+          {mode === 'create' && (
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
@@ -948,8 +950,8 @@ export function ConsultationForm({
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-        )}
+          )}
+        </TabsContent>
       </Tabs>
 
       {/* Sticky Actions */}
@@ -962,17 +964,24 @@ export function ConsultationForm({
         >
           Annuler
         </Button>
-        <Button type="submit" disabled={isLoading} className="gap-2">
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {mode === 'create' ? (
-            <>
-              <Stethoscope className="h-4 w-4" />
-              Enregistrer la consultation
-            </>
-          ) : (
-            'Mettre à jour'
-          )}
-        </Button>
+        {activeTab === 'consultation' ? (
+          <Button type="button" onClick={() => setActiveTab('suivi-facturation')} className="gap-2">
+            Passer au suivi et à la facturation
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button type="submit" disabled={isLoading} className="gap-2">
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {mode === 'create' ? (
+              <>
+                <Stethoscope className="h-4 w-4" />
+                Enregistrer la consultation
+              </>
+            ) : (
+              'Mettre à jour'
+            )}
+          </Button>
+        )}
       </div>
     </form>
   )
