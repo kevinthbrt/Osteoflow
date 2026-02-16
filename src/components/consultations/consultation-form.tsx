@@ -449,8 +449,14 @@ export function ConsultationForm({
     }
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+      e.preventDefault()
+    }
+  }
+
   const formContent = (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
       {/* Date and Reason */}
       <Card>
         <CardHeader>
@@ -895,7 +901,12 @@ export function ConsultationForm({
         />
       )}
 
-      {/* Edit Patient Modal */}
+    </form>
+  )
+
+  const modals = (
+    <>
+      {/* Edit Patient Modal - must be outside <form> to prevent submit event bubbling */}
       <EditPatientModal
         open={showEditPatient}
         onOpenChange={setShowEditPatient}
@@ -905,7 +916,7 @@ export function ConsultationForm({
           setContactEmail(updatedPatient.email || '')
         }}
       />
-    </form>
+    </>
   )
 
   if (medicalHistoryEntries) {
@@ -1030,9 +1041,10 @@ export function ConsultationForm({
           </Dialog>
         </div>
         <div>{formContent}</div>
+        {modals}
       </div>
     )
   }
 
-  return formContent
+  return <>{formContent}{modals}</>
 }
