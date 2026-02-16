@@ -95,7 +95,12 @@
       "package.json",
       "next.config.mjs"
     ],
-    "asar": false,
+    "asar": true,
+    "asarUnpack": [
+      ".next/**",
+      "**/*.node",
+      "node_modules/better-sqlite3/**"
+    ],
     "npmRebuild": true,
     "publish": {
       "provider": "github",

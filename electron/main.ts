@@ -71,8 +71,13 @@ async function startNextServer(): Promise<void> {
 
     // Ensure NODE_ENV is set and CWD points to the app root so Next.js
     // can resolve assets correctly in the packaged app.
+    // With asar enabled, .next/ is unpacked to app.asar.unpacked/ — use
+    // that real directory for chdir since the OS can't chdir into an asar file.
     ;(process.env as any).NODE_ENV = 'production'
-    process.chdir(appDir)
+    const realDir = appDir.endsWith('.asar')
+      ? appDir + '.unpacked'
+      : appDir
+    process.chdir(realDir)
 
     // Register the app's node_modules in Node.js module resolution paths.
     // Next.js serverExternalPackages (better-sqlite3) are loaded via require()
@@ -106,7 +111,7 @@ async function startNextServer(): Promise<void> {
     }
 
     const fs = await import('fs')
-    const configPath = path.join(appDir, '.next', 'required-server-files.json')
+    const configPath = path.join(realDir, '.next', 'required-server-files.json')
     const requiredServerFiles = JSON.parse(fs.readFileSync(configPath, 'utf8'))
 
     const conf = {
@@ -119,7 +124,7 @@ async function startNextServer(): Promise<void> {
     const nextApp = new NextServer({
       hostname: 'localhost',
       port: PORT,
-      dir: appDir,
+      dir: realDir,
       dev: false,
       conf,
     })
@@ -153,7 +158,7 @@ async function startNextServer(): Promise<void> {
       // in packaged Electron apps.
       if (reqUrl.startsWith('/_next/static/')) {
         const relativePath = reqUrl.replace('/_next/static/', '').split('?')[0]
-        const filePath = path.join(appDir, '.next', 'static', relativePath)
+        const filePath = path.join(realDir, '.next', 'static', relativePath)
         try {
           const data = fs.readFileSync(filePath)
           const ext = path.extname(filePath)
@@ -187,7 +192,25 @@ async function startNextServer(): Promise<void> {
 }
 
 /**
+ * Inline splash screen shown instantly while Next.js boots.
+ */
+const SPLASH_HTML = `data:text/html;charset=utf-8,${encodeURIComponent(`<!DOCTYPE html>
+<html><head><style>
+  body { margin:0; height:100vh; display:flex; align-items:center; justify-content:center;
+         background:#f8fafc; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:#334155; }
+  .c { text-align:center; }
+  h1 { font-size:28px; font-weight:600; margin-bottom:12px; }
+  p { font-size:14px; color:#94a3b8; margin-bottom:24px; }
+  .spinner { width:32px; height:32px; border:3px solid #e2e8f0; border-top-color:#6366f1;
+             border-radius:50%; animation:spin .8s linear infinite; margin:0 auto; }
+  @keyframes spin { to { transform:rotate(360deg) } }
+</style></head><body><div class="c">
+  <h1>Osteoflow</h1><p>Chargement en cours…</p><div class="spinner"></div>
+</div></body></html>`)}`
+
+/**
  * Create the main application window.
+ * Shows a splash screen immediately, then navigates to Next.js once ready.
  */
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -208,11 +231,11 @@ function createWindow(): void {
     show: false,
   })
 
+  // Show splash screen instantly
+  mainWindow.loadURL(SPLASH_HTML)
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show()
   })
-
-  mainWindow.loadURL(`http://localhost:${PORT}`)
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http://localhost')) {
@@ -229,6 +252,15 @@ function createWindow(): void {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+}
+
+/**
+ * Navigate the main window to the Next.js app once the server is ready.
+ */
+function loadApp(): void {
+  if (mainWindow) {
+    mainWindow.loadURL(`http://localhost:${PORT}`)
+  }
 }
 
 /**
@@ -288,9 +320,12 @@ async function setupAutoUpdater(): Promise<void> {
 app.whenReady().then(async () => {
   console.log('[Electron] Starting Osteoflow...')
 
+  // Show window with splash screen immediately — no waiting
+  createWindow()
+
   try {
     await startNextServer()
-    createWindow()
+    loadApp() // Navigate from splash to the real app
     startCronJobs(PORT)
     setupAutoUpdater()
 
