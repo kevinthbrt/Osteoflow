@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import {
   Dialog,
@@ -30,7 +31,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Eye, Pencil, Paperclip, Upload, FileText, Image, X } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
@@ -84,6 +85,7 @@ export function ConsultationForm({
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [existingAttachments, setExistingAttachments] = useState<ConsultationAttachment[]>([])
   const [isDragging, setIsDragging] = useState(false)
+  const [activeTab, setActiveTab] = useState('consultation')
   const router = useRouter()
   const { toast } = useToast()
   const db = createClient()
@@ -170,6 +172,31 @@ export function ConsultationForm({
 
     loadAttachments()
   }, [mode, consultation, db])
+
+  // Auto-switch to the tab containing validation errors
+  useEffect(() => {
+    const errorKeys = Object.keys(errors)
+    if (errorKeys.length === 0) return
+    const consultationFields = ['date_time', 'reason', 'anamnesis', 'examination', 'advice']
+    if (errorKeys.some((k) => consultationFields.includes(k))) {
+      setActiveTab('consultation')
+    }
+  }, [errors])
+
+  // Auto-resize textareas on mount (for edit mode with pre-existing content)
+  useEffect(() => {
+    const textareas = document.querySelectorAll<HTMLTextAreaElement>('textarea[data-autoresize]')
+    textareas.forEach((ta) => {
+      ta.style.height = 'auto'
+      ta.style.height = `${ta.scrollHeight}px`
+    })
+  }, [])
+
+  const autoResize = (e: React.FormEvent<HTMLTextAreaElement>) => {
+    const target = e.currentTarget
+    target.style.height = 'auto'
+    target.style.height = `${target.scrollHeight}px`
+  }
 
   const addPayment = () => {
     setPayments([
@@ -455,415 +482,478 @@ export function ConsultationForm({
     }
   }
 
+  // Tab completion indicators
+  const reason = watch('reason')
+  const anamnesis = watch('anamnesis')
+  const examination = watch('examination')
+  const advice = watch('advice')
+  const consultationFilled = !!(reason && (anamnesis || examination || advice))
+  const documentsFilled = pendingFiles.length > 0 || existingAttachments.length > 0 || followUp7d || sendPostSessionAdvice
+  const facturationFilled = createInvoice && totalPayments > 0
+
   const formContent = (
     <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
-      {/* Date and Reason */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Informations générales</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="date_time">Date et heure *</Label>
-            <Input
-              id="date_time"
-              type="datetime-local"
-              {...register('date_time')}
-              disabled={isLoading}
-            />
-            {errors.date_time && (
-              <p className="text-sm text-destructive">{errors.date_time.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="reason">Motif de consultation *</Label>
-            <Input
-              id="reason"
-              {...register('reason')}
-              disabled={isLoading}
-              placeholder="Lombalgie, cervicalgie, suivi..."
-            />
-            {errors.reason && (
-              <p className="text-sm text-destructive">{errors.reason.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2 sm:col-span-2">
-            <Label>Type de séance (facturation)</Label>
-            <Select
-              value={selectedSessionTypeId || 'none'}
-              onValueChange={handleSessionTypeChange}
-              disabled={isLoading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner un type de séance" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Aucun</SelectItem>
-                {sessionTypes.map((type) => (
-                  <SelectItem key={type.id} value={type.id}>
-                    {type.name} - {Number(type.price).toFixed(2)} €
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Le type de séance sera affiché sur la facture à la place du motif.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Clinical Content */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Contenu clinique</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="anamnesis">Anamnèse</Label>
-            <Textarea
-              id="anamnesis"
-              {...register('anamnesis')}
-              disabled={isLoading}
-              placeholder="Histoire de la maladie, circonstances d'apparition, évolution..."
-              rows={4}
-            />
-            {errors.anamnesis && (
-              <p className="text-sm text-destructive">{errors.anamnesis.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="examination">Examen clinique et manipulations</Label>
-            <Textarea
-              id="examination"
-              {...register('examination')}
-              disabled={isLoading}
-              placeholder="Tests effectués, dysfonctions trouvées, techniques utilisées..."
-              rows={4}
-            />
-            {errors.examination && (
-              <p className="text-sm text-destructive">{errors.examination.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="advice">Conseils donnés</Label>
-            <Textarea
-              id="advice"
-              {...register('advice')}
-              disabled={isLoading}
-              placeholder="Exercices, postures, recommandations..."
-              rows={3}
-            />
-            {errors.advice && (
-              <p className="text-sm text-destructive">{errors.advice.message}</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Attachments */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Paperclip className="h-5 w-5" />
-            Pièces jointes
-          </CardTitle>
-          <CardDescription>
-            Comptes rendus, radios, ordonnances, etc.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Drop zone */}
-          <div
-            onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={handleFileDrop}
-            className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
-              isDragging
-                ? 'border-primary bg-primary/5'
-                : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-            }`}
-            onClick={() => document.getElementById('attachment-input')?.click()}
-          >
-            <Upload className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
-            <p className="text-sm text-muted-foreground">
-              Glissez-déposez vos fichiers ici ou <span className="text-primary underline">parcourir</span>
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              PDF, images, documents (max 20 Mo par fichier)
-            </p>
-            <input
-              id="attachment-input"
-              type="file"
-              multiple
-              className="hidden"
-              onChange={handleFileSelect}
-              accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.dicom,.dcm"
-            />
-          </div>
-
-          {/* Existing attachments (edit mode) */}
-          {existingAttachments.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Fichiers existants</p>
-              {existingAttachments.map((att) => {
-                const Icon = getFileIcon(att.original_name)
-                return (
-                  <div
-                    key={att.id}
-                    className="flex items-center justify-between rounded-lg border p-3"
-                  >
-                    <a
-                      href={`/api/attachments/${att.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 min-w-0 flex-1 hover:underline"
-                    >
-                      <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                      <span className="text-sm truncate">{att.original_name}</span>
-                      {att.file_size && (
-                        <span className="text-xs text-muted-foreground flex-shrink-0">
-                          {formatFileSize(att.file_size)}
-                        </span>
-                      )}
-                    </a>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="flex-shrink-0 h-8 w-8"
-                      onClick={() => handleDeleteAttachment(att.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Pending files (not yet uploaded) */}
-          {pendingFiles.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">
-                Fichiers à envoyer ({pendingFiles.length})
-              </p>
-              {pendingFiles.map((file, index) => {
-                const Icon = getFileIcon(file.name)
-                return (
-                  <div
-                    key={`${file.name}-${index}`}
-                    className="flex items-center justify-between rounded-lg border border-dashed p-3"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                      <span className="text-sm truncate">{file.name}</span>
-                      <span className="text-xs text-muted-foreground flex-shrink-0">
-                        {formatFileSize(file.size)}
-                      </span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="flex-shrink-0 h-8 w-8"
-                      onClick={() => removePendingFile(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Follow-up */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Suivi</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="follow_up_7d"
-              checked={followUp7d}
-              onCheckedChange={(checked) => setValue('follow_up_7d', !!checked)}
-              disabled={isLoading}
-            />
-            <Label htmlFor="follow_up_7d" className="cursor-pointer">
-              Demander des nouvelles à J+7 (email automatique)
-            </Label>
-          </div>
-          {followUp7d && !effectiveEmail && (
-            <p className="text-sm text-yellow-600 mt-2">
-              Le patient n&apos;a pas d&apos;adresse email. L&apos;email de suivi ne pourra pas être envoyé.
-            </p>
-          )}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className={`grid w-full ${mode === 'create' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          <TabsTrigger value="consultation" className="gap-2">
+            <ClipboardList className="h-4 w-4" />
+            <span className="hidden sm:inline">Consultation</span>
+            <span className="sm:hidden">Consult.</span>
+            {consultationFilled && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="gap-2">
+            <Paperclip className="h-4 w-4" />
+            <span className="hidden sm:inline">Documents & Suivi</span>
+            <span className="sm:hidden">Docs</span>
+            {documentsFilled && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
+          </TabsTrigger>
           {mode === 'create' && (
-            <div className="flex items-center space-x-2 mt-4">
-              <Checkbox
-                id="send_post_session_advice"
-                checked={sendPostSessionAdvice}
-                onCheckedChange={(checked) => setSendPostSessionAdvice(!!checked)}
-                disabled={isLoading}
-              />
-              <Label htmlFor="send_post_session_advice" className="cursor-pointer">
-                Envoyer des conseils post-séance par email (immédiat)
-              </Label>
-            </div>
+            <TabsTrigger value="facturation" className="gap-2">
+              <CreditCard className="h-4 w-4" />
+              Facturation
+              {facturationFilled && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
+            </TabsTrigger>
           )}
-          {sendPostSessionAdvice && !effectiveEmail && (
-            <p className="text-sm text-yellow-600 mt-2">
-              Le patient n&apos;a pas d&apos;adresse email. L&apos;email ne pourra pas être envoyé.
-            </p>
-          )}
-          {shouldCollectEmail && (
-            <div className="mt-4 space-y-2">
-              <Label htmlFor="contact_email">Adresse email du patient</Label>
-              <Input
-                id="contact_email"
-                type="email"
-                placeholder="email@exemple.com"
-                value={contactEmail}
-                onChange={(event) => setContactEmail(event.target.value)}
-                disabled={isLoading}
-              />
-              <p className="text-xs text-muted-foreground">
-                Indispensable pour l&apos;envoi des emails (suivi, conseils immédiats ou facture).
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        </TabsList>
 
-      {/* Invoice & Payment (only in create mode) */}
-      {mode === 'create' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Facturation</CardTitle>
-            <CardDescription>
-              Créez une facture pour cette consultation
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="create_invoice"
-                checked={createInvoice}
-                onCheckedChange={(checked) => setCreateInvoice(!!checked)}
-                disabled={isLoading}
-              />
-              <Label htmlFor="create_invoice" className="cursor-pointer">
-                Créer une facture
-              </Label>
-            </div>
+        {/* Tab 1: Consultation */}
+        <TabsContent value="consultation" forceMount className="data-[state=inactive]:hidden data-[state=active]:animate-fade-in mt-4 space-y-6">
+          {/* General Information */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <CalendarCheck className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Informations générales</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="date_time">Date et heure *</Label>
+                <Input
+                  id="date_time"
+                  type="datetime-local"
+                  {...register('date_time')}
+                  disabled={isLoading}
+                />
+                {errors.date_time && (
+                  <p className="text-sm text-destructive">{errors.date_time.message}</p>
+                )}
+              </div>
 
-            {createInvoice && (
-              <>
-                <Separator />
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="reason">Motif de consultation *</Label>
+                <Input
+                  id="reason"
+                  {...register('reason')}
+                  disabled={isLoading}
+                  placeholder="Lombalgie, cervicalgie, suivi..."
+                />
+                {errors.reason && (
+                  <p className="text-sm text-destructive">{errors.reason.message}</p>
+                )}
+              </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">Paiements</h4>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addPayment}
-                    >
-                      <Plus className="mr-1 h-4 w-4" />
-                      Ajouter
-                    </Button>
-                  </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Type de séance (facturation)</Label>
+                <Select
+                  value={selectedSessionTypeId || 'none'}
+                  onValueChange={handleSessionTypeChange}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un type de séance" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucun</SelectItem>
+                    {sessionTypes.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.name} - {Number(type.price).toFixed(2)} €
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Le type de séance sera affiché sur la facture à la place du motif.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
 
-                  {payments.map((payment, index) => (
-                    <div
-                      key={payment.id}
-                      className="flex items-end gap-2 p-3 border rounded-lg"
-                    >
-                      <div className="flex-1 space-y-2">
-                        <Label>Montant</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={payment.amount}
-                          onChange={(e) =>
-                            updatePayment(
-                              payment.id,
-                              'amount',
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        <Label>Mode</Label>
-                        <Select
-                          value={payment.method}
-                          onValueChange={(value) =>
-                            updatePayment(payment.id, 'method', value)
-                          }
+          {/* Clinical Content */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Stethoscope className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Contenu clinique</CardTitle>
+              </div>
+              <CardDescription>Anamnèse, examen et conseils</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="anamnesis">Anamnèse</Label>
+                <Textarea
+                  id="anamnesis"
+                  data-autoresize
+                  {...register('anamnesis')}
+                  onInput={autoResize}
+                  disabled={isLoading}
+                  placeholder="Histoire de la maladie, circonstances d'apparition, évolution..."
+                  rows={4}
+                  className="min-h-[100px] resize-none overflow-hidden transition-[height] duration-200"
+                />
+                {errors.anamnesis && (
+                  <p className="text-sm text-destructive">{errors.anamnesis.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="examination">Examen clinique et manipulations</Label>
+                <Textarea
+                  id="examination"
+                  data-autoresize
+                  {...register('examination')}
+                  onInput={autoResize}
+                  disabled={isLoading}
+                  placeholder="Tests effectués, dysfonctions trouvées, techniques utilisées..."
+                  rows={4}
+                  className="min-h-[100px] resize-none overflow-hidden transition-[height] duration-200"
+                />
+                {errors.examination && (
+                  <p className="text-sm text-destructive">{errors.examination.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="advice">Conseils donnés</Label>
+                <Textarea
+                  id="advice"
+                  data-autoresize
+                  {...register('advice')}
+                  onInput={autoResize}
+                  disabled={isLoading}
+                  placeholder="Exercices, postures, recommandations..."
+                  rows={3}
+                  className="min-h-[100px] resize-none overflow-hidden transition-[height] duration-200"
+                />
+                {errors.advice && (
+                  <p className="text-sm text-destructive">{errors.advice.message}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 2: Documents & Suivi */}
+        <TabsContent value="documents" forceMount className="data-[state=inactive]:hidden data-[state=active]:animate-fade-in mt-4 space-y-6">
+          {/* Attachments */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Paperclip className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Pièces jointes</CardTitle>
+              </div>
+              <CardDescription>
+                Comptes rendus, radios, ordonnances, etc.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Drop zone */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleFileDrop}
+                className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                  isDragging
+                    ? 'border-primary bg-primary/5'
+                    : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+                }`}
+                onClick={() => document.getElementById('attachment-input')?.click()}
+              >
+                <Upload className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Glissez-déposez vos fichiers ici ou <span className="text-primary underline">parcourir</span>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  PDF, images, documents (max 20 Mo par fichier)
+                </p>
+                <input
+                  id="attachment-input"
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileSelect}
+                  accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.dicom,.dcm"
+                />
+              </div>
+
+              {/* Existing attachments (edit mode) */}
+              {existingAttachments.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Fichiers existants</p>
+                  {existingAttachments.map((att) => {
+                    const Icon = getFileIcon(att.original_name)
+                    return (
+                      <div
+                        key={att.id}
+                        className="flex items-center justify-between rounded-lg border p-3"
+                      >
+                        <a
+                          href={`/api/attachments/${att.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 min-w-0 flex-1 hover:underline"
                         >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(paymentMethodLabels).map(([value, label]) => (
-                              <SelectItem key={value} value={value}>
-                                {label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {payment.method === 'check' && (
-                        <div className="flex-1 space-y-2">
-                          <Label>N° chèque</Label>
-                          <Input
-                            type="text"
-                            placeholder="N° de chèque"
-                            value={payment.check_number || ''}
-                            onChange={(e) =>
-                              updatePayment(payment.id, 'check_number', e.target.value)
-                            }
-                          />
-                        </div>
-                      )}
-                      {payments.length > 1 && (
+                          <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                          <span className="text-sm truncate">{att.original_name}</span>
+                          {att.file_size && (
+                            <span className="text-xs text-muted-foreground flex-shrink-0">
+                              {formatFileSize(att.file_size)}
+                            </span>
+                          )}
+                        </a>
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() => removePayment(payment.id)}
+                          className="flex-shrink-0 h-8 w-8"
+                          onClick={() => handleDeleteAttachment(att.id)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
-                      )}
-                    </div>
-                  ))}
-
-                  <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                    <span className="font-medium">Total</span>
-                    <span className="text-lg font-bold">
-                      {totalPayments.toFixed(2)} €
-                    </span>
-                  </div>
+                      </div>
+                    )
+                  })}
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              )}
 
-      {/* Actions */}
-      <div className="flex justify-end gap-4">
+              {/* Pending files (not yet uploaded) */}
+              {pendingFiles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Fichiers à envoyer ({pendingFiles.length})
+                  </p>
+                  {pendingFiles.map((file, index) => {
+                    const Icon = getFileIcon(file.name)
+                    return (
+                      <div
+                        key={`${file.name}-${index}`}
+                        className="flex items-center justify-between rounded-lg border border-dashed p-3"
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                          <span className="text-sm truncate">{file.name}</span>
+                          <span className="text-xs text-muted-foreground flex-shrink-0">
+                            {formatFileSize(file.size)}
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="flex-shrink-0 h-8 w-8"
+                          onClick={() => removePendingFile(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Follow-up */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Suivi</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="follow_up_7d"
+                  checked={followUp7d}
+                  onCheckedChange={(checked) => setValue('follow_up_7d', !!checked)}
+                  disabled={isLoading}
+                />
+                <Label htmlFor="follow_up_7d" className="cursor-pointer">
+                  Demander des nouvelles à J+7 (email automatique)
+                </Label>
+              </div>
+              {followUp7d && !effectiveEmail && (
+                <p className="text-sm text-yellow-600 mt-2">
+                  Le patient n&apos;a pas d&apos;adresse email. L&apos;email de suivi ne pourra pas être envoyé.
+                </p>
+              )}
+              {mode === 'create' && (
+                <div className="flex items-center space-x-2 mt-4">
+                  <Checkbox
+                    id="send_post_session_advice"
+                    checked={sendPostSessionAdvice}
+                    onCheckedChange={(checked) => setSendPostSessionAdvice(!!checked)}
+                    disabled={isLoading}
+                  />
+                  <Label htmlFor="send_post_session_advice" className="cursor-pointer">
+                    Envoyer des conseils post-séance par email (immédiat)
+                  </Label>
+                </div>
+              )}
+              {sendPostSessionAdvice && !effectiveEmail && (
+                <p className="text-sm text-yellow-600 mt-2">
+                  Le patient n&apos;a pas d&apos;adresse email. L&apos;email ne pourra pas être envoyé.
+                </p>
+              )}
+              {shouldCollectEmail && (
+                <div className="mt-4 space-y-2">
+                  <Label htmlFor="contact_email">Adresse email du patient</Label>
+                  <Input
+                    id="contact_email"
+                    type="email"
+                    placeholder="email@exemple.com"
+                    value={contactEmail}
+                    onChange={(event) => setContactEmail(event.target.value)}
+                    disabled={isLoading}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Indispensable pour l&apos;envoi des emails (suivi, conseils immédiats ou facture).
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 3: Facturation (create mode only) */}
+        {mode === 'create' && (
+          <TabsContent value="facturation" forceMount className="data-[state=inactive]:hidden data-[state=active]:animate-fade-in mt-4 space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">Facturation</CardTitle>
+                </div>
+                <CardDescription>
+                  Créez une facture pour cette consultation
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="create_invoice"
+                    checked={createInvoice}
+                    onCheckedChange={(checked) => setCreateInvoice(!!checked)}
+                    disabled={isLoading}
+                  />
+                  <Label htmlFor="create_invoice" className="cursor-pointer">
+                    Créer une facture
+                  </Label>
+                </div>
+
+                {createInvoice && (
+                  <>
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium">Paiements</h4>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addPayment}
+                        >
+                          <Plus className="mr-1 h-4 w-4" />
+                          Ajouter
+                        </Button>
+                      </div>
+
+                      {payments.map((payment) => (
+                        <div
+                          key={payment.id}
+                          className="flex items-end gap-2 p-3 border rounded-lg"
+                        >
+                          <div className="flex-1 space-y-2">
+                            <Label>Montant</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={payment.amount}
+                              onChange={(e) =>
+                                updatePayment(
+                                  payment.id,
+                                  'amount',
+                                  parseFloat(e.target.value) || 0
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <Label>Mode</Label>
+                            <Select
+                              value={payment.method}
+                              onValueChange={(value) =>
+                                updatePayment(payment.id, 'method', value)
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(paymentMethodLabels).map(([value, label]) => (
+                                  <SelectItem key={value} value={value}>
+                                    {label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {payment.method === 'check' && (
+                            <div className="flex-1 space-y-2">
+                              <Label>N° chèque</Label>
+                              <Input
+                                type="text"
+                                placeholder="N° de chèque"
+                                value={payment.check_number || ''}
+                                onChange={(e) =>
+                                  updatePayment(payment.id, 'check_number', e.target.value)
+                                }
+                              />
+                            </div>
+                          )}
+                          {payments.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removePayment(payment.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+
+                      <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                        <span className="font-medium">Total</span>
+                        <span className="text-lg font-bold">
+                          {totalPayments.toFixed(2)} €
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+      </Tabs>
+
+      {/* Sticky Actions */}
+      <div className="sticky bottom-0 z-10 flex justify-end gap-4 pt-4 pb-2 -mx-1 px-1 bg-gradient-to-t from-background via-background to-transparent">
         <Button
           type="button"
           variant="outline"
@@ -884,23 +974,6 @@ export function ConsultationForm({
           )}
         </Button>
       </div>
-
-      {/* Invoice Action Modal */}
-      {createdInvoice && (
-        <InvoiceActionModal
-          open={showInvoiceModal}
-          onOpenChange={setShowInvoiceModal}
-          invoiceId={createdInvoice.id}
-          invoiceNumber={createdInvoice.invoice_number}
-          patientEmail={effectiveEmail || undefined}
-          patientName={`${currentPatient.last_name} ${currentPatient.first_name}`}
-          onComplete={() => {
-            router.push(`/patients/${currentPatient.id}`)
-            router.refresh()
-          }}
-        />
-      )}
-
     </form>
   )
 
@@ -916,6 +989,21 @@ export function ConsultationForm({
           setContactEmail(updatedPatient.email || '')
         }}
       />
+      {/* Invoice Action Modal - must be outside <form> to prevent submit event bubbling */}
+      {createdInvoice && (
+        <InvoiceActionModal
+          open={showInvoiceModal}
+          onOpenChange={setShowInvoiceModal}
+          invoiceId={createdInvoice.id}
+          invoiceNumber={createdInvoice.invoice_number}
+          patientEmail={effectiveEmail || undefined}
+          patientName={`${currentPatient.last_name} ${currentPatient.first_name}`}
+          onComplete={() => {
+            router.push(`/patients/${currentPatient.id}`)
+            router.refresh()
+          }}
+        />
+      )}
     </>
   )
 
