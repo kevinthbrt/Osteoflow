@@ -208,7 +208,13 @@ export async function fetchNewEmails(
             const bodyStart = source.indexOf('\r\n\r\n')
             if (bodyStart > -1) {
               const body = source.substring(bodyStart + 4).trim()
-              email.textContent = normalizeEmailContent(body)
+              const normalized = normalizeEmailContent(body)
+              // Detect if the body is HTML and categorize accordingly
+              if (normalized && /^\s*<(!DOCTYPE|html|head|body)/i.test(normalized)) {
+                email.htmlContent = normalized
+              } else {
+                email.textContent = normalized
+              }
             }
           }
         } catch {
@@ -278,13 +284,16 @@ export function htmlToPlainText(html: string): string {
     .replace(/<\/?(p|div|br|h[1-6]|li|tr)[^>]*>/gi, '\n')
     // Remove other tags
     .replace(/<[^>]+>/g, '')
-    // Decode common entities
+    // Decode common named entities
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    // Decode numeric HTML entities (&#233; -> é, &#160; -> non-breaking space, etc.)
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
     // Clean up whitespace
     .replace(/\n{3,}/g, '\n\n')
     .trim()

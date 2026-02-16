@@ -192,6 +192,13 @@ export async function GET(request: Request) {
 
           // Extract message content
           let content = email.textContent || ''
+
+          // If textContent looks like HTML (misclassified), convert it
+          if (content && /^\s*<(!DOCTYPE|html|head|body)/i.test(content)) {
+            content = htmlToPlainText(content)
+          }
+
+          // Fall back to htmlContent if no usable text
           if (!content && email.htmlContent) {
             content = htmlToPlainText(email.htmlContent)
           }
