@@ -286,7 +286,7 @@ async function setupAutoUpdater(): Promise<void> {
       console.log(`[Updater] Download progress: ${percent}%`)
     })
 
-    autoUpdater.on('update-downloaded', (info) => {
+    ;(autoUpdater as unknown as { on: (event: string, listener: (info: { version: string }) => void) => void }).on('update-downloaded', (info) => {
       console.log(`[Updater] Update v${info.version} downloaded — ready to install`)
       // Non-blocking notification: user can restart when convenient
       if (Notification.isSupported()) {
