@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target } from 'lucide-react'
 import type { Practitioner, SessionType } from '@/types/database'
 
 interface PatientListItem {
@@ -59,6 +59,15 @@ export default function SettingsPage() {
   const [newSessionTypeName, setNewSessionTypeName] = useState('')
   const [newSessionTypePrice, setNewSessionTypePrice] = useState('')
   const [isSavingSessionType, setIsSavingSessionType] = useState(false)
+
+  // Objectives settings state
+  const [objectivesSettings, setObjectivesSettings] = useState({
+    annual_revenue_objective: '',
+    vacation_weeks_per_year: '5',
+    working_days_per_week: '4',
+    average_consultation_price: '',
+  })
+  const [isSavingObjectives, setIsSavingObjectives] = useState(false)
 
   // Email connection states
   const [selectedProvider, setSelectedProvider] = useState<string>('')
@@ -114,6 +123,52 @@ export default function SettingsPage() {
       sync_enabled: true,
     },
   })
+
+  // Fetch objectives settings
+  useEffect(() => {
+    async function fetchObjectives() {
+      try {
+        const res = await fetch('/api/objectives')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.settings) {
+            setObjectivesSettings({
+              annual_revenue_objective: data.settings.annual_revenue_objective != null ? String(data.settings.annual_revenue_objective) : '',
+              vacation_weeks_per_year: String(data.settings.vacation_weeks_per_year ?? 5),
+              working_days_per_week: String(data.settings.working_days_per_week ?? 4),
+              average_consultation_price: data.settings.average_consultation_price != null ? String(data.settings.average_consultation_price) : '',
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching objectives:', error)
+      }
+    }
+    fetchObjectives()
+  }, [])
+
+  // Save objectives settings
+  const handleSaveObjectives = async () => {
+    setIsSavingObjectives(true)
+    try {
+      const res = await fetch('/api/objectives', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          annual_revenue_objective: objectivesSettings.annual_revenue_objective ? Number(objectivesSettings.annual_revenue_objective) : null,
+          vacation_weeks_per_year: Number(objectivesSettings.vacation_weeks_per_year) || 5,
+          working_days_per_week: Number(objectivesSettings.working_days_per_week) || 4,
+          average_consultation_price: objectivesSettings.average_consultation_price ? Number(objectivesSettings.average_consultation_price) : null,
+        }),
+      })
+      if (!res.ok) throw new Error('Erreur')
+      toast({ variant: 'success', title: 'Objectifs enregistrés', description: 'Vos paramètres d\'objectifs ont été sauvegardés' })
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de sauvegarder les objectifs' })
+    } finally {
+      setIsSavingObjectives(false)
+    }
+  }
 
   // Fetch data
   useEffect(() => {
@@ -645,6 +700,10 @@ export default function SettingsPage() {
           <TabsTrigger value="security">
             <Lock className="mr-2 h-4 w-4" />
             Sécurité
+          </TabsTrigger>
+          <TabsTrigger value="objectives">
+            <Target className="mr-2 h-4 w-4" />
+            Objectifs
           </TabsTrigger>
         </TabsList>
 
@@ -1382,6 +1441,111 @@ export default function SettingsPage() {
         {/* Security Tab */}
         <TabsContent value="security">
           <PasswordSettings practitioner={practitioner} />
+        </TabsContent>
+
+        {/* Objectives Tab */}
+        <TabsContent value="objectives">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-primary" />
+                Objectifs de chiffre d&apos;affaires
+              </CardTitle>
+              <CardDescription>
+                Configurez votre objectif annuel pour suivre votre progression quotidienne, hebdomadaire et mensuelle.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="annual_revenue_objective">Objectif CA annuel (€)</Label>
+                  <Input
+                    id="annual_revenue_objective"
+                    type="number"
+                    step="100"
+                    min="0"
+                    placeholder="Ex: 80000"
+                    value={objectivesSettings.annual_revenue_objective}
+                    onChange={(e) => setObjectivesSettings((prev) => ({ ...prev, annual_revenue_objective: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">Votre objectif de chiffre d&apos;affaires pour l&apos;année en cours.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="average_consultation_price">Tarif moyen consultation (€)</Label>
+                  <Input
+                    id="average_consultation_price"
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    placeholder="Ex: 60"
+                    value={objectivesSettings.average_consultation_price}
+                    onChange={(e) => setObjectivesSettings((prev) => ({ ...prev, average_consultation_price: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">Utilisé pour convertir vos objectifs en nombre de patients.</p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="vacation_weeks_per_year">Semaines de congés par an</Label>
+                  <Input
+                    id="vacation_weeks_per_year"
+                    type="number"
+                    min="0"
+                    max="30"
+                    step="1"
+                    value={objectivesSettings.vacation_weeks_per_year}
+                    onChange={(e) => setObjectivesSettings((prev) => ({ ...prev, vacation_weeks_per_year: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="working_days_per_week">Jours travaillés par semaine</Label>
+                  <Input
+                    id="working_days_per_week"
+                    type="number"
+                    min="1"
+                    max="7"
+                    step="1"
+                    value={objectivesSettings.working_days_per_week}
+                    onChange={(e) => setObjectivesSettings((prev) => ({ ...prev, working_days_per_week: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {objectivesSettings.annual_revenue_objective && (
+                <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                  <p className="text-sm font-medium">Objectifs calculés</p>
+                  {(() => {
+                    const annualObj = Number(objectivesSettings.annual_revenue_objective) || 0
+                    const vacWeeks = Number(objectivesSettings.vacation_weeks_per_year) || 5
+                    const workDays = Number(objectivesSettings.working_days_per_week) || 4
+                    const workingWeeks = 52 - vacWeeks
+                    const workingDays = workingWeeks * workDays
+                    const dailyObj = workingDays > 0 ? annualObj / workingDays : 0
+                    const weeklyObj = workingWeeks > 0 ? annualObj / workingWeeks : 0
+                    const monthlyObj = annualObj / 12
+                    return (
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="flex justify-between"><span className="text-muted-foreground">Journalier</span><span className="font-medium">{dailyObj.toFixed(0)} €</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Hebdomadaire</span><span className="font-medium">{weeklyObj.toFixed(0)} €</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Mensuel</span><span className="font-medium">{monthlyObj.toFixed(0)} €</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Semaines travaillées</span><span className="font-medium">{workingWeeks} sem.</span></div>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <Button onClick={handleSaveObjectives} disabled={isSavingObjectives}>
+                  {isSavingObjectives && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Enregistrer
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

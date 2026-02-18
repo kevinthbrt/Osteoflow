@@ -18,6 +18,7 @@ import {
   LogOut,
   Mail,
   Upload,
+  Target,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,7 @@ const navigation = [
   { name: 'Messagerie', href: '/messages', icon: MessageCircle, description: 'Communications' },
   { name: 'Statistiques', href: '/statistics', icon: TrendingUp, description: 'Analyses & tendances' },
   { name: 'Comptabilité', href: '/accounting', icon: BarChart3, description: 'Rapports' },
+  { name: 'Objectifs', href: '/objectives', icon: Target, description: 'Suivi des objectifs' },
   { name: 'Emails', href: '/scheduled-emails', icon: Mail, description: 'Emails programmés' },
 
   { name: 'Importer CSV', href: '/import', icon: Upload, description: 'Importer des données' },
