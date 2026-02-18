@@ -283,6 +283,20 @@ CREATE TABLE IF NOT EXISTS app_config (
   value TEXT NOT NULL
 );
 
+-- Manual revenue entries (for months before using the app)
+CREATE TABLE IF NOT EXISTS manual_revenue_entries (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+  year INTEGER NOT NULL,
+  month INTEGER NOT NULL,
+  amount REAL NOT NULL DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(practitioner_id, year, month)
+);
+
+CREATE INDEX IF NOT EXISTS idx_manual_revenue_practitioner ON manual_revenue_entries(practitioner_id, year);
+
 `
 
 /**
@@ -310,6 +324,36 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   if (!consultCols.some((c) => c.name === 'post_session_advice_sent_at')) {
     db.exec('ALTER TABLE consultations ADD COLUMN post_session_advice_sent_at TEXT;')
   }
+
+  // Add objectives columns to practitioners
+  const practCols2 = db.pragma('table_info(practitioners)') as Array<{ name: string }>
+  if (!practCols2.some((c) => c.name === 'annual_revenue_objective')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN annual_revenue_objective REAL;')
+  }
+  if (!practCols2.some((c) => c.name === 'vacation_weeks_per_year')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN vacation_weeks_per_year INTEGER DEFAULT 5;')
+  }
+  if (!practCols2.some((c) => c.name === 'working_days_per_week')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN working_days_per_week INTEGER DEFAULT 4;')
+  }
+  if (!practCols2.some((c) => c.name === 'average_consultation_price')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN average_consultation_price REAL;')
+  }
+
+  // Create manual_revenue_entries table if not exists (already in SCHEMA_SQL for new installs)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS manual_revenue_entries (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+      year INTEGER NOT NULL,
+      month INTEGER NOT NULL,
+      amount REAL NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(practitioner_id, year, month)
+    );
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_manual_revenue_practitioner ON manual_revenue_entries(practitioner_id, year);`)
 }
 
 /**

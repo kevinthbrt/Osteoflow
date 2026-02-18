@@ -42,6 +42,10 @@ export interface Database {
           logo_url: string | null
           stamp_url: string | null
           primary_color: string
+          annual_revenue_objective: number | null
+          vacation_weeks_per_year: number | null
+          working_days_per_week: number | null
+          average_consultation_price: number | null
           created_at: string
           updated_at: string
         }
@@ -67,6 +71,10 @@ export interface Database {
           logo_url?: string | null
           stamp_url?: string | null
           primary_color?: string
+          annual_revenue_objective?: number | null
+          vacation_weeks_per_year?: number | null
+          working_days_per_week?: number | null
+          average_consultation_price?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -92,6 +100,39 @@ export interface Database {
           logo_url?: string | null
           stamp_url?: string | null
           primary_color?: string
+          annual_revenue_objective?: number | null
+          vacation_weeks_per_year?: number | null
+          working_days_per_week?: number | null
+          average_consultation_price?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      manual_revenue_entries: {
+        Row: {
+          id: string
+          practitioner_id: string
+          year: number
+          month: number
+          amount: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          practitioner_id: string
+          year: number
+          month: number
+          amount: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          practitioner_id?: string
+          year?: number
+          month?: number
+          amount?: number
           created_at?: string
           updated_at?: string
         }
@@ -552,6 +593,7 @@ export type AuditLog = Tables<'audit_logs'>
 export type SavedReport = Tables<'saved_reports'>
 export type MedicalHistoryEntry = Tables<'medical_history_entries'>
 export type ConsultationAttachment = Tables<'consultation_attachments'>
+export type ManualRevenueEntry = Tables<'manual_revenue_entries'>
 
 // Extended types with relations
 export interface PatientWithConsultations extends Patient {
