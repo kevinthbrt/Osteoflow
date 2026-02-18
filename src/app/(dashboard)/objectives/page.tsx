@@ -97,6 +97,160 @@ function ProgressBar({ label, sublabel, actual, objective, showPatients, consult
   )
 }
 
+interface AnnualTimelineProps {
+  data: ObjectivesData
+  year: number
+}
+
+function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
+  const now = new Date()
+  const startOfYear = new Date(year, 0, 1)
+  const isLeap = (year % 400 === 0) || (year % 4 === 0 && year % 100 !== 0)
+  const totalDays = isLeap ? 366 : 365
+
+  // How far through the year we are (0–100)
+  const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000)
+  const datePct = Math.min(100, (dayOfYear / totalDays) * 100)
+
+  const annualObj = data.settings.annual_revenue_objective!
+  // How far toward the annual objective we are (0–100)
+  const caPct = Math.min(100, (data.revenue.this_year / annualObj) * 100)
+
+  const isAhead = caPct >= datePct
+  const expectedRevenue = (datePct / 100) * annualObj
+  const diff = data.revenue.this_year - expectedRevenue
+
+  // Month tick positions (start of each month as % of year)
+  const monthTicks = Array.from({ length: 12 }, (_, i) => {
+    const monthStart = new Date(year, i, 1)
+    const d = Math.floor((monthStart.getTime() - startOfYear.getTime()) / 86400000)
+    return { month: i, pct: (d / totalDays) * 100 }
+  })
+
+  // Center of each month for labels
+  const monthCenters = Array.from({ length: 12 }, (_, i) => {
+    const monthStart = new Date(year, i, 1)
+    const monthEnd = new Date(year, i + 1, 0)
+    const startDay = Math.floor((monthStart.getTime() - startOfYear.getTime()) / 86400000)
+    const endDay = Math.floor((monthEnd.getTime() - startOfYear.getTime()) / 86400000)
+    return ((startDay + endDay + 1) / 2 / totalDays) * 100
+  })
+
+  const todayLabel = now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <CardTitle className="text-base">Trajectoire annuelle {year}</CardTitle>
+          <div
+            className={`flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full ${
+              isAhead ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+            }`}
+          >
+            {isAhead ? '▲' : '▼'} {isAhead ? 'En avance' : 'En retard'} de {formatEuro(Math.abs(diff))}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-4">
+        {/* Timeline — extra top padding for the needle label */}
+        <div className="relative" style={{ paddingTop: '2.75rem' }}>
+
+          {/* Today needle label + triangle */}
+          <div
+            className="absolute z-20 flex flex-col items-center"
+            style={{ left: `${datePct}%`, top: 0, transform: 'translateX(-50%)' }}
+          >
+            <div className="bg-foreground text-background text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap mb-1">
+              {todayLabel}
+            </div>
+            <div
+              style={{
+                width: 0, height: 0,
+                borderLeft: '5px solid transparent',
+                borderRight: '5px solid transparent',
+                borderTop: '7px solid hsl(var(--foreground))',
+              }}
+            />
+          </div>
+
+          {/* Bar */}
+          <div className="relative h-10 w-full rounded-full bg-muted overflow-hidden">
+
+            {/* CA fill */}
+            <div
+              className={`absolute left-0 top-0 h-full transition-all duration-700 ${
+                isAhead ? 'bg-emerald-500' : 'bg-amber-500'
+              }`}
+              style={{ width: `${caPct}%`, borderRadius: caPct >= 100 ? '9999px' : '9999px 0 0 9999px' }}
+            />
+
+            {/* Month separator ticks (skip Jan which is at 0) */}
+            {monthTicks.slice(1).map(({ month, pct }) => (
+              <div
+                key={month}
+                className="absolute top-0 bottom-0 w-px bg-background/40 z-10"
+                style={{ left: `${pct}%` }}
+              />
+            ))}
+
+            {/* Today vertical line through bar */}
+            <div
+              className="absolute top-0 bottom-0 w-0.5 bg-foreground/70 z-20"
+              style={{ left: `${datePct}%`, transform: 'translateX(-50%)' }}
+            />
+
+            {/* CA value label inside fill */}
+            {caPct > 10 && (
+              <div
+                className="absolute top-1/2 text-xs font-bold text-white pointer-events-none z-10"
+                style={{
+                  left: `${Math.min(caPct - 1, 96)}%`,
+                  transform: 'translateY(-50%) translateX(-100%)',
+                  paddingRight: '6px',
+                }}
+              >
+                {formatEuro(data.revenue.this_year)}
+              </div>
+            )}
+          </div>
+
+          {/* Month labels */}
+          <div className="relative h-6 mt-1.5">
+            {monthCenters.map((centerPct, i) => (
+              <div
+                key={i}
+                className="absolute text-[11px] text-muted-foreground"
+                style={{ left: `${centerPct}%`, transform: 'translateX(-50%)', top: 0 }}
+              >
+                {MONTHS_FR[i].slice(0, 3)}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t text-sm">
+          <div>
+            <span className="text-muted-foreground">CA réel </span>
+            <span className="font-semibold">{formatEuro(data.revenue.this_year)}</span>
+            <span className="text-muted-foreground ml-1">({caPct.toFixed(1)} %)</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Attendu au {todayLabel} </span>
+            <span className="font-semibold">{formatEuro(expectedRevenue)}</span>
+            <span className="text-muted-foreground ml-1">({datePct.toFixed(1)} %)</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Objectif annuel </span>
+            <span className="font-semibold">{formatEuro(annualObj)}</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 interface EditableManualEntryProps {
   month: number
   year: number
@@ -294,6 +448,9 @@ export default function ObjectivesPage() {
               consultationPrice={data.settings.average_consultation_price}
             />
           </div>
+
+          {/* Annual timeline bar */}
+          <AnnualProgressTimeline data={data} year={currentYear} />
 
           {/* Summary chips */}
           <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
