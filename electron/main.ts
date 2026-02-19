@@ -55,7 +55,20 @@ async function startNextServer(): Promise<void> {
   const http = await import('http')
 
   if (isDev) {
-    // Development: use the full next() API for hot reload
+    // Development: when launched via concurrently (NEXT_DEV_RUNNING=1) or
+    // when the port is already in use, just connect to the existing dev server.
+    // Otherwise, start our own Next.js dev server.
+    const portInUse = await new Promise<boolean>((resolve) => {
+      const tester = http.request({ host: '127.0.0.1', port: PORT, method: 'HEAD', timeout: 2000 }, () => resolve(true))
+      tester.on('error', () => resolve(false))
+      tester.end()
+    })
+
+    if (portInUse || process.env.NEXT_DEV_RUNNING === '1') {
+      console.log('[Electron] Dev server already running on port', PORT, '— skipping Next.js startup')
+      return
+    }
+
     const { default: next } = await import('next')
     const nextApp = next({
       dev: true,
