@@ -46,41 +46,22 @@ import { startCronJobs, stopCronJobs } from './cron'
 let nextServer: any = null
 let mainWindow: BrowserWindow | null = null
 const PORT = 3456
-const isDev = process.env.NODE_ENV === 'development'
+const isDev = !app.isPackaged
 
 /**
  * Start the Next.js server programmatically.
  */
 async function startNextServer(): Promise<void> {
   const http = await import('http')
-  const net = await import('net')
 
+  // In dev mode (launched via concurrently), the Next.js dev server is already
+  // running on the port. Just skip server startup entirely.
   if (isDev) {
-    // Development: check if port is already in use (e.g. launched via concurrently).
-    // If so, just connect to the existing dev server instead of starting a new one.
-    const portInUse = await new Promise<boolean>((resolve) => {
-      const socket = net.createConnection({ host: '127.0.0.1', port: PORT })
-      socket.setTimeout(2000)
-      socket.on('connect', () => { socket.destroy(); resolve(true) })
-      socket.on('timeout', () => { socket.destroy(); resolve(false) })
-      socket.on('error', () => { resolve(false) })
-    })
+    console.log('[Electron] Dev mode — using existing dev server on port', PORT)
+    return
+  }
 
-    if (portInUse) {
-      console.log('[Electron] Dev server already running on port', PORT, '— skipping Next.js startup')
-      return
-    }
-
-    const { default: next } = await import('next')
-    const nextApp = next({
-      dev: true,
-      dir: path.join(__dirname, '..'),
-      port: PORT,
-    })
-    await nextApp.prepare()
-    const handle = nextApp.getRequestHandler()
-    nextServer = http.createServer((req: any, res: any) => handle(req, res))
-  } else {
+  {
     // Production: use NextServer directly (avoids spawning npm/npx)
     const appDir = path.join(__dirname, '..')
 
