@@ -53,18 +53,20 @@ const isDev = process.env.NODE_ENV === 'development'
  */
 async function startNextServer(): Promise<void> {
   const http = await import('http')
+  const net = await import('net')
 
   if (isDev) {
-    // Development: when launched via concurrently (NEXT_DEV_RUNNING=1) or
-    // when the port is already in use, just connect to the existing dev server.
-    // Otherwise, start our own Next.js dev server.
+    // Development: check if port is already in use (e.g. launched via concurrently).
+    // If so, just connect to the existing dev server instead of starting a new one.
     const portInUse = await new Promise<boolean>((resolve) => {
-      const tester = http.request({ host: '127.0.0.1', port: PORT, method: 'HEAD', timeout: 2000 }, () => resolve(true))
-      tester.on('error', () => resolve(false))
-      tester.end()
+      const socket = net.createConnection({ host: '127.0.0.1', port: PORT })
+      socket.setTimeout(2000)
+      socket.on('connect', () => { socket.destroy(); resolve(true) })
+      socket.on('timeout', () => { socket.destroy(); resolve(false) })
+      socket.on('error', () => { resolve(false) })
     })
 
-    if (portInUse || process.env.NEXT_DEV_RUNNING === '1') {
+    if (portInUse) {
       console.log('[Electron] Dev server already running on port', PORT, '— skipping Next.js startup')
       return
     }
@@ -338,15 +340,21 @@ app.whenReady().then(async () => {
 
   try {
     await startNextServer()
-    loadApp() // Navigate from splash to the real app
-    startCronJobs(PORT)
-    setupAutoUpdater()
-
-    console.log('[Electron] Osteoflow ready!')
-  } catch (error) {
-    console.error('[Electron] Failed to start:', error)
-    app.quit()
+  } catch (error: any) {
+    if (isDev && error?.code === 'EADDRINUSE') {
+      console.log('[Electron] Port', PORT, 'already in use — connecting to existing dev server')
+    } else {
+      console.error('[Electron] Failed to start:', error)
+      app.quit()
+      return
+    }
   }
+
+  loadApp() // Navigate from splash to the real app
+  startCronJobs(PORT)
+  setupAutoUpdater()
+
+  console.log('[Electron] Osteoflow ready!')
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
