@@ -9,7 +9,7 @@
 export const SURVEY_WORKER_URL =
   process.env.SURVEY_WORKER_URL ||
   process.env.NEXT_PUBLIC_SURVEY_WORKER_URL ||
-  'https://osteoflow-survey.workers.dev'
+  'https://osteoflow-survey.osteoflow.workers.dev'
 
 /**
  * Generate a unique survey token (URL-safe, 32 chars).
