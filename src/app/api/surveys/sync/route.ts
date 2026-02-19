@@ -74,9 +74,12 @@ export async function POST(request: NextRequest) {
           .update({
             status: 'completed',
             overall_rating: result.response.overall_rating,
-            pain_evolution: result.response.pain_evolution,
+            eva_score: result.response.eva_score ?? null,
+            pain_reduction: result.response.pain_reduction ?? null,
+            better_mobility: result.response.better_mobility ?? null,
+            pain_evolution: result.response.pain_evolution || null,
             comment: result.response.comment || null,
-            would_recommend: result.response.would_recommend,
+            would_recommend: result.response.would_recommend ?? null,
             responded_at: result.responded_at,
             synced_at: new Date().toISOString(),
           })

@@ -32,9 +32,13 @@ interface SurveyData {
 
 interface SurveyResponseData {
   overall_rating: number
-  pain_evolution: 'better' | 'same' | 'worse'
+  eva_score: number
+  pain_reduction: boolean
+  better_mobility: boolean
   comment?: string
-  would_recommend: boolean
+  // Legacy fields (kept for backward compatibility with old responses)
+  pain_evolution?: 'better' | 'same' | 'worse'
+  would_recommend?: boolean
 }
 
 export default {
@@ -179,7 +183,7 @@ async function handleSubmit(
 
   const body = await request.json() as Partial<SurveyResponseData>
 
-  if (!body.overall_rating || !body.pain_evolution || body.would_recommend === undefined) {
+  if (!body.overall_rating || body.eva_score === undefined || body.pain_reduction === undefined || body.better_mobility === undefined) {
     return new Response(
       JSON.stringify({ error: 'Missing required fields' }),
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
@@ -188,9 +192,10 @@ async function handleSubmit(
 
   survey.response = {
     overall_rating: body.overall_rating,
-    pain_evolution: body.pain_evolution,
+    eva_score: body.eva_score,
+    pain_reduction: body.pain_reduction,
+    better_mobility: body.better_mobility,
     comment: body.comment || undefined,
-    would_recommend: body.would_recommend,
   }
   survey.responded_at = new Date().toISOString()
 
@@ -322,6 +327,36 @@ function renderSurveyPage(survey: SurveyData): string {
     .option-btn:hover { border-color: ${color}; }
     .option-btn.selected { border-color: ${color}; background: ${color}10; }
     .option-icon { font-size: 22px; }
+    .eva-container { margin-bottom: 28px; }
+    .eva-slider-wrap { position: relative; padding: 0 8px; }
+    .eva-slider {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 8px;
+      border-radius: 4px; outline: none;
+      background: linear-gradient(to right, #22c55e 0%, #eab308 50%, #ef4444 100%);
+    }
+    .eva-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 28px; height: 28px;
+      border-radius: 50%; background: ${color}; cursor: pointer;
+      border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .eva-slider::-moz-range-thumb {
+      width: 28px; height: 28px; border-radius: 50%; background: ${color};
+      cursor: pointer; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .eva-labels { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: #94a3b8; }
+    .eva-value {
+      text-align: center; font-size: 32px; font-weight: 700; color: ${color};
+      margin-bottom: 12px;
+    }
+    .eva-value span { font-size: 16px; font-weight: 400; color: #94a3b8; }
+    .yn-row { display: flex; gap: 12px; margin-bottom: 28px; }
+    .yn-btn {
+      flex: 1; padding: 14px; border-radius: 12px; border: 2px solid #e2e8f0;
+      background: #fff; cursor: pointer; font-size: 15px; font-weight: 500;
+      text-align: center; transition: all 0.2s;
+    }
+    .yn-btn:hover { border-color: ${color}; }
+    .yn-btn.selected { border-color: ${color}; background: ${color}10; }
     textarea {
       width: 100%; min-height: 100px; padding: 14px; border-radius: 12px;
       border: 2px solid #e2e8f0; font-size: 15px; font-family: inherit;
@@ -330,14 +365,6 @@ function renderSurveyPage(survey: SurveyData): string {
     }
     textarea:focus { outline: none; border-color: ${color}; }
     textarea::placeholder { color: #94a3b8; }
-    .recommend-row { display: flex; gap: 12px; margin-bottom: 28px; }
-    .recommend-btn {
-      flex: 1; padding: 14px; border-radius: 12px; border: 2px solid #e2e8f0;
-      background: #fff; cursor: pointer; font-size: 15px; font-weight: 500;
-      text-align: center; transition: all 0.2s;
-    }
-    .recommend-btn:hover { border-color: ${color}; }
-    .recommend-btn.selected { border-color: ${color}; background: ${color}10; }
     .submit-btn {
       width: 100%; padding: 16px; border: none; border-radius: 12px;
       background: ${color}; color: #fff; font-size: 16px; font-weight: 600;
@@ -364,7 +391,7 @@ function renderSurveyPage(survey: SurveyData): string {
     </p>
 
     <!-- Q1: Overall rating -->
-    <p class="question">Comment vous sentez-vous depuis votre s&eacute;ance ?</p>
+    <p class="question">Comment vous sentez-vous aujourd'hui ?</p>
     <div class="emoji-row" id="rating-row">
       <div>
         <button class="emoji-btn" data-value="1" onclick="selectRating(1)">&#128542;</button>
@@ -388,30 +415,36 @@ function renderSurveyPage(survey: SurveyData): string {
       </div>
     </div>
 
-    <!-- Q2: Pain evolution -->
-    <p class="question">&Eacute;volution de votre douleur depuis la s&eacute;ance :</p>
-    <div class="options" id="pain-options">
-      <button class="option-btn" data-value="better" onclick="selectPain('better')">
-        <span class="option-icon">&#128994;</span> Am&eacute;lioration
-      </button>
-      <button class="option-btn" data-value="same" onclick="selectPain('same')">
-        <span class="option-icon">&#128992;</span> Pas de changement
-      </button>
-      <button class="option-btn" data-value="worse" onclick="selectPain('worse')">
-        <span class="option-icon">&#128308;</span> D&eacute;t&eacute;rioration
-      </button>
+    <!-- Q2: EVA Pain Scale -->
+    <p class="question">&Agrave; combien &eacute;valuez-vous votre douleur aujourd'hui ?</p>
+    <div class="eva-container">
+      <div class="eva-value" id="eva-display">0 <span>/ 10</span></div>
+      <div class="eva-slider-wrap">
+        <input type="range" class="eva-slider" id="eva-slider" min="0" max="10" value="0" oninput="updateEva(this.value)">
+      </div>
+      <div class="eva-labels">
+        <span>Aucune douleur</span>
+        <span>Douleur maximale</span>
+      </div>
     </div>
 
-    <!-- Q3: Comment -->
-    <p class="question">Des remarques ou pr&eacute;cisions ? <span style="font-weight:400;color:#94a3b8">(facultatif)</span></p>
+    <!-- Q3: Pain reduction -->
+    <p class="question">Diminution de la douleur ?</p>
+    <div class="yn-row" id="pain-reduction-row">
+      <button class="yn-btn" data-value="true" onclick="selectPainReduction(true)">&#128994; Oui</button>
+      <button class="yn-btn" data-value="false" onclick="selectPainReduction(false)">&#128308; Non</button>
+    </div>
+
+    <!-- Q4: Better mobility -->
+    <p class="question">Meilleure mobilit&eacute; ?</p>
+    <div class="yn-row" id="mobility-row">
+      <button class="yn-btn" data-value="true" onclick="selectMobility(true)">&#128994; Oui</button>
+      <button class="yn-btn" data-value="false" onclick="selectMobility(false)">&#128308; Non</button>
+    </div>
+
+    <!-- Q5: Comment -->
+    <p class="question">Un commentaire ? <span style="font-weight:400;color:#94a3b8">(facultatif)</span></p>
     <textarea id="comment" placeholder="Partagez votre ressenti..."></textarea>
-
-    <!-- Q4: Recommend -->
-    <p class="question">Recommanderiez-vous votre praticien ?</p>
-    <div class="recommend-row" id="recommend-row">
-      <button class="recommend-btn" data-value="true" onclick="selectRecommend(true)">&#128077; Oui</button>
-      <button class="recommend-btn" data-value="false" onclick="selectRecommend(false)">&#128078; Non</button>
-    </div>
 
     <div class="divider"></div>
 
@@ -433,7 +466,7 @@ function renderSurveyPage(survey: SurveyData): string {
   <p class="footer">Envoy&eacute; via Osteoflow</p>
 
   <script>
-    let rating = null, pain = null, recommend = null;
+    let rating = null, evaScore = 0, evaChanged = false, painReduction = null, mobility = null;
 
     function selectRating(val) {
       rating = val;
@@ -443,24 +476,31 @@ function renderSurveyPage(survey: SurveyData): string {
       checkForm();
     }
 
-    function selectPain(val) {
-      pain = val;
-      document.querySelectorAll('#pain-options .option-btn').forEach(b => {
-        b.classList.toggle('selected', b.dataset.value === val);
+    function updateEva(val) {
+      evaScore = Number(val);
+      evaChanged = true;
+      document.getElementById('eva-display').innerHTML = val + ' <span>/ 10</span>';
+      checkForm();
+    }
+
+    function selectPainReduction(val) {
+      painReduction = val;
+      document.querySelectorAll('#pain-reduction-row .yn-btn').forEach(b => {
+        b.classList.toggle('selected', b.dataset.value === String(val));
       });
       checkForm();
     }
 
-    function selectRecommend(val) {
-      recommend = val;
-      document.querySelectorAll('#recommend-row .recommend-btn').forEach(b => {
+    function selectMobility(val) {
+      mobility = val;
+      document.querySelectorAll('#mobility-row .yn-btn').forEach(b => {
         b.classList.toggle('selected', b.dataset.value === String(val));
       });
       checkForm();
     }
 
     function checkForm() {
-      document.getElementById('submit-btn').disabled = !(rating && pain && recommend !== null);
+      document.getElementById('submit-btn').disabled = !(rating && evaChanged && painReduction !== null && mobility !== null);
     }
 
     async function submitSurvey() {
@@ -474,9 +514,10 @@ function renderSurveyPage(survey: SurveyData): string {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             overall_rating: rating,
-            pain_evolution: pain,
+            eva_score: evaScore,
+            pain_reduction: painReduction,
+            better_mobility: mobility,
             comment: document.getElementById('comment').value || undefined,
-            would_recommend: recommend,
           }),
         });
 

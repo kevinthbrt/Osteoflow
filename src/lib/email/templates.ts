@@ -16,7 +16,9 @@ Cordialement,
     subject: 'Comment allez-vous ? - {{practice_name}}',
     body: `Bonjour {{patient_first_name}},
 
-Votre séance du {{consultation_date}} remonte à quelques jours maintenant. Comment vous sentez-vous ?
+Votre séance du {{consultation_date}} remonte à quelques jours maintenant.
+
+Comment vous sentez-vous aujourd'hui ?
 
 Si vous avez des questions ou la moindre préoccupation, n'hésitez surtout pas à me contacter. Je reste à votre entière disposition.
 
@@ -184,15 +186,14 @@ export function createFollowUpHtmlEmail({
               </div>
 
               ${surveyUrl ? `
-              <!-- Survey CTA -->
-              <div style="margin-top: 24px; padding: 24px; border-radius: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; text-align: center;">
-                <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #0f172a;">Votre avis compte beaucoup</p>
-                <p style="margin: 0 0 16px 0; font-size: 14px; color: #64748b;">
-                  Prenez 30 secondes pour nous faire part de votre ressenti.
-                </p>
-                <a href="${surveyUrl}" style="display: inline-block; padding: 12px 28px; background-color: ${primaryColor}; color: #ffffff; text-decoration: none; border-radius: 999px; font-weight: 600; font-size: 15px;">
+              <!-- Survey CTA - right under "Comment vous sentez-vous" -->
+              <div style="margin-top: 20px; text-align: center;">
+                <a href="${surveyUrl}" style="display: inline-block; padding: 14px 32px; background-color: ${primaryColor}; color: #ffffff; text-decoration: none; border-radius: 999px; font-weight: 600; font-size: 15px;">
                   R\u00e9pondre au questionnaire
                 </a>
+                <p style="margin: 12px 0 0 0; font-size: 13px; color: #94a3b8;">
+                  Cela ne prend que 30 secondes
+                </p>
               </div>
               ` : ''}
 

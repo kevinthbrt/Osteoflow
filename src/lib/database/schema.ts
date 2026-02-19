@@ -286,6 +286,9 @@ CREATE TABLE IF NOT EXISTS survey_responses (
   token TEXT NOT NULL UNIQUE,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'expired')),
   overall_rating INTEGER CHECK (overall_rating BETWEEN 1 AND 5),
+  eva_score INTEGER CHECK (eva_score BETWEEN 0 AND 10),
+  pain_reduction INTEGER,
+  better_mobility INTEGER,
   pain_evolution TEXT CHECK (pain_evolution IN ('better', 'same', 'worse')),
   comment TEXT,
   would_recommend INTEGER,
@@ -360,6 +363,18 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   }
   if (!practCols2.some((c) => c.name === 'average_consultation_price')) {
     db.exec('ALTER TABLE practitioners ADD COLUMN average_consultation_price REAL;')
+  }
+
+  // Add new survey fields (eva_score, pain_reduction, better_mobility)
+  const surveyCols = db.pragma('table_info(survey_responses)') as Array<{ name: string }>
+  if (!surveyCols.some((c) => c.name === 'eva_score')) {
+    db.exec('ALTER TABLE survey_responses ADD COLUMN eva_score INTEGER CHECK (eva_score BETWEEN 0 AND 10);')
+  }
+  if (!surveyCols.some((c) => c.name === 'pain_reduction')) {
+    db.exec('ALTER TABLE survey_responses ADD COLUMN pain_reduction INTEGER;')
+  }
+  if (!surveyCols.some((c) => c.name === 'better_mobility')) {
+    db.exec('ALTER TABLE survey_responses ADD COLUMN better_mobility INTEGER;')
   }
 
   // Create manual_revenue_entries table if not exists (already in SCHEMA_SQL for new installs)

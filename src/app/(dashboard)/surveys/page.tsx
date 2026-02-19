@@ -16,6 +16,8 @@ import {
   MessageSquare,
   Clock,
   CheckCircle2,
+  Activity,
+  Gauge,
 } from 'lucide-react'
 
 interface SurveyResponse {
@@ -26,6 +28,9 @@ interface SurveyResponse {
   token: string
   status: 'pending' | 'completed' | 'expired'
   overall_rating: number | null
+  eva_score: number | null
+  pain_reduction: boolean | number | null
+  better_mobility: boolean | number | null
   pain_evolution: 'better' | 'same' | 'worse' | null
   comment: string | null
   would_recommend: boolean | null
@@ -39,6 +44,9 @@ interface SurveyStats {
   completed: number
   pending: number
   avg_rating: number | null
+  avg_eva: number | null
+  pain_reduction: number
+  better_mobility: number
   pain_better: number
   pain_same: number
   pain_worse: number
@@ -131,7 +139,7 @@ export default function SurveysPage() {
 
       {/* Stats cards */}
       {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -172,18 +180,16 @@ export default function SurveysPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Am\u00e9lioration</p>
+                  <p className="text-sm font-medium text-muted-foreground">EVA moyenne</p>
                   <p className="text-3xl font-bold">
-                    {stats.completed > 0
-                      ? `${Math.round((stats.pain_better / stats.completed) * 100)}%`
-                      : '-'}
+                    {stats.avg_eva !== null ? `${stats.avg_eva}/10` : '-'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {stats.pain_better} patient(s) am\u00e9lior\u00e9(s)
+                    {'\u00c9'}chelle de douleur
                   </p>
                 </div>
-                <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-emerald-600" />
+                <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center">
+                  <Gauge className="h-6 w-6 text-orange-500" />
                 </div>
               </div>
             </CardContent>
@@ -193,18 +199,39 @@ export default function SurveysPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Recommandation</p>
+                  <p className="text-sm font-medium text-muted-foreground">Diminution douleur</p>
                   <p className="text-3xl font-bold">
                     {stats.completed > 0
-                      ? `${Math.round((stats.would_recommend / stats.completed) * 100)}%`
+                      ? `${Math.round((stats.pain_reduction / stats.completed) * 100)}%`
                       : '-'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {stats.would_recommend} recommandation(s)
+                    {stats.pain_reduction} patient(s)
+                  </p>
+                </div>
+                <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center">
+                  <TrendingDown className="h-6 w-6 text-emerald-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Meilleure mobilit{'\u00e9'}</p>
+                  <p className="text-3xl font-bold">
+                    {stats.completed > 0
+                      ? `${Math.round((stats.better_mobility / stats.completed) * 100)}%`
+                      : '-'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {stats.better_mobility} patient(s)
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-xl bg-violet-50 flex items-center justify-center">
-                  <ThumbsUp className="h-6 w-6 text-violet-600" />
+                  <Activity className="h-6 w-6 text-violet-600" />
                 </div>
               </div>
             </CardContent>
@@ -277,8 +304,8 @@ export default function SurveysPage() {
           <CardContent>
             <div className="space-y-4">
               {completedSurveys.map(survey => {
-                const painInfo = survey.pain_evolution ? painLabels[survey.pain_evolution] : null
-                const PainIcon = painInfo?.icon || Minus
+                const hasPainReduction = survey.pain_reduction === true || survey.pain_reduction === 1
+                const hasMobility = survey.better_mobility === true || survey.better_mobility === 1
 
                 return (
                   <div
@@ -310,27 +337,40 @@ export default function SurveysPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        {/* Pain evolution badge */}
-                        {painInfo && (
-                          <Badge variant="outline" className={painInfo.color}>
-                            <PainIcon className="h-3 w-3 mr-1" />
-                            {painInfo.label}
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                        {/* EVA score badge */}
+                        {survey.eva_score !== null && survey.eva_score !== undefined && (
+                          <Badge variant="outline" className="text-orange-600 bg-orange-50 border-orange-200">
+                            <Gauge className="h-3 w-3 mr-1" />
+                            EVA {survey.eva_score}/10
                           </Badge>
                         )}
 
-                        {/* Recommend badge */}
-                        {survey.would_recommend !== null && (
+                        {/* Pain reduction badge */}
+                        {survey.pain_reduction !== null && survey.pain_reduction !== undefined && (
                           <Badge
                             variant="outline"
-                            className={
-                              survey.would_recommend
-                                ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
-                                : 'text-red-600 bg-red-50 border-red-200'
+                            className={hasPainReduction
+                              ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+                              : 'text-red-600 bg-red-50 border-red-200'
                             }
                           >
-                            <ThumbsUp className={`h-3 w-3 mr-1 ${!survey.would_recommend ? 'rotate-180' : ''}`} />
-                            {survey.would_recommend ? 'Recommande' : 'Ne recommande pas'}
+                            <TrendingDown className="h-3 w-3 mr-1" />
+                            {hasPainReduction ? 'Douleur diminu\u00e9e' : 'Pas de diminution'}
+                          </Badge>
+                        )}
+
+                        {/* Mobility badge */}
+                        {survey.better_mobility !== null && survey.better_mobility !== undefined && (
+                          <Badge
+                            variant="outline"
+                            className={hasMobility
+                              ? 'text-violet-600 bg-violet-50 border-violet-200'
+                              : 'text-amber-600 bg-amber-50 border-amber-200'
+                            }
+                          >
+                            <Activity className="h-3 w-3 mr-1" />
+                            {hasMobility ? 'Mobilit\u00e9 am\u00e9lior\u00e9e' : 'Mobilit\u00e9 inchang\u00e9e'}
                           </Badge>
                         )}
                       </div>

@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
 
     // Compute stats for completed surveys
     const completed = (surveys || []).filter((s: { status: string }) => s.status === 'completed')
+    const evaScores = completed.filter((s: { eva_score: number | null }) => s.eva_score !== null && s.eva_score !== undefined)
     const stats = {
       total: surveys?.length || 0,
       completed: completed.length,
@@ -61,6 +62,12 @@ export async function GET(request: NextRequest) {
       avg_rating: completed.length > 0
         ? Math.round((completed.reduce((sum: number, s: { overall_rating: number | null }) => sum + (s.overall_rating || 0), 0) / completed.length) * 10) / 10
         : null,
+      avg_eva: evaScores.length > 0
+        ? Math.round((evaScores.reduce((sum: number, s: { eva_score: number | null }) => sum + (s.eva_score || 0), 0) / evaScores.length) * 10) / 10
+        : null,
+      pain_reduction: completed.filter((s: { pain_reduction: boolean | number | null }) => s.pain_reduction === true || s.pain_reduction === 1).length,
+      better_mobility: completed.filter((s: { better_mobility: boolean | number | null }) => s.better_mobility === true || s.better_mobility === 1).length,
+      // Legacy fields
       pain_better: completed.filter((s: { pain_evolution: string | null }) => s.pain_evolution === 'better').length,
       pain_same: completed.filter((s: { pain_evolution: string | null }) => s.pain_evolution === 'same').length,
       pain_worse: completed.filter((s: { pain_evolution: string | null }) => s.pain_evolution === 'worse').length,
