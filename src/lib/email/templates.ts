@@ -130,6 +130,7 @@ export function createFollowUpHtmlEmail({
   specialty,
   primaryColor = '#2563eb',
   googleReviewUrl,
+  surveyUrl,
 }: {
   bodyText: string
   practitionerName: string
@@ -137,6 +138,7 @@ export function createFollowUpHtmlEmail({
   specialty?: string | null
   primaryColor?: string
   googleReviewUrl?: string | null
+  surveyUrl?: string | null
 }): string {
   const bodyHtml = textToHtml(bodyText)
   const reviewSection = googleReviewUrl
@@ -180,6 +182,19 @@ export function createFollowUpHtmlEmail({
               <div style="font-size: 15px; line-height: 1.7; color: #334155;">
                 ${bodyHtml}
               </div>
+
+              ${surveyUrl ? `
+              <!-- Survey CTA -->
+              <div style="margin-top: 24px; padding: 24px; border-radius: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; text-align: center;">
+                <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #0f172a;">Votre avis compte beaucoup</p>
+                <p style="margin: 0 0 16px 0; font-size: 14px; color: #64748b;">
+                  Prenez 30 secondes pour nous faire part de votre ressenti.
+                </p>
+                <a href="${surveyUrl}" style="display: inline-block; padding: 12px 28px; background-color: ${primaryColor}; color: #ffffff; text-decoration: none; border-radius: 999px; font-weight: 600; font-size: 15px;">
+                  R\u00e9pondre au questionnaire
+                </a>
+              </div>
+              ` : ''}
 
               <!-- Info box -->
               <div style="margin-top: 24px; padding: 16px 20px; border-radius: 12px; background-color: #eff6ff; border-left: 4px solid ${primaryColor};">

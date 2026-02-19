@@ -1,0 +1,12 @@
+name = "osteoflow-survey"
+main = "src/index.ts"
+compatibility_date = "2024-02-08"
+
+[[kv_namespaces]]
+binding = "SURVEYS"
+id = "YOUR_KV_NAMESPACE_ID"
+preview_id = "YOUR_PREVIEW_KV_NAMESPACE_ID"
+
+[vars]
+# Optional: restrict API calls to known app instances
+# API_SECRET = "change-me-in-production"

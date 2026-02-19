@@ -277,6 +277,28 @@ CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status ON scheduled_tasks(status,
 CREATE INDEX IF NOT EXISTS idx_medical_history_patient ON medical_history_entries(patient_id);
 CREATE INDEX IF NOT EXISTS idx_consultation_attachments_consultation ON consultation_attachments(consultation_id);
 
+-- Survey responses (J+7 patient satisfaction surveys)
+CREATE TABLE IF NOT EXISTS survey_responses (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  consultation_id TEXT NOT NULL REFERENCES consultations(id),
+  patient_id TEXT NOT NULL REFERENCES patients(id),
+  practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+  token TEXT NOT NULL UNIQUE,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'expired')),
+  overall_rating INTEGER CHECK (overall_rating BETWEEN 1 AND 5),
+  pain_evolution TEXT CHECK (pain_evolution IN ('better', 'same', 'worse')),
+  comment TEXT,
+  would_recommend INTEGER,
+  responded_at TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  synced_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_survey_responses_token ON survey_responses(token);
+CREATE INDEX IF NOT EXISTS idx_survey_responses_consultation ON survey_responses(consultation_id);
+CREATE INDEX IF NOT EXISTS idx_survey_responses_practitioner ON survey_responses(practitioner_id);
+CREATE INDEX IF NOT EXISTS idx_survey_responses_status ON survey_responses(status);
+
 -- App config table (for storing current practitioner, etc.)
 CREATE TABLE IF NOT EXISTS app_config (
   key TEXT PRIMARY KEY,
@@ -365,6 +387,7 @@ export const BOOLEAN_FIELDS: Record<string, string[]> = {
   conversations: ['is_archived'],
   email_settings: ['smtp_secure', 'imap_secure', 'sync_enabled', 'is_verified'],
   medical_history_entries: ['is_vigilance'],
+  survey_responses: ['would_recommend'],
 }
 
 /**
