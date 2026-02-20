@@ -61,6 +61,8 @@ export async function DELETE(
     }
 
     await db.from('scheduled_tasks').delete().eq('consultation_id', id)
+    await db.from('survey_responses').delete().eq('consultation_id', id)
+    await db.from('consultation_attachments').delete().eq('consultation_id', id)
     await db.from('consultations').delete().eq('id', id)
 
     return NextResponse.json({ success: true })
