@@ -18,7 +18,10 @@ import {
   CheckCircle2,
   Activity,
   Gauge,
+  ExternalLink,
+  User,
 } from 'lucide-react'
+import Link from 'next/link'
 
 interface SurveyResponse {
   id: string
@@ -37,6 +40,11 @@ interface SurveyResponse {
   responded_at: string | null
   created_at: string
   synced_at: string | null
+  patient?: {
+    id: string
+    first_name: string
+    last_name: string
+  } | null
 }
 
 interface SurveyStats {
@@ -69,7 +77,7 @@ export default function SurveysPage() {
 
   const fetchSurveys = useCallback(async () => {
     try {
-      const res = await fetch('/api/surveys')
+      const res = await fetch('/api/surveys?limit=30')
       if (res.ok) {
         const data = await res.json()
         setSurveys(data.surveys || [])
@@ -276,10 +284,21 @@ export default function SurveysPage() {
                     <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
                       En attente
                     </Badge>
+                    {survey.patient && (
+                      <span className="text-sm font-medium">
+                        {survey.patient.first_name} {survey.patient.last_name}
+                      </span>
+                    )}
                     <span className="text-sm text-muted-foreground">
                       Envoyé le {new Date(survey.created_at).toLocaleDateString('fr-FR')}
                     </span>
                   </div>
+                  <Link href={`/consultations/${survey.consultation_id}`}>
+                    <Button variant="ghost" size="sm">
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      Consultation
+                    </Button>
+                  </Link>
                 </div>
               ))}
               {pendingSurveys.length > 10 && (
@@ -303,7 +322,7 @@ export default function SurveysPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {completedSurveys.map(survey => {
+              {completedSurveys.slice(0, 10).map(survey => {
                 const hasPainReduction = survey.pain_reduction === true || survey.pain_reduction === 1
                 const hasMobility = survey.better_mobility === true || survey.better_mobility === 1
 
@@ -319,6 +338,13 @@ export default function SurveysPage() {
                           {survey.overall_rating ? ratingEmojis[survey.overall_rating] : ''}
                         </div>
                         <div>
+                          {/* Patient identity */}
+                          {survey.patient && (
+                            <p className="font-semibold text-sm flex items-center gap-1">
+                              <User className="h-3.5 w-3.5 text-muted-foreground" />
+                              {survey.patient.first_name} {survey.patient.last_name}
+                            </p>
+                          )}
                           <p className="font-medium text-sm">
                             {survey.overall_rating ? ratingLabels[survey.overall_rating] : 'N/A'}
                             <span className="text-muted-foreground font-normal ml-1">
@@ -373,6 +399,14 @@ export default function SurveysPage() {
                             {hasMobility ? 'Mobilité améliorée' : 'Mobilité inchangée'}
                           </Badge>
                         )}
+
+                        {/* Consultation link button */}
+                        <Link href={`/consultations/${survey.consultation_id}`}>
+                          <Button variant="outline" size="sm">
+                            <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                            Consultation
+                          </Button>
+                        </Link>
                       </div>
                     </div>
 
@@ -387,6 +421,11 @@ export default function SurveysPage() {
                   </div>
                 )
               })}
+              {completedSurveys.length > 10 && (
+                <p className="text-sm text-muted-foreground text-center pt-2">
+                  Affichage des 10 dernières réponses sur {completedSurveys.length}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

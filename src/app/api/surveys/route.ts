@@ -31,10 +31,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const consultationId = searchParams.get('consultation_id')
     const patientId = searchParams.get('patient_id')
+    const limitParam = searchParams.get('limit')
+    const queryLimit = limitParam ? Math.min(parseInt(limitParam, 10), 200) : 100
 
     let query = db
       .from('survey_responses')
-      .select('*')
+      .select('*, patient:patients (id, first_name, last_name)')
       .eq('practitioner_id', practitioner.id)
       .order('created_at', { ascending: false })
 
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('patient_id', patientId)
     }
 
-    const { data: surveys, error } = await query.limit(100)
+    const { data: surveys, error } = await query.limit(queryLimit)
 
     if (error) {
       return NextResponse.json({ error: 'Erreur base de données' }, { status: 500 })

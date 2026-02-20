@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS patients (
   surgical_history TEXT,
   family_history TEXT,
   notes TEXT,
+  referred_by_patient_id TEXT REFERENCES patients(id),
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   archived_at TEXT
@@ -363,6 +364,12 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   }
   if (!practCols2.some((c) => c.name === 'average_consultation_price')) {
     db.exec('ALTER TABLE practitioners ADD COLUMN average_consultation_price REAL;')
+  }
+
+  // Add referred_by_patient_id to patients
+  const patientCols = db.pragma('table_info(patients)') as Array<{ name: string }>
+  if (!patientCols.some((c) => c.name === 'referred_by_patient_id')) {
+    db.exec('ALTER TABLE patients ADD COLUMN referred_by_patient_id TEXT REFERENCES patients(id);')
   }
 
   // Add new survey fields (eva_score, pain_reduction, better_mobility)

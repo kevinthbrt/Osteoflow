@@ -29,9 +29,16 @@ import {
   Filter,
   RefreshCw,
   Download,
+  UserPlus,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
+
+interface ReferralStat {
+  referrer_id: string
+  referrer_name: string
+  count: number
+}
 
 interface PatientStats {
   total: number
@@ -81,6 +88,7 @@ export default function StatisticsPage() {
   const [patientStats, setPatientStats] = useState<PatientStats | null>(null)
   const [consultationStats, setConsultationStats] = useState<ConsultationStats | null>(null)
   const [revenueStats, setRevenueStats] = useState<RevenueStats | null>(null)
+  const [referralStats, setReferralStats] = useState<ReferralStat[]>([])
 
   // Filters
   const currentYear = new Date().getFullYear()
@@ -198,6 +206,44 @@ export default function StatisticsPage() {
           by_gender: byGender,
           by_age_group: Object.entries(ageGroupCounts).map(([age_group, count]) => ({ age_group, count })),
         })
+      }
+
+      // Fetch referral stats
+      const { data: referredPatients } = await db
+        .from('patients')
+        .select('id, referred_by_patient_id')
+        .is('archived_at', null)
+        .isNot('referred_by_patient_id', null)
+
+      if (referredPatients && referredPatients.length > 0) {
+        // Count referrals per referrer
+        const referrerCounts: Record<string, number> = {}
+        referredPatients.forEach((p: { referred_by_patient_id: string }) => {
+          if (p.referred_by_patient_id) {
+            referrerCounts[p.referred_by_patient_id] = (referrerCounts[p.referred_by_patient_id] || 0) + 1
+          }
+        })
+
+        // Fetch referrer names
+        const referrerIds = Object.keys(referrerCounts)
+        if (referrerIds.length > 0) {
+          const { data: referrers } = await db
+            .from('patients')
+            .select('id, first_name, last_name')
+            .in('id', referrerIds)
+
+          const referralData: ReferralStat[] = (referrers || [])
+            .map((r: { id: string; first_name: string; last_name: string }) => ({
+              referrer_id: r.id,
+              referrer_name: `${r.first_name} ${r.last_name}`,
+              count: referrerCounts[r.id] || 0,
+            }))
+            .sort((a: ReferralStat, b: ReferralStat) => b.count - a.count)
+
+          setReferralStats(referralData)
+        }
+      } else {
+        setReferralStats([])
       }
 
       // Process consultation stats
@@ -567,6 +613,46 @@ export default function StatisticsPage() {
                         )
                       })}
                     </div>
+                  </CardContent>
+                </Card>
+                {/* Referral stats */}
+                <Card className="md:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <UserPlus className="h-5 w-5 text-primary" />
+                      Patients envoyés par (recommandations)
+                    </CardTitle>
+                    <CardDescription>
+                      Quels patients vous envoient du monde
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {referralStats.length > 0 ? (
+                      <div className="space-y-3">
+                        {referralStats.map((stat, index) => {
+                          const maxCount = referralStats[0]?.count || 1
+                          return (
+                            <div key={stat.referrer_id} className="flex items-center gap-3">
+                              <Badge variant="outline" className="w-6 h-6 flex items-center justify-center p-0 shrink-0">
+                                {index + 1}
+                              </Badge>
+                              <span className="flex-1 text-sm font-medium">{stat.referrer_name}</span>
+                              <div className="w-32 h-5 bg-muted rounded overflow-hidden">
+                                <div
+                                  className="h-full bg-primary/80 rounded"
+                                  style={{ width: `${(stat.count / maxCount) * 100}%` }}
+                                />
+                              </div>
+                              <Badge variant="secondary">{stat.count} patient{stat.count > 1 ? 's' : ''}</Badge>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Aucune recommandation enregistrée. Utilisez le champ &laquo; Envoyé par &raquo; lors de la création de patients.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               </div>

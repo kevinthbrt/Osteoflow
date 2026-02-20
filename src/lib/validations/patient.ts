@@ -57,6 +57,11 @@ export const patientSchema = z.object({
     .max(5000, 'Les notes ne peuvent pas dépasser 5000 caractères')
     .optional()
     .or(z.literal('')),
+  referred_by_patient_id: z
+    .string()
+    .optional()
+    .or(z.literal(''))
+    .transform((val) => val || undefined),
 })
 
 export type PatientFormData = z.infer<typeof patientSchema>

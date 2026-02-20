@@ -157,6 +157,7 @@ export interface Database {
           surgical_history: string | null
           family_history: string | null
           notes: string | null
+          referred_by_patient_id: string | null
           created_at: string
           updated_at: string
           archived_at: string | null
@@ -178,6 +179,7 @@ export interface Database {
           surgical_history?: string | null
           family_history?: string | null
           notes?: string | null
+          referred_by_patient_id?: string | null
           created_at?: string
           updated_at?: string
           archived_at?: string | null
@@ -199,6 +201,7 @@ export interface Database {
           surgical_history?: string | null
           family_history?: string | null
           notes?: string | null
+          referred_by_patient_id?: string | null
           created_at?: string
           updated_at?: string
           archived_at?: string | null
