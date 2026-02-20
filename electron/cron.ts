@@ -14,9 +14,11 @@ import http from 'http'
 
 let followUpInterval: NodeJS.Timeout | null = null
 let inboxInterval: NodeJS.Timeout | null = null
+let surveySyncInterval: NodeJS.Timeout | null = null
 
 const FOLLOW_UP_INTERVAL = 15 * 60 * 1000  // 15 minutes
 const INBOX_INTERVAL = 5 * 60 * 1000       // 5 minutes
+const SURVEY_SYNC_INTERVAL = 10 * 60 * 1000 // 10 minutes
 
 /**
  * Make a local HTTP request using Node's http module.
@@ -80,7 +82,14 @@ export function startCronJobs(port: number): void {
     inboxInterval = setInterval(() => runInboxSync(port), INBOX_INTERVAL)
   }, 20_000)
 
-  console.log(`[Cron] Follow-up: every ${FOLLOW_UP_INTERVAL / 60000}min | Inbox: every ${INBOX_INTERVAL / 60000}min`)
+  // Survey response sync
+  // First run after 30 seconds, then every 10 minutes
+  setTimeout(() => {
+    runSurveySync(port)
+    surveySyncInterval = setInterval(() => runSurveySync(port), SURVEY_SYNC_INTERVAL)
+  }, 30_000)
+
+  console.log(`[Cron] Follow-up: every ${FOLLOW_UP_INTERVAL / 60000}min | Inbox: every ${INBOX_INTERVAL / 60000}min | Survey sync: every ${SURVEY_SYNC_INTERVAL / 60000}min`)
 }
 
 /**
@@ -94,6 +103,10 @@ export function stopCronJobs(): void {
   if (inboxInterval) {
     clearInterval(inboxInterval)
     inboxInterval = null
+  }
+  if (surveySyncInterval) {
+    clearInterval(surveySyncInterval)
+    surveySyncInterval = null
   }
   console.log('[Cron] Background tasks stopped')
 }
@@ -153,5 +166,33 @@ async function runInboxSync(port: number): Promise<void> {
     }
   } catch (error) {
     console.error('[Cron] Inbox sync error:', error instanceof Error ? error.message : error)
+  }
+}
+
+/**
+ * Execute the survey response sync job.
+ * Fetches completed survey responses from the Cloudflare Worker.
+ */
+async function runSurveySync(port: number): Promise<void> {
+  try {
+    const { status, body } = await localRequest(port, 'POST', '/api/surveys/sync', {
+      'Authorization': 'Bearer local-desktop-cron',
+    })
+
+    if (status >= 400) {
+      console.error(`[Cron] Survey sync failed (HTTP ${status}):`, body)
+      return
+    }
+
+    try {
+      const data = JSON.parse(body)
+      if (data.synced && data.synced > 0) {
+        console.log(`[Cron] Synced ${data.synced} survey response(s)`)
+      }
+    } catch {
+      // silent
+    }
+  } catch (error) {
+    console.error('[Cron] Survey sync error:', error instanceof Error ? error.message : error)
   }
 }

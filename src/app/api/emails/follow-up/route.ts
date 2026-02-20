@@ -8,6 +8,8 @@ export async function POST(request: NextRequest) {
     const { defaultEmailTemplates, replaceTemplateVariables, createFollowUpHtmlEmail } = await import('@/lib/email/templates')
     const { sendEmail } = await import('@/lib/email/smtp-service')
     const { formatDate } = await import('@/lib/utils')
+    const { generateSurveyToken, getSurveyUrl } = await import('@/lib/survey/config')
+    const { registerSurvey } = await import('@/lib/survey/service')
     const getResend = () => new Resend(process.env.RESEND_API_KEY)
     // Verify cron secret or admin auth
     const authHeader = request.headers.get('authorization')
@@ -172,6 +174,41 @@ export async function POST(request: NextRequest) {
         const bodyText = replaceTemplateVariables(template.body, variables)
 
         const practitionerName = `${practitioner.first_name} ${practitioner.last_name}`
+
+        // Register survey on the Cloudflare Worker
+        let surveyUrl: string | null = null
+        const surveyToken = generateSurveyToken()
+        try {
+          const regResult = await registerSurvey({
+            token: surveyToken,
+            practitioner_name: practitionerName,
+            practice_name: practitioner.practice_name || practitionerName,
+            patient_first_name: patient.first_name,
+            primary_color: practitioner.primary_color || '#2563eb',
+            specialty: practitioner.specialty || undefined,
+            consultation_id: consultation.id,
+          })
+
+          if (regResult.success) {
+            surveyUrl = getSurveyUrl(surveyToken)
+
+            // Store survey token locally
+            await db.from('survey_responses').insert({
+              consultation_id: consultation.id,
+              patient_id: patient.id,
+              practitioner_id: practitioner.id,
+              token: surveyToken,
+              status: 'pending',
+            })
+
+            console.log(`[FollowUp] Survey registered: ${surveyToken}`)
+          } else {
+            console.warn(`[FollowUp] Survey registration failed: ${regResult.error}`)
+          }
+        } catch (error) {
+          console.warn('[FollowUp] Survey registration error (email will still be sent):', error)
+        }
+
         const htmlContent = createFollowUpHtmlEmail({
           bodyText,
           practitionerName,
@@ -179,6 +216,7 @@ export async function POST(request: NextRequest) {
           specialty: practitioner.specialty,
           primaryColor: practitioner.primary_color || '#2563eb',
           googleReviewUrl: practitioner.google_review_url,
+          surveyUrl,
         })
 
         console.log(`[FollowUp] Sending email to ${patient.email} for task ${task.id}`)
@@ -281,6 +319,8 @@ export async function PUT(request: NextRequest) {
     const { defaultEmailTemplates, replaceTemplateVariables, createFollowUpHtmlEmail } = await import('@/lib/email/templates')
     const { sendEmail } = await import('@/lib/email/smtp-service')
     const { formatDate } = await import('@/lib/utils')
+    const { generateSurveyToken, getSurveyUrl } = await import('@/lib/survey/config')
+    const { registerSurvey } = await import('@/lib/survey/service')
     const getResend = () => new Resend(process.env.RESEND_API_KEY)
 
     const { consultationId } = await request.json()
@@ -366,6 +406,40 @@ export async function PUT(request: NextRequest) {
     const bodyText = replaceTemplateVariables(template.body, variables)
 
     const practitionerFullName = `${practitioner.first_name} ${practitioner.last_name}`
+
+    // Register survey on the Cloudflare Worker
+    let surveyUrl: string | null = null
+    const surveyToken = generateSurveyToken()
+    try {
+      const regResult = await registerSurvey({
+        token: surveyToken,
+        practitioner_name: practitionerFullName,
+        practice_name: practitioner.practice_name || practitionerFullName,
+        patient_first_name: patient.first_name,
+        primary_color: practitioner.primary_color || '#2563eb',
+        specialty: practitioner.specialty || undefined,
+        consultation_id: consultation.id,
+      })
+
+      if (regResult.success) {
+        surveyUrl = getSurveyUrl(surveyToken)
+
+        await db.from('survey_responses').insert({
+          consultation_id: consultation.id,
+          patient_id: patient.id,
+          practitioner_id: practitioner.id,
+          token: surveyToken,
+          status: 'pending',
+        })
+
+        console.log(`[FollowUp] Survey registered: ${surveyToken}`)
+      } else {
+        console.warn(`[FollowUp] Survey registration failed: ${regResult.error}`)
+      }
+    } catch (error) {
+      console.warn('[FollowUp] Survey registration error (email will still be sent):', error)
+    }
+
     const htmlContent = createFollowUpHtmlEmail({
       bodyText,
       practitionerName: practitionerFullName,
@@ -373,6 +447,7 @@ export async function PUT(request: NextRequest) {
       specialty: practitioner.specialty,
       primaryColor: practitioner.primary_color || '#2563eb',
       googleReviewUrl: practitioner.google_review_url,
+      surveyUrl,
     })
 
     // Try SMTP first (desktop mode), then fallback to Resend

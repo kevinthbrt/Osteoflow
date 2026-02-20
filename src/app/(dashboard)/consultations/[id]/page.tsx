@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Edit, User, FileText, Clock, CheckCircle, AlertCircle, Paperclip, Image as ImageIcon } from 'lucide-react'
+import { ArrowLeft, Edit, User, FileText, Clock, CheckCircle, AlertCircle, Paperclip, Image as ImageIcon, ClipboardList, Gauge, TrendingDown, Activity } from 'lucide-react'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels } from '@/lib/validations/invoice'
 import { ConsultationPaymentEditor } from '@/components/consultations/consultation-payment-editor'
@@ -44,6 +44,18 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
     .select('*')
     .eq('consultation_id', id)
     .order('created_at')
+
+  // Fetch survey response for this consultation
+  const { data: surveyResponses } = await db
+    .from('survey_responses')
+    .select('*')
+    .eq('consultation_id', id)
+    .limit(1)
+
+  const survey = surveyResponses?.[0] || null
+
+  const ratingEmojis = ['', '\u{1F622}', '\u{1F615}', '\u{1F610}', '\u{1F642}', '\u{1F601}']
+  const ratingLabels = ['', 'Tr\u00e8s mal', 'Mal', 'Moyen', 'Bien', 'Tr\u00e8s bien']
 
   return (
     <div className="space-y-6">
@@ -236,6 +248,118 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
               )}
             </CardContent>
           </Card>
+
+          {/* Survey Response */}
+          {survey && survey.status === 'completed' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5" />
+                  R{'\u00e9'}ponse questionnaire J+7
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Overall rating */}
+                {survey.overall_rating && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">{'\u00c9'}tat g{'\u00e9'}n{'\u00e9'}ral</span>
+                    <span className="font-medium">
+                      {ratingEmojis[survey.overall_rating]} {ratingLabels[survey.overall_rating]} ({survey.overall_rating}/5)
+                    </span>
+                  </div>
+                )}
+
+                {/* EVA Score */}
+                {survey.eva_score !== null && survey.eva_score !== undefined && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Gauge className="h-3.5 w-3.5" /> EVA douleur
+                    </span>
+                    <span className="font-medium">{survey.eva_score}/10</span>
+                  </div>
+                )}
+
+                {/* Pain reduction */}
+                {survey.pain_reduction !== null && survey.pain_reduction !== undefined && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground flex items-center gap-1">
+                      <TrendingDown className="h-3.5 w-3.5" /> Diminution douleur
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={
+                        (survey.pain_reduction === true || survey.pain_reduction === 1)
+                          ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+                          : 'text-red-600 bg-red-50 border-red-200'
+                      }
+                    >
+                      {(survey.pain_reduction === true || survey.pain_reduction === 1) ? 'Oui' : 'Non'}
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Better mobility */}
+                {survey.better_mobility !== null && survey.better_mobility !== undefined && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Activity className="h-3.5 w-3.5" /> Meilleure mobilit{'\u00e9'}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={
+                        (survey.better_mobility === true || survey.better_mobility === 1)
+                          ? 'text-violet-600 bg-violet-50 border-violet-200'
+                          : 'text-amber-600 bg-amber-50 border-amber-200'
+                      }
+                    >
+                      {(survey.better_mobility === true || survey.better_mobility === 1) ? 'Oui' : 'Non'}
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Comment */}
+                {survey.comment && (
+                  <>
+                    <Separator />
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-sm text-muted-foreground italic">
+                        &laquo; {survey.comment} &raquo;
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {/* Response date */}
+                {survey.responded_at && (
+                  <p className="text-xs text-muted-foreground">
+                    R{'\u00e9'}pondu le {new Date(survey.responded_at).toLocaleDateString('fr-FR', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Survey pending */}
+          {survey && survey.status === 'pending' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5" />
+                  Questionnaire J+7
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-amber-500" />
+                  <p className="text-sm text-muted-foreground">En attente de r{'\u00e9'}ponse du patient</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Invoice */}
           {invoice && (

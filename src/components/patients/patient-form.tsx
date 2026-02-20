@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -28,7 +28,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Loader2, Plus, Pencil, Trash2, Search, X } from 'lucide-react'
 import type { MedicalHistoryType, OnsetDurationUnit, Patient } from '@/types/database'
 
 interface PatientFormProps {
@@ -42,6 +42,12 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false)
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
   const [historyFormData, setHistoryFormData] = useState<HistoryFormData>(initialHistoryFormData)
+  const [referralSearch, setReferralSearch] = useState('')
+  const [referralResults, setReferralResults] = useState<Array<{ id: string; first_name: string; last_name: string }>>([])
+  const [selectedReferrer, setSelectedReferrer] = useState<{ id: string; first_name: string; last_name: string } | null>(null)
+  const [showReferralDropdown, setShowReferralDropdown] = useState(false)
+  const referralInputRef = useRef<HTMLInputElement>(null)
+  const referralDropdownRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const { toast } = useToast()
   const db = createClient()
@@ -65,10 +71,86 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
       sport_activity: patient?.sport_activity || '',
       primary_physician: patient?.primary_physician || '',
       notes: patient?.notes || '',
+      referred_by_patient_id: patient?.referred_by_patient_id || '',
     },
   })
 
   const gender = watch('gender')
+
+  // Load existing referrer on edit mode
+  useEffect(() => {
+    if (patient?.referred_by_patient_id) {
+      const loadReferrer = async () => {
+        const { data } = await db
+          .from('patients')
+          .select('id, first_name, last_name')
+          .eq('id', patient.referred_by_patient_id)
+          .single()
+        if (data) {
+          setSelectedReferrer(data)
+        }
+      }
+      loadReferrer()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const searchReferralPatients = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setReferralResults([])
+      return
+    }
+
+    const { data } = await db
+      .from('patients')
+      .select('id, first_name, last_name')
+      .is('archived_at', null)
+      .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
+      .limit(8)
+
+    setReferralResults(data || [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const handleReferralSearchChange = (value: string) => {
+    setReferralSearch(value)
+    setShowReferralDropdown(true)
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+    searchTimeoutRef.current = setTimeout(() => {
+      searchReferralPatients(value)
+    }, 300)
+  }
+
+  const selectReferrer = (patient: { id: string; first_name: string; last_name: string }) => {
+    setSelectedReferrer(patient)
+    setValue('referred_by_patient_id', patient.id)
+    setReferralSearch('')
+    setShowReferralDropdown(false)
+    setReferralResults([])
+  }
+
+  const clearReferrer = () => {
+    setSelectedReferrer(null)
+    setValue('referred_by_patient_id', '')
+    setReferralSearch('')
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        referralDropdownRef.current &&
+        !referralDropdownRef.current.contains(e.target as Node) &&
+        referralInputRef.current &&
+        !referralInputRef.current.contains(e.target as Node)
+      ) {
+        setShowReferralDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const groupedDraftEntries = useMemo(() => {
     const grouped = draftEntries.reduce((acc, entry) => {
@@ -188,6 +270,7 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
         sport_activity: data.sport_activity || null,
         primary_physician: data.primary_physician || null,
         notes: data.notes || null,
+        referred_by_patient_id: data.referred_by_patient_id || null,
       }
 
       if (mode === 'create') {
@@ -397,6 +480,57 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
             />
             {errors.primary_physician && (
               <p className="text-sm text-destructive">{errors.primary_physician.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Envoyé par</Label>
+            {selectedReferrer ? (
+              <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
+                <span className="flex-1 text-sm font-medium">
+                  {selectedReferrer.first_name} {selectedReferrer.last_name}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={clearReferrer}
+                  disabled={isLoading}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  ref={referralInputRef}
+                  value={referralSearch}
+                  onChange={(e) => handleReferralSearchChange(e.target.value)}
+                  onFocus={() => referralSearch.length >= 2 && setShowReferralDropdown(true)}
+                  disabled={isLoading}
+                  placeholder="Rechercher un patient..."
+                  className="pl-8"
+                />
+                {showReferralDropdown && referralResults.length > 0 && (
+                  <div
+                    ref={referralDropdownRef}
+                    className="absolute z-50 mt-1 w-full bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto"
+                  >
+                    {referralResults.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                        onClick={() => selectReferrer(p)}
+                      >
+                        {p.first_name} {p.last_name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </CardContent>

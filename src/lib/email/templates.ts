@@ -16,7 +16,9 @@ Cordialement,
     subject: 'Comment allez-vous ? - {{practice_name}}',
     body: `Bonjour {{patient_first_name}},
 
-Votre séance du {{consultation_date}} remonte à quelques jours maintenant. Comment vous sentez-vous ?
+Votre séance du {{consultation_date}} remonte à quelques jours maintenant.
+
+Afin de me dire comment vous vous sentez aujourd'hui, vous pouvez remplir ce court questionnaire qui ne vous prendra que quelques secondes.
 
 Si vous avez des questions ou la moindre préoccupation, n'hésitez surtout pas à me contacter. Je reste à votre entière disposition.
 
@@ -130,6 +132,7 @@ export function createFollowUpHtmlEmail({
   specialty,
   primaryColor = '#2563eb',
   googleReviewUrl,
+  surveyUrl,
 }: {
   bodyText: string
   practitionerName: string
@@ -137,6 +140,7 @@ export function createFollowUpHtmlEmail({
   specialty?: string | null
   primaryColor?: string
   googleReviewUrl?: string | null
+  surveyUrl?: string | null
 }): string {
   const bodyHtml = textToHtml(bodyText)
   const reviewSection = googleReviewUrl
@@ -180,6 +184,18 @@ export function createFollowUpHtmlEmail({
               <div style="font-size: 15px; line-height: 1.7; color: #334155;">
                 ${bodyHtml}
               </div>
+
+              ${surveyUrl ? `
+              <!-- Survey CTA - right under "Comment vous sentez-vous" -->
+              <div style="margin-top: 20px; text-align: center;">
+                <a href="${surveyUrl}" style="display: inline-block; padding: 14px 32px; background-color: ${primaryColor}; color: #ffffff; text-decoration: none; border-radius: 999px; font-weight: 600; font-size: 15px;">
+                  Répondre au questionnaire
+                </a>
+                <p style="margin: 12px 0 0 0; font-size: 13px; color: #94a3b8;">
+                  Cela ne prend que 30 secondes
+                </p>
+              </div>
+              ` : ''}
 
               <!-- Info box -->
               <div style="margin-top: 24px; padding: 16px 20px; border-radius: 12px; background-color: #eff6ff; border-left: 4px solid ${primaryColor};">

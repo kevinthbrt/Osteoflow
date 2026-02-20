@@ -12,6 +12,8 @@ export type PaymentMethod = 'card' | 'cash' | 'check' | 'transfer' | 'other'
 export type EmailTemplateType = 'invoice' | 'follow_up_7d'
 export type TaskStatus = 'pending' | 'completed' | 'failed' | 'cancelled'
 export type TaskType = 'follow_up_email'
+export type SurveyStatus = 'pending' | 'completed' | 'expired'
+export type PainEvolution = 'better' | 'same' | 'worse'
 export type AuditAction = 'INSERT' | 'UPDATE' | 'DELETE'
 export type MedicalHistoryType = 'traumatic' | 'medical' | 'surgical' | 'family'
 export type OnsetDurationUnit = 'days' | 'weeks' | 'months' | 'years'
@@ -155,6 +157,7 @@ export interface Database {
           surgical_history: string | null
           family_history: string | null
           notes: string | null
+          referred_by_patient_id: string | null
           created_at: string
           updated_at: string
           archived_at: string | null
@@ -176,6 +179,7 @@ export interface Database {
           surgical_history?: string | null
           family_history?: string | null
           notes?: string | null
+          referred_by_patient_id?: string | null
           created_at?: string
           updated_at?: string
           archived_at?: string | null
@@ -197,6 +201,7 @@ export interface Database {
           surgical_history?: string | null
           family_history?: string | null
           notes?: string | null
+          referred_by_patient_id?: string | null
           created_at?: string
           updated_at?: string
           archived_at?: string | null
@@ -552,6 +557,53 @@ export interface Database {
           created_at?: string
         }
       }
+      survey_responses: {
+        Row: {
+          id: string
+          consultation_id: string
+          patient_id: string
+          practitioner_id: string
+          token: string
+          status: SurveyStatus
+          overall_rating: number | null
+          pain_evolution: PainEvolution | null
+          comment: string | null
+          would_recommend: boolean | null
+          responded_at: string | null
+          created_at: string
+          synced_at: string | null
+        }
+        Insert: {
+          id?: string
+          consultation_id: string
+          patient_id: string
+          practitioner_id: string
+          token: string
+          status?: SurveyStatus
+          overall_rating?: number | null
+          pain_evolution?: PainEvolution | null
+          comment?: string | null
+          would_recommend?: boolean | null
+          responded_at?: string | null
+          created_at?: string
+          synced_at?: string | null
+        }
+        Update: {
+          id?: string
+          consultation_id?: string
+          patient_id?: string
+          practitioner_id?: string
+          token?: string
+          status?: SurveyStatus
+          overall_rating?: number | null
+          pain_evolution?: PainEvolution | null
+          comment?: string | null
+          would_recommend?: boolean | null
+          responded_at?: string | null
+          created_at?: string
+          synced_at?: string | null
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -571,6 +623,8 @@ export interface Database {
       audit_action: AuditAction
       medical_history_type: MedicalHistoryType
       onset_duration_unit: OnsetDurationUnit
+      survey_status: SurveyStatus
+      pain_evolution: PainEvolution
     }
   }
 }
@@ -594,6 +648,7 @@ export type SavedReport = Tables<'saved_reports'>
 export type MedicalHistoryEntry = Tables<'medical_history_entries'>
 export type ConsultationAttachment = Tables<'consultation_attachments'>
 export type ManualRevenueEntry = Tables<'manual_revenue_entries'>
+export type SurveyResponse = Tables<'survey_responses'>
 
 // Extended types with relations
 export interface PatientWithConsultations extends Patient {

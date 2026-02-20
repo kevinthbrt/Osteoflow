@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS patients (
   surgical_history TEXT,
   family_history TEXT,
   notes TEXT,
+  referred_by_patient_id TEXT REFERENCES patients(id),
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   archived_at TEXT
@@ -277,6 +278,31 @@ CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status ON scheduled_tasks(status,
 CREATE INDEX IF NOT EXISTS idx_medical_history_patient ON medical_history_entries(patient_id);
 CREATE INDEX IF NOT EXISTS idx_consultation_attachments_consultation ON consultation_attachments(consultation_id);
 
+-- Survey responses (J+7 patient satisfaction surveys)
+CREATE TABLE IF NOT EXISTS survey_responses (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  consultation_id TEXT NOT NULL REFERENCES consultations(id),
+  patient_id TEXT NOT NULL REFERENCES patients(id),
+  practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+  token TEXT NOT NULL UNIQUE,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'expired')),
+  overall_rating INTEGER CHECK (overall_rating BETWEEN 1 AND 5),
+  eva_score INTEGER CHECK (eva_score BETWEEN 0 AND 10),
+  pain_reduction INTEGER,
+  better_mobility INTEGER,
+  pain_evolution TEXT CHECK (pain_evolution IN ('better', 'same', 'worse')),
+  comment TEXT,
+  would_recommend INTEGER,
+  responded_at TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  synced_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_survey_responses_token ON survey_responses(token);
+CREATE INDEX IF NOT EXISTS idx_survey_responses_consultation ON survey_responses(consultation_id);
+CREATE INDEX IF NOT EXISTS idx_survey_responses_practitioner ON survey_responses(practitioner_id);
+CREATE INDEX IF NOT EXISTS idx_survey_responses_status ON survey_responses(status);
+
 -- App config table (for storing current practitioner, etc.)
 CREATE TABLE IF NOT EXISTS app_config (
   key TEXT PRIMARY KEY,
@@ -340,6 +366,24 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     db.exec('ALTER TABLE practitioners ADD COLUMN average_consultation_price REAL;')
   }
 
+  // Add referred_by_patient_id to patients
+  const patientCols = db.pragma('table_info(patients)') as Array<{ name: string }>
+  if (!patientCols.some((c) => c.name === 'referred_by_patient_id')) {
+    db.exec('ALTER TABLE patients ADD COLUMN referred_by_patient_id TEXT REFERENCES patients(id);')
+  }
+
+  // Add new survey fields (eva_score, pain_reduction, better_mobility)
+  const surveyCols = db.pragma('table_info(survey_responses)') as Array<{ name: string }>
+  if (!surveyCols.some((c) => c.name === 'eva_score')) {
+    db.exec('ALTER TABLE survey_responses ADD COLUMN eva_score INTEGER CHECK (eva_score BETWEEN 0 AND 10);')
+  }
+  if (!surveyCols.some((c) => c.name === 'pain_reduction')) {
+    db.exec('ALTER TABLE survey_responses ADD COLUMN pain_reduction INTEGER;')
+  }
+  if (!surveyCols.some((c) => c.name === 'better_mobility')) {
+    db.exec('ALTER TABLE survey_responses ADD COLUMN better_mobility INTEGER;')
+  }
+
   // Create manual_revenue_entries table if not exists (already in SCHEMA_SQL for new installs)
   db.exec(`
     CREATE TABLE IF NOT EXISTS manual_revenue_entries (
@@ -365,6 +409,7 @@ export const BOOLEAN_FIELDS: Record<string, string[]> = {
   conversations: ['is_archived'],
   email_settings: ['smtp_secure', 'imap_secure', 'sync_enabled', 'is_verified'],
   medical_history_entries: ['is_vigilance'],
+  survey_responses: ['would_recommend'],
 }
 
 /**

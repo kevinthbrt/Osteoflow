@@ -158,6 +158,11 @@ function findForeignKey(
     audit_logs: {
       practitioners: { column: 'practitioner_id', ref: 'id', dir: 'parent' },
     },
+    survey_responses: {
+      consultations: { column: 'consultation_id', ref: 'id', dir: 'parent' },
+      patients: { column: 'patient_id', ref: 'id', dir: 'parent' },
+      practitioners: { column: 'practitioner_id', ref: 'id', dir: 'parent' },
+    },
   }
 
   // Check parent -> child (e.g., invoices.consultation_id -> consultations.id)

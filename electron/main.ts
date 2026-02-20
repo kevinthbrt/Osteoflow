@@ -46,7 +46,7 @@ import { startCronJobs, stopCronJobs } from './cron'
 let nextServer: any = null
 let mainWindow: BrowserWindow | null = null
 const PORT = 3456
-const isDev = process.env.NODE_ENV === 'development'
+const isDev = !app.isPackaged
 
 /**
  * Start the Next.js server programmatically.
@@ -54,18 +54,14 @@ const isDev = process.env.NODE_ENV === 'development'
 async function startNextServer(): Promise<void> {
   const http = await import('http')
 
+  // In dev mode (launched via concurrently), the Next.js dev server is already
+  // running on the port. Just skip server startup entirely.
   if (isDev) {
-    // Development: use the full next() API for hot reload
-    const { default: next } = await import('next')
-    const nextApp = next({
-      dev: true,
-      dir: path.join(__dirname, '..'),
-      port: PORT,
-    })
-    await nextApp.prepare()
-    const handle = nextApp.getRequestHandler()
-    nextServer = http.createServer((req: any, res: any) => handle(req, res))
-  } else {
+    console.log('[Electron] Dev mode — using existing dev server on port', PORT)
+    return
+  }
+
+  {
     // Production: use NextServer directly (avoids spawning npm/npx)
     const appDir = path.join(__dirname, '..')
 
@@ -325,15 +321,21 @@ app.whenReady().then(async () => {
 
   try {
     await startNextServer()
-    loadApp() // Navigate from splash to the real app
-    startCronJobs(PORT)
-    setupAutoUpdater()
-
-    console.log('[Electron] Osteoflow ready!')
-  } catch (error) {
-    console.error('[Electron] Failed to start:', error)
-    app.quit()
+  } catch (error: any) {
+    if (isDev && error?.code === 'EADDRINUSE') {
+      console.log('[Electron] Port', PORT, 'already in use — connecting to existing dev server')
+    } else {
+      console.error('[Electron] Failed to start:', error)
+      app.quit()
+      return
+    }
   }
+
+  loadApp() // Navigate from splash to the real app
+  startCronJobs(PORT)
+  setupAutoUpdater()
+
+  console.log('[Electron] Osteoflow ready!')
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
