@@ -18,7 +18,7 @@ Cordialement,
 
 Votre séance du {{consultation_date}} remonte à quelques jours maintenant.
 
-Comment vous sentez-vous aujourd'hui ?
+Afin de me dire comment vous vous sentez aujourd'hui, vous pouvez remplir ce court questionnaire qui ne vous prendra que quelques secondes.
 
 Si vous avez des questions ou la moindre préoccupation, n'hésitez surtout pas à me contacter. Je reste à votre entière disposition.
 
@@ -189,7 +189,7 @@ export function createFollowUpHtmlEmail({
               <!-- Survey CTA - right under "Comment vous sentez-vous" -->
               <div style="margin-top: 20px; text-align: center;">
                 <a href="${surveyUrl}" style="display: inline-block; padding: 14px 32px; background-color: ${primaryColor}; color: #ffffff; text-decoration: none; border-radius: 999px; font-weight: 600; font-size: 15px;">
-                  R\u00e9pondre au questionnaire
+                  Répondre au questionnaire
                 </a>
                 <p style="margin: 12px 0 0 0; font-size: 13px; color: #94a3b8;">
                   Cela ne prend que 30 secondes

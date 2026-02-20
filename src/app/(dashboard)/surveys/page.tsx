@@ -54,11 +54,11 @@ interface SurveyStats {
 }
 
 const ratingEmojis = ['', '\u{1F622}', '\u{1F615}', '\u{1F610}', '\u{1F642}', '\u{1F601}']
-const ratingLabels = ['', 'Tr\u00e8s mal', 'Mal', 'Moyen', 'Bien', 'Tr\u00e8s bien']
+const ratingLabels = ['', 'Très mal', 'Mal', 'Moyen', 'Bien', 'Très bien']
 const painLabels: Record<string, { label: string; color: string; icon: typeof TrendingUp }> = {
-  better: { label: 'Am\u00e9lioration', color: 'text-emerald-600 bg-emerald-50', icon: TrendingUp },
+  better: { label: 'Amélioration', color: 'text-emerald-600 bg-emerald-50', icon: TrendingUp },
   same: { label: 'Pas de changement', color: 'text-amber-600 bg-amber-50', icon: Minus },
-  worse: { label: 'D\u00e9t\u00e9rioration', color: 'text-red-600 bg-red-50', icon: TrendingDown },
+  worse: { label: 'Détérioration', color: 'text-red-600 bg-red-50', icon: TrendingDown },
 }
 
 export default function SurveysPage() {
@@ -123,7 +123,7 @@ export default function SurveysPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Sondages J+7</h1>
           <p className="text-muted-foreground">
-            Retours de vos patients 7 jours apr\u00e8s leur consultation
+            Retours de vos patients 7 jours après leur consultation
           </p>
         </div>
         <Button
@@ -144,10 +144,10 @@ export default function SurveysPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">R\u00e9ponses</p>
+                  <p className="text-sm font-medium text-muted-foreground">Réponses</p>
                   <p className="text-3xl font-bold">{stats.completed}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    sur {stats.total} envoy\u00e9(s)
+                    sur {stats.total} envoyé(s)
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center">
@@ -166,7 +166,7 @@ export default function SurveysPage() {
                     {stats.avg_rating ? `${stats.avg_rating}/5` : '-'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {stats.avg_rating ? ratingEmojis[Math.round(stats.avg_rating)] : 'Pas encore de donn\u00e9es'}
+                    {stats.avg_rating ? ratingEmojis[Math.round(stats.avg_rating)] : 'Pas encore de données'}
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center">
@@ -185,7 +185,7 @@ export default function SurveysPage() {
                     {stats.avg_eva !== null ? `${stats.avg_eva}/10` : '-'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {'\u00c9'}chelle de douleur
+                    Échelle de douleur
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center">
@@ -220,7 +220,7 @@ export default function SurveysPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Meilleure mobilit{'\u00e9'}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Meilleure mobilité</p>
                   <p className="text-3xl font-bold">
                     {stats.completed > 0
                       ? `${Math.round((stats.better_mobility / stats.completed) * 100)}%`
@@ -246,8 +246,8 @@ export default function SurveysPage() {
             <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
             <h3 className="text-lg font-semibold mb-2">Aucun sondage pour le moment</h3>
             <p className="text-muted-foreground max-w-md mx-auto">
-              Les sondages sont envoy\u00e9s automatiquement avec les emails de suivi J+7.
-              Activez le suivi J+7 lors de vos consultations pour commencer \u00e0 recevoir des retours.
+              Les sondages sont envoyés automatiquement avec les emails de suivi J+7.
+              Activez le suivi J+7 lors de vos consultations pour commencer à recevoir des retours.
             </p>
           </CardContent>
         </Card>
@@ -259,10 +259,10 @@ export default function SurveysPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Clock className="h-4 w-4 text-amber-500" />
-              En attente de r\u00e9ponse ({pendingSurveys.length})
+              En attente de réponse ({pendingSurveys.length})
             </CardTitle>
             <CardDescription>
-              Sondages envoy\u00e9s mais pas encore remplis par les patients
+              Sondages envoyés mais pas encore remplis par les patients
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -277,7 +277,7 @@ export default function SurveysPage() {
                       En attente
                     </Badge>
                     <span className="text-sm text-muted-foreground">
-                      Envoy\u00e9 le {new Date(survey.created_at).toLocaleDateString('fr-FR')}
+                      Envoyé le {new Date(survey.created_at).toLocaleDateString('fr-FR')}
                     </span>
                   </div>
                 </div>
@@ -298,7 +298,7 @@ export default function SurveysPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-blue-500" />
-              R\u00e9ponses re\u00e7ues ({completedSurveys.length})
+              Réponses reçues ({completedSurveys.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -356,7 +356,7 @@ export default function SurveysPage() {
                             }
                           >
                             <TrendingDown className="h-3 w-3 mr-1" />
-                            {hasPainReduction ? 'Douleur diminu\u00e9e' : 'Pas de diminution'}
+                            {hasPainReduction ? 'Douleur diminuée' : 'Pas de diminution'}
                           </Badge>
                         )}
 
@@ -370,7 +370,7 @@ export default function SurveysPage() {
                             }
                           >
                             <Activity className="h-3 w-3 mr-1" />
-                            {hasMobility ? 'Mobilit\u00e9 am\u00e9lior\u00e9e' : 'Mobilit\u00e9 inchang\u00e9e'}
+                            {hasMobility ? 'Mobilité améliorée' : 'Mobilité inchangée'}
                           </Badge>
                         )}
                       </div>
