@@ -20,9 +20,12 @@ interface SyncResult {
   consultation_id: string
   response: {
     overall_rating: number
-    pain_evolution: 'better' | 'same' | 'worse'
+    eva_score?: number
+    pain_reduction?: boolean
+    better_mobility?: boolean
+    pain_evolution?: 'better' | 'same' | 'worse'
     comment?: string
-    would_recommend: boolean
+    would_recommend?: boolean
   }
   responded_at: string
 }
