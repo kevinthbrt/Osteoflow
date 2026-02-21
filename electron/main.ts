@@ -9,9 +9,10 @@
  * - Handle application lifecycle
  */
 
-import { app, BrowserWindow, shell, dialog, Notification } from 'electron'
+import { app, BrowserWindow, shell, dialog, Notification, ipcMain } from 'electron'
 import path from 'path'
 import { startCronJobs, stopCronJobs } from './cron'
+import { checkStoredLicense } from './license'
 
 // Polyfill diagnostics_channel.tracingChannel for Node.js 18 (Electron 28).
 // nodemailer v7+ requires this API which was added in Node.js 20.
@@ -252,10 +253,11 @@ function createWindow(): void {
 
 /**
  * Navigate the main window to the Next.js app once the server is ready.
+ * @param routePath - optional path to navigate to (default: '/')
  */
-function loadApp(): void {
+function loadApp(routePath = ''): void {
   if (mainWindow) {
-    mainWindow.loadURL(`http://localhost:${PORT}`)
+    mainWindow.loadURL(`http://localhost:${PORT}${routePath}`)
   }
 }
 
@@ -316,6 +318,10 @@ async function setupAutoUpdater(): Promise<void> {
 app.whenReady().then(async () => {
   console.log('[Electron] Starting Osteoflow...')
 
+  // Expose userData path to Next.js API routes (needed for license file I/O)
+  const userData = app.getPath('userData')
+  process.env.ELECTRON_USERDATA = userData
+
   // Show window with splash screen immediately — no waiting
   createWindow()
 
@@ -331,7 +337,25 @@ app.whenReady().then(async () => {
     }
   }
 
-  loadApp() // Navigate from splash to the real app
+  // License check (skipped in dev mode)
+  if (isDev) {
+    loadApp()
+  } else {
+    const licenseResult = checkStoredLicense(userData)
+    if (licenseResult.valid) {
+      console.log(`[License] Valid — licensed to: ${licenseResult.payload?.customer}`)
+      loadApp()
+    } else {
+      console.log(`[License] ${licenseResult.error} — redirecting to activation`)
+      loadApp('/activate')
+    }
+  }
+
+  // IPC: renderer asks to reload the app after successful license activation
+  ipcMain.handle('app:reload', () => {
+    mainWindow?.loadURL(`http://localhost:${PORT}`)
+  })
+
   startCronJobs(PORT)
   setupAutoUpdater()
 
