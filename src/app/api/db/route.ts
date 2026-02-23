@@ -13,21 +13,15 @@
 
 import { NextResponse } from 'next/server'
 
-let cronInitialized = false
-
 export async function POST(request: Request) {
   try {
     const { createLocalClient } = await import('@/lib/database/query-builder')
 
-    if (!cronInitialized) {
-      try {
-        const { initServerCron } = await import('@/lib/server-cron')
-        initServerCron()
-      } catch {
-        // Cron is non-critical, don't block queries
-      }
-      cronInitialized = true
-    }
+    // NOTE: Server-side cron (initServerCron) is intentionally NOT started here.
+    // The Electron main process already runs its own cron via startCronJobs()
+    // (see electron/cron.ts). Starting a second cron here caused duplicate
+    // J+7 follow-up emails because both cron systems would call
+    // POST /api/emails/follow-up concurrently.
 
     const descriptor = await request.json()
     const client = createLocalClient()

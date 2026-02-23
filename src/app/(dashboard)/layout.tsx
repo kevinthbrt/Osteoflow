@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
+import { UpdateBanner } from '@/components/layout/update-banner'
+import { WhatsNewDialog } from '@/components/layout/whats-new-dialog'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,11 +44,13 @@ export default async function DashboardLayout({
     <div className="min-h-screen bg-muted/30">
       <Sidebar />
       <div className="lg:pl-64">
+        <UpdateBanner />
         <Header user={user} practitioner={practitioner} />
         <main className="p-4 lg:px-8 lg:py-6">
           {children}
         </main>
       </div>
+      <WhatsNewDialog />
     </div>
   )
 }
