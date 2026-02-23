@@ -19,6 +19,18 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.0.41',
+    date: '2026-02-23',
+    title: 'Notifications de mise à jour et changelog',
+    changes: [
+      { type: 'feature', text: 'Bannière in-app lors du téléchargement d\'une mise à jour avec bouton "Redémarrer maintenant"' },
+      { type: 'feature', text: 'Dialog "Quoi de neuf ?" affichée après chaque mise à jour' },
+      { type: 'feature', text: 'Page changelog accessible depuis la sidebar' },
+      { type: 'fix', text: 'Correction de l\'envoi en double des emails de suivi J+7' },
+      { type: 'fix', text: 'Correction des sondages dupliqués par consultation' },
+    ],
+  },
+  {
     version: '1.0.40',
     date: '2026-02-23',
     title: 'Correctifs emails J+7 et améliorations sondages',
