@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// In-process lock to prevent concurrent execution of the follow-up job.
+// Both the Electron cron and any other caller hitting this endpoint at the
+// same time would otherwise fetch the same pending tasks and send duplicate
+// emails before either marks the tasks as completed.
+let isProcessingFollowUps = false
+
 // This endpoint can be called by a cron job to process pending follow-up tasks
 export async function POST(request: NextRequest) {
+  if (isProcessingFollowUps) {
+    console.log('[FollowUp] Already processing, skipping concurrent call')
+    return NextResponse.json({ message: 'Déjà en cours de traitement', processed: 0 })
+  }
+
+  isProcessingFollowUps = true
   try {
     const { Resend } = await import('resend')
     const { createClient } = await import('@/lib/db/server')
@@ -176,37 +188,50 @@ export async function POST(request: NextRequest) {
         const practitionerName = `${practitioner.first_name} ${practitioner.last_name}`
 
         // Register survey on the Cloudflare Worker
+        // Guard: skip survey registration if one already exists for this consultation
         let surveyUrl: string | null = null
-        const surveyToken = generateSurveyToken()
-        try {
-          const regResult = await registerSurvey({
-            token: surveyToken,
-            practitioner_name: practitionerName,
-            practice_name: practitioner.practice_name || practitionerName,
-            patient_first_name: patient.first_name,
-            primary_color: practitioner.primary_color || '#2563eb',
-            specialty: practitioner.specialty || undefined,
-            consultation_id: consultation.id,
-          })
+        const { data: existingSurvey } = await db
+          .from('survey_responses')
+          .select('token')
+          .eq('consultation_id', consultation.id)
+          .limit(1)
 
-          if (regResult.success) {
-            surveyUrl = getSurveyUrl(surveyToken)
-
-            // Store survey token locally
-            await db.from('survey_responses').insert({
-              consultation_id: consultation.id,
-              patient_id: patient.id,
-              practitioner_id: practitioner.id,
+        if (existingSurvey && existingSurvey.length > 0) {
+          // Survey already registered (possibly from a concurrent request)
+          surveyUrl = getSurveyUrl(existingSurvey[0].token)
+          console.log(`[FollowUp] Survey already exists for consultation ${consultation.id}, reusing token`)
+        } else {
+          const surveyToken = generateSurveyToken()
+          try {
+            const regResult = await registerSurvey({
               token: surveyToken,
-              status: 'pending',
+              practitioner_name: practitionerName,
+              practice_name: practitioner.practice_name || practitionerName,
+              patient_first_name: patient.first_name,
+              primary_color: practitioner.primary_color || '#2563eb',
+              specialty: practitioner.specialty || undefined,
+              consultation_id: consultation.id,
             })
 
-            console.log(`[FollowUp] Survey registered: ${surveyToken}`)
-          } else {
-            console.warn(`[FollowUp] Survey registration failed: ${regResult.error}`)
+            if (regResult.success) {
+              surveyUrl = getSurveyUrl(surveyToken)
+
+              // Store survey token locally
+              await db.from('survey_responses').insert({
+                consultation_id: consultation.id,
+                patient_id: patient.id,
+                practitioner_id: practitioner.id,
+                token: surveyToken,
+                status: 'pending',
+              })
+
+              console.log(`[FollowUp] Survey registered: ${surveyToken}`)
+            } else {
+              console.warn(`[FollowUp] Survey registration failed: ${regResult.error}`)
+            }
+          } catch (error) {
+            console.warn('[FollowUp] Survey registration error (email will still be sent):', error)
           }
-        } catch (error) {
-          console.warn('[FollowUp] Survey registration error (email will still be sent):', error)
         }
 
         const htmlContent = createFollowUpHtmlEmail({
@@ -308,6 +333,8 @@ export async function POST(request: NextRequest) {
       { error: 'Erreur lors du traitement des emails de suivi' },
       { status: 500 }
     )
+  } finally {
+    isProcessingFollowUps = false
   }
 }
 
