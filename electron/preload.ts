@@ -3,13 +3,26 @@
  *
  * This script runs in the renderer process before the page loads.
  * It provides a bridge between the renderer and main process via contextBridge.
- * Currently minimal since the app uses Next.js API routes for all server operations.
+ * Exposes update events so the React app can show in-app update notifications.
  */
 
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 
-// Expose a minimal API to the renderer
 contextBridge.exposeInMainWorld('electronAPI', {
   isDesktop: true,
   platform: process.platform,
+
+  // Auto-update events
+  onUpdateAvailable: (callback: (version: string) => void) => {
+    ipcRenderer.on('update-available', (_event, version: string) => callback(version))
+  },
+  onUpdateProgress: (callback: (percent: number) => void) => {
+    ipcRenderer.on('update-progress', (_event, percent: number) => callback(percent))
+  },
+  onUpdateDownloaded: (callback: (version: string) => void) => {
+    ipcRenderer.on('update-downloaded', (_event, version: string) => callback(version))
+  },
+  installUpdate: () => {
+    ipcRenderer.send('install-update')
+  },
 })

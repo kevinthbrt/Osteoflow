@@ -9,7 +9,7 @@
  * - Handle application lifecycle
  */
 
-import { app, BrowserWindow, shell, dialog, Notification } from 'electron'
+import { app, BrowserWindow, shell, dialog, Notification, ipcMain } from 'electron'
 import path from 'path'
 import { startCronJobs, stopCronJobs } from './cron'
 
@@ -262,6 +262,9 @@ function loadApp(): void {
 /**
  * Auto-updater: checks GitHub Releases for new versions.
  * Only runs in production (packaged app).
+ *
+ * Sends IPC events to the renderer so the React app can display
+ * in-app update notifications (banner, progress, restart button).
  */
 async function setupAutoUpdater(): Promise<void> {
   if (isDev) return
@@ -275,31 +278,28 @@ async function setupAutoUpdater(): Promise<void> {
 
     autoUpdater.on('update-available', (info) => {
       console.log(`[Updater] Update available: v${info.version} — downloading silently...`)
+      mainWindow?.webContents.send('update-available', info.version)
     })
 
-    ;(autoUpdater as unknown as { on: (event: string, listener: (progress: { percent: number }) => void) => void }).on('download-progress', (progress) => {
+    autoUpdater.on('download-progress', (progress) => {
       const percent = Math.round(progress.percent)
       console.log(`[Updater] Download progress: ${percent}%`)
+      mainWindow?.webContents.send('update-progress', percent)
     })
 
-    ;(autoUpdater as unknown as { on: (event: string, listener: (info: { version: string }) => void) => void }).on('update-downloaded', (info) => {
+    autoUpdater.on('update-downloaded', (info) => {
       console.log(`[Updater] Update v${info.version} downloaded — ready to install`)
-      // Non-blocking notification: user can restart when convenient
-      if (Notification.isSupported()) {
-        const notif = new Notification({
-          title: 'Mise à jour prête',
-          body: `La version ${info.version} sera appliquée au prochain redémarrage.`,
-          silent: true,
-        })
-        notif.on('click', () => {
-          autoUpdater.quitAndInstall()
-        })
-        notif.show()
-      }
+      mainWindow?.webContents.send('update-downloaded', info.version)
     })
 
     autoUpdater.on('error', (error) => {
       console.error('[Updater] Error:', error.message)
+    })
+
+    // Listen for restart request from the renderer
+    ipcMain.on('install-update', () => {
+      console.log('[Updater] Install requested by user — quitting and installing...')
+      autoUpdater.quitAndInstall()
     })
 
     // Check for updates 5s after launch, then every 4 hours

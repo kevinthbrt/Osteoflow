@@ -45,6 +45,7 @@ const pageTitles: Record<string, { title: string; description: string }> = {
   '/messages': { title: 'Messagerie', description: 'Communiquez avec vos patients' },
   '/accounting': { title: 'Comptabilité', description: 'Analysez votre activité' },
   '/settings': { title: 'Paramètres', description: 'Configurez votre cabinet' },
+  '/changelog': { title: 'Changelog', description: 'Historique des mises à jour' },
 }
 
 export function Header({ user, practitioner }: HeaderProps) {

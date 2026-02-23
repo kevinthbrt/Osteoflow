@@ -165,16 +165,21 @@ export function Sidebar() {
               </div>
               <span>Déconnexion</span>
             </button>
-            <div className="rounded-xl bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border border-indigo-500/10 p-3">
+            <Link
+              href="/changelog"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block rounded-xl bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border border-indigo-500/10 p-3 hover:from-indigo-500/20 hover:to-violet-500/20 transition-all duration-200"
+            >
               <div className="flex items-center gap-3">
                 <div className="w-7 h-7 rounded-lg bg-indigo-500/20 flex items-center justify-center">
                   <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                 </div>
                 <div>
                   <p className="text-[10px] font-semibold text-slate-300">Osteoflow v{packageJson.version}</p>
+                  <p className="text-[9px] text-indigo-300/50">Voir le changelog</p>
                 </div>
               </div>
-            </div>
+            </Link>
           </div>
         </div>
       </div>
