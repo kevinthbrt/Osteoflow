@@ -138,6 +138,11 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
 
   const todayLabel = now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 
+  // Projection: if we keep this pace for the whole year
+  const projectedRevenue = datePct > 0 ? (data.revenue.this_year / datePct) * 100 : 0
+  const projectedPct = Math.min(100, (projectedRevenue / annualObj) * 100)
+  const projectedIsAbove = projectedRevenue >= annualObj
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -189,7 +194,7 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
             {monthTicks.slice(1).map(({ month, pct }) => (
               <div
                 key={month}
-                className="absolute top-0 bottom-0 w-px bg-background/40 z-10"
+                className="absolute top-0 bottom-0 w-px bg-black/60 z-10"
                 style={{ left: `${pct}%` }}
               />
             ))}
@@ -213,6 +218,60 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
                 {formatEuro(data.revenue.this_year)}
               </div>
             )}
+          </div>
+
+          {/* Projection bar */}
+          <div className="relative mt-2">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[11px] text-muted-foreground font-medium">Projection fin d&apos;année si tendance actuelle</span>
+            </div>
+            <div className="relative h-6 w-full rounded-full bg-muted overflow-hidden">
+              {/* Projected fill */}
+              <div
+                className={`absolute left-0 top-0 h-full transition-all duration-700 ${
+                  projectedIsAbove ? 'bg-emerald-400/70' : 'bg-amber-400/70'
+                }`}
+                style={{
+                  width: `${projectedPct}%`,
+                  borderRadius: projectedPct >= 100 ? '9999px' : '9999px 0 0 9999px',
+                  backgroundImage: projectedIsAbove
+                    ? 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.15) 4px, rgba(255,255,255,0.15) 8px)'
+                    : 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.15) 4px, rgba(255,255,255,0.15) 8px)',
+                }}
+              />
+
+              {/* Objective marker at 100% */}
+              {projectedPct < 100 && (
+                <div
+                  className="absolute top-0 bottom-0 w-0.5 bg-foreground/30 z-10"
+                  style={{ left: '100%', transform: 'translateX(-2px)' }}
+                />
+              )}
+
+              {/* Month separator ticks (skip Jan which is at 0) */}
+              {monthTicks.slice(1).map(({ month, pct }) => (
+                <div
+                  key={month}
+                  className="absolute top-0 bottom-0 w-px bg-black/60 z-10"
+                  style={{ left: `${pct}%` }}
+                />
+              ))}
+
+              {/* Projected value label */}
+              <div
+                className={`absolute top-1/2 text-[11px] font-bold pointer-events-none z-10 ${
+                  projectedPct > 15 ? 'text-white' : 'text-foreground'
+                }`}
+                style={{
+                  left: projectedPct > 15 ? `${Math.min(projectedPct - 1, 96)}%` : `${projectedPct + 1}%`,
+                  transform: projectedPct > 15 ? 'translateY(-50%) translateX(-100%)' : 'translateY(-50%)',
+                  paddingRight: projectedPct > 15 ? '6px' : undefined,
+                  paddingLeft: projectedPct > 15 ? undefined : '6px',
+                }}
+              >
+                {formatEuro(projectedRevenue)}
+              </div>
+            </div>
           </div>
 
           {/* Month labels */}
@@ -244,6 +303,23 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
           <div>
             <span className="text-muted-foreground">Objectif annuel </span>
             <span className="font-semibold">{formatEuro(annualObj)}</span>
+          </div>
+        </div>
+
+        {/* Projection stats row */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mt-2 pt-2 border-t border-dashed text-sm">
+          <div>
+            <span className="text-muted-foreground">Projection annuelle </span>
+            <span className={`font-semibold ${projectedIsAbove ? 'text-emerald-600' : 'text-amber-600'}`}>
+              {formatEuro(projectedRevenue)}
+            </span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">vs objectif </span>
+            <span className={`font-semibold ${projectedIsAbove ? 'text-emerald-600' : 'text-amber-600'}`}>
+              {projectedIsAbove ? '+' : ''}{formatEuro(projectedRevenue - annualObj)}
+            </span>
+            <span className="text-muted-foreground ml-1">({projectedPct.toFixed(1)} %)</span>
           </div>
         </div>
       </CardContent>
