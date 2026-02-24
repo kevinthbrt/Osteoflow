@@ -31,6 +31,7 @@ import {
 } from 'lucide-react'
 import { formatCurrency, formatDateTime, getInitials } from '@/lib/utils'
 
+import { InactivePatientsWidget } from '@/components/dashboard/inactive-patients-widget'
 import type { Practitioner } from '@/types/database'
 
 interface DashboardProps {
@@ -426,6 +427,9 @@ export function Dashboard({
               )}
             </CardContent>
           </Card>
+
+          {/* Inactive patients */}
+          <InactivePatientsWidget />
 
           {/* Tips card */}
           <Card className="bg-gradient-to-br from-indigo-500/5 via-violet-500/5 to-purple-500/10 border-primary/15">

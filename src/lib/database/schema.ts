@@ -303,6 +303,23 @@ CREATE INDEX IF NOT EXISTS idx_survey_responses_consultation ON survey_responses
 CREATE INDEX IF NOT EXISTS idx_survey_responses_practitioner ON survey_responses(practitioner_id);
 CREATE INDEX IF NOT EXISTS idx_survey_responses_status ON survey_responses(status);
 
+-- Consultation templates
+CREATE TABLE IF NOT EXISTS consultation_templates (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+  name TEXT NOT NULL,
+  reason TEXT,
+  anamnesis TEXT,
+  examination TEXT,
+  advice TEXT,
+  category TEXT,
+  use_count INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_consultation_templates_practitioner ON consultation_templates(practitioner_id);
+
 -- App config table (for storing current practitioner, etc.)
 CREATE TABLE IF NOT EXISTS app_config (
   key TEXT PRIMARY KEY,
@@ -383,6 +400,24 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   if (!surveyCols.some((c) => c.name === 'better_mobility')) {
     db.exec('ALTER TABLE survey_responses ADD COLUMN better_mobility INTEGER;')
   }
+
+  // Create consultation_templates table if not exists (already in SCHEMA_SQL for new installs)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS consultation_templates (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+      name TEXT NOT NULL,
+      reason TEXT,
+      anamnesis TEXT,
+      examination TEXT,
+      advice TEXT,
+      category TEXT,
+      use_count INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_consultation_templates_practitioner ON consultation_templates(practitioner_id);`)
 
   // Create manual_revenue_entries table if not exists (already in SCHEMA_SQL for new installs)
   db.exec(`

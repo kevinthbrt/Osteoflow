@@ -557,6 +557,47 @@ export interface Database {
           created_at?: string
         }
       }
+      consultation_templates: {
+        Row: {
+          id: string
+          practitioner_id: string
+          name: string
+          reason: string | null
+          anamnesis: string | null
+          examination: string | null
+          advice: string | null
+          category: string | null
+          use_count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          practitioner_id: string
+          name: string
+          reason?: string | null
+          anamnesis?: string | null
+          examination?: string | null
+          advice?: string | null
+          category?: string | null
+          use_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          practitioner_id?: string
+          name?: string
+          reason?: string | null
+          anamnesis?: string | null
+          examination?: string | null
+          advice?: string | null
+          category?: string | null
+          use_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
       survey_responses: {
         Row: {
           id: string
@@ -649,6 +690,7 @@ export type MedicalHistoryEntry = Tables<'medical_history_entries'>
 export type ConsultationAttachment = Tables<'consultation_attachments'>
 export type ManualRevenueEntry = Tables<'manual_revenue_entries'>
 export type SurveyResponse = Tables<'survey_responses'>
+export type ConsultationTemplate = Tables<'consultation_templates'>
 
 // Extended types with relations
 export interface PatientWithConsultations extends Patient {

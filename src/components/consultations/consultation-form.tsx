@@ -37,7 +37,7 @@ import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 import { EditPatientModal } from '@/components/patients/edit-patient-modal'
-import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment } from '@/types/database'
+import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment, ConsultationTemplate } from '@/types/database'
 
 interface ConsultationFormProps {
   patient: Patient
@@ -86,6 +86,7 @@ export function ConsultationForm({
   const [existingAttachments, setExistingAttachments] = useState<ConsultationAttachment[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [activeTab, setActiveTab] = useState('consultation')
+  const [consultationTemplates, setConsultationTemplates] = useState<ConsultationTemplate[]>([])
   const router = useRouter()
   const { toast } = useToast()
   const db = createClient()
@@ -154,6 +155,20 @@ export function ConsultationForm({
     }
 
     loadSessionTypes()
+
+    // Load consultation templates
+    async function loadTemplates() {
+      try {
+        const res = await fetch('/api/consultation-templates')
+        if (res.ok) {
+          const result = await res.json()
+          if (result.data) setConsultationTemplates(result.data)
+        }
+      } catch {
+        // silently fail
+      }
+    }
+    loadTemplates()
   }, [db, practitioner.id])
 
   // Load existing attachments in edit mode
@@ -231,6 +246,38 @@ export function ConsultationForm({
         })
       }
     }
+  }
+
+  const handleApplyTemplate = async (templateId: string) => {
+    const template = consultationTemplates.find((t) => t.id === templateId)
+    if (!template) return
+
+    if (template.reason) setValue('reason', template.reason)
+    if (template.anamnesis) setValue('anamnesis', template.anamnesis)
+    if (template.examination) setValue('examination', template.examination)
+    if (template.advice) setValue('advice', template.advice)
+
+    // Increment use_count
+    try {
+      await fetch('/api/consultation-templates', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: template.id, use_count: (template.use_count || 0) + 1 }),
+      })
+    } catch {
+      // silently fail
+    }
+
+    // Auto-resize textareas after template is applied
+    setTimeout(() => {
+      const textareas = document.querySelectorAll<HTMLTextAreaElement>('textarea[data-autoresize]')
+      textareas.forEach((ta) => {
+        ta.style.height = 'auto'
+        ta.style.height = `${ta.scrollHeight}px`
+      })
+    }, 50)
+
+    toast({ variant: 'success', title: 'Template appliqué', description: `"${template.name}" a été chargé` })
   }
 
   const uploadAttachments = async (consultationId: string) => {
@@ -510,6 +557,26 @@ export function ConsultationForm({
 
         {/* Tab 1: Consultation */}
         <TabsContent value="consultation" forceMount className="data-[state=inactive]:hidden data-[state=active]:animate-fade-in mt-4 space-y-6">
+          {/* Template selector */}
+          {mode === 'create' && consultationTemplates.length > 0 && (
+            <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30">
+              <ClipboardList className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-sm text-muted-foreground shrink-0">Template :</span>
+              <Select onValueChange={handleApplyTemplate}>
+                <SelectTrigger className="h-8 text-sm flex-1">
+                  <SelectValue placeholder="Charger un template..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {consultationTemplates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}{t.category ? ` (${t.category})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* General Information */}
           <Card>
             <CardHeader>

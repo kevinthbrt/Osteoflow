@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createClient } from '@/lib/db/client'
@@ -14,13 +14,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target } from 'lucide-react'
-import type { Practitioner, SessionType } from '@/types/database'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, ClipboardList, Plus, Pencil } from 'lucide-react'
+import type { Practitioner, SessionType, ConsultationTemplate } from '@/types/database'
 
 interface PatientListItem {
   id: string
@@ -704,6 +705,10 @@ export default function SettingsPage() {
           <TabsTrigger value="objectives">
             <Target className="mr-2 h-4 w-4" />
             Objectifs
+          </TabsTrigger>
+          <TabsTrigger value="templates">
+            <ClipboardList className="mr-2 h-4 w-4" />
+            Templates
           </TabsTrigger>
         </TabsList>
 
@@ -1547,6 +1552,11 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Templates Tab */}
+        <TabsContent value="templates">
+          <ConsultationTemplatesSettings practitionerId={practitioner?.id} />
+        </TabsContent>
       </Tabs>
 
       {/* Delete Confirmation Dialog */}
@@ -1942,5 +1952,236 @@ function PasswordSettings({ practitioner }: { practitioner: Practitioner | null 
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * Consultation templates settings component.
+ */
+function ConsultationTemplatesSettings({ practitionerId }: { practitionerId?: string }) {
+  const [templates, setTemplates] = useState<ConsultationTemplate[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isCreating, setIsCreating] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState({ name: '', reason: '', anamnesis: '', examination: '', advice: '', category: '' })
+  const { toast } = useToast()
+
+  const fetchTemplates = useCallback(async () => {
+    try {
+      const res = await fetch('/api/consultation-templates')
+      if (res.ok) {
+        const data = await res.json()
+        setTemplates(data.data || [])
+      }
+    } catch {
+      console.error('Error fetching templates')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchTemplates()
+  }, [fetchTemplates])
+
+  const resetForm = () => {
+    setForm({ name: '', reason: '', anamnesis: '', examination: '', advice: '', category: '' })
+    setIsCreating(false)
+    setEditingId(null)
+  }
+
+  const startEdit = (t: ConsultationTemplate) => {
+    setForm({
+      name: t.name,
+      reason: t.reason || '',
+      anamnesis: t.anamnesis || '',
+      examination: t.examination || '',
+      advice: t.advice || '',
+      category: t.category || '',
+    })
+    setEditingId(t.id)
+    setIsCreating(false)
+  }
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Le nom du template est requis' })
+      return
+    }
+
+    try {
+      if (editingId) {
+        const res = await fetch('/api/consultation-templates', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingId, ...form }),
+        })
+        if (!res.ok) throw new Error()
+        toast({ variant: 'success', title: 'Template modifié' })
+      } else {
+        const res = await fetch('/api/consultation-templates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        })
+        if (!res.ok) throw new Error()
+        toast({ variant: 'success', title: 'Template créé' })
+      }
+      resetForm()
+      fetchTemplates()
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de sauvegarder le template' })
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/consultation-templates?id=${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      toast({ variant: 'success', title: 'Template supprimé' })
+      if (editingId === id) resetForm()
+      fetchTemplates()
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer le template' })
+    }
+  }
+
+  if (isLoading) {
+    return <Card><CardContent className="p-6"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></CardContent></Card>
+  }
+
+  const showForm = isCreating || editingId
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 text-primary" />
+                Templates de consultation
+              </CardTitle>
+              <CardDescription>
+                Créez des modèles pré-remplis pour vos motifs de consultation fréquents (lombalgie, cervicalgie, suivi nourrisson, etc.)
+              </CardDescription>
+            </div>
+            {!showForm && (
+              <Button onClick={() => { resetForm(); setIsCreating(true) }} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Nouveau template
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Form */}
+          {showForm && (
+            <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+              <p className="text-sm font-medium">{editingId ? 'Modifier le template' : 'Nouveau template'}</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="tpl-name">Nom du template *</Label>
+                  <Input
+                    id="tpl-name"
+                    value={form.name}
+                    onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                    placeholder="Ex: Lombalgie aiguë"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tpl-category">Catégorie</Label>
+                  <Input
+                    id="tpl-category"
+                    value={form.category}
+                    onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
+                    placeholder="Ex: Rachis, Pédiatrie, Sport..."
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tpl-reason">Motif de consultation</Label>
+                <Input
+                  id="tpl-reason"
+                  value={form.reason}
+                  onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
+                  placeholder="Ex: Douleurs lombaires aiguës"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tpl-anamnesis">Anamnèse type</Label>
+                <Textarea
+                  id="tpl-anamnesis"
+                  value={form.anamnesis}
+                  onChange={(e) => setForm((p) => ({ ...p, anamnesis: e.target.value }))}
+                  placeholder="Questions et éléments à recueillir..."
+                  rows={3}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tpl-examination">Examen type</Label>
+                <Textarea
+                  id="tpl-examination"
+                  value={form.examination}
+                  onChange={(e) => setForm((p) => ({ ...p, examination: e.target.value }))}
+                  placeholder="Tests et examens à réaliser..."
+                  rows={3}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tpl-advice">Conseils type</Label>
+                <Textarea
+                  id="tpl-advice"
+                  value={form.advice}
+                  onChange={(e) => setForm((p) => ({ ...p, advice: e.target.value }))}
+                  placeholder="Conseils post-consultation..."
+                  rows={3}
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={resetForm}>Annuler</Button>
+                <Button onClick={handleSave}>{editingId ? 'Modifier' : 'Créer'}</Button>
+              </div>
+            </div>
+          )}
+
+          {/* Template list */}
+          {templates.length === 0 && !showForm ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <ClipboardList className="h-12 w-12 mx-auto mb-4 opacity-30" />
+              <p className="text-sm">Aucun template de consultation.</p>
+              <p className="text-xs mt-1">Créez des modèles pour gagner du temps lors de la saisie de consultations.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {templates.map((t) => (
+                <div key={t.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{t.name}</span>
+                      {t.category && (
+                        <Badge variant="secondary" className="text-xs">{t.category}</Badge>
+                      )}
+                      {t.use_count > 0 && (
+                        <span className="text-xs text-muted-foreground">Utilisé {t.use_count} fois</span>
+                      )}
+                    </div>
+                    {t.reason && <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.reason}</p>}
+                  </div>
+                  <div className="flex items-center gap-1 ml-2">
+                    <Button variant="ghost" size="sm" onClick={() => startEdit(t)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDelete(t.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }
