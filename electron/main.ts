@@ -49,15 +49,47 @@ const PORT = 3456
 const isDev = !app.isPackaged
 
 /**
+ * Wait for a local HTTP server to respond on the given port.
+ * Polls every `interval` ms, up to `timeout` ms total.
+ */
+async function waitForServer(port: number, timeout = 30000, interval = 500): Promise<void> {
+  const http = await import('http')
+  const start = Date.now()
+
+  while (Date.now() - start < timeout) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const req = http.get(`http://localhost:${port}/`, (res) => {
+          res.resume()
+          resolve()
+        })
+        req.on('error', reject)
+        req.setTimeout(1000, () => {
+          req.destroy()
+          reject(new Error('timeout'))
+        })
+      })
+      return // Server is ready
+    } catch {
+      await new Promise((r) => setTimeout(r, interval))
+    }
+  }
+
+  throw new Error(`Server on port ${port} did not respond within ${timeout}ms`)
+}
+
+/**
  * Start the Next.js server programmatically.
  */
 async function startNextServer(): Promise<void> {
   const http = await import('http')
 
   // In dev mode (launched via concurrently), the Next.js dev server is already
-  // running on the port. Just skip server startup entirely.
+  // running on the port. Wait for it to be ready before proceeding.
   if (isDev) {
-    console.log('[Electron] Dev mode — using existing dev server on port', PORT)
+    console.log('[Electron] Dev mode — waiting for dev server on port', PORT)
+    await waitForServer(PORT)
+    console.log('[Electron] Dev server is ready')
     return
   }
 
@@ -179,7 +211,10 @@ async function startNextServer(): Promise<void> {
     })
   }
 
-  await new Promise<void>((resolve) => {
+  await new Promise<void>((resolve, reject) => {
+    nextServer.on('error', (err: NodeJS.ErrnoException) => {
+      reject(err)
+    })
     nextServer.listen(PORT, () => {
       console.log(`[Electron] Next.js server running on http://localhost:${PORT}`)
       resolve()
@@ -252,11 +287,23 @@ function createWindow(): void {
 
 /**
  * Navigate the main window to the Next.js app once the server is ready.
+ * Retries on failure (e.g. server not fully ready yet).
  */
-function loadApp(): void {
-  if (mainWindow) {
-    mainWindow.loadURL(`http://localhost:${PORT}`)
-  }
+function loadApp(retries = 5): void {
+  if (!mainWindow) return
+
+  const url = `http://localhost:${PORT}`
+  mainWindow.loadURL(url)
+
+  // Retry on load failure (server might not be fully ready)
+  mainWindow.webContents.once('did-fail-load', (_event, errorCode, errorDescription) => {
+    if (retries > 0) {
+      console.log(`[Electron] Page load failed (${errorDescription}), retrying... (${retries} left)`)
+      setTimeout(() => loadApp(retries - 1), 1500)
+    } else {
+      console.error(`[Electron] Failed to load app after retries: ${errorDescription} (code ${errorCode})`)
+    }
+  })
 }
 
 /**
