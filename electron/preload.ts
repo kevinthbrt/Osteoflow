@@ -25,4 +25,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   installUpdate: () => {
     ipcRenderer.send('install-update')
   },
+
+  // Survey sync events
+  onSurveySynced: (callback: (count: number) => void) => {
+    ipcRenderer.on('survey-synced', (_event, count: number) => callback(count))
+  },
+
+  // Inbox sync events
+  onInboxSynced: (callback: (count: number) => void) => {
+    ipcRenderer.on('inbox-synced', (_event, count: number) => callback(count))
+  },
 })

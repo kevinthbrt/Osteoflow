@@ -5,6 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   ClipboardList,
   Star,
@@ -20,8 +29,13 @@ import {
   Gauge,
   ExternalLink,
   User,
+  Mail,
+  Send,
+  Loader2,
 } from 'lucide-react'
 import Link from 'next/link'
+import { useToast } from '@/hooks/use-toast'
+import { createClient } from '@/lib/db/client'
 
 interface SurveyResponse {
   id: string
@@ -44,6 +58,7 @@ interface SurveyResponse {
     id: string
     first_name: string
     last_name: string
+    email?: string | null
   } | null
 }
 
@@ -74,6 +89,102 @@ export default function SurveysPage() {
   const [stats, setStats] = useState<SurveyStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
+  const { toast } = useToast()
+  const db = createClient()
+
+  // Email dialog state
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
+  const [emailTarget, setEmailTarget] = useState<SurveyResponse | null>(null)
+  const [emailContent, setEmailContent] = useState('')
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
+
+  const openEmailDialog = (survey: SurveyResponse) => {
+    setEmailTarget(survey)
+    setEmailContent('')
+    setEmailDialogOpen(true)
+  }
+
+  const handleSendEmail = async () => {
+    if (!emailTarget?.patient || !emailContent.trim()) return
+
+    const patientEmail = emailTarget.patient.email
+    if (!patientEmail) {
+      toast({
+        variant: 'destructive',
+        title: 'Pas d\'email',
+        description: 'Ce patient n\'a pas d\'adresse email enregistrée.',
+      })
+      return
+    }
+
+    setIsSendingEmail(true)
+    try {
+      // Find or create conversation for this patient
+      const patientName = `${emailTarget.patient.first_name} ${emailTarget.patient.last_name}`
+
+      let conversationId: string | null = null
+
+      // Look for existing conversation
+      const { data: existingConv } = await db
+        .from('conversations')
+        .select('id')
+        .eq('patient_id', emailTarget.patient.id)
+        .limit(1)
+
+      if (existingConv && existingConv.length > 0) {
+        conversationId = existingConv[0].id
+      } else {
+        // Create conversation (use practitioner_id from the survey)
+        const { data: newConv, error: convError } = await db
+          .from('conversations')
+          .insert({
+            practitioner_id: emailTarget.practitioner_id,
+            patient_id: emailTarget.patient.id,
+            subject: `Suite sondage J+7`,
+            last_message_at: new Date().toISOString(),
+            unread_count: 0,
+          })
+          .select('id')
+
+        if (convError || !newConv || newConv.length === 0) {
+          throw new Error('Impossible de créer la conversation')
+        }
+        conversationId = newConv[0].id
+      }
+
+      // Send email via API
+      const response = await fetch('/api/messages/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId,
+          patientEmail,
+          patientName,
+          content: emailContent.trim(),
+        }),
+      })
+
+      if (!response.ok) throw new Error('Échec envoi email')
+
+      toast({
+        variant: 'success',
+        title: 'Email envoyé',
+        description: `Email envoyé à ${patientName} (${patientEmail})`,
+      })
+      setEmailDialogOpen(false)
+      setEmailTarget(null)
+      setEmailContent('')
+    } catch (error) {
+      console.error('Error sending email:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: "Impossible d'envoyer l'email. Vérifiez vos paramètres SMTP.",
+      })
+    } finally {
+      setIsSendingEmail(false)
+    }
+  }
 
   const fetchSurveys = useCallback(async () => {
     try {
@@ -400,6 +511,20 @@ export default function SurveysPage() {
                           </Badge>
                         )}
 
+                        {/* Send email button */}
+                        {survey.patient && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEmailDialog(survey)}
+                            disabled={!survey.patient?.email}
+                            title={survey.patient?.email ? `Envoyer un email à ${survey.patient.email}` : 'Pas d\'email enregistré'}
+                          >
+                            <Mail className="h-3.5 w-3.5 mr-1" />
+                            Envoyer un mail
+                          </Button>
+                        )}
+
                         {/* Consultation link button */}
                         <Link href={`/consultations/${survey.consultation_id}`}>
                           <Button variant="outline" size="sm">
@@ -430,6 +555,84 @@ export default function SurveysPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Email dialog */}
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-primary" />
+              Envoyer un email
+            </DialogTitle>
+            <DialogDescription>
+              {emailTarget?.patient && (
+                <>
+                  Envoyer un email à <strong>{emailTarget.patient.first_name} {emailTarget.patient.last_name}</strong>
+                  {emailTarget.patient.email && (
+                    <span className="text-muted-foreground"> ({emailTarget.patient.email})</span>
+                  )}
+                  {' '}suite à sa réponse au sondage J+7
+                  {emailTarget.overall_rating && (
+                    <span> (note : {emailTarget.overall_rating}/5 {ratingEmojis[emailTarget.overall_rating]})</span>
+                  )}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Survey summary */}
+          {emailTarget && (
+            <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1">
+              <p className="font-medium text-xs uppercase tracking-wider text-muted-foreground">Résumé du sondage</p>
+              {emailTarget.overall_rating && (
+                <p>Note globale : {emailTarget.overall_rating}/5 {ratingEmojis[emailTarget.overall_rating]}</p>
+              )}
+              {emailTarget.eva_score !== null && emailTarget.eva_score !== undefined && (
+                <p>Score EVA : {emailTarget.eva_score}/10</p>
+              )}
+              {emailTarget.comment && (
+                <p className="italic text-muted-foreground">&laquo; {emailTarget.comment} &raquo;</p>
+              )}
+            </div>
+          )}
+
+          <div>
+            <Textarea
+              placeholder="Écrivez votre message au patient..."
+              value={emailContent}
+              onChange={(e) => setEmailContent(e.target.value)}
+              rows={5}
+              className="resize-none"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEmailDialogOpen(false)}
+              disabled={isSendingEmail}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleSendEmail}
+              disabled={!emailContent.trim() || isSendingEmail}
+            >
+              {isSendingEmail ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Envoi...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Envoyer
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

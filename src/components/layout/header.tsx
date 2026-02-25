@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { Button } from '@/components/ui/button'
@@ -13,10 +13,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { LogOut, Settings, User, Bell, Search, HelpCircle } from 'lucide-react'
+import { LogOut, Settings, User, Search, HelpCircle } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
 import type { Practitioner } from '@/types/database'
 import { Input } from '@/components/ui/input'
+import { NotificationBell } from '@/components/layout/notification-bell'
 
 interface LocalUser {
   id: string
@@ -52,8 +53,6 @@ export function Header({ user, practitioner }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
   const db = createClient()
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [isLoadingUnread, setIsLoadingUnread] = useState(true)
 
   // Patient search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -81,44 +80,6 @@ export function Header({ user, practitioner }: HeaderProps) {
   const currentPage = Object.entries(pageTitles).find(([path]) =>
     pathname.startsWith(path)
   )?.[1] || { title: 'Dashboard', description: 'Bienvenue sur Osteoflow' }
-
-  const unreadLabel = useMemo(() => {
-    if (unreadCount <= 0) return 'Aucune notification'
-    if (unreadCount > 99) return '99+ notifications'
-    return `${unreadCount} notification${unreadCount > 1 ? 's' : ''}`
-  }, [unreadCount])
-
-  // Fetch unread count
-  useEffect(() => {
-    let isMounted = true
-
-    const fetchUnreadCount = async () => {
-      setIsLoadingUnread(true)
-      const { data, error } = await db
-        .from('conversations')
-        .select('unread_count')
-        .isNot('patient_id', null)
-        .gt('unread_count', 0)
-
-      if (!isMounted) return
-      if (error) {
-        console.error('Error fetching unread count:', error)
-        setUnreadCount(0)
-      } else {
-        const total = (data || []).reduce((sum: number, conv: any) => sum + (conv.unread_count || 0), 0)
-        setUnreadCount(total)
-      }
-      setIsLoadingUnread(false)
-    }
-
-    fetchUnreadCount()
-    const interval = setInterval(fetchUnreadCount, 30000)
-
-    return () => {
-      isMounted = false
-      clearInterval(interval)
-    }
-  }, [db])
 
   // Patient search
   const searchPatients = useCallback(async (query: string) => {
@@ -276,23 +237,7 @@ export function Header({ user, practitioner }: HeaderProps) {
           </Button>
 
           {/* Notifications */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative rounded-full text-muted-foreground hover:text-foreground h-9 w-9"
-            onClick={() => router.push('/messages')}
-            aria-label={unreadLabel}
-          >
-            <Bell className="h-4 w-4" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] rounded-full px-1 text-[9px] font-semibold leading-4 text-white gradient-primary">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-            {isLoadingUnread && unreadCount === 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 animate-pulse rounded-full bg-muted-foreground/60" />
-            )}
-          </Button>
+          <NotificationBell />
 
           {/* Separator */}
           <div className="hidden sm:block w-px h-6 bg-border/50 mx-1" />
