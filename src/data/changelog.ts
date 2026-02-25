@@ -19,6 +19,18 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.0.43',
+    date: '2025-02-25',
+    title: 'Cloche de notifications et envoi d\'email depuis les sondages',
+    changes: [
+      { type: 'feature', text: 'Cloche de notifications avec menu déroulant regroupant sondages, messages et mises à jour' },
+      { type: 'feature', text: 'Popup éphémère sous la cloche lors de la réception d\'une nouvelle notification' },
+      { type: 'feature', text: 'Bouton "Envoyer un mail" sur chaque réponse de sondage pour contacter directement le patient' },
+      { type: 'feature', text: 'Les mises à jour apparaissent dans la cloche avec barre de progression et bouton de redémarrage' },
+      { type: 'improvement', text: 'Rafraîchissement en temps réel des notifications lors de la synchronisation des sondages et emails' },
+    ],
+  },
+  {
     version: '1.0.42',
     date: '2026-02-25',
     title: 'Correction du blocage au démarrage',
