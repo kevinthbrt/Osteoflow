@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     let query = db
       .from('survey_responses')
-      .select('*, patient:patients (id, first_name, last_name)')
+      .select('*, patient:patients (id, first_name, last_name, email)')
       .eq('practitioner_id', practitioner.id)
       .order('created_at', { ascending: false })
 

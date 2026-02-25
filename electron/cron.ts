@@ -11,6 +11,7 @@
  */
 
 import http from 'http'
+import { BrowserWindow } from 'electron'
 
 let followUpInterval: NodeJS.Timeout | null = null
 let inboxInterval: NodeJS.Timeout | null = null
@@ -158,6 +159,13 @@ async function runInboxSync(port: number): Promise<void> {
       const data = JSON.parse(body)
       if (data.total_emails_fetched && data.total_emails_fetched > 0) {
         console.log(`[Cron] Synced ${data.total_emails_fetched} email(s), matched ${data.total_emails_matched}`)
+        // Notify renderer to refresh notifications
+        if (data.total_emails_matched > 0) {
+          const win = BrowserWindow.getAllWindows()[0]
+          if (win) {
+            win.webContents.send('inbox-synced', data.total_emails_matched)
+          }
+        }
       } else {
         console.log('[Cron] Inbox sync complete - no new emails')
       }
@@ -188,6 +196,11 @@ async function runSurveySync(port: number): Promise<void> {
       const data = JSON.parse(body)
       if (data.synced && data.synced > 0) {
         console.log(`[Cron] Synced ${data.synced} survey response(s)`)
+        // Notify renderer to refresh notifications
+        const win = BrowserWindow.getAllWindows()[0]
+        if (win) {
+          win.webContents.send('survey-synced', data.synced)
+        }
       }
     } catch {
       // silent
