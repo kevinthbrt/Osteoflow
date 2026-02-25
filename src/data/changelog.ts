@@ -19,6 +19,17 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.0.42',
+    date: '2026-02-25',
+    title: 'Correction du blocage au démarrage',
+    changes: [
+      { type: 'fix', text: 'Correction de l\'application bloquée sur "Chargement en cours…" au démarrage' },
+      { type: 'fix', text: 'Correction du démarrage si le port 3456 est déjà occupé (ex: instance précédente mal fermée)' },
+      { type: 'improvement', text: 'Ajout d\'un mécanisme de reconnexion automatique si le chargement de la page échoue' },
+      { type: 'improvement', text: 'En mode développement, attente active du serveur avant d\'afficher l\'application' },
+    ],
+  },
+  {
     version: '1.0.41',
     date: '2026-02-23',
     title: 'Notifications de mise à jour et changelog',
