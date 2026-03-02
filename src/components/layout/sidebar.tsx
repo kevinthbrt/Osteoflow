@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils'
 import {
   Users,
   Calendar,
-  FileText,
   BarChart3,
   Settings,
   Menu,
@@ -30,7 +29,6 @@ const navigation = [
   { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard, description: 'Vue d\'ensemble' },
   { name: 'Patients', href: '/patients', icon: Users, description: 'Gérer vos patients' },
   { name: 'Consultations', href: '/consultations', icon: Calendar, description: 'Historique' },
-  { name: 'Factures', href: '/invoices', icon: FileText, description: 'Facturation' },
   { name: 'Messagerie', href: '/messages', icon: MessageCircle, description: 'Communications' },
   { name: 'Statistiques', href: '/statistics', icon: TrendingUp, description: 'Analyses & tendances' },
   { name: 'Comptabilité', href: '/accounting', icon: BarChart3, description: 'Rapports' },
