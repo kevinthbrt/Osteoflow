@@ -1,6 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
+ * PATCH /api/surveys
+ * Body: { survey_ids: string[] } or { acknowledge_all: true }
+ *
+ * Marks survey responses as acknowledged (read/processed by the practitioner).
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const { createClient } = await import('@/lib/db/server')
+    const db = await createClient()
+
+    const { data: { user } } = await db.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+    }
+
+    const { data: practitioner } = await db
+      .from('practitioners')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (!practitioner) {
+      return NextResponse.json({ error: 'Praticien non trouvé' }, { status: 404 })
+    }
+
+    const body = await request.json()
+    const now = new Date().toISOString()
+
+    if (body.acknowledge_all) {
+      // Acknowledge all unacknowledged completed surveys
+      const { error } = await db
+        .from('survey_responses')
+        .update({ acknowledged_at: now })
+        .eq('practitioner_id', practitioner.id)
+        .eq('status', 'completed')
+        .is('acknowledged_at', null)
+
+      if (error) {
+        return NextResponse.json({ error: 'Erreur base de données' }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true })
+    }
+
+    if (body.survey_ids && Array.isArray(body.survey_ids) && body.survey_ids.length > 0) {
+      // Acknowledge specific surveys
+      const { error } = await db
+        .from('survey_responses')
+        .update({ acknowledged_at: now })
+        .eq('practitioner_id', practitioner.id)
+        .in('id', body.survey_ids)
+
+      if (error) {
+        return NextResponse.json({ error: 'Erreur base de données' }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true })
+    }
+
+    return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
+  } catch (error) {
+    console.error('[Surveys] PATCH error:', error)
+    return NextResponse.json(
+      { error: 'Erreur lors de la mise à jour des sondages' },
+      { status: 500 }
+    )
+  }
+}
+
+/**
  * GET /api/surveys?practitioner_id=xxx
  * GET /api/surveys?consultation_id=xxx
  * GET /api/surveys?patient_id=xxx

@@ -32,6 +32,9 @@ import {
   Mail,
   Send,
   Loader2,
+  CheckCheck,
+  Archive,
+  Eye,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useToast } from '@/hooks/use-toast'
@@ -54,6 +57,7 @@ interface SurveyResponse {
   responded_at: string | null
   created_at: string
   synced_at: string | null
+  acknowledged_at: string | null
   patient?: {
     id: string
     first_name: string
@@ -186,6 +190,60 @@ export default function SurveysPage() {
     }
   }
 
+  const handleAcknowledge = async (surveyIds: string[]) => {
+    try {
+      const res = await fetch('/api/surveys', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ survey_ids: surveyIds }),
+      })
+      if (res.ok) {
+        setSurveys(prev =>
+          prev.map(s =>
+            surveyIds.includes(s.id)
+              ? { ...s, acknowledged_at: new Date().toISOString() }
+              : s
+          )
+        )
+        toast({
+          variant: 'success',
+          title: 'Sondage traité',
+          description: surveyIds.length > 1
+            ? `${surveyIds.length} sondages marqués comme traités`
+            : 'Sondage marqué comme traité',
+        })
+      }
+    } catch (error) {
+      console.error('Error acknowledging surveys:', error)
+    }
+  }
+
+  const handleAcknowledgeAll = async () => {
+    try {
+      const res = await fetch('/api/surveys', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acknowledge_all: true }),
+      })
+      if (res.ok) {
+        setSurveys(prev =>
+          prev.map(s =>
+            s.status === 'completed' && !s.acknowledged_at
+              ? { ...s, acknowledged_at: new Date().toISOString() }
+              : s
+          )
+        )
+        toast({
+          variant: 'success',
+          title: 'Tous traités',
+          description: 'Tous les sondages ont été marqués comme traités',
+        })
+      }
+    } catch (error) {
+      console.error('Error acknowledging all surveys:', error)
+    }
+  }
+
   const fetchSurveys = useCallback(async () => {
     try {
       const res = await fetch('/api/surveys?limit=30')
@@ -218,6 +276,8 @@ export default function SurveysPage() {
   }, [fetchSurveys])
 
   const completedSurveys = surveys.filter(s => s.status === 'completed')
+  const newSurveys = completedSurveys.filter(s => !s.acknowledged_at)
+  const acknowledgedSurveys = completedSurveys.filter(s => !!s.acknowledged_at)
   const pendingSurveys = surveys.filter(s => s.status === 'pending')
 
   if (isLoading) {
@@ -422,25 +482,186 @@ export default function SurveysPage() {
         </Card>
       )}
 
-      {/* Completed survey responses */}
-      {completedSurveys.length > 0 && (
-        <Card>
+      {/* New (unacknowledged) survey responses */}
+      {newSurveys.length > 0 && (
+        <Card className="border-primary/20">
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-blue-500" />
-              Réponses reçues ({completedSurveys.length})
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-blue-500" />
+                Nouvelles réponses ({newSurveys.length})
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAcknowledgeAll}
+              >
+                <CheckCheck className="h-4 w-4 mr-2" />
+                Tout marquer comme traité
+              </Button>
+            </div>
+            <CardDescription>
+              Réponses non encore consultées — marquez-les comme traitées pour les archiver
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {completedSurveys.slice(0, 10).map(survey => {
+              {newSurveys.slice(0, 10).map(survey => {
                 const hasPainReduction = survey.pain_reduction === true || survey.pain_reduction === 1
                 const hasMobility = survey.better_mobility === true || survey.better_mobility === 1
 
                 return (
                   <div
                     key={survey.id}
-                    className="border rounded-xl p-4 space-y-3"
+                    className="border border-primary/20 rounded-xl p-4 space-y-3 bg-primary/[0.02]"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {/* Rating */}
+                        <div className="text-2xl">
+                          {survey.overall_rating ? ratingEmojis[survey.overall_rating] : ''}
+                        </div>
+                        <div>
+                          {/* Patient identity */}
+                          {survey.patient && (
+                            <p className="font-semibold text-sm flex items-center gap-1">
+                              <User className="h-3.5 w-3.5 text-muted-foreground" />
+                              {survey.patient.first_name} {survey.patient.last_name}
+                            </p>
+                          )}
+                          <p className="font-medium text-sm">
+                            {survey.overall_rating ? ratingLabels[survey.overall_rating] : 'N/A'}
+                            <span className="text-muted-foreground font-normal ml-1">
+                              ({survey.overall_rating}/5)
+                            </span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {survey.responded_at
+                              ? new Date(survey.responded_at).toLocaleDateString('fr-FR', {
+                                  day: 'numeric',
+                                  month: 'long',
+                                  year: 'numeric',
+                                })
+                              : ''}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                        {/* EVA score badge */}
+                        {survey.eva_score !== null && survey.eva_score !== undefined && (
+                          <Badge variant="outline" className="text-orange-600 bg-orange-50 border-orange-200">
+                            <Gauge className="h-3 w-3 mr-1" />
+                            EVA {survey.eva_score}/10
+                          </Badge>
+                        )}
+
+                        {/* Pain reduction badge */}
+                        {survey.pain_reduction !== null && survey.pain_reduction !== undefined && (
+                          <Badge
+                            variant="outline"
+                            className={hasPainReduction
+                              ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+                              : 'text-red-600 bg-red-50 border-red-200'
+                            }
+                          >
+                            <TrendingDown className="h-3 w-3 mr-1" />
+                            {hasPainReduction ? 'Douleur diminuée' : 'Pas de diminution'}
+                          </Badge>
+                        )}
+
+                        {/* Mobility badge */}
+                        {survey.better_mobility !== null && survey.better_mobility !== undefined && (
+                          <Badge
+                            variant="outline"
+                            className={hasMobility
+                              ? 'text-violet-600 bg-violet-50 border-violet-200'
+                              : 'text-amber-600 bg-amber-50 border-amber-200'
+                            }
+                          >
+                            <Activity className="h-3 w-3 mr-1" />
+                            {hasMobility ? 'Mobilité améliorée' : 'Mobilité inchangée'}
+                          </Badge>
+                        )}
+
+                        {/* Acknowledge button */}
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => handleAcknowledge([survey.id])}
+                          title="Marquer comme traité"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                          Traité
+                        </Button>
+
+                        {/* Send email button */}
+                        {survey.patient && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEmailDialog(survey)}
+                            disabled={!survey.patient?.email}
+                            title={survey.patient?.email ? `Envoyer un email à ${survey.patient.email}` : 'Pas d\'email enregistré'}
+                          >
+                            <Mail className="h-3.5 w-3.5 mr-1" />
+                            Envoyer un mail
+                          </Button>
+                        )}
+
+                        {/* Consultation link button */}
+                        <Link href={`/consultations/${survey.consultation_id}`}>
+                          <Button variant="outline" size="sm">
+                            <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                            Consultation
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+
+                    {/* Comment */}
+                    {survey.comment && (
+                      <div className="bg-muted/50 rounded-lg p-3">
+                        <p className="text-sm text-muted-foreground italic">
+                          &laquo; {survey.comment} &raquo;
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+              {newSurveys.length > 10 && (
+                <p className="text-sm text-muted-foreground text-center pt-2">
+                  Affichage des 10 dernières réponses sur {newSurveys.length}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Acknowledged (archived) survey responses */}
+      {acknowledgedSurveys.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Archive className="h-4 w-4 text-muted-foreground" />
+              Réponses traitées ({acknowledgedSurveys.length})
+            </CardTitle>
+            <CardDescription>
+              Sondages déjà consultés et marqués comme traités
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {acknowledgedSurveys.slice(0, 10).map(survey => {
+                const hasPainReduction = survey.pain_reduction === true || survey.pain_reduction === 1
+                const hasMobility = survey.better_mobility === true || survey.better_mobility === 1
+
+                return (
+                  <div
+                    key={survey.id}
+                    className="border rounded-xl p-4 space-y-3 opacity-75"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -546,9 +767,9 @@ export default function SurveysPage() {
                   </div>
                 )
               })}
-              {completedSurveys.length > 10 && (
+              {acknowledgedSurveys.length > 10 && (
                 <p className="text-sm text-muted-foreground text-center pt-2">
-                  Affichage des 10 dernières réponses sur {completedSurveys.length}
+                  Affichage des 10 dernières réponses sur {acknowledgedSurveys.length}
                 </p>
               )}
             </div>

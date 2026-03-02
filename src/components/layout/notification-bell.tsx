@@ -13,6 +13,7 @@ import {
   Download,
   RefreshCw,
   X,
+  CheckCheck,
 } from 'lucide-react'
 
 interface ElectronAPI {
@@ -115,13 +116,14 @@ export function NotificationBell() {
     setMailNotifs(notifs)
   }, [db])
 
-  // Fetch survey notifications (recently completed surveys)
+  // Fetch survey notifications (recently completed surveys, not yet acknowledged)
   const fetchSurveyNotifs = useCallback(async () => {
     const { data, error } = await db
       .from('survey_responses')
       .select('id, overall_rating, responded_at, consultation_id, patient_id, patient:patients (id, first_name, last_name)')
       .eq('status', 'completed')
       .not('responded_at', 'is', null)
+      .is('acknowledged_at', null)
       .order('responded_at', { ascending: false })
       .limit(10)
 
@@ -156,6 +158,22 @@ export function NotificationBell() {
     isFirstLoadRef.current = false
     setSurveyNotifs(notifs)
   }, [db, showEphemeral])
+
+  // Acknowledge all survey notifications
+  const acknowledgeSurveys = useCallback(async () => {
+    if (surveyNotifs.length === 0) return
+    try {
+      await fetch('/api/surveys', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acknowledge_all: true }),
+      })
+      setSurveyNotifs([])
+      prevSurveyIdsRef.current = new Set()
+    } catch (error) {
+      console.error('Error acknowledging surveys:', error)
+    }
+  }, [surveyNotifs])
 
   // Listen for Electron events (updates + survey sync)
   useEffect(() => {
@@ -325,11 +343,22 @@ export function NotificationBell() {
             {/* Survey notifications */}
             {surveyNotifs.length > 0 && (
               <div className="border-b border-border/40">
-                <div className="px-4 py-2 bg-muted/30">
+                <div className="px-4 py-2 bg-muted/30 flex items-center justify-between">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                     <ClipboardList className="h-3 w-3" />
                     Sondages ({surveyNotifs.length})
                   </p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      acknowledgeSurveys()
+                    }}
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                    title="Tout marquer comme lu"
+                  >
+                    <CheckCheck className="h-3 w-3" />
+                    Tout lu
+                  </button>
                 </div>
                 {surveyNotifs.slice(0, 5).map(survey => (
                   <button
