@@ -77,11 +77,6 @@ interface SurveyStats {
 
 const ratingEmojis = ['', '\u{1F622}', '\u{1F615}', '\u{1F610}', '\u{1F642}', '\u{1F601}']
 const ratingLabels = ['', 'Très mal', 'Mal', 'Moyen', 'Bien', 'Très bien']
-const painLabels: Record<string, { label: string; color: string; icon: typeof TrendingUp }> = {
-  better: { label: 'Amélioration', color: 'text-emerald-600 bg-emerald-50', icon: TrendingUp },
-  same: { label: 'Pas de changement', color: 'text-amber-600 bg-amber-50', icon: Minus },
-  worse: { label: 'Détérioration', color: 'text-red-600 bg-red-50', icon: TrendingDown },
-}
 
 export default function SurveysPage() {
   const [surveys, setSurveys] = useState<SurveyResponse[]>([])
