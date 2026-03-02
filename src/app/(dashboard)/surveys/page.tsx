@@ -17,10 +17,7 @@ import {
 import {
   ClipboardList,
   Star,
-  TrendingUp,
   TrendingDown,
-  Minus,
-  ThumbsUp,
   RefreshCw,
   MessageSquare,
   Clock,
@@ -28,13 +25,11 @@ import {
   Activity,
   Gauge,
   ExternalLink,
-  User,
   Mail,
   Send,
   Loader2,
   CheckCheck,
   Archive,
-  Eye,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useToast } from '@/hooks/use-toast'
@@ -432,57 +427,7 @@ export default function SurveysPage() {
         </Card>
       )}
 
-      {/* Pending surveys */}
-      {pendingSurveys.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Clock className="h-4 w-4 text-amber-500" />
-              En attente de réponse ({pendingSurveys.length})
-            </CardTitle>
-            <CardDescription>
-              Sondages envoyés mais pas encore remplis par les patients
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {pendingSurveys.slice(0, 10).map(survey => (
-                <div
-                  key={survey.id}
-                  className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50"
-                >
-                  <div className="flex items-center gap-3">
-                    <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
-                      En attente
-                    </Badge>
-                    {survey.patient && (
-                      <span className="text-sm font-medium">
-                        {survey.patient.first_name} {survey.patient.last_name}
-                      </span>
-                    )}
-                    <span className="text-sm text-muted-foreground">
-                      Envoyé le {new Date(survey.created_at).toLocaleDateString('fr-FR')}
-                    </span>
-                  </div>
-                  <Link href={`/consultations/${survey.consultation_id}`}>
-                    <Button variant="ghost" size="sm">
-                      <ExternalLink className="h-4 w-4 mr-1" />
-                      Consultation
-                    </Button>
-                  </Link>
-                </div>
-              ))}
-              {pendingSurveys.length > 10 && (
-                <p className="text-sm text-muted-foreground text-center pt-2">
-                  + {pendingSurveys.length - 10} autre(s)
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* New (unacknowledged) survey responses */}
+      {/* New (unacknowledged) survey responses — shown first */}
       {newSurveys.length > 0 && (
         <Card className="border-primary/20">
           <CardHeader>
@@ -500,9 +445,6 @@ export default function SurveysPage() {
                 Tout marquer comme traité
               </Button>
             </div>
-            <CardDescription>
-              Réponses non encore consultées — marquez-les comme traitées pour les archiver
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -517,30 +459,23 @@ export default function SurveysPage() {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        {/* Rating */}
                         <div className="text-2xl">
                           {survey.overall_rating ? ratingEmojis[survey.overall_rating] : ''}
                         </div>
                         <div>
-                          {/* Patient identity */}
                           {survey.patient && (
-                            <p className="font-semibold text-sm flex items-center gap-1">
-                              <User className="h-3.5 w-3.5 text-muted-foreground" />
+                            <p className="font-semibold text-sm">
                               {survey.patient.first_name} {survey.patient.last_name}
                             </p>
                           )}
-                          <p className="font-medium text-sm">
+                          <p className="text-sm text-muted-foreground">
                             {survey.overall_rating ? ratingLabels[survey.overall_rating] : 'N/A'}
-                            <span className="text-muted-foreground font-normal ml-1">
-                              ({survey.overall_rating}/5)
-                            </span>
-                          </p>
-                          <p className="text-xs text-muted-foreground">
+                            {' '}({survey.overall_rating}/5)
+                            {' '}&middot;{' '}
                             {survey.responded_at
                               ? new Date(survey.responded_at).toLocaleDateString('fr-FR', {
                                   day: 'numeric',
                                   month: 'long',
-                                  year: 'numeric',
                                 })
                               : ''}
                           </p>
@@ -548,15 +483,12 @@ export default function SurveysPage() {
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap justify-end">
-                        {/* EVA score badge */}
                         {survey.eva_score !== null && survey.eva_score !== undefined && (
                           <Badge variant="outline" className="text-orange-600 bg-orange-50 border-orange-200">
-                            <Gauge className="h-3 w-3 mr-1" />
                             EVA {survey.eva_score}/10
                           </Badge>
                         )}
 
-                        {/* Pain reduction badge */}
                         {survey.pain_reduction !== null && survey.pain_reduction !== undefined && (
                           <Badge
                             variant="outline"
@@ -565,12 +497,10 @@ export default function SurveysPage() {
                               : 'text-red-600 bg-red-50 border-red-200'
                             }
                           >
-                            <TrendingDown className="h-3 w-3 mr-1" />
-                            {hasPainReduction ? 'Douleur diminuée' : 'Pas de diminution'}
+                            {hasPainReduction ? 'Douleur \u2193' : 'Douleur ='}
                           </Badge>
                         )}
 
-                        {/* Mobility badge */}
                         {survey.better_mobility !== null && survey.better_mobility !== undefined && (
                           <Badge
                             variant="outline"
@@ -579,60 +509,107 @@ export default function SurveysPage() {
                               : 'text-amber-600 bg-amber-50 border-amber-200'
                             }
                           >
-                            <Activity className="h-3 w-3 mr-1" />
-                            {hasMobility ? 'Mobilité améliorée' : 'Mobilité inchangée'}
+                            {hasMobility ? 'Mobilité \u2191' : 'Mobilité ='}
                           </Badge>
                         )}
 
-                        {/* Acknowledge button */}
                         <Button
                           variant="default"
                           size="sm"
                           onClick={() => handleAcknowledge([survey.id])}
-                          title="Marquer comme traité"
                         >
                           <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
                           Traité
                         </Button>
 
-                        {/* Send email button */}
-                        {survey.patient && (
+                        {survey.patient?.email && (
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => openEmailDialog(survey)}
-                            disabled={!survey.patient?.email}
-                            title={survey.patient?.email ? `Envoyer un email à ${survey.patient.email}` : 'Pas d\'email enregistré'}
                           >
                             <Mail className="h-3.5 w-3.5 mr-1" />
-                            Envoyer un mail
+                            Email
                           </Button>
                         )}
 
-                        {/* Consultation link button */}
                         <Link href={`/consultations/${survey.consultation_id}`}>
-                          <Button variant="outline" size="sm">
-                            <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                            Consultation
+                          <Button variant="ghost" size="sm">
+                            <ExternalLink className="h-3.5 w-3.5" />
                           </Button>
                         </Link>
                       </div>
                     </div>
 
-                    {/* Comment */}
                     {survey.comment && (
-                      <div className="bg-muted/50 rounded-lg p-3">
-                        <p className="text-sm text-muted-foreground italic">
-                          &laquo; {survey.comment} &raquo;
-                        </p>
-                      </div>
+                      <p className="text-sm text-muted-foreground italic pl-11">
+                        &laquo; {survey.comment} &raquo;
+                      </p>
                     )}
                   </div>
                 )
               })}
-              {newSurveys.length > 10 && (
-                <p className="text-sm text-muted-foreground text-center pt-2">
-                  Affichage des 10 dernières réponses sur {newSurveys.length}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Acknowledged (archived) — compact table */}
+      {acknowledgedSurveys.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Archive className="h-3.5 w-3.5" />
+              Réponses traitées ({acknowledgedSurveys.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="divide-y divide-border/50">
+              {acknowledgedSurveys.slice(0, 10).map(survey => (
+                <div
+                  key={survey.id}
+                  className="flex items-center justify-between py-2 text-sm text-muted-foreground"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span>{survey.overall_rating ? ratingEmojis[survey.overall_rating] : ''}</span>
+                    <span className="font-medium text-foreground/70">
+                      {survey.patient ? `${survey.patient.first_name} ${survey.patient.last_name}` : 'Patient'}
+                    </span>
+                    <span>&middot; {survey.overall_rating}/5</span>
+                    {survey.eva_score !== null && survey.eva_score !== undefined && (
+                      <span>&middot; EVA {survey.eva_score}/10</span>
+                    )}
+                    {survey.comment && (
+                      <span className="italic truncate max-w-[200px]">&laquo; {survey.comment} &raquo;</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs">
+                      {survey.responded_at
+                        ? new Date(survey.responded_at).toLocaleDateString('fr-FR')
+                        : ''}
+                    </span>
+                    {survey.patient?.email && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => openEmailDialog(survey)}
+                      >
+                        <Mail className="h-3 w-3" />
+                      </Button>
+                    )}
+                    <Link href={`/consultations/${survey.consultation_id}`}>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+              {acknowledgedSurveys.length > 10 && (
+                <p className="text-xs text-muted-foreground text-center pt-2">
+                  + {acknowledgedSurveys.length - 10} autre(s)
                 </p>
               )}
             </div>
@@ -640,136 +617,38 @@ export default function SurveysPage() {
         </Card>
       )}
 
-      {/* Acknowledged (archived) survey responses */}
-      {acknowledgedSurveys.length > 0 && (
+      {/* Pending surveys — compact table */}
+      {pendingSurveys.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Archive className="h-4 w-4 text-muted-foreground" />
-              Réponses traitées ({acknowledgedSurveys.length})
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Clock className="h-3.5 w-3.5" />
+              En attente de réponse ({pendingSurveys.length})
             </CardTitle>
-            <CardDescription>
-              Sondages déjà consultés et marqués comme traités
-            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {acknowledgedSurveys.slice(0, 10).map(survey => {
-                const hasPainReduction = survey.pain_reduction === true || survey.pain_reduction === 1
-                const hasMobility = survey.better_mobility === true || survey.better_mobility === 1
-
-                return (
-                  <div
-                    key={survey.id}
-                    className="border rounded-xl p-4 space-y-3 opacity-75"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {/* Rating */}
-                        <div className="text-2xl">
-                          {survey.overall_rating ? ratingEmojis[survey.overall_rating] : ''}
-                        </div>
-                        <div>
-                          {/* Patient identity */}
-                          {survey.patient && (
-                            <p className="font-semibold text-sm flex items-center gap-1">
-                              <User className="h-3.5 w-3.5 text-muted-foreground" />
-                              {survey.patient.first_name} {survey.patient.last_name}
-                            </p>
-                          )}
-                          <p className="font-medium text-sm">
-                            {survey.overall_rating ? ratingLabels[survey.overall_rating] : 'N/A'}
-                            <span className="text-muted-foreground font-normal ml-1">
-                              ({survey.overall_rating}/5)
-                            </span>
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {survey.responded_at
-                              ? new Date(survey.responded_at).toLocaleDateString('fr-FR', {
-                                  day: 'numeric',
-                                  month: 'long',
-                                  year: 'numeric',
-                                })
-                              : ''}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 flex-wrap justify-end">
-                        {/* EVA score badge */}
-                        {survey.eva_score !== null && survey.eva_score !== undefined && (
-                          <Badge variant="outline" className="text-orange-600 bg-orange-50 border-orange-200">
-                            <Gauge className="h-3 w-3 mr-1" />
-                            EVA {survey.eva_score}/10
-                          </Badge>
-                        )}
-
-                        {/* Pain reduction badge */}
-                        {survey.pain_reduction !== null && survey.pain_reduction !== undefined && (
-                          <Badge
-                            variant="outline"
-                            className={hasPainReduction
-                              ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
-                              : 'text-red-600 bg-red-50 border-red-200'
-                            }
-                          >
-                            <TrendingDown className="h-3 w-3 mr-1" />
-                            {hasPainReduction ? 'Douleur diminuée' : 'Pas de diminution'}
-                          </Badge>
-                        )}
-
-                        {/* Mobility badge */}
-                        {survey.better_mobility !== null && survey.better_mobility !== undefined && (
-                          <Badge
-                            variant="outline"
-                            className={hasMobility
-                              ? 'text-violet-600 bg-violet-50 border-violet-200'
-                              : 'text-amber-600 bg-amber-50 border-amber-200'
-                            }
-                          >
-                            <Activity className="h-3 w-3 mr-1" />
-                            {hasMobility ? 'Mobilité améliorée' : 'Mobilité inchangée'}
-                          </Badge>
-                        )}
-
-                        {/* Send email button */}
-                        {survey.patient && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEmailDialog(survey)}
-                            disabled={!survey.patient?.email}
-                            title={survey.patient?.email ? `Envoyer un email à ${survey.patient.email}` : 'Pas d\'email enregistré'}
-                          >
-                            <Mail className="h-3.5 w-3.5 mr-1" />
-                            Envoyer un mail
-                          </Button>
-                        )}
-
-                        {/* Consultation link button */}
-                        <Link href={`/consultations/${survey.consultation_id}`}>
-                          <Button variant="outline" size="sm">
-                            <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                            Consultation
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-
-                    {/* Comment */}
-                    {survey.comment && (
-                      <div className="bg-muted/50 rounded-lg p-3">
-                        <p className="text-sm text-muted-foreground italic">
-                          &laquo; {survey.comment} &raquo;
-                        </p>
-                      </div>
-                    )}
+          <CardContent className="pt-0">
+            <div className="divide-y divide-border/50">
+              {pendingSurveys.slice(0, 10).map(survey => (
+                <div
+                  key={survey.id}
+                  className="flex items-center justify-between py-2 text-sm text-muted-foreground"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="font-medium text-foreground/70">
+                      {survey.patient ? `${survey.patient.first_name} ${survey.patient.last_name}` : 'Patient'}
+                    </span>
+                    <span>&middot; envoyé le {new Date(survey.created_at).toLocaleDateString('fr-FR')}</span>
                   </div>
-                )
-              })}
-              {acknowledgedSurveys.length > 10 && (
-                <p className="text-sm text-muted-foreground text-center pt-2">
-                  Affichage des 10 dernières réponses sur {acknowledgedSurveys.length}
+                  <Link href={`/consultations/${survey.consultation_id}`}>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  </Link>
+                </div>
+              ))}
+              {pendingSurveys.length > 10 && (
+                <p className="text-xs text-muted-foreground text-center pt-2">
+                  + {pendingSurveys.length - 10} autre(s)
                 </p>
               )}
             </div>
