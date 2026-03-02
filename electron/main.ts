@@ -52,7 +52,7 @@ const isDev = !app.isPackaged
  * Wait for a local HTTP server to respond on the given port.
  * Polls every `interval` ms, up to `timeout` ms total.
  */
-async function waitForServer(port: number, timeout = 30000, interval = 500): Promise<void> {
+async function waitForServer(port: number, timeout = 120000, interval = 500): Promise<void> {
   const http = await import('http')
   const start = Date.now()
 

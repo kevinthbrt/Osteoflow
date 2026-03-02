@@ -572,6 +572,7 @@ export interface Database {
           responded_at: string | null
           created_at: string
           synced_at: string | null
+          acknowledged_at: string | null
         }
         Insert: {
           id?: string
@@ -587,6 +588,7 @@ export interface Database {
           responded_at?: string | null
           created_at?: string
           synced_at?: string | null
+          acknowledged_at?: string | null
         }
         Update: {
           id?: string
@@ -602,6 +604,7 @@ export interface Database {
           responded_at?: string | null
           created_at?: string
           synced_at?: string | null
+          acknowledged_at?: string | null
         }
       }
     }

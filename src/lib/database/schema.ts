@@ -295,7 +295,8 @@ CREATE TABLE IF NOT EXISTS survey_responses (
   would_recommend INTEGER,
   responded_at TEXT,
   created_at TEXT DEFAULT (datetime('now')),
-  synced_at TEXT
+  synced_at TEXT,
+  acknowledged_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_survey_responses_token ON survey_responses(token);
@@ -372,7 +373,7 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     db.exec('ALTER TABLE patients ADD COLUMN referred_by_patient_id TEXT REFERENCES patients(id);')
   }
 
-  // Add new survey fields (eva_score, pain_reduction, better_mobility)
+  // Add new survey fields (eva_score, pain_reduction, better_mobility, acknowledged_at)
   const surveyCols = db.pragma('table_info(survey_responses)') as Array<{ name: string }>
   if (!surveyCols.some((c) => c.name === 'eva_score')) {
     db.exec('ALTER TABLE survey_responses ADD COLUMN eva_score INTEGER CHECK (eva_score BETWEEN 0 AND 10);')
@@ -382,6 +383,9 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   }
   if (!surveyCols.some((c) => c.name === 'better_mobility')) {
     db.exec('ALTER TABLE survey_responses ADD COLUMN better_mobility INTEGER;')
+  }
+  if (!surveyCols.some((c) => c.name === 'acknowledged_at')) {
+    db.exec('ALTER TABLE survey_responses ADD COLUMN acknowledged_at TEXT;')
   }
 
   // Create manual_revenue_entries table if not exists (already in SCHEMA_SQL for new installs)
