@@ -122,7 +122,7 @@ export function NotificationBell() {
       .from('survey_responses')
       .select('id, overall_rating, responded_at, consultation_id, patient_id, patient:patients (id, first_name, last_name)')
       .eq('status', 'completed')
-      .not('responded_at', 'is', null)
+      .isNot('responded_at', null)
       .is('acknowledged_at', null)
       .order('responded_at', { ascending: false })
       .limit(10)
