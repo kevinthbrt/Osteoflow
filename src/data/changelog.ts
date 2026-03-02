@@ -19,6 +19,19 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.0.44',
+    date: '2026-03-02',
+    title: 'Page consultations unifiée et améliorations sondages',
+    changes: [
+      { type: 'feature', text: 'Fusion des pages Consultations et Factures en une seule page avec filtre par période' },
+      { type: 'feature', text: 'Modification du mode de paiement directement depuis la ligne de consultation' },
+      { type: 'feature', text: 'Marquer les réponses aux sondages comme traitées pour les archiver' },
+      { type: 'fix', text: 'Correction des notifications de sondages qui ne s\'affichaient pas' },
+      { type: 'improvement', text: 'Affichage compact des sondages traités et en attente de réponse' },
+      { type: 'fix', text: 'Correction du timeout au démarrage en mode développement' },
+    ],
+  },
+  {
     version: '1.0.43',
     date: '2025-02-25',
     title: 'Cloche de notifications et envoi d\'email depuis les sondages',
