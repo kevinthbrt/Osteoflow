@@ -42,6 +42,13 @@ import { startCronJobs, stopCronJobs } from './cron'
   }
 }
 
+// Enforce single instance — prevent multiple Osteoflow processes.
+// If another instance is already running, focus its window and quit this one.
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+}
+
 // Next.js server
 let nextServer: any = null
 let mainWindow: BrowserWindow | null = null
@@ -360,6 +367,14 @@ async function setupAutoUpdater(): Promise<void> {
 /**
  * Application lifecycle.
  */
+// When a second instance is launched, focus the existing window instead.
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.focus()
+  }
+})
+
 app.whenReady().then(async () => {
   console.log('[Electron] Starting Osteoflow...')
 

@@ -746,6 +746,12 @@ export class QueryBuilder {
       return { data: insertedRows[0] || null, error: null }
     }
 
+    // When .select() is chained after .insert(), always return an array
+    // to match Supabase PostgREST behavior.
+    if (this._returnData) {
+      return { data: insertedRows, error: null }
+    }
+
     return {
       data: Array.isArray(this._insertData) ? insertedRows : insertedRows[0] || null,
       error: null,

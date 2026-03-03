@@ -140,10 +140,12 @@ export default function SurveysPage() {
           })
           .select('id')
 
-        if (convError || !newConv || newConv.length === 0) {
+        // Handle both array and single-object responses
+        const convRow = Array.isArray(newConv) ? newConv[0] : newConv
+        if (convError || !convRow?.id) {
           throw new Error('Impossible de créer la conversation')
         }
-        conversationId = newConv[0].id
+        conversationId = convRow.id
       }
 
       // Send email via API
