@@ -368,10 +368,15 @@ async function setupAutoUpdater(): Promise<void> {
  * Application lifecycle.
  */
 // When a second instance is launched, focus the existing window instead.
+// If the window was closed but the process is still alive, recreate it.
 app.on('second-instance', () => {
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
     mainWindow.focus()
+  } else {
+    createWindow()
+    loadApp()
   }
 })
 
@@ -416,6 +421,9 @@ app.on('before-quit', () => {
   console.log('[Electron] Shutting down...')
   stopCronJobs()
   if (nextServer) {
+    // Destroy all open connections so the server shuts down immediately
+    // instead of waiting for keep-alive timeouts.
+    nextServer.closeAllConnections?.()
     nextServer.close()
   }
 })
