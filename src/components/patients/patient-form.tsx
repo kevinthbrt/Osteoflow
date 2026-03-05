@@ -28,8 +28,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Pencil, Trash2, Search, X } from 'lucide-react'
+import { Loader2, Plus, Pencil, Trash2, Search, X, ClipboardPaste } from 'lucide-react'
 import type { MedicalHistoryType, OnsetDurationUnit, Patient } from '@/types/database'
+import { DoctolibPasteDialog } from './doctolib-paste-dialog'
 
 interface PatientFormProps {
   patient?: Patient
@@ -46,6 +47,7 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
   const [referralResults, setReferralResults] = useState<Array<{ id: string; first_name: string; last_name: string }>>([])
   const [selectedReferrer, setSelectedReferrer] = useState<{ id: string; first_name: string; last_name: string } | null>(null)
   const [showReferralDropdown, setShowReferralDropdown] = useState(false)
+  const [isDoctolibDialogOpen, setIsDoctolibDialogOpen] = useState(false)
   const referralInputRef = useRef<HTMLInputElement>(null)
   const referralDropdownRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
@@ -232,6 +234,22 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
     setDraftEntries((prev) => prev.filter((entry) => entry.id !== entryId))
   }
 
+  const handleDoctolibImport = (data: Partial<PatientFormData>) => {
+    if (data.gender) setValue('gender', data.gender)
+    if (data.first_name) setValue('first_name', data.first_name)
+    if (data.last_name) setValue('last_name', data.last_name)
+    if (data.birth_date) setValue('birth_date', data.birth_date)
+    if (data.phone) setValue('phone', data.phone)
+    if (data.email) setValue('email', data.email)
+    if (data.profession) setValue('profession', data.profession)
+    if (data.primary_physician) setValue('primary_physician', data.primary_physician)
+    toast({
+      variant: 'success',
+      title: 'Import reussi',
+      description: 'Les champs ont ete remplis automatiquement',
+    })
+  }
+
   const onSubmit = async (data: PatientFormData) => {
     setIsLoading(true)
 
@@ -347,8 +365,20 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Identification */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Identification</CardTitle>
+          {mode === 'create' && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDoctolibDialogOpen(true)}
+              disabled={isLoading}
+            >
+              <ClipboardPaste className="mr-2 h-4 w-4" />
+              Importer depuis Doctolib
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
@@ -839,6 +869,12 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DoctolibPasteDialog
+        open={isDoctolibDialogOpen}
+        onOpenChange={setIsDoctolibDialogOpen}
+        onImport={handleDoctolibImport}
+      />
     </form>
   )
 }
