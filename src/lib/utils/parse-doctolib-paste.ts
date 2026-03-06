@@ -13,7 +13,6 @@ export function parseDoctolibPaste(rawText: string): ParsedPatientData {
   if (!text) return result
 
   // Pre-process: split on known label boundaries when text is on a single line
-  // Doctolib sometimes pastes all fields on one line
   const preprocessed = text.replace(
     /\s+(Tél(?:éphone)?\s*(?:\([^)]*\))?\s*:|Tel(?:ephone)?\s*(?:\([^)]*\))?\s*:|E-mail\s*:|Email\s*:|Mail\s*:|Médecin traitant\s*:|Medecin traitant\s*:|Lieu de naissance\s*:|Profession\s*:|Date de naissance\s*:)/gi,
     '\n$1'
@@ -21,24 +20,71 @@ export function parseDoctolibPaste(rawText: string): ParsedPatientData {
 
   const lines = preprocessed.split('\n').map((l) => l.trim()).filter(Boolean)
 
-  for (const line of lines) {
+  // Try to detect Doctolib multi-line header format:
+  // Line 0: "Monsieur" or "Madame"
+  // Line 1: "LE FAOU" (last name, ALL CAPS)
+  // Line 2: "Mathieu" (first name)
+  // Line 3: "H, 20/11/1993 (32 ans)" (optional suffix + birth date)
+  if (lines.length >= 3) {
+    const civilityMatch = lines[0].match(/^(Monsieur|Madame|Mme|Mr|M\.)$/i)
+    if (civilityMatch) {
+      const civility = civilityMatch[1].toLowerCase()
+      result.gender = (civility === 'madame' || civility === 'mme') ? 'F' : 'M'
+
+      // Line 1 should be the last name (typically ALL CAPS)
+      const potentialLastName = lines[1]
+      // Line 2 should be the first name
+      const potentialFirstName = lines[2]
+
+      // Validate: last name should not look like a label (no colon)
+      if (!potentialLastName.includes(':') && !potentialFirstName.includes(':')) {
+        result.last_name = potentialLastName
+        result.first_name = potentialFirstName
+
+        // Line 3 might contain birth date: "H, 20/11/1993 (32 ans)"
+        if (lines.length > 3) {
+          const dateLine = lines[3]
+          const dateMatch = dateLine.match(/(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{4})/)
+          if (dateMatch) {
+            const parsed = parseFrenchDate(dateMatch[1])
+            if (parsed) result.birth_date = parsed
+          }
+        }
+      }
+    }
+  }
+
+  // Parse labeled lines (with value on same line or next line)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
     const lower = line.toLowerCase()
+    // Get inline value (after the colon) or the next line if empty
+    const getValueOrNextLine = (): string => {
+      const inline = extractValue(line)
+      if (inline) return inline
+      // Value might be on the next line
+      if (i + 1 < lines.length && !looksLikeLabel(lines[i + 1])) {
+        i++ // consume next line
+        return lines[i].trim()
+      }
+      return ''
+    }
 
     // Last name
     if (!result.last_name && matchesLabel(lower, ['nom de famille', 'nom'])) {
-      result.last_name = extractValue(line)
+      result.last_name = getValueOrNextLine()
       continue
     }
 
     // First name
     if (!result.first_name && matchesLabel(lower, ['prénom', 'prenom'])) {
-      result.first_name = extractValue(line)
+      result.first_name = getValueOrNextLine()
       continue
     }
 
     // Birth date
     if (!result.birth_date && matchesLabel(lower, ['date de naissance', 'né(e) le', 'née le', 'né le', 'naissance'])) {
-      const dateStr = extractValue(line)
+      const dateStr = getValueOrNextLine()
       const parsed = parseFrenchDate(dateStr)
       if (parsed) result.birth_date = parsed
       continue
@@ -46,7 +92,7 @@ export function parseDoctolibPaste(rawText: string): ParsedPatientData {
 
     // Gender
     if (!result.gender && matchesLabel(lower, ['sexe', 'genre', 'civilité', 'civilite'])) {
-      const val = extractValue(line).toLowerCase()
+      const val = getValueOrNextLine().toLowerCase()
       if (val.startsWith('m') && !val.startsWith('mm')) {
         result.gender = 'M'
       } else if (val.startsWith('f') || val.startsWith('femme') || val.startsWith('mme') || val.startsWith('mm')) {
@@ -56,61 +102,55 @@ export function parseDoctolibPaste(rawText: string): ParsedPatientData {
     }
 
     // Phone (portable)
-    if (!result.phone && matchesLabel(lower, ['téléphone', 'telephone', 'tél', 'tel', 'mobile', 'portable', 'tél (portable)', 'tel (portable)', 'téléphone portable', 'telephone portable'])) {
-      const val = extractValue(line)
+    if (!result.phone && matchesLabel(lower, ['téléphone', 'telephone', 'tél', 'tel', 'mobile', 'portable'])) {
+      const val = getValueOrNextLine()
       if (val) result.phone = val
       continue
     }
 
     // Phone (fixe) - only use if no phone found yet
     if (!result.phone && matchesLabel(lower, ['tél (fixe)', 'tel (fixe)', 'téléphone fixe', 'telephone fixe'])) {
-      const val = extractValue(line)
+      const val = getValueOrNextLine()
       if (val) result.phone = val
       continue
     }
 
     // Email
     if (!result.email && matchesLabel(lower, ['email', 'e-mail', 'courriel', 'mail'])) {
-      result.email = extractValue(line)
+      const val = getValueOrNextLine()
+      if (val) result.email = val
       continue
     }
 
     // Lieu de naissance - skip (not stored in patient form)
     if (matchesLabel(lower, ['lieu de naissance'])) {
+      getValueOrNextLine() // consume value line
       continue
     }
 
     // Profession
     if (!result.profession && matchesLabel(lower, ['profession', 'métier', 'metier', 'activité professionnelle'])) {
-      result.profession = extractValue(line)
+      result.profession = getValueOrNextLine()
       continue
     }
 
     // Physician
     if (!result.primary_physician && matchesLabel(lower, ['médecin traitant', 'medecin traitant', 'médecin', 'medecin', 'docteur'])) {
-      const val = extractValue(line)
+      const val = getValueOrNextLine()
       if (val) result.primary_physician = val
       continue
     }
 
-    // Try to detect Doctolib header format:
-    // "Monsieur LE FAOU Mathieu H, 20/11/1993 (32 ans)"
+    // Try single-line header format: "Monsieur LE FAOU Mathieu H, 20/11/1993 (32 ans)"
     if (!result.last_name && !result.first_name) {
       const headerMatch = line.match(/^(Monsieur|Madame|Mme|Mr|M\.)\s+(.+?)(?:,\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{4}))?(?:\s*\(.*\))?\s*$/)
       if (headerMatch) {
         const civility = headerMatch[1].toLowerCase()
-        if (civility === 'madame' || civility === 'mme') {
-          result.gender = 'F'
-        } else {
-          result.gender = 'M'
-        }
+        result.gender = (civility === 'madame' || civility === 'mme') ? 'F' : 'M'
 
-        // Parse "NOM Prenom" or "NOM Prenom X" from the name part
         const namePart = headerMatch[2].trim()
         const nameTokens = namePart.split(/\s+/)
         if (nameTokens.length >= 2) {
-          // Find where uppercase last name ends and first name begins
-          // Last name tokens are ALL CAPS, first name tokens are Capitalized
           const lastNameParts: string[] = []
           const firstNameParts: string[] = []
           let foundFirstName = false
@@ -118,7 +158,6 @@ export function parseDoctolibPaste(rawText: string): ParsedPatientData {
             if (!foundFirstName && token === token.toUpperCase() && token.length > 1) {
               lastNameParts.push(token)
             } else {
-              // Skip single-letter tokens after the first name (like "H" suffix)
               if (token.length > 1 || firstNameParts.length === 0) {
                 firstNameParts.push(token)
               }
@@ -182,6 +221,16 @@ function matchesLabel(lowerLine: string, labels: string[]): boolean {
   })
 }
 
+function looksLikeLabel(line: string): boolean {
+  const lower = line.toLowerCase().trim()
+  const knownLabels = [
+    'tél', 'tel', 'téléphone', 'telephone', 'e-mail', 'email', 'mail',
+    'médecin', 'medecin', 'lieu de naissance', 'profession', 'nom', 'prénom',
+    'prenom', 'date de naissance', 'sexe', 'civilité', 'civilite',
+    'monsieur', 'madame', 'mme',
+  ]
+  return knownLabels.some((label) => lower.startsWith(label))
+}
 
 function extractValue(line: string): string {
   // Remove the label part - prefer splitting on " : " (with spaces) first,
