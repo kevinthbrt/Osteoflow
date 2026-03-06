@@ -19,6 +19,17 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.0.46',
+    date: '2026-03-06',
+    title: 'Import rapide depuis Doctolib',
+    changes: [
+      { type: 'feature', text: 'Bouton "Importer depuis Doctolib" sur le formulaire de création de patient' },
+      { type: 'feature', text: 'Détection automatique du nom, prénom, date de naissance, téléphone, email et genre depuis un copier-coller Doctolib' },
+      { type: 'improvement', text: 'Support du format multi-lignes Doctolib (labels et valeurs sur des lignes séparées)' },
+      { type: 'improvement', text: 'Détection intelligente des labels avec parenthèses (ex: "Tél (portable)")' },
+    ],
+  },
+  {
     version: '1.0.44',
     date: '2026-03-02',
     title: 'Page consultations unifiée et améliorations sondages',
