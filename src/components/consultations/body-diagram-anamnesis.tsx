@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { X, ChevronDown, ChevronUp, AlertCircle, Loader2, ExternalLink, BookOpen } from 'lucide-react'
+import { X, ChevronDown, ChevronUp, AlertCircle, Loader2, ExternalLink, TestTube2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,38 @@ interface OsteoupgradeTopography {
   region: string
   image_url: string | null
   description: string | null
+}
+
+interface OsteoupgradeTest {
+  id: string
+  name: string
+  description: string | null
+  indications: string | null
+  sensitivity: number | null
+  specificity: number | null
+  rv_positive: number | null
+  rv_negative: number | null
+  interest: string | null
+  sources: string | null
+  video_url: string | null
+}
+
+interface OsteoupgradeCluster {
+  id: string
+  name: string
+  description: string | null
+  indications: string | null
+  interest: string | null
+  sources: string | null
+  sensitivity: number | null
+  specificity: number | null
+  rv_positive: number | null
+  rv_negative: number | null
+}
+
+interface PathologyDetail extends OsteoupgradePathology {
+  tests: OsteoupgradeTest[]
+  clusters: OsteoupgradeCluster[]
 }
 
 interface BodyDiagramAnamnesisProps {
@@ -370,6 +403,9 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
   const [diagError, setDiagError] = useState<string | null>(null)
   const [diagConnected, setDiagConnected] = useState<boolean | null>(null)
   const [expandedDiagRegion, setExpandedDiagRegion] = useState<string | null>(null)
+  const [modalPathology, setModalPathology] = useState<PathologyDetail | null>(null)
+  const [modalPathologyLoading, setModalPathologyLoading] = useState(false)
+  const [modalTopo, setModalTopo] = useState<OsteoupgradeTopography | null>(null)
 
   // Derive selected keys set for quick lookup
   const selectedKeys = new Set(value.map((z) => getZoneKey(z.region, z.side)))
@@ -466,6 +502,20 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
       .then((r) => r.json())
       .then((d) => setDiagConnected(d.connected))
       .catch(() => setDiagConnected(false))
+  }, [])
+
+  // ── Open pathology modal ─────────────────────────────────────────────────
+  const openPathologyModal = useCallback(async (pathology: OsteoupgradePathology) => {
+    setModalPathologyLoading(true)
+    setModalPathology({ ...pathology, tests: [], clusters: [] })
+    try {
+      const resp = await fetch(`/api/osteoupgrade/pathology/${pathology.id}`)
+      if (resp.ok) {
+        const data = await resp.json()
+        setModalPathology(data.pathology)
+      }
+    } catch { /* keep partial data */ }
+    finally { setModalPathologyLoading(false) }
   }, [])
 
   // ── SVG render helper ────────────────────────────────────────────────────
@@ -739,7 +789,12 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
                             </p>
                           ) : (
                             pathologies.map((pathology) => (
-                              <div key={pathology.id} className="px-3 py-2.5">
+                              <button
+                                key={pathology.id}
+                                type="button"
+                                onClick={() => openPathologyModal(pathology)}
+                                className="w-full text-left px-3 py-2.5 hover:bg-muted/30 transition-colors"
+                              >
                                 <div className="flex items-start gap-3">
                                   {pathology.image_url && (
                                     // eslint-disable-next-line @next/next/no-img-element
@@ -784,7 +839,7 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
                                     )}
                                   </div>
                                 </div>
-                              </div>
+                              </button>
                             ))
                           )}
 
@@ -796,7 +851,12 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
                               </p>
                               <div className="grid grid-cols-2 gap-2">
                                 {topographies.map((topo) => (
-                                  <div key={topo.id} className="space-y-1">
+                                  <button
+                                    key={topo.id}
+                                    type="button"
+                                    onClick={() => setModalTopo(topo)}
+                                    className="space-y-1 text-left hover:opacity-80 transition-opacity"
+                                  >
                                     {topo.image_url && (
                                       // eslint-disable-next-line @next/next/no-img-element
                                       <img
@@ -806,7 +866,7 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
                                       />
                                     )}
                                     <p className="text-xs text-center text-muted-foreground">{topo.name}</p>
-                                  </div>
+                                  </button>
                                 ))}
                               </div>
                             </div>
@@ -840,6 +900,210 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
           </div>
         </div>
       )}
+
+      {/* ── Modal: Pathology detail ─────────────────────────────────────────── */}
+      <Dialog open={!!modalPathology} onOpenChange={(open) => { if (!open) setModalPathology(null) }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          {modalPathology && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 pr-6">
+                  {modalPathology.name}
+                  {modalPathology.is_red_flag && (
+                    <Badge variant="destructive" className="text-xs">Red flag</Badge>
+                  )}
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-5 mt-2">
+                {modalPathologyLoading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Chargement des détails…
+                  </div>
+                )}
+
+                {/* Image */}
+                {modalPathology.image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={modalPathology.image_url}
+                    alt={modalPathology.name}
+                    className="w-full max-h-64 object-contain rounded-lg border border-border bg-muted/20"
+                  />
+                )}
+
+                {/* Red flag */}
+                {modalPathology.is_red_flag && modalPathology.red_flag_reason && (
+                  <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
+                    <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="font-semibold">Red flag : </span>
+                      {modalPathology.red_flag_reason}
+                    </div>
+                  </div>
+                )}
+
+                {/* Description */}
+                {modalPathology.description && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-1">Description</h4>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">{modalPathology.description}</p>
+                  </div>
+                )}
+
+                {/* Signes cliniques */}
+                {modalPathology.clinical_signs && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <h4 className="text-sm font-semibold text-amber-900 mb-2 flex items-center gap-1.5">
+                      <AlertCircle className="h-4 w-4" />
+                      Signes cliniques
+                    </h4>
+                    <ul className="space-y-1">
+                      {modalPathology.clinical_signs.split('\n').filter((s) => s.trim()).map((sign, i) => (
+                        <li key={i} className="text-sm text-amber-800 flex gap-2">
+                          <span className="text-amber-500 flex-shrink-0">•</span>
+                          {sign.trim()}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Tests orthopédiques */}
+                {!modalPathologyLoading && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
+                      <TestTube2 className="h-4 w-4 text-indigo-500" />
+                      Tests orthopédiques ({modalPathology.tests.length})
+                    </h4>
+                    {modalPathology.tests.length === 0 ? (
+                      <p className="text-sm text-muted-foreground italic">Aucun test associé.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {modalPathology.tests.map((test, i) => (
+                          <div key={test.id} className="border rounded-lg p-3 text-sm">
+                            <div className="flex items-start gap-2">
+                              <span className="flex-shrink-0 w-5 h-5 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center text-xs font-semibold">
+                                {i + 1}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium">{test.name}</p>
+                                {test.description && <p className="text-muted-foreground mt-0.5 text-xs">{test.description}</p>}
+                                {test.indications && <p className="text-xs mt-0.5"><span className="font-medium">Indications :</span> {test.indications}</p>}
+                                <div className="flex flex-wrap gap-2 mt-1.5">
+                                  {test.sensitivity != null && (
+                                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">Se : {test.sensitivity}%</span>
+                                  )}
+                                  {test.specificity != null && (
+                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">Sp : {test.specificity}%</span>
+                                  )}
+                                  {test.rv_positive != null && (
+                                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">RV+ : {test.rv_positive}</span>
+                                  )}
+                                  {test.rv_negative != null && (
+                                    <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs">RV- : {test.rv_negative}</span>
+                                  )}
+                                </div>
+                                {test.interest && <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">Intérêt :</span> {test.interest}</p>}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Clusters */}
+                {!modalPathologyLoading && modalPathology.clusters.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
+                      <TestTube2 className="h-4 w-4 text-purple-500" />
+                      Clusters de tests ({modalPathology.clusters.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {modalPathology.clusters.map((cluster) => (
+                        <div key={cluster.id} className="border-2 border-purple-100 rounded-lg p-3 text-sm bg-purple-50/30">
+                          <p className="font-medium text-purple-900">{cluster.name}</p>
+                          {cluster.description && <p className="text-muted-foreground mt-0.5 text-xs">{cluster.description}</p>}
+                          <div className="flex flex-wrap gap-2 mt-1.5">
+                            {cluster.sensitivity != null && (
+                              <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">Se : {cluster.sensitivity}%</span>
+                            )}
+                            {cluster.specificity != null && (
+                              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">Sp : {cluster.specificity}%</span>
+                            )}
+                            {cluster.rv_positive != null && (
+                              <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">RV+ : {cluster.rv_positive}</span>
+                            )}
+                            {cluster.rv_negative != null && (
+                              <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs">RV- : {cluster.rv_negative}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Lien Osteoupgrade */}
+                <div className="pt-2 border-t">
+                  <a
+                    href="https://osteo-upgrade.fr"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Voir sur Osteoupgrade
+                  </a>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal: Topography detail ────────────────────────────────────────── */}
+      <Dialog open={!!modalTopo} onOpenChange={(open) => { if (!open) setModalTopo(null) }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          {modalTopo && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="pr-6">{modalTopo.name}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 mt-2">
+                {modalTopo.image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={modalTopo.image_url}
+                    alt={modalTopo.name}
+                    className="w-full object-contain rounded-lg border border-border bg-muted/20"
+                  />
+                )}
+                {modalTopo.description && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-1">Description</h4>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">{modalTopo.description}</p>
+                  </div>
+                )}
+                <div className="pt-2 border-t">
+                  <a
+                    href="https://osteo-upgrade.fr"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Voir sur Osteoupgrade
+                  </a>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

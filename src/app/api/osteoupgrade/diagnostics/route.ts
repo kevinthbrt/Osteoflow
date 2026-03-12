@@ -149,8 +149,9 @@ export async function GET(request: Request) {
         }
 
         // Fetch topographies for this region
-        const topoUrl = new URL(`${OSTEOUPGRADE_URL}/rest/v1/topographies`)
+        const topoUrl = new URL(`${OSTEOUPGRADE_URL}/rest/v1/elearning_topographic_views`)
         topoUrl.searchParams.set('region', `eq.${normalizedRegion}`)
+        topoUrl.searchParams.set('is_active', 'eq.true')
         topoUrl.searchParams.set('select', 'id,name,region,image_url,description')
         topoUrl.searchParams.set('order', 'display_order.asc')
 
