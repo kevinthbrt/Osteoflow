@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target } from 'lucide-react'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, BookOpen } from 'lucide-react'
 import type { Practitioner, SessionType } from '@/types/database'
 
 interface PatientListItem {
@@ -68,6 +68,20 @@ export default function SettingsPage() {
     average_consultation_price: '',
   })
   const [isSavingObjectives, setIsSavingObjectives] = useState(false)
+
+  // Osteoupgrade integration states
+  const [ouEmail, setOuEmail] = useState('')
+  const [ouPassword, setOuPassword] = useState('')
+  const [showOuPassword, setShowOuPassword] = useState(false)
+  const [ouStatus, setOuStatus] = useState<{
+    connected: boolean
+    email?: string
+    role?: string
+    isPremium?: boolean
+    fullName?: string
+  } | null>(null)
+  const [ouConnecting, setOuConnecting] = useState(false)
+  const [ouDisconnecting, setOuDisconnecting] = useState(false)
 
   // Email connection states
   const [selectedProvider, setSelectedProvider] = useState<string>('')
@@ -268,6 +282,57 @@ export default function SettingsPage() {
 
     fetchData()
   }, [db, setSettingsValue, setEmailSettingsValue, toast])
+
+  // Fetch Osteoupgrade connection status on mount
+  useEffect(() => {
+    fetch('/api/osteoupgrade/status')
+      .then((r) => r.json())
+      .then((data) => setOuStatus(data))
+      .catch(() => setOuStatus({ connected: false }))
+  }, [])
+
+  const handleConnectOsteoupgrade = async () => {
+    if (!ouEmail || !ouPassword) return
+    setOuConnecting(true)
+    try {
+      const resp = await fetch('/api/osteoupgrade/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: ouEmail, password: ouPassword }),
+      })
+      const data = await resp.json()
+      if (!resp.ok) {
+        toast({ variant: 'destructive', title: 'Connexion échouée', description: data.error || 'Identifiants incorrects' })
+        return
+      }
+      setOuStatus({ connected: true, email: data.email, role: data.role, isPremium: data.isPremium })
+      setOuPassword('')
+      toast({
+        variant: 'success',
+        title: 'Osteoupgrade connecté',
+        description: data.isPremium
+          ? 'Compte premium activé — diagnostics disponibles.'
+          : 'Connecté en tant que compte gratuit — abonnement premium requis pour les diagnostics.',
+      })
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de se connecter à Osteoupgrade' })
+    } finally {
+      setOuConnecting(false)
+    }
+  }
+
+  const handleDisconnectOsteoupgrade = async () => {
+    setOuDisconnecting(true)
+    try {
+      await fetch('/api/osteoupgrade/auth', { method: 'DELETE' })
+      setOuStatus({ connected: false })
+      toast({ variant: 'success', title: 'Déconnecté d\'Osteoupgrade' })
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de se déconnecter' })
+    } finally {
+      setOuDisconnecting(false)
+    }
+  }
 
   // Save settings
   const onSaveSettings = async (data: PractitionerSettingsFormData) => {
@@ -704,6 +769,13 @@ export default function SettingsPage() {
           <TabsTrigger value="objectives">
             <Target className="mr-2 h-4 w-4" />
             Objectifs
+          </TabsTrigger>
+          <TabsTrigger value="osteoupgrade">
+            <BookOpen className="mr-2 h-4 w-4" />
+            Osteoupgrade
+            {ouStatus?.connected && (
+              <span className="ml-1.5 h-2 w-2 rounded-full bg-emerald-500" />
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -1544,6 +1616,150 @@ export default function SettingsPage() {
                   Enregistrer
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Osteoupgrade Tab */}
+        <TabsContent value="osteoupgrade">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-indigo-600" />
+                Intégration Osteoupgrade
+              </CardTitle>
+              <CardDescription>
+                Connectez votre compte Osteoupgrade pour accéder aux diagnostics et tests orthopédiques
+                directement depuis vos consultations.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Connection status */}
+              {ouStatus?.connected ? (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                    <span className="font-medium text-emerald-800">Compte connecté</span>
+                  </div>
+                  <div className="text-sm text-emerald-700 space-y-1">
+                    <p><span className="text-muted-foreground">Email :</span> {ouStatus.email}</p>
+                    <p>
+                      <span className="text-muted-foreground">Abonnement :</span>{' '}
+                      {ouStatus.isPremium ? (
+                        <span className="font-medium text-emerald-700">Premium actif ✓</span>
+                      ) : (
+                        <span className="font-medium text-amber-700">Gratuit — abonnement premium requis</span>
+                      )}
+                    </p>
+                    {ouStatus.role && (
+                      <p><span className="text-muted-foreground">Rôle :</span> {ouStatus.role}</p>
+                    )}
+                  </div>
+                  {!ouStatus.isPremium && (
+                    <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-800">
+                      <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-600" />
+                      <div>
+                        Un abonnement premium Osteoupgrade est nécessaire pour accéder aux diagnostics et tests orthopédiques.{' '}
+                        <a
+                          href="https://app.osteo-upgrade.fr"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline font-medium"
+                        >
+                          Gérer mon abonnement
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDisconnectOsteoupgrade}
+                    disabled={ouDisconnecting}
+                    className="text-destructive border-destructive hover:bg-destructive/10"
+                  >
+                    {ouDisconnecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Déconnecter
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-muted bg-muted/30 p-4 text-sm text-muted-foreground space-y-2">
+                    <p>
+                      Connectez votre compte <strong>Osteoupgrade</strong> pour bénéficier pendant les consultations de :
+                    </p>
+                    <ul className="space-y-1 ml-4">
+                      <li className="flex gap-2"><span className="text-indigo-500">•</span> Suggestions diagnostiques par zone anatomique</li>
+                      <li className="flex gap-2"><span className="text-indigo-500">•</span> Tests orthopédiques associés (sensibilité, spécificité)</li>
+                      <li className="flex gap-2"><span className="text-indigo-500">•</span> Signes cliniques et red flags</li>
+                    </ul>
+                    <p className="text-xs">Nécessite un abonnement premium Osteoupgrade actif.</p>
+                  </div>
+
+                  <div className="space-y-3 max-w-sm">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ou-email">Email Osteoupgrade</Label>
+                      <Input
+                        id="ou-email"
+                        type="email"
+                        placeholder="votre@email.fr"
+                        value={ouEmail}
+                        onChange={(e) => setOuEmail(e.target.value)}
+                        disabled={ouConnecting}
+                        autoComplete="email"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ou-password">Mot de passe</Label>
+                      <div className="relative">
+                        <Input
+                          id="ou-password"
+                          type={showOuPassword ? 'text' : 'password'}
+                          placeholder="••••••••"
+                          value={ouPassword}
+                          onChange={(e) => setOuPassword(e.target.value)}
+                          disabled={ouConnecting}
+                          autoComplete="current-password"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleConnectOsteoupgrade()
+                          }}
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowOuPassword(!showOuPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          {showOuPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleConnectOsteoupgrade}
+                      disabled={ouConnecting || !ouEmail || !ouPassword}
+                      className="w-full"
+                    >
+                      {ouConnecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Se connecter à Osteoupgrade
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span>
+                      Pas encore de compte ?{' '}
+                      <a
+                        href="https://app.osteo-upgrade.fr"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline"
+                      >
+                        Créer un compte sur Osteoupgrade
+                      </a>
+                    </span>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

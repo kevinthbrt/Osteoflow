@@ -37,6 +37,7 @@ import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 import { EditPatientModal } from '@/components/patients/edit-patient-modal'
+import { BodyDiagramAnamnesis, type BodyZoneEntry } from '@/components/consultations/body-diagram-anamnesis'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -86,6 +87,16 @@ export function ConsultationForm({
   const [existingAttachments, setExistingAttachments] = useState<ConsultationAttachment[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [activeTab, setActiveTab] = useState('consultation')
+  const [bodyZones, setBodyZones] = useState<BodyZoneEntry[]>(() => {
+    if (consultation?.body_zones) {
+      try {
+        return JSON.parse(consultation.body_zones) as BodyZoneEntry[]
+      } catch {
+        return []
+      }
+    }
+    return []
+  })
   const router = useRouter()
   const { toast } = useToast()
   const db = createClient()
@@ -321,6 +332,7 @@ export function ConsultationForm({
             examination: data.examination || null,
             advice: data.advice || null,
             follow_up_7d: data.follow_up_7d,
+            body_zones: bodyZones.length > 0 ? JSON.stringify(bodyZones) : null,
           })
           .select()
           .single()
@@ -444,6 +456,7 @@ export function ConsultationForm({
             examination: data.examination || null,
             advice: data.advice || null,
             follow_up_7d: data.follow_up_7d,
+            body_zones: bodyZones.length > 0 ? JSON.stringify(bodyZones) : null,
           })
           .eq('id', consultation.id)
 
@@ -558,8 +571,18 @@ export function ConsultationForm({
               <CardDescription>Anamnèse, examen et conseils</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Body diagram — zone selection with laterality + diagnostic suggestions */}
               <div className="space-y-2">
-                <Label htmlFor="anamnesis">Anamnèse</Label>
+                <Label>Localisation</Label>
+                <BodyDiagramAnamnesis
+                  value={bodyZones}
+                  onChange={setBodyZones}
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="anamnesis">Anamnèse (notes générales)</Label>
                 <Textarea
                   id="anamnesis"
                   data-autoresize

@@ -388,6 +388,27 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     db.exec('ALTER TABLE survey_responses ADD COLUMN acknowledged_at TEXT;')
   }
 
+  // Add body_zones to consultations (JSON array of selected zones with laterality & notes)
+  const consultCols2 = db.pragma('table_info(consultations)') as Array<{ name: string }>
+  if (!consultCols2.some((c) => c.name === 'body_zones')) {
+    db.exec('ALTER TABLE consultations ADD COLUMN body_zones TEXT;')
+  }
+
+  // Add Osteoupgrade integration columns to practitioners
+  const practCols3 = db.pragma('table_info(practitioners)') as Array<{ name: string }>
+  if (!practCols3.some((c) => c.name === 'osteoupgrade_email')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN osteoupgrade_email TEXT;')
+  }
+  if (!practCols3.some((c) => c.name === 'osteoupgrade_token')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN osteoupgrade_token TEXT;')
+  }
+  if (!practCols3.some((c) => c.name === 'osteoupgrade_refresh_token')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN osteoupgrade_refresh_token TEXT;')
+  }
+  if (!practCols3.some((c) => c.name === 'osteoupgrade_token_expires_at')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN osteoupgrade_token_expires_at TEXT;')
+  }
+
   // Create manual_revenue_entries table if not exists (already in SCHEMA_SQL for new installs)
   db.exec(`
     CREATE TABLE IF NOT EXISTS manual_revenue_entries (

@@ -48,6 +48,10 @@ export interface Database {
           vacation_weeks_per_year: number | null
           working_days_per_week: number | null
           average_consultation_price: number | null
+          osteoupgrade_email: string | null
+          osteoupgrade_token: string | null
+          osteoupgrade_refresh_token: string | null
+          osteoupgrade_token_expires_at: string | null
           created_at: string
           updated_at: string
         }
@@ -77,6 +81,10 @@ export interface Database {
           vacation_weeks_per_year?: number | null
           working_days_per_week?: number | null
           average_consultation_price?: number | null
+          osteoupgrade_email?: string | null
+          osteoupgrade_token?: string | null
+          osteoupgrade_refresh_token?: string | null
+          osteoupgrade_token_expires_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -106,6 +114,10 @@ export interface Database {
           vacation_weeks_per_year?: number | null
           working_days_per_week?: number | null
           average_consultation_price?: number | null
+          osteoupgrade_email?: string | null
+          osteoupgrade_token?: string | null
+          osteoupgrade_refresh_token?: string | null
+          osteoupgrade_token_expires_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -219,6 +231,7 @@ export interface Database {
           advice: string | null
           follow_up_7d: boolean
           follow_up_sent_at: string | null
+          body_zones: string | null
           created_at: string
           updated_at: string
           archived_at: string | null
@@ -234,6 +247,7 @@ export interface Database {
           advice?: string | null
           follow_up_7d?: boolean
           follow_up_sent_at?: string | null
+          body_zones?: string | null
           created_at?: string
           updated_at?: string
           archived_at?: string | null
@@ -249,6 +263,7 @@ export interface Database {
           advice?: string | null
           follow_up_7d?: boolean
           follow_up_sent_at?: string | null
+          body_zones?: string | null
           created_at?: string
           updated_at?: string
           archived_at?: string | null
