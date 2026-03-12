@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { X, ChevronDown, ChevronUp, AlertCircle, Loader2, ExternalLink, TestTube2 } from 'lucide-react'
+import { X, ChevronDown, ChevronUp, AlertCircle, Loader2, ExternalLink, TestTube2, BookOpen } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
