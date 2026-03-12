@@ -28,8 +28,17 @@ interface OsteoupgradePathology {
   description: string | null
   region: string
   clinical_signs: string | null
+  image_url: string | null
   is_red_flag: boolean | null
   red_flag_reason: string | null
+}
+
+interface OsteoupgradeTopography {
+  id: string
+  name: string
+  region: string
+  image_url: string | null
+  description: string | null
 }
 
 interface BodyDiagramAnamnesisProps {
@@ -356,7 +365,7 @@ const GENERAL_REGIONS: AnatomicalRegion[] = ['neurologique', 'vasculaire', 'syst
 export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramAnamnesisProps) {
   const [view, setView] = useState<'front' | 'back'>('front')
   const [hoveredKey, setHoveredKey] = useState<string | null>(null)
-  const [diagnostics, setDiagnostics] = useState<Record<string, OsteoupgradePathology[]>>({})
+  const [diagnostics, setDiagnostics] = useState<Record<string, { pathologies: OsteoupgradePathology[]; topographies: OsteoupgradeTopography[] }>>({})
   const [diagLoading, setDiagLoading] = useState(false)
   const [diagError, setDiagError] = useState<string | null>(null)
   const [diagConnected, setDiagConnected] = useState<boolean | null>(null)
@@ -427,11 +436,13 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
         if (!resp.ok) throw new Error('Erreur serveur')
         const data = await resp.json()
         setDiagConnected(true)
-        const flat: Record<string, OsteoupgradePathology[]> = {}
+        const flat: Record<string, { pathologies: OsteoupgradePathology[]; topographies: OsteoupgradeTopography[] }> = {}
         Object.entries(data.diagnostics || {}).forEach(([region, val]) => {
-          flat[region] = Array.isArray(val)
-            ? (val as OsteoupgradePathology[])
-            : ((val as { pathologies?: OsteoupgradePathology[] }).pathologies ?? [])
+          const v = val as { pathologies?: OsteoupgradePathology[]; topographies?: OsteoupgradeTopography[] }
+          flat[region] = {
+            pathologies: Array.isArray(v) ? (v as unknown as OsteoupgradePathology[]) : (v.pathologies ?? []),
+            topographies: v.topographies ?? [],
+          }
         })
         setDiagnostics(flat)
       } catch (e) {
@@ -481,15 +492,11 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
         }
         strokeWidth={isSelected || isHovered ? 2 : 1}
         className={disabled ? 'cursor-default' : 'cursor-pointer transition-all duration-150'}
+        aria-label={`${REGION_LABELS[region]}${side !== 'bilateral' ? ` (${SIDE_LABELS_FULL[side]})` : ''}`}
         onClick={() => toggleZone(region, side)}
         onMouseEnter={() => setHoveredKey(key)}
         onMouseLeave={() => setHoveredKey(null)}
-      >
-        <title>
-          {REGION_LABELS[region]}
-          {side !== 'bilateral' ? ` (${SIDE_LABELS_FULL[side]})` : ''}
-        </title>
-      </path>
+      />
     )
   }
 
@@ -696,8 +703,10 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
               <div className="space-y-3">
                 {selectedRegions.map((region) => {
                   const normalized = region.toLowerCase().trim()
-                  const pathologies = diagnostics[normalized] || []
+                  const regionData = diagnostics[normalized] ?? { pathologies: [], topographies: [] }
+                  const { pathologies, topographies } = regionData
                   const isExpanded = expandedDiagRegion === region
+                  const totalCount = pathologies.length + topographies.length
 
                   return (
                     <div key={region} className="border rounded-lg overflow-hidden">
@@ -709,9 +718,9 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
                         <span className="font-medium">{REGION_LABELS[region as AnatomicalRegion]}</span>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">
-                            {pathologies.length > 0
-                              ? `${pathologies.length} diagnostic${pathologies.length > 1 ? 's' : ''}`
-                              : 'Aucun diagnostic'}
+                            {totalCount > 0
+                              ? `${pathologies.length} diag${topographies.length > 0 ? ` · ${topographies.length} topo` : ''}`
+                              : 'Aucun résultat'}
                           </span>
                           {isExpanded ? (
                             <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -723,6 +732,7 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
 
                       {isExpanded && (
                         <div className="divide-y divide-border">
+                          {/* Pathologies */}
                           {pathologies.length === 0 ? (
                             <p className="px-3 py-3 text-sm text-muted-foreground italic">
                               Aucun diagnostic configuré pour cette région.
@@ -730,7 +740,15 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
                           ) : (
                             pathologies.map((pathology) => (
                               <div key={pathology.id} className="px-3 py-2.5">
-                                <div className="flex items-start gap-2">
+                                <div className="flex items-start gap-3">
+                                  {pathology.image_url && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={pathology.image_url}
+                                      alt={pathology.name}
+                                      className="flex-shrink-0 w-16 h-16 object-cover rounded border border-border"
+                                    />
+                                  )}
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <span className="text-sm font-medium text-foreground">
@@ -743,6 +761,13 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
                                       )}
                                     </div>
 
+                                    {pathology.is_red_flag && pathology.red_flag_reason && (
+                                      <p className="mt-0.5 text-xs text-red-600 flex items-center gap-1">
+                                        <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                                        {pathology.red_flag_reason}
+                                      </p>
+                                    )}
+
                                     {pathology.clinical_signs && (
                                       <ul className="mt-1 space-y-0.5">
                                         {pathology.clinical_signs
@@ -750,10 +775,7 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
                                           .filter((s) => s.trim())
                                           .slice(0, 3)
                                           .map((sign, i) => (
-                                            <li
-                                              key={i}
-                                              className="text-xs text-muted-foreground flex gap-1.5"
-                                            >
+                                            <li key={i} className="text-xs text-muted-foreground flex gap-1.5">
                                               <span className="text-indigo-400 flex-shrink-0">•</span>
                                               {sign.trim()}
                                             </li>
@@ -761,26 +783,39 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
                                       </ul>
                                     )}
                                   </div>
-
-                                  {pathology.is_red_flag && pathology.red_flag_reason && (
-                                    <div
-                                      className="flex-shrink-0 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 max-w-[160px]"
-                                      title={pathology.red_flag_reason}
-                                    >
-                                      <AlertCircle className="h-3 w-3 inline mr-1" />
-                                      {pathology.red_flag_reason.slice(0, 40)}
-                                      {pathology.red_flag_reason.length > 40 ? '…' : ''}
-                                    </div>
-                                  )}
                                 </div>
                               </div>
                             ))
                           )}
 
+                          {/* Topographies */}
+                          {topographies.length > 0 && (
+                            <div className="px-3 py-2.5">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                                Topographie
+                              </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                {topographies.map((topo) => (
+                                  <div key={topo.id} className="space-y-1">
+                                    {topo.image_url && (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={topo.image_url}
+                                        alt={topo.name}
+                                        className="w-full h-28 object-cover rounded border border-border"
+                                      />
+                                    )}
+                                    <p className="text-xs text-center text-muted-foreground">{topo.name}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Link to Osteoupgrade for full details */}
                           <div className="px-3 py-2 bg-muted/20">
                             <a
-                              href="https://app.osteo-upgrade.fr"
+                              href="https://osteo-upgrade.fr"
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"

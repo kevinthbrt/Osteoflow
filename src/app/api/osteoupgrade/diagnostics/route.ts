@@ -31,6 +31,14 @@ interface OsteoupgradeTest {
   specificity: number | null
 }
 
+interface OsteoupgradeTopography {
+  id: string
+  name: string
+  region: string
+  image_url: string | null
+  description: string | null
+}
+
 async function getOsteoupgradeToken(db: Awaited<ReturnType<typeof import('@/lib/db/server').createClient>>): Promise<string | null> {
   const { data: { user } } = await db.auth.getUser()
   if (!user) return null
@@ -94,7 +102,7 @@ export async function GET(request: Request) {
       )
     }
 
-    const results: Record<string, { pathologies: OsteoupgradePathology[]; tests: OsteoupgradeTest[] }> = {}
+    const results: Record<string, { pathologies: OsteoupgradePathology[]; tests: OsteoupgradeTest[]; topographies: OsteoupgradeTopography[] }> = {}
 
     // Fetch pathologies for each unique normalized region
     const uniqueRegions = [...new Set(regions.map(normalizeRegion))]
@@ -140,7 +148,27 @@ export async function GET(request: Request) {
           tests = await testResponse.json()
         }
 
-        results[normalizedRegion] = { pathologies: pathologies || [], tests: tests || [] }
+        // Fetch topographies for this region
+        const topoUrl = new URL(`${OSTEOUPGRADE_URL}/rest/v1/topographies`)
+        topoUrl.searchParams.set('region', `eq.${normalizedRegion}`)
+        topoUrl.searchParams.set('select', 'id,name,region,image_url,description')
+        topoUrl.searchParams.set('order', 'display_order.asc')
+
+        let topographies: OsteoupgradeTopography[] = []
+        try {
+          const topoResponse = await fetch(topoUrl.toString(), {
+            headers: {
+              apikey: OSTEOUPGRADE_ANON_KEY,
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          if (topoResponse.ok) {
+            const topoData = await topoResponse.json()
+            if (Array.isArray(topoData)) topographies = topoData
+          }
+        } catch { /* ignore if table doesn't exist */ }
+
+        results[normalizedRegion] = { pathologies: pathologies || [], tests: tests || [], topographies }
       })
     )
 
