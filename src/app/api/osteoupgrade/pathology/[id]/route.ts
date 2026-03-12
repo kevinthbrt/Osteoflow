@@ -42,13 +42,13 @@ async function supaFetch(path: string, token: string): Promise<{ ok: boolean; da
   return { ok: res.ok, data, status: res.status }
 }
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const db = await createClient()
     const token = await getToken(db)
     if (!token) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
 
-    const { id } = params
+    const { id } = await params
 
     // 1. Fetch pathology
     const { ok: pathOk, data: pathData } = await supaFetch(

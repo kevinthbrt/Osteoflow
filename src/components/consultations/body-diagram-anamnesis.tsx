@@ -406,6 +406,7 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
   const [modalPathology, setModalPathology] = useState<PathologyDetail | null>(null)
   const [modalPathologyLoading, setModalPathologyLoading] = useState(false)
   const [modalTopo, setModalTopo] = useState<OsteoupgradeTopography | null>(null)
+  const [diagPanelOpen, setDiagPanelOpen] = useState(false)
 
   // Derive selected keys set for quick lookup
   const selectedKeys = new Set(value.map((z) => getZoneKey(z.region, z.side)))
@@ -716,40 +717,58 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
         </div>
       </div>
 
-      {/* ── Diagnostic suggestions ── */}
+      {/* ── Diagnostic suggestions button ── */}
       {value.length > 0 && (
-        <div className="border rounded-lg overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border-b border-indigo-100">
-            <BookOpen className="h-4 w-4 text-indigo-600 flex-shrink-0" />
-            <span className="text-sm font-medium text-indigo-800">
-              Suggestions diagnostiques — Osteoupgrade
-            </span>
-            {diagLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500 ml-auto" />}
-          </div>
-
-          <div className="p-4">
-            {/* Not connected */}
-            {diagConnected === false && (
-              <div className="flex items-start gap-3 py-2">
-                <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">Compte Osteoupgrade requis.</span>{' '}
-                  Connectez votre compte dans{' '}
-                  <a href="/settings" className="text-primary underline underline-offset-2">
-                    Paramètres → Osteoupgrade
-                  </a>{' '}
-                  pour accéder aux diagnostics et tests orthopédiques.
-                </div>
-              </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setDiagPanelOpen(true)}
+            disabled={diagConnected === false}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-sm font-medium text-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <BookOpen className="h-4 w-4" />
+            Suggestions Osteoupgrade
+            {diagLoading && <Loader2 className="h-3.5 w-3.5 animate-spin ml-1" />}
+            {!diagLoading && selectedRegions.length > 0 && diagConnected === true && (
+              <span className="ml-1 px-1.5 py-0.5 bg-indigo-600 text-white text-xs rounded-full">
+                {selectedRegions.length}
+              </span>
             )}
+          </button>
+          {diagConnected === false && (
+            <span className="text-xs text-muted-foreground">
+              <a href="/settings" className="text-primary underline underline-offset-2">Connecter Osteoupgrade</a> pour voir les diagnostics
+            </span>
+          )}
+        </div>
+      )}
 
+      {/* ── Diagnostic panel (Dialog) ── */}
+      <Dialog open={diagPanelOpen} onOpenChange={setDiagPanelOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-indigo-600" />
+              Suggestions diagnostiques — Osteoupgrade
+              {diagLoading && <Loader2 className="h-4 w-4 animate-spin text-indigo-400 ml-1" />}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="mt-2 space-y-3">
             {/* Error */}
-            {diagError && diagConnected !== false && (
+            {diagError && (
               <p className="text-sm text-destructive">{diagError}</p>
             )}
 
+            {diagLoading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Chargement des suggestions…
+              </div>
+            )}
+
             {/* Diagnostics per region */}
-            {diagConnected === true && !diagLoading && selectedRegions.length > 0 && (
+            {!diagLoading && selectedRegions.length > 0 && (
               <div className="space-y-3">
                 {selectedRegions.map((region) => {
                   const normalized = region.toLowerCase().trim()
@@ -892,14 +911,14 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
               </div>
             )}
 
-            {diagConnected === true && !diagLoading && selectedRegions.length === 0 && (
-              <p className="text-sm text-muted-foreground italic">
+            {!diagLoading && selectedRegions.length === 0 && (
+              <p className="text-sm text-muted-foreground italic py-4 text-center">
                 Sélectionnez une zone anatomique pour voir les diagnostics associés.
               </p>
             )}
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* ── Modal: Pathology detail ─────────────────────────────────────────── */}
       <Dialog open={!!modalPathology} onOpenChange={(open) => { if (!open) setModalPathology(null) }}>
