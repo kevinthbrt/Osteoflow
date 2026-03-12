@@ -114,9 +114,7 @@ export async function GET() {
       return NextResponse.json({ connected: false })
     }
 
-    const isPremium =
-      profile.role !== 'free' &&
-      (profile.subscription_status === 'active' || profile.role === 'admin')
+    const isPremium = profile.role != null && profile.role !== 'free'
 
     return NextResponse.json({
       connected: true,

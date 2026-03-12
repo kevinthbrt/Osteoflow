@@ -1661,7 +1661,7 @@ export default function SettingsPage() {
                       <div>
                         Un abonnement premium Osteoupgrade est nécessaire pour accéder aux diagnostics et tests orthopédiques.{' '}
                         <a
-                          href="https://app.osteo-upgrade.fr"
+                          href="https://osteo-upgrade.fr"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="underline font-medium"
@@ -1749,7 +1749,7 @@ export default function SettingsPage() {
                     <span>
                       Pas encore de compte ?{' '}
                       <a
-                        href="https://app.osteo-upgrade.fr"
+                        href="https://osteo-upgrade.fr"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary underline"
