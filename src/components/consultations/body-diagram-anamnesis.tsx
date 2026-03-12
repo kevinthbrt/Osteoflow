@@ -427,7 +427,13 @@ export function BodyDiagramAnamnesis({ value, onChange, disabled }: BodyDiagramA
         if (!resp.ok) throw new Error('Erreur serveur')
         const data = await resp.json()
         setDiagConnected(true)
-        setDiagnostics(data.diagnostics || {})
+        const flat: Record<string, OsteoupgradePathology[]> = {}
+        Object.entries(data.diagnostics || {}).forEach(([region, val]) => {
+          flat[region] = Array.isArray(val)
+            ? (val as OsteoupgradePathology[])
+            : ((val as { pathologies?: OsteoupgradePathology[] }).pathologies ?? [])
+        })
+        setDiagnostics(flat)
       } catch (e) {
         if ((e as Error).name !== 'AbortError') {
           setDiagError('Impossible de charger les suggestions')
