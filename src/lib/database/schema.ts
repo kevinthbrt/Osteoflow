@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS practitioners (
   logo_url TEXT,
   primary_color TEXT DEFAULT '#2563eb',
   rpps TEXT,
+  status TEXT,
   specialty TEXT,
   stamp_url TEXT,
   accountant_email TEXT,
@@ -350,6 +351,11 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   }
   if (!consultCols.some((c) => c.name === 'post_session_advice_sent_at')) {
     db.exec('ALTER TABLE consultations ADD COLUMN post_session_advice_sent_at TEXT;')
+  }
+
+  // Add status to practitioners
+  if (!practCols.some((c) => c.name === 'status')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN status TEXT;')
   }
 
   // Add objectives columns to practitioners

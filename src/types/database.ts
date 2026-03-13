@@ -38,6 +38,7 @@ export interface Database {
           postal_code: string | null
           siret: string | null
           rpps: string | null
+          status: string | null
           default_rate: number
           invoice_prefix: string
           invoice_next_number: number
@@ -67,6 +68,7 @@ export interface Database {
           postal_code?: string | null
           siret?: string | null
           rpps?: string | null
+          status?: string | null
           default_rate?: number
           invoice_prefix?: string
           invoice_next_number?: number
@@ -96,6 +98,7 @@ export interface Database {
           postal_code?: string | null
           siret?: string | null
           rpps?: string | null
+          status?: string | null
           default_rate?: number
           invoice_prefix?: string
           invoice_next_number?: number
