@@ -320,17 +320,20 @@ export function NotificationBell() {
                         </>
                       ) : (
                         <>
-                          <p className="text-sm font-medium">Mise à jour v{updateNotif.version} prête</p>
-                          <p className="text-xs text-muted-foreground mb-2">
-                            Redémarrez l'application pour appliquer la mise à jour.
-                          </p>
+                          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Mise à jour v{updateNotif.version} prête !</p>
+                          <div className="text-xs text-muted-foreground mb-2 space-y-0.5">
+                            <p className="font-medium">Étapes :</p>
+                            <p>1. Cliquez sur &quot;Redémarrer&quot;</p>
+                            <p>2. L&apos;app se ferme et installe la mise à jour</p>
+                            <p>3. Elle redémarre automatiquement</p>
+                          </div>
                           <Button
                             size="sm"
-                            className="h-7 text-xs"
+                            className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700"
                             onClick={handleInstallUpdate}
                           >
                             <RefreshCw className="h-3 w-3 mr-1" />
-                            Redémarrer maintenant
+                            Redémarrer et mettre à jour
                           </Button>
                         </>
                       )}
