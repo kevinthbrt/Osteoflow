@@ -20,10 +20,16 @@ import {
   Target,
   ClipboardList,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/db/client'
 import packageJson from '../../../package.json'
+
+interface ElectronAPI {
+  isDesktop: boolean
+  onUpdateDownloaded: (callback: (version: string) => void) => void
+  installUpdate: () => void
+}
 
 const navigation = [
   { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard, description: 'Vue d\'ensemble' },
@@ -45,6 +51,13 @@ export function Sidebar() {
   const router = useRouter()
   const db = createClient()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [updateReady, setUpdateReady] = useState<string | null>(null)
+
+  useEffect(() => {
+    const api = (window as unknown as { electronAPI?: ElectronAPI }).electronAPI
+    if (!api?.isDesktop) return
+    api.onUpdateDownloaded((v) => setUpdateReady(v))
+  }, [])
 
   const handleLogout = async () => {
     await db.auth.signOut()
@@ -163,21 +176,41 @@ export function Sidebar() {
               </div>
               <span>Déconnexion</span>
             </button>
-            <Link
-              href="/changelog"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block rounded-xl bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border border-indigo-500/10 p-3 hover:from-indigo-500/20 hover:to-violet-500/20 transition-all duration-200"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-indigo-500/20 flex items-center justify-center">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            {updateReady ? (
+              <button
+                onClick={() => {
+                  const api = (window as unknown as { electronAPI?: ElectronAPI }).electronAPI
+                  api?.installUpdate()
+                }}
+                className="block w-full rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-400/30 p-3 hover:from-emerald-500/30 hover:to-teal-500/30 transition-all duration-200 animate-pulse"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/30 flex items-center justify-center">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-[10px] font-semibold text-emerald-300">v{updateReady} disponible</p>
+                    <p className="text-[9px] text-emerald-400/70">Cliquez pour mettre à jour</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-300">Osteoflow v{packageJson.version}</p>
-                  <p className="text-[9px] text-indigo-300/50">Voir le changelog</p>
+              </button>
+            ) : (
+              <Link
+                href="/changelog"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block rounded-xl bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border border-indigo-500/10 p-3 hover:from-indigo-500/20 hover:to-violet-500/20 transition-all duration-200"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-300">Osteoflow v{packageJson.version}</p>
+                    <p className="text-[9px] text-indigo-300/50">Voir le changelog</p>
+                  </div>
                 </div>
-              </div>
-            </Link>
+              </Link>
+            )}
           </div>
         </div>
       </div>

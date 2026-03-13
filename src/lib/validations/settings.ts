@@ -62,6 +62,11 @@ export const practitionerSettingsSchema = z.object({
     .max(11, 'Le RPPS ne peut pas dépasser 11 caractères')
     .optional()
     .or(z.literal('')),
+  status: z
+    .string()
+    .max(50, 'Le statut ne peut pas dépasser 50 caractères')
+    .optional()
+    .or(z.literal('')),
   default_rate: z
     .number()
     .positive('Le tarif doit être positif')

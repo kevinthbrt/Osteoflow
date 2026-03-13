@@ -201,6 +201,7 @@ export default function SettingsPage() {
           setSettingsValue('postal_code', practitionerData.postal_code || '')
           setSettingsValue('siret', practitionerData.siret || '')
           setSettingsValue('rpps', practitionerData.rpps || '')
+          setSettingsValue('status', practitionerData.status || '')
           setSettingsValue('default_rate', practitionerData.default_rate)
           setSettingsValue('invoice_prefix', practitionerData.invoice_prefix)
           setSettingsValue('primary_color', practitionerData.primary_color)
@@ -292,6 +293,7 @@ export default function SettingsPage() {
           postal_code: data.postal_code || null,
           siret: data.siret || null,
           rpps: data.rpps || null,
+          status: data.status || null,
           default_rate: data.default_rate,
           invoice_prefix: data.invoice_prefix,
           primary_color: data.primary_color,
@@ -850,7 +852,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-2">
                     <Label htmlFor="siret">N° SIREN/SIRET</Label>
                     <Input
@@ -865,6 +867,14 @@ export default function SettingsPage() {
                       id="rpps"
                       {...registerSettings('rpps')}
                       placeholder="10123456789"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Statut juridique</Label>
+                    <Input
+                      id="status"
+                      {...registerSettings('status')}
+                      placeholder="EI"
                     />
                   </div>
                 </div>

@@ -12,6 +12,7 @@ interface InvoicePDFProps {
 
 export interface InvoicePDFData {
   practitionerName: string
+  practitionerStatus: string
   practitionerSpecialty: string
   practitionerAddress: string
   practitionerCityLine: string
@@ -99,6 +100,7 @@ export function buildInvoicePDFData({
   const paymentMethod = payment ? normalizeText(payment.method) : ''
   const method = paymentMethodLabels[paymentMethod] || 'Comptant'
   const invoiceNumber = normalizeText(invoice?.invoice_number)
+  const practStatus = normalizeText(practitioner?.status)
   const practSpecialty = normalizeText(practitioner?.specialty)
   const practAddress = normalizeText(practitioner?.address)
   const practPostalCode = normalizeText(practitioner?.postal_code)
@@ -114,6 +116,7 @@ export function buildInvoicePDFData({
 
   return {
     practitionerName: normalizeText(practitionerName),
+    practitionerStatus: normalizeText(practStatus),
     practitionerSpecialty: normalizeText(practSpecialty),
     practitionerAddress: normalizeText(practAddress),
     practitionerCityLine: normalizeText(practitionerCityLine),

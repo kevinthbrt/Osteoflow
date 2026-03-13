@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Pencil } from 'lucide-react'
 
 type PaymentMethod = 'card' | 'cash' | 'check' | 'transfer' | 'other'
 
@@ -89,9 +90,12 @@ export function ConsultationPaymentEditor({
   }
 
   return (
-    <Card>
+    <Card className="border-primary/30 bg-primary/5">
       <CardHeader>
-        <CardTitle className="text-lg">Paiements</CardTitle>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Pencil className="h-4 w-4 text-primary" />
+          Modifier le paiement
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {entries.map((payment) => (

@@ -19,6 +19,18 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.0.47',
+    date: '2026-03-13',
+    title: 'Statut juridique, améliorations factures et mises à jour',
+    changes: [
+      { type: 'feature', text: 'Ajout du statut juridique du praticien (ex: EI) dans les paramètres, affiché sur les factures après le nom' },
+      { type: 'fix', text: 'Correction du centrage du texte dans le badge du mode de paiement sur les factures PDF' },
+      { type: 'improvement', text: 'Le bloc de modification du paiement dans les consultations est maintenant mis en évidence avec une bordure colorée et une icône' },
+      { type: 'improvement', text: 'Notification de mise à jour impossible à fermer quand elle est prête, avec instructions étape par étape' },
+      { type: 'improvement', text: 'Indicateur vert pulsant dans la sidebar quand une mise à jour est disponible' },
+    ],
+  },
+  {
     version: '1.0.46',
     date: '2026-03-06',
     title: 'Import rapide depuis Doctolib',

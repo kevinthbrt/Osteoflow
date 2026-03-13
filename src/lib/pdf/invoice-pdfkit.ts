@@ -52,7 +52,17 @@ export async function generateInvoicePdf(data: InvoicePDFData): Promise<Uint8Arr
     .font('Helvetica-Bold')
     .fontSize(18)
     .fillColor(colors.dark)
-    .text(data.practitionerName, margin, headerY)
+
+  if (data.practitionerStatus) {
+    doc.text(`${data.practitionerName}  `, margin, headerY, { continued: true })
+    doc
+      .font('Helvetica')
+      .fontSize(11)
+      .fillColor(colors.textLight)
+      .text(data.practitionerStatus, { continued: false })
+  } else {
+    doc.text(data.practitionerName, margin, headerY)
+  }
 
   // Spécialité en teal
   let practY = headerY + 24
@@ -261,9 +271,13 @@ export async function generateInvoicePdf(data: InvoicePDFData): Promise<Uint8Arr
   // Mode de règlement
   doc.font('Helvetica').fontSize(8).fillColor(colors.textMuted).text('MODE DE REGLEMENT', paymentCol1X, paymentY + 35)
   // Badge pour la méthode de paiement
-  const badgeWidth = doc.widthOfString(data.paymentMethod) + 20
-  doc.roundedRect(paymentCol1X, paymentY + 47, badgeWidth, 20, 10).fill(colors.success)
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(colors.white).text(data.paymentMethod, paymentCol1X + 10, paymentY + 53)
+  doc.font('Helvetica-Bold').fontSize(9)
+  const badgeTextWidth = doc.widthOfString(data.paymentMethod)
+  const badgeWidth = badgeTextWidth + 24
+  const badgeHeight = 20
+  const badgeY = paymentY + 47
+  doc.roundedRect(paymentCol1X, badgeY, badgeWidth, badgeHeight, 10).fill(colors.success)
+  doc.fillColor(colors.white).text(data.paymentMethod, paymentCol1X + (badgeWidth - badgeTextWidth) / 2, badgeY + (badgeHeight - 9) / 2)
 
   // Type
   doc.font('Helvetica').fontSize(8).fillColor(colors.textMuted).text('TYPE', paymentCol2X, paymentY + 35)
