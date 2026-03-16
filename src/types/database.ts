@@ -16,6 +16,7 @@ export type SurveyStatus = 'pending' | 'completed' | 'expired'
 export type PainEvolution = 'better' | 'same' | 'worse'
 export type AuditAction = 'INSERT' | 'UPDATE' | 'DELETE'
 export type MedicalHistoryType = 'traumatic' | 'medical' | 'surgical' | 'family'
+export type SessionCategory = 'solo' | 'duo' | 'group' | 'other'
 export type OnsetDurationUnit = 'days' | 'weeks' | 'months' | 'years'
 
 export interface Database {
@@ -263,6 +264,8 @@ export interface Database {
           practitioner_id: string
           name: string
           price: number
+          category: SessionCategory | null
+          cancellation_delay_hours: number
           created_at: string
           updated_at: string
           is_active: boolean
@@ -272,6 +275,8 @@ export interface Database {
           practitioner_id: string
           name: string
           price: number
+          category?: SessionCategory | null
+          cancellation_delay_hours?: number
           created_at?: string
           updated_at?: string
           is_active?: boolean
@@ -281,9 +286,60 @@ export interface Database {
           practitioner_id?: string
           name?: string
           price?: number
+          category?: SessionCategory | null
+          cancellation_delay_hours?: number
           created_at?: string
           updated_at?: string
           is_active?: boolean
+        }
+      }
+      studio_charter: {
+        Row: {
+          id: string
+          practitioner_id: string
+          content: string
+          version: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          practitioner_id: string
+          content: string
+          version?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          practitioner_id?: string
+          content?: string
+          version?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      charter_acceptances: {
+        Row: {
+          id: string
+          patient_id: string
+          charter_id: string
+          accepted_at: string
+        }
+        Insert: {
+          id?: string
+          patient_id: string
+          charter_id: string
+          accepted_at?: string
+        }
+        Update: {
+          id?: string
+          patient_id?: string
+          charter_id?: string
+          accepted_at?: string
         }
       }
       invoices: {
@@ -631,6 +687,7 @@ export interface Database {
       onset_duration_unit: OnsetDurationUnit
       survey_status: SurveyStatus
       pain_evolution: PainEvolution
+      session_category: SessionCategory
     }
   }
 }
@@ -655,6 +712,8 @@ export type MedicalHistoryEntry = Tables<'medical_history_entries'>
 export type ConsultationAttachment = Tables<'consultation_attachments'>
 export type ManualRevenueEntry = Tables<'manual_revenue_entries'>
 export type SurveyResponse = Tables<'survey_responses'>
+export type StudioCharter = Tables<'studio_charter'>
+export type CharterAcceptance = Tables<'charter_acceptances'>
 
 // Extended types with relations
 export interface PatientWithConsultations extends Patient {

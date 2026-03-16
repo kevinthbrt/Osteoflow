@@ -19,8 +19,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target } from 'lucide-react'
-import type { Practitioner, SessionType } from '@/types/database'
+import { Textarea } from '@/components/ui/textarea'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, ScrollText, Clock } from 'lucide-react'
+import type { Practitioner, SessionType, StudioCharter, SessionCategory } from '@/types/database'
 
 interface PatientListItem {
   id: string
@@ -45,6 +46,54 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+const DEFAULT_CHARTER_CONTENT = `CHARTE MK STUDIO — Règlement intérieur
+
+En vous inscrivant au MK Studio, vous acceptez les règles suivantes :
+
+1. POLITIQUE D'ANNULATION ET REMBOURSEMENT
+
+• Cours Solo et Duo : toute annulation doit être effectuée au minimum 24 heures avant le début de la séance.
+• Au-delà de ce délai, la séance est considérée comme due et ne pourra être ni remboursée, ni reportée.
+• En cas d'annulation tardive répétée (moins de 24h avant la séance), le studio se réserve le droit de suspendre l'accès aux réservations.
+• Les cours collectifs annulés par le studio seront systématiquement reportés ou remboursés.
+
+2. PONCTUALITÉ
+
+• Merci d'arriver au minimum 5 minutes avant le début de votre séance.
+• Tout retard supérieur à 10 minutes pourra entraîner l'annulation de la séance sans remboursement, afin de ne pas perturber le déroulement du cours.
+
+3. HYGIÈNE ET ÉQUIPEMENT
+
+• Chaque adhérent doit apporter sa propre serviette pour la séance.
+• Le port de chaussures propres et dédiées à la salle est obligatoire (chaussures d'intérieur propres, non portées en extérieur).
+• Merci de nettoyer le matériel utilisé après chaque exercice avec les produits mis à disposition.
+• Une tenue de sport propre et adaptée est requise.
+
+4. RESPECT DU MATÉRIEL ET DES LOCAUX
+
+• Le matériel du studio doit être utilisé avec soin et remis à sa place après utilisation.
+• Toute dégradation volontaire du matériel ou des locaux pourra faire l'objet d'une facturation.
+• Il est interdit de manger dans la salle de pratique. Seules les bouteilles d'eau sont autorisées.
+
+5. RESPECT DES AUTRES ADHÉRENTS ET DU PRATICIEN
+
+• Le studio est un lieu de bien-être et de soin. Merci de maintenir une ambiance calme et respectueuse.
+• L'usage du téléphone portable est interdit pendant les séances (mode silencieux obligatoire).
+• Les conversations bruyantes dans les espaces de pratique sont à éviter.
+
+6. SANTÉ ET RESPONSABILITÉ
+
+• Il est de votre responsabilité de signaler au praticien toute condition médicale, blessure, douleur ou grossesse avant chaque séance.
+• Le studio décline toute responsabilité en cas de blessure résultant du non-respect des consignes données par le praticien.
+• Un certificat médical de non contre-indication à la pratique sportive peut être demandé.
+
+7. OBJETS PERSONNELS
+
+• Le studio ne peut être tenu responsable de la perte ou du vol d'objets personnels.
+• Merci de ne pas laisser d'objets de valeur sans surveillance.
+
+En signant cette charte, je m'engage à respecter l'ensemble de ces règles pour le bon fonctionnement du MK Studio et le confort de tous.`
+
 export default function SettingsPage() {
   const [practitioner, setPractitioner] = useState<Practitioner | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -58,7 +107,14 @@ export default function SettingsPage() {
   const [sessionTypes, setSessionTypes] = useState<SessionType[]>([])
   const [newSessionTypeName, setNewSessionTypeName] = useState('')
   const [newSessionTypePrice, setNewSessionTypePrice] = useState('')
+  const [newSessionTypeCategory, setNewSessionTypeCategory] = useState<SessionCategory | ''>('')
+  const [newSessionTypeCancellationDelay, setNewSessionTypeCancellationDelay] = useState('24')
   const [isSavingSessionType, setIsSavingSessionType] = useState(false)
+
+  // Charter state
+  const [charter, setCharter] = useState<StudioCharter | null>(null)
+  const [charterContent, setCharterContent] = useState('')
+  const [isSavingCharter, setIsSavingCharter] = useState(false)
 
   // Objectives settings state
   const [objectivesSettings, setObjectivesSettings] = useState({
@@ -230,6 +286,24 @@ export default function SettingsPage() {
             setSessionTypes(sessionTypesData)
           }
 
+          // Fetch studio charter
+          const { data: charterData } = await db
+            .from('studio_charter')
+            .select('*')
+            .eq('practitioner_id', practitionerData.id)
+            .eq('is_active', true)
+            .order('version', { ascending: false })
+            .limit(1)
+            .single()
+
+          if (charterData) {
+            setCharter(charterData)
+            setCharterContent(charterData.content)
+          } else {
+            // Set default charter content
+            setCharterContent(DEFAULT_CHARTER_CONTENT)
+          }
+
           // Fetch email settings
           try {
             const response = await fetch('/api/emails/settings')
@@ -341,6 +415,8 @@ export default function SettingsPage() {
           practitioner_id: practitioner.id,
           name: newSessionTypeName.trim(),
           price: priceValue,
+          category: newSessionTypeCategory || null,
+          cancellation_delay_hours: Number(newSessionTypeCancellationDelay) || 24,
           is_active: true,
         })
         .select()
@@ -353,6 +429,8 @@ export default function SettingsPage() {
       }
       setNewSessionTypeName('')
       setNewSessionTypePrice('')
+      setNewSessionTypeCategory('')
+      setNewSessionTypeCancellationDelay('24')
       toast({
         variant: 'success',
         title: 'Type de séance créé',
@@ -367,6 +445,58 @@ export default function SettingsPage() {
       })
     } finally {
       setIsSavingSessionType(false)
+    }
+  }
+
+  const handleSaveCharter = async () => {
+    if (!practitioner || !charterContent.trim()) return
+
+    setIsSavingCharter(true)
+    try {
+      if (charter) {
+        // Update existing charter
+        const { error } = await db
+          .from('studio_charter')
+          .update({
+            content: charterContent.trim(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', charter.id)
+
+        if (error) throw error
+
+        setCharter({ ...charter, content: charterContent.trim() })
+      } else {
+        // Create new charter
+        const { data, error } = await db
+          .from('studio_charter')
+          .insert({
+            practitioner_id: practitioner.id,
+            content: charterContent.trim(),
+            version: 1,
+            is_active: true,
+          })
+          .select()
+          .single()
+
+        if (error) throw error
+        if (data) setCharter(data)
+      }
+
+      toast({
+        variant: 'success',
+        title: 'Charte enregistrée',
+        description: 'La charte MK Studio a été mise à jour avec succès.',
+      })
+    } catch (error) {
+      console.error('Error saving charter:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible d\'enregistrer la charte.',
+      })
+    } finally {
+      setIsSavingCharter(false)
     }
   }
 
@@ -703,6 +833,10 @@ export default function SettingsPage() {
             <Lock className="mr-2 h-4 w-4" />
             Sécurité
           </TabsTrigger>
+          <TabsTrigger value="charter">
+            <ScrollText className="mr-2 h-4 w-4" />
+            Charte Studio
+          </TabsTrigger>
           <TabsTrigger value="objectives">
             <Target className="mr-2 h-4 w-4" />
             Objectifs
@@ -1029,15 +1163,29 @@ export default function SettingsPage() {
                     </p>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-[1fr_160px_auto]">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_140px_140px_140px_auto]">
                     <div className="space-y-2">
                       <Label htmlFor="session-type-name">Nom</Label>
                       <Input
                         id="session-type-name"
                         value={newSessionTypeName}
                         onChange={(event) => setNewSessionTypeName(event.target.value)}
-                        placeholder="Adulte, Enfant..."
+                        placeholder="Cours Solo, Duo..."
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="session-type-category">Catégorie</Label>
+                      <Select value={newSessionTypeCategory} onValueChange={(val) => setNewSessionTypeCategory(val as SessionCategory)}>
+                        <SelectTrigger id="session-type-category">
+                          <SelectValue placeholder="Choisir..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="solo">Solo</SelectItem>
+                          <SelectItem value="duo">Duo</SelectItem>
+                          <SelectItem value="group">Collectif</SelectItem>
+                          <SelectItem value="other">Autre</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="session-type-price">Tarif (€)</Label>
@@ -1047,6 +1195,23 @@ export default function SettingsPage() {
                         step="0.01"
                         value={newSessionTypePrice}
                         onChange={(event) => setNewSessionTypePrice(event.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="session-type-cancel-delay">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Délai annul. (h)
+                        </span>
+                      </Label>
+                      <Input
+                        id="session-type-cancel-delay"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={newSessionTypeCancellationDelay}
+                        onChange={(event) => setNewSessionTypeCancellationDelay(event.target.value)}
+                        placeholder="24"
                       />
                     </div>
                     <div className="flex items-end">
@@ -1068,12 +1233,25 @@ export default function SettingsPage() {
                           key={type.id}
                           className="flex items-center justify-between rounded-lg border px-3 py-2"
                         >
-                          <span className="text-sm font-medium">
-                            {type.name}
-                          </span>
-                          <span className="text-sm text-muted-foreground">
-                            {Number(type.price).toFixed(2)} €
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">
+                              {type.name}
+                            </span>
+                            {type.category && (
+                              <Badge variant="secondary" className="text-xs">
+                                {type.category === 'solo' ? 'Solo' : type.category === 'duo' ? 'Duo' : type.category === 'group' ? 'Collectif' : 'Autre'}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {type.cancellation_delay_hours || 24}h annulation
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              {Number(type.price).toFixed(2)} €
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1451,6 +1629,52 @@ export default function SettingsPage() {
         {/* Security Tab */}
         <TabsContent value="security">
           <PasswordSettings practitioner={practitioner} />
+        </TabsContent>
+
+        {/* Charter Tab */}
+        <TabsContent value="charter">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ScrollText className="h-5 w-5 text-primary" />
+                Charte MK Studio
+              </CardTitle>
+              <CardDescription>
+                Rédigez la charte du studio que les adhérents doivent accepter lors de leur inscription.
+                Cette charte définit les règles de fonctionnement, les politiques d&apos;annulation et le bon comportement au sein du studio.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="charter-content">Contenu de la charte</Label>
+                <Textarea
+                  id="charter-content"
+                  value={charterContent}
+                  onChange={(e) => setCharterContent(e.target.value)}
+                  rows={25}
+                  className="font-mono text-sm"
+                  placeholder="Rédigez ici la charte de votre studio..."
+                />
+                <p className="text-xs text-muted-foreground">
+                  {charter ? `Version ${charter.version} — Dernière modification : ${new Date(charter.updated_at).toLocaleDateString('fr-FR')}` : 'Aucune charte enregistrée — une charte par défaut vous est proposée.'}
+                </p>
+              </div>
+
+              <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                <p className="text-sm font-medium">Aperçu de la charte</p>
+                <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm text-muted-foreground">
+                  {charterContent || 'Aucun contenu...'}
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={handleSaveCharter} disabled={isSavingCharter || !charterContent.trim()}>
+                  {isSavingCharter && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Enregistrer la charte
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Objectives Tab */}

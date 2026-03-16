@@ -63,9 +63,30 @@ CREATE TABLE IF NOT EXISTS session_types (
   practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
   name TEXT NOT NULL,
   price REAL NOT NULL,
+  category TEXT CHECK (category IN ('solo', 'duo', 'group', 'other')),
+  cancellation_delay_hours INTEGER NOT NULL DEFAULT 24,
   is_active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Studio charter
+CREATE TABLE IF NOT EXISTS studio_charter (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+  content TEXT NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Charter acceptances (tracks which patients accepted which version)
+CREATE TABLE IF NOT EXISTS charter_acceptances (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  patient_id TEXT NOT NULL REFERENCES patients(id),
+  charter_id TEXT NOT NULL REFERENCES studio_charter(id),
+  accepted_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Consultations
@@ -278,6 +299,9 @@ CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id
 CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status ON scheduled_tasks(status, scheduled_for);
 CREATE INDEX IF NOT EXISTS idx_medical_history_patient ON medical_history_entries(patient_id);
 CREATE INDEX IF NOT EXISTS idx_consultation_attachments_consultation ON consultation_attachments(consultation_id);
+CREATE INDEX IF NOT EXISTS idx_studio_charter_practitioner ON studio_charter(practitioner_id);
+CREATE INDEX IF NOT EXISTS idx_charter_acceptances_patient ON charter_acceptances(patient_id);
+CREATE INDEX IF NOT EXISTS idx_charter_acceptances_charter ON charter_acceptances(charter_id);
 
 -- Survey responses (J+7 patient satisfaction surveys)
 CREATE TABLE IF NOT EXISTS survey_responses (
@@ -394,6 +418,41 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     db.exec('ALTER TABLE survey_responses ADD COLUMN acknowledged_at TEXT;')
   }
 
+  // Add category and cancellation_delay_hours to session_types
+  const sessionTypeCols = db.pragma('table_info(session_types)') as Array<{ name: string }>
+  if (!sessionTypeCols.some((c) => c.name === 'category')) {
+    db.exec("ALTER TABLE session_types ADD COLUMN category TEXT CHECK (category IN ('solo', 'duo', 'group', 'other'));")
+  }
+  if (!sessionTypeCols.some((c) => c.name === 'cancellation_delay_hours')) {
+    db.exec('ALTER TABLE session_types ADD COLUMN cancellation_delay_hours INTEGER NOT NULL DEFAULT 24;')
+  }
+
+  // Create studio_charter table if not exists
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS studio_charter (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+      content TEXT NOT NULL,
+      version INTEGER NOT NULL DEFAULT 1,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_studio_charter_practitioner ON studio_charter(practitioner_id);`)
+
+  // Create charter_acceptances table if not exists
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS charter_acceptances (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      patient_id TEXT NOT NULL REFERENCES patients(id),
+      charter_id TEXT NOT NULL REFERENCES studio_charter(id),
+      accepted_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_charter_acceptances_patient ON charter_acceptances(patient_id);`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_charter_acceptances_charter ON charter_acceptances(charter_id);`)
+
   // Create manual_revenue_entries table if not exists (already in SCHEMA_SQL for new installs)
   db.exec(`
     CREATE TABLE IF NOT EXISTS manual_revenue_entries (
@@ -416,6 +475,7 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
 export const BOOLEAN_FIELDS: Record<string, string[]> = {
   consultations: ['follow_up_7d', 'send_post_session_advice'],
   session_types: ['is_active'],
+  studio_charter: ['is_active'],
   conversations: ['is_archived'],
   email_settings: ['smtp_secure', 'imap_secure', 'sync_enabled', 'is_verified'],
   medical_history_entries: ['is_vigilance'],
