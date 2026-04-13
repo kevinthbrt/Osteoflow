@@ -19,6 +19,15 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.0.48',
+    date: '2026-04-13',
+    title: 'Frise des objectifs améliorée',
+    changes: [
+      { type: 'improvement', text: 'Séparateurs de mois sur la frise annuelle en noir pour une meilleure lisibilité' },
+      { type: 'feature', text: 'Quand on est en avance sur le prévisionnel, affichage du nombre de jours de congés équivalents à l\'avance' },
+    ],
+  },
+  {
     version: '1.0.47',
     date: '2026-03-13',
     title: 'Statut juridique, améliorations factures et mises à jour',
