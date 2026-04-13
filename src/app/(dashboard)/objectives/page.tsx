@@ -120,6 +120,10 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
   const expectedRevenue = (datePct / 100) * annualObj
   const diff = data.revenue.this_year - expectedRevenue
 
+  // Nombre de jours de congés équivalents à l'avance
+  const dailyObj = data.computed.daily_objective
+  const advanceDays = (isAhead && dailyObj > 0) ? Math.floor(diff / dailyObj) : 0
+
   // Month tick positions (start of each month as % of year)
   const monthTicks = Array.from({ length: 12 }, (_, i) => {
     const monthStart = new Date(year, i, 1)
@@ -149,6 +153,11 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
             }`}
           >
             {isAhead ? '▲' : '▼'} {isAhead ? 'En avance' : 'En retard'} de {formatEuro(Math.abs(diff))}
+            {isAhead && advanceDays > 0 && (
+              <span className="ml-1 font-normal text-emerald-600">
+                · ≈ {advanceDays} jour{advanceDays > 1 ? 's' : ''} de congés
+              </span>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -189,7 +198,7 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
             {monthTicks.slice(1).map(({ month, pct }) => (
               <div
                 key={month}
-                className="absolute top-0 bottom-0 w-px bg-background/40 z-10"
+                className="absolute top-0 bottom-0 w-px bg-black z-10"
                 style={{ left: `${pct}%` }}
               />
             ))}
