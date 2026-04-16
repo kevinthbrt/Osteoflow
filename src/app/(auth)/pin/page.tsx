@@ -52,9 +52,7 @@ export default function PinPage() {
       const data = await res.json()
 
       if (data.valid) {
-        // Mark session verified (in-memory flag)
         await fetch('/api/license/mark-verified', { method: 'POST' })
-        // Background online check — non-blocking, grace period handles offline
         fetch('/api/license/online-verify', { method: 'POST' }).catch(() => {})
         router.push('/login')
       } else {
@@ -65,10 +63,9 @@ export default function PinPage() {
           toast({
             variant: 'destructive',
             title: 'Trop de tentatives',
-            description:
-              'Reconnectez-vous avec votre compte Osteoupgrade.',
+            description: 'Reconnectez-vous avec votre compte Osteoupgrade.',
           })
-          router.push('/auth/osteoupgrade')
+          router.push('/osteoupgrade')
         } else {
           toast({
             variant: 'destructive',
@@ -91,7 +88,7 @@ export default function PinPage() {
 
   const handleChangeAccount = async () => {
     await fetch('/api/license', { method: 'DELETE' })
-    router.push('/auth/osteoupgrade')
+    router.push('/osteoupgrade')
   }
 
   const dots = Array.from({ length: 4 }, (_, i) => i < pin.length)
@@ -119,11 +116,10 @@ export default function PinPage() {
           </div>
           <CardTitle className="text-xl">Osteoflow</CardTitle>
           <CardDescription>
-            {email ? `Compte : ${email}` : 'Entrez votre code PIN'}
+            {email ? `Compte : ${email}` : 'Entrez votre code PIN'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* PIN dots indicator */}
           <div className="flex justify-center gap-4 py-2">
             {dots.map((filled, i) => (
               <div
@@ -137,7 +133,6 @@ export default function PinPage() {
             ))}
           </div>
 
-          {/* Numpad */}
           <div className="grid grid-cols-3 gap-3">
             {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map(
               (key, i) => {

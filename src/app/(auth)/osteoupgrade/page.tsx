@@ -40,7 +40,6 @@ export default function OsteoupgradeLoginPage() {
     setIsLoading(true)
 
     try {
-      // 1. Authenticate against Osteoupgrade API
       const authRes = await fetch(`${OSTEOUPGRADE_URL}/api/osteoflow/auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -63,7 +62,6 @@ export default function OsteoupgradeLoginPage() {
         return
       }
 
-      // 2. Save license data locally in SQLite
       await fetch('/api/license', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -75,7 +73,6 @@ export default function OsteoupgradeLoginPage() {
         }),
       })
 
-      // 3. Mark session as verified (in-memory flag for this app session)
       await fetch('/api/license/mark-verified', { method: 'POST' })
 
       toast({
@@ -84,8 +81,7 @@ export default function OsteoupgradeLoginPage() {
         description: 'Bienvenue sur Osteoflow',
       })
 
-      // 4. Go to PIN setup (always set a fresh PIN after full login)
-      router.push('/auth/pin-setup')
+      router.push('/pin-setup')
     } catch {
       toast({
         variant: 'destructive',
@@ -181,7 +177,7 @@ export default function OsteoupgradeLoginPage() {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
-              Pas encore abonné ?{' '}
+              Pas encore abonné ?{' '}
               <a
                 href={OSTEOUPGRADE_URL}
                 target="_blank"
