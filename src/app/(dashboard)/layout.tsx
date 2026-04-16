@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
 import { UpdateBanner } from '@/components/layout/update-banner'
 import { WhatsNewDialog } from '@/components/layout/whats-new-dialog'
+import { LicenseGuard } from '@/components/layout/license-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,6 +52,8 @@ export default async function DashboardLayout({
         </main>
       </div>
       <WhatsNewDialog />
+      {/* Listens for license-expired IPC events from the 30-min heartbeat */}
+      <LicenseGuard />
     </div>
   )
 }
