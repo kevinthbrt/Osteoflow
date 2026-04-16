@@ -6,12 +6,11 @@ export const dynamic = 'force-dynamic'
 const OSTEOUPGRADE_URL =
   process.env.NEXT_PUBLIC_OSTEOUPGRADE_URL || 'https://osteoupgrade.vercel.app'
 
-/**
- * POST /api/license/online-verify
- * Calls the Osteoupgrade API to verify the stored token.
- * Updates last_verified_at on success.
- * Returns { valid: true|false|null } — null means offline (grace period applies).
- */
+async function upsertConfig(db: any, key: string, value: string) {
+  await db.from('app_config').delete().eq('key', key)
+  await db.from('app_config').insert({ key, value })
+}
+
 export async function POST() {
   const db = await createClient()
 
@@ -39,18 +38,14 @@ export async function POST() {
     const data = await res.json()
 
     if (data.valid) {
-      await db.from('app_config').upsert({
-        key: 'license_last_verified_at',
-        value: new Date().toISOString(),
-      })
+      await upsertConfig(db, 'license_last_verified_at', new Date().toISOString())
       if (data.role) {
-        await db.from('app_config').upsert({ key: 'license_role', value: data.role })
+        await upsertConfig(db, 'license_role', data.role)
       }
     }
 
     return NextResponse.json(data)
   } catch {
-    // Network unavailable — caller applies grace period logic
     return NextResponse.json({ valid: null, error: 'offline' })
   }
 }

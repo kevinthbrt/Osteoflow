@@ -8,13 +8,11 @@ function hashPin(pin: string, deviceId: string): string {
   return crypto.createHash('sha256').update(pin + deviceId).digest('hex')
 }
 
-/**
- * POST /api/license/pin
- * body: { action: 'set' | 'verify', pin: string }
- *
- * set    — hash and store the PIN (called after Osteoupgrade login)
- * verify — check the PIN against the stored hash
- */
+async function upsertConfig(db: any, key: string, value: string) {
+  await db.from('app_config').delete().eq('key', key)
+  await db.from('app_config').insert({ key, value })
+}
+
 export async function POST(request: Request) {
   const db = await createClient()
   const { action, pin } = await request.json()
@@ -39,11 +37,8 @@ export async function POST(request: Request) {
 
   if (action === 'set') {
     const hash = hashPin(pin, deviceId)
-    await db.from('app_config').upsert({ key: 'license_pin_hash', value: hash })
-    await db.from('app_config').upsert({
-      key: 'license_pin_last_used_at',
-      value: new Date().toISOString(),
-    })
+    await upsertConfig(db, 'license_pin_hash', hash)
+    await upsertConfig(db, 'license_pin_last_used_at', new Date().toISOString())
     return NextResponse.json({ success: true })
   }
 
@@ -63,11 +58,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ valid: false, error: 'Code PIN incorrect' })
     }
 
-    // Refresh the 30-day persistence window
-    await db.from('app_config').upsert({
-      key: 'license_pin_last_used_at',
-      value: new Date().toISOString(),
-    })
+    await upsertConfig(db, 'license_pin_last_used_at', new Date().toISOString())
     return NextResponse.json({ valid: true })
   }
 
