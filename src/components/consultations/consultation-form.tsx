@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -89,6 +89,7 @@ export function ConsultationForm({
   const router = useRouter()
   const { toast } = useToast()
   const db = createClient()
+  const paymentsRef = useRef(payments)
 
   const now = new Date()
   const toLocalDateTimeString = (d: Date) => {
@@ -193,9 +194,22 @@ export function ConsultationForm({
     })
   }, [])
 
+  useEffect(() => { paymentsRef.current = payments }, [payments])
+
   // Auto-save draft every 30s + restore on unlock (create mode only)
   useEffect(() => {
     if (mode !== 'create') return
+
+    const saveDraft = () => {
+      const values = getValues()
+      fetch('/api/consultation/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...values, payments: paymentsRef.current }),
+      }).catch(() => {})
+    }
+
+    window.addEventListener('osteoflow:before-lock', saveDraft)
 
     const shouldRestore = sessionStorage.getItem('restore_consultation_draft')
     if (shouldRestore) {
@@ -215,16 +229,12 @@ export function ConsultationForm({
         .catch(() => {})
     }
 
-    const interval = setInterval(() => {
-      const values = getValues()
-      fetch('/api/consultation/draft', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...values, payments }),
-      }).catch(() => {})
-    }, 30 * 1000)
+    const interval = setInterval(saveDraft, 30 * 1000)
 
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('osteoflow:before-lock', saveDraft)
+    }
   }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const autoResize = (e: React.FormEvent<HTMLTextAreaElement>) => {
