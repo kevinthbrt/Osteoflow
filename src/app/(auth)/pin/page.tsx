@@ -62,10 +62,12 @@ function PinPageInner() {
           await fetch('/api/session/lock', { method: 'DELETE' })
           const draftRes = await fetch('/api/consultation/draft')
           const draftData = await draftRes.json()
-          if (draftData.draft) {
+          if (draftData.draft?.patient_id) {
             sessionStorage.setItem('restore_consultation_draft', '1')
+            router.push(`/patients/${draftData.draft.patient_id}/consultation/new`)
+          } else {
+            router.push('/dashboard')
           }
-          router.push('/dashboard')
         } else {
           router.push('/login')
         }
@@ -92,7 +94,7 @@ function PinPageInner() {
       toast({
         variant: 'destructive',
         title: 'Erreur',
-        description: 'Impossible de vérifier le code.',
+        description: 'Impossible de v\u00e9rifier le code.',
       })
       setPin('')
     } finally {
@@ -133,13 +135,13 @@ function PinPageInner() {
             </div>
           </div>
           <CardTitle className="text-xl">
-            {isUnlockMode ? 'Session verrouillée' : 'Osteoflow'}
+            {isUnlockMode ? 'Session verrouill\u00e9e' : 'Osteoflow'}
           </CardTitle>
           <CardDescription>
             {isUnlockMode
               ? email
                 ? `Compte : ${email}`
-                : 'Entrez votre code PIN pour déverrouiller'
+                : 'Entrez votre code PIN pour d\u00e9verrouiller'
               : email
               ? `Compte : ${email}`
               : 'Entrez votre code PIN'}
@@ -160,19 +162,19 @@ function PinPageInner() {
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map(
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '\u232b'].map(
               (key, i) => {
                 if (key === '') return <div key={i} />
                 return (
                   <button
                     key={key + i}
                     onClick={() =>
-                      key === '⌫' ? handleDelete() : handleDigit(key)
+                      key === '\u232b' ? handleDelete() : handleDigit(key)
                     }
                     disabled={isLoading}
                     className="h-14 rounded-xl border bg-background hover:bg-muted active:scale-95 font-semibold text-lg transition-all disabled:opacity-50 flex items-center justify-center select-none"
                   >
-                    {key === '⌫' ? (
+                    {key === '\u232b' ? (
                       <Delete className="h-5 w-5" />
                     ) : (
                       key

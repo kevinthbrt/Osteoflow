@@ -11,6 +11,8 @@ export function InactivityTimer({ timeoutMs = DEFAULT_TIMEOUT_MS }: { timeoutMs?
 
   useEffect(() => {
     const lock = async () => {
+      window.dispatchEvent(new Event('osteoflow:before-lock'))
+      await new Promise((r) => setTimeout(r, 400))
       await fetch('/api/session/lock', { method: 'POST' })
       router.push('/pin?mode=unlock')
     }
