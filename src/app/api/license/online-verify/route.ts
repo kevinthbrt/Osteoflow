@@ -1,30 +1,25 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/db/server'
+import { getDatabase } from '@/lib/database/connection'
 
 export const dynamic = 'force-dynamic'
 
 const OSTEOUPGRADE_URL =
   process.env.NEXT_PUBLIC_OSTEOUPGRADE_URL || 'https://osteoupgrade.vercel.app'
 
-async function upsertConfig(db: any, key: string, value: string) {
-  await db.from('app_config').delete().eq('key', key)
-  await db.from('app_config').insert({ key, value })
+function getAppConfig(key: string): string | null {
+  const db = getDatabase()
+  const row = db.prepare('SELECT value FROM app_config WHERE key = ?').get(key) as any
+  return row?.value ?? null
+}
+
+function upsertConfig(key: string, value: string) {
+  const db = getDatabase()
+  db.prepare('INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)').run(key, value)
 }
 
 export async function POST() {
-  const db = await createClient()
-
-  const getConfig = async (key: string): Promise<string | null> => {
-    const { data } = await db
-      .from('app_config')
-      .select('value')
-      .eq('key', key)
-      .single()
-    return (data as any)?.value || null
-  }
-
-  const token = await getConfig('license_token')
-  const deviceId = await getConfig('license_device_id')
+  const token = getAppConfig('license_token')
+  const deviceId = getAppConfig('license_device_id')
 
   if (!token || !deviceId) {
     return NextResponse.json({ valid: false, error: 'Aucune session active' })
@@ -38,9 +33,9 @@ export async function POST() {
     const data = await res.json()
 
     if (data.valid) {
-      await upsertConfig(db, 'license_last_verified_at', new Date().toISOString())
+      upsertConfig('license_last_verified_at', new Date().toISOString())
       if (data.role) {
-        await upsertConfig(db, 'license_role', data.role)
+        upsertConfig('license_role', data.role)
       }
     }
 

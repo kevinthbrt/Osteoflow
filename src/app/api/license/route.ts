@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/db/server'
+import { getDatabase } from '@/lib/database/connection'
 import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
@@ -15,30 +15,32 @@ const LICENSE_KEYS = [
   'license_pin_last_used_at',
 ] as const
 
-async function getConfigs(db: any): Promise<Record<string, string>> {
-  const { data } = await db
-    .from('app_config')
-    .select('key, value')
-    .in('key', [...LICENSE_KEYS])
+function getConfigs(): Record<string, string> {
+  const db = getDatabase()
+  const rows = db
+    .prepare(`SELECT key, value FROM app_config WHERE key IN (${LICENSE_KEYS.map(() => '?').join(',')})`)
+    .all(...LICENSE_KEYS) as Array<{ key: string; value: string }>
   const map: Record<string, string> = {}
-  ;(data || []).forEach((row: { key: string; value: string }) => {
-    map[row.key] = row.value
-  })
+  rows.forEach((row) => { map[row.key] = row.value })
   return map
 }
 
-async function upsertConfig(db: any, key: string, value: string) {
-  await db.from('app_config').delete().eq('key', key)
-  await db.from('app_config').insert({ key, value })
+function upsertConfig(key: string, value: string) {
+  const db = getDatabase()
+  db.prepare('INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)').run(key, value)
+}
+
+function deleteConfig(key: string) {
+  const db = getDatabase()
+  db.prepare('DELETE FROM app_config WHERE key = ?').run(key)
 }
 
 export async function GET() {
-  const db = await createClient()
-  const config = await getConfigs(db)
+  const config = getConfigs()
 
   if (!config.license_device_id) {
     const deviceId = crypto.randomUUID()
-    await upsertConfig(db, 'license_device_id', deviceId)
+    upsertConfig('license_device_id', deviceId)
     config.license_device_id = deviceId
   }
 
@@ -75,29 +77,25 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const db = await createClient()
   const { token, email, role, expires_at } = await request.json()
 
   if (!token || !email || !role || !expires_at) {
     return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
   }
 
-  await upsertConfig(db, 'license_token', token)
-  await upsertConfig(db, 'license_email', email)
-  await upsertConfig(db, 'license_role', role)
-  await upsertConfig(db, 'license_expires_at', expires_at)
-  await upsertConfig(db, 'license_last_verified_at', new Date().toISOString())
+  upsertConfig('license_token', token)
+  upsertConfig('license_email', email)
+  upsertConfig('license_role', role)
+  upsertConfig('license_expires_at', expires_at)
+  upsertConfig('license_last_verified_at', new Date().toISOString())
 
-  await db.from('app_config').delete().eq('key', 'license_pin_hash')
-  await db.from('app_config').delete().eq('key', 'license_pin_last_used_at')
+  deleteConfig('license_pin_hash')
+  deleteConfig('license_pin_last_used_at')
 
   return NextResponse.json({ success: true })
 }
 
 export async function DELETE() {
-  const db = await createClient()
-  for (const key of LICENSE_KEYS) {
-    await db.from('app_config').delete().eq('key', key)
-  }
+  LICENSE_KEYS.forEach(deleteConfig)
   return NextResponse.json({ success: true })
 }
