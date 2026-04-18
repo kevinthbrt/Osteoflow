@@ -31,12 +31,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 import { EditPatientModal } from '@/components/patients/edit-patient-modal'
+import { TopographyPanel } from '@/components/consultations/topography-panel'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -90,6 +91,7 @@ export function ConsultationForm({
   const { toast } = useToast()
   const db = createClient()
   const paymentsRef = useRef(payments)
+  const [showTopography, setShowTopography] = useState(false)
 
   const now = new Date()
   const toLocalDateTimeString = (d: Date) => {
@@ -583,9 +585,21 @@ export function ConsultationForm({
 
           <Card>
             <CardHeader>
-              <div className="flex items-center gap-2">
-                <Stethoscope className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Contenu clinique</CardTitle>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Stethoscope className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">Contenu clinique</CardTitle>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowTopography(true)}
+                >
+                  <MapPin className="h-4 w-4" />
+                  Topographie
+                </Button>
               </div>
               <CardDescription>Anamnèse, examen et conseils</CardDescription>
             </CardHeader>
@@ -1034,6 +1048,7 @@ export function ConsultationForm({
           }}
         />
       )}
+      <TopographyPanel open={showTopography} onClose={() => setShowTopography(false)} />
     </>
   )
 
