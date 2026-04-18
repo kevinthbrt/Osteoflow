@@ -98,7 +98,12 @@
 
   /* Subtle glass surface for page sections */
   .glass-surface {
-    @apply bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-white/40 dark:border-white/8;
+    @apply bg-white/60 backdrop-blur-sm border border-white/40;
+    --tw-bg-opacity: 0.6;
+  }
+  .dark .glass-surface {
+    background-color: rgb(15 23 42 / 0.6);
+    border-color: rgb(255 255 255 / 0.08);
   }
 
   /* Gradient backgrounds */
@@ -150,12 +155,27 @@
 
   /* Subtle inner container (payment totals, info boxes, nested sections) */
   .glass-inner {
-    @apply bg-white/50 dark:bg-slate-800/50 border border-white/40 dark:border-white/8 rounded-xl;
+    @apply bg-white/50 border border-white/40 rounded-xl;
+  }
+  .dark .glass-inner {
+    background-color: rgb(30 41 59 / 0.5);
+    border-color: rgb(255 255 255 / 0.08);
   }
 
   /* Quick action button */
   .quick-action {
-    @apply flex flex-col items-center gap-2 p-4 rounded-2xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-white/40 hover:bg-white/80 hover:border-primary/20 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md cursor-pointer;
+    @apply flex flex-col items-center gap-2 p-4 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/40 transition-all duration-300 cursor-pointer;
+  }
+  .dark .quick-action {
+    background-color: rgb(30 41 59 / 0.6);
+  }
+  .quick-action:hover {
+    @apply -translate-y-0.5 shadow-md;
+    background-color: rgb(255 255 255 / 0.8);
+    border-color: hsl(var(--primary) / 0.2);
+  }
+  .dark .quick-action:hover {
+    background-color: rgb(30 41 59 / 0.8);
   }
 
   /* Timeline */
