@@ -154,7 +154,7 @@ export function Header({ user, practitioner }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border/40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 border-b border-white/40 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
       <div className="flex h-16 items-center gap-4 px-6 lg:px-8">
         {/* Spacer for mobile menu button */}
         <div className="w-10 lg:hidden" />
@@ -190,7 +190,7 @@ export function Header({ user, practitioner }: HeaderProps) {
 
           {/* Search results dropdown */}
           {showResults && (
-            <div className="absolute top-full mt-2 w-full bg-white dark:bg-slate-900 rounded-2xl border border-border/50 shadow-xl overflow-hidden z-50">
+            <div className="absolute top-full mt-2 w-full glass-card rounded-2xl shadow-xl overflow-hidden z-50">
               {searchResults.length === 0 ? (
                 <div className="px-4 py-3 text-sm text-muted-foreground text-center">
                   Aucun patient trouvé

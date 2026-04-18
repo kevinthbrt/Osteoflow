@@ -586,7 +586,7 @@ export default function AccountingPage() {
               </p>
             </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="rounded-2xl glass-card overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>

@@ -230,12 +230,12 @@ export default function ConsultationsPage() {
           <Skeleton className="h-16 w-full" />
         </div>
       ) : consultations.length === 0 ? (
-        <div className="text-center py-10 border rounded-lg bg-muted/50">
+        <div className="text-center py-10 rounded-2xl glass-card">
           <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
           <p className="text-muted-foreground">Aucune consultation sur cette période</p>
         </div>
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-2xl glass-card overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
