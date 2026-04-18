@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev -p 3456",
     "build": "next build",
+    "build:electron": "tsc -p electron/tsconfig.json",
     "start": "next start -p 3456",
     "lint": "next lint",
     "electron": "electron .",
