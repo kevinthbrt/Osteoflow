@@ -110,7 +110,7 @@ export function PatientsTable({ patients, currentPage, totalPages, totalCount }:
 
   if (patients.length === 0 && currentPage === 1) {
     return (
-      <div className="text-center py-10 border rounded-lg bg-muted/50">
+      <div className="text-center py-10 rounded-2xl glass-card">
         <p className="text-muted-foreground">Aucun patient trouvé</p>
         <Button asChild className="mt-4">
           <Link href="/patients/new">Créer votre premier patient</Link>
@@ -121,7 +121,7 @@ export function PatientsTable({ patients, currentPage, totalPages, totalCount }:
 
   return (
     <>
-      <div className="rounded-md border">
+      <div className="rounded-2xl glass-card overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>

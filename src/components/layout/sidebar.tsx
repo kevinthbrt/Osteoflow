@@ -16,11 +16,11 @@ import {
   TrendingUp,
   LogOut,
   Lock,
-  AlertTriangle,
   Mail,
   Upload,
   Target,
   ClipboardList,
+  AlertTriangle,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -62,15 +62,17 @@ export function Sidebar() {
     api.onUpdateDownloaded((v) => setUpdateReady(v))
   }, [])
 
-  const handleLogout = async () => {
-    await db.auth.signOut()
-    router.push('/login')
-    router.refresh()
+  const handleLock = async () => {
+    window.dispatchEvent(new Event('osteoflow:before-lock'))
+    await new Promise((r) => setTimeout(r, 400))
+    await fetch('/api/session/lock', { method: 'POST' })
+    router.push('/pin?mode=unlock')
   }
 
-  const handleLock = async () => {
-    await fetch('/api/session/lock', { method: 'POST' })
-    router.push('/login?mode=lock')
+  const handleLogout = async () => {
+    await fetch('/api/license', { method: 'DELETE' })
+    await db.auth.signOut()
+    router.push('/osteoupgrade')
   }
 
   return (
@@ -100,7 +102,7 @@ export function Sidebar() {
               <h2 className="text-lg font-semibold text-white">Déconnexion</h2>
             </div>
             <p className="text-slate-300 text-sm mb-6">
-              Vous allez être déconnecté. Vous devrez sélectionner votre profil pour revenir.
+              Vous allez être déconnecté de votre compte Osteoupgrade. Vous devrez vous reconnecter pour utiliser Osteoflow.
             </p>
             <div className="flex gap-3">
               <button

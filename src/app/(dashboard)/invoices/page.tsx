@@ -121,7 +121,7 @@ async function InvoicesTableLoader({ status }: { status?: string }) {
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-2xl glass-card overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow>

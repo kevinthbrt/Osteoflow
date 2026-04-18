@@ -3,7 +3,7 @@
  *
  * This script runs in the renderer process before the page loads.
  * It provides a bridge between the renderer and main process via contextBridge.
- * Exposes update events so the React app can show in-app update notifications.
+ * Exposes IPC events so the React app can react to main-process events.
  */
 
 import { contextBridge, ipcRenderer } from 'electron'
@@ -34,5 +34,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Inbox sync events
   onInboxSynced: (callback: (count: number) => void) => {
     ipcRenderer.on('inbox-synced', (_event, count: number) => callback(count))
+  },
+
+  // License expiry event
+  // Fired by the 30-minute heartbeat when the Osteoupgrade subscription
+  // is no longer active or a concurrent session is detected.
+  onLicenseExpired: (callback: (payload: { message: string; code: string }) => void) => {
+    ipcRenderer.on('license-expired', (_event, payload) => callback(payload))
   },
 })

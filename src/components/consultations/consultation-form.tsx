@@ -977,7 +977,7 @@ export function ConsultationForm({
                         </div>
                       ))}
 
-                      <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                      <div className="flex justify-between items-center p-3 glass-inner">
                         <span className="font-medium">Total</span>
                         <span className="text-lg font-bold">
                           {totalPayments.toFixed(2)} €
