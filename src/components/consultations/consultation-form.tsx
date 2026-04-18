@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -31,12 +31,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 import { EditPatientModal } from '@/components/patients/edit-patient-modal'
+import { TopographyPanel } from '@/components/consultations/topography-panel'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -89,6 +90,8 @@ export function ConsultationForm({
   const router = useRouter()
   const { toast } = useToast()
   const db = createClient()
+  const paymentsRef = useRef(payments)
+  const [showTopography, setShowTopography] = useState(false)
 
   const now = new Date()
   const toLocalDateTimeString = (d: Date) => {
@@ -108,6 +111,7 @@ export function ConsultationForm({
     handleSubmit,
     watch,
     setValue,
+    getValues,
     formState: { errors },
   } = useForm<ConsultationWithInvoiceFormData>({
     resolver: zodResolver(consultationWithInvoiceSchema),
@@ -192,6 +196,49 @@ export function ConsultationForm({
     })
   }, [])
 
+  useEffect(() => { paymentsRef.current = payments }, [payments])
+
+  // Auto-save draft every 30s + restore on unlock (create mode only)
+  useEffect(() => {
+    if (mode !== 'create') return
+
+    const saveDraft = () => {
+      const values = getValues()
+      fetch('/api/consultation/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...values, payments: paymentsRef.current }),
+      }).catch(() => {})
+    }
+
+    window.addEventListener('osteoflow:before-lock', saveDraft)
+
+    const shouldRestore = sessionStorage.getItem('restore_consultation_draft')
+    if (shouldRestore) {
+      sessionStorage.removeItem('restore_consultation_draft')
+      fetch('/api/consultation/draft')
+        .then((r) => r.json())
+        .then(({ draft }) => {
+          if (!draft) return
+          if (draft.reason) setValue('reason', draft.reason)
+          if (draft.anamnesis) setValue('anamnesis', draft.anamnesis)
+          if (draft.examination) setValue('examination', draft.examination)
+          if (draft.advice) setValue('advice', draft.advice)
+          if (draft.date_time) setValue('date_time', draft.date_time)
+          if (draft.payments) setPayments(draft.payments)
+          toast({ title: 'Brouillon restauré', description: 'La consultation a été restaurée depuis votre dernière session.' })
+        })
+        .catch(() => {})
+    }
+
+    const interval = setInterval(saveDraft, 30 * 1000)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('osteoflow:before-lock', saveDraft)
+    }
+  }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const autoResize = (e: React.FormEvent<HTMLTextAreaElement>) => {
     const target = e.currentTarget
     target.style.height = 'auto'
@@ -274,7 +321,7 @@ export function ConsultationForm({
       const files = Array.from(e.target.files)
       setPendingFiles((prev) => [...prev, ...files])
     }
-    e.target.value = '' // Reset so same file can be re-selected
+    e.target.value = ''
   }
 
   const removePendingFile = (index: number) => {
@@ -309,7 +356,6 @@ export function ConsultationForm({
       }
 
       if (mode === 'create') {
-        // Create consultation
         const { data: newConsultation, error: consultationError } = await db
           .from('consultations')
           .insert({
@@ -327,16 +373,13 @@ export function ConsultationForm({
 
         if (consultationError) throw consultationError
 
-        // Upload pending attachments
         if (pendingFiles.length > 0 && newConsultation) {
           await uploadAttachments(newConsultation.id)
         }
 
-        // Variables for invoice to access outside the block
         let invoiceId: string | null = null
         let invoiceNumber: string | null = null
 
-        // Create invoice if requested
         if (createInvoice && newConsultation) {
           invoiceNumber = generateInvoiceNumber(
             practitioner.invoice_prefix,
@@ -361,7 +404,6 @@ export function ConsultationForm({
 
           if (invoiceError) throw invoiceError
 
-          // Create payments
           if (newInvoice) {
             invoiceId = newInvoice.id
 
@@ -380,7 +422,6 @@ export function ConsultationForm({
 
             if (paymentsError) throw paymentsError
 
-            // Update practitioner's next invoice number
             await db
               .from('practitioners')
               .update({ invoice_next_number: practitioner.invoice_next_number + 1 })
@@ -388,7 +429,6 @@ export function ConsultationForm({
           }
         }
 
-        // Create scheduled task for follow-up if requested
         if (data.follow_up_7d && newConsultation) {
           const scheduledFor = new Date(data.date_time)
           scheduledFor.setDate(scheduledFor.getDate() + 7)
@@ -401,7 +441,6 @@ export function ConsultationForm({
           })
         }
 
-        // Send post-session advice email immediately if requested
         if (sendPostSessionAdvice && newConsultation && resolvedEmail) {
           try {
             await fetch('/api/emails/post-session-advice', {
@@ -414,7 +453,8 @@ export function ConsultationForm({
           }
         }
 
-        // Show invoice action modal if invoice was created
+        fetch('/api/consultation/draft', { method: 'DELETE' }).catch(() => {})
+
         if (invoiceId && invoiceNumber) {
           setCreatedInvoice({
             id: invoiceId,
@@ -422,7 +462,7 @@ export function ConsultationForm({
           })
           setShowInvoiceModal(true)
           setIsLoading(false)
-          return // Don't navigate yet, wait for modal action
+          return
         }
 
         toast({
@@ -433,7 +473,6 @@ export function ConsultationForm({
 
         router.push(`/patients/${currentPatient.id}`)
       } else if (consultation) {
-        // Update consultation
         const { error } = await db
           .from('consultations')
           .update({
@@ -449,7 +488,6 @@ export function ConsultationForm({
 
         if (error) throw error
 
-        // Upload pending attachments
         if (pendingFiles.length > 0) {
           await uploadAttachments(consultation.id)
         }
@@ -482,7 +520,6 @@ export function ConsultationForm({
     }
   }
 
-  // Tab completion indicators
   const reason = watch('reason')
   const anamnesis = watch('anamnesis')
   const examination = watch('examination')
@@ -508,9 +545,7 @@ export function ConsultationForm({
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab 1: Consultation */}
         <TabsContent value="consultation" forceMount className="data-[state=inactive]:hidden data-[state=active]:animate-fade-in mt-4 space-y-6">
-          {/* General Information */}
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -548,12 +583,23 @@ export function ConsultationForm({
             </CardContent>
           </Card>
 
-          {/* Clinical Content */}
           <Card>
             <CardHeader>
-              <div className="flex items-center gap-2">
-                <Stethoscope className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Contenu clinique</CardTitle>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Stethoscope className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">Contenu clinique</CardTitle>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowTopography(true)}
+                >
+                  <MapPin className="h-4 w-4" />
+                  Topographie
+                </Button>
               </div>
               <CardDescription>Anamnèse, examen et conseils</CardDescription>
             </CardHeader>
@@ -611,7 +657,6 @@ export function ConsultationForm({
             </CardContent>
           </Card>
 
-          {/* Attachments */}
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -623,7 +668,6 @@ export function ConsultationForm({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Drop zone */}
               <div
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
                 onDragLeave={() => setIsDragging(false)}
@@ -652,7 +696,6 @@ export function ConsultationForm({
                 />
               </div>
 
-              {/* Existing attachments (edit mode) */}
               {existingAttachments.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">Fichiers existants</p>
@@ -692,7 +735,6 @@ export function ConsultationForm({
                 </div>
               )}
 
-              {/* Pending files (not yet uploaded) */}
               {pendingFiles.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">
@@ -730,9 +772,7 @@ export function ConsultationForm({
           </Card>
         </TabsContent>
 
-        {/* Tab 2: Suivi et facturation */}
         <TabsContent value="suivi-facturation" forceMount className="data-[state=inactive]:hidden data-[state=active]:animate-fade-in mt-4 space-y-6">
-          {/* Type de séance */}
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -767,7 +807,6 @@ export function ConsultationForm({
             </CardContent>
           </Card>
 
-          {/* Follow-up */}
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -829,7 +868,6 @@ export function ConsultationForm({
             </CardContent>
           </Card>
 
-          {/* Facturation (create mode only) */}
           {mode === 'create' && (
             <Card>
               <CardHeader>
@@ -954,7 +992,6 @@ export function ConsultationForm({
         </TabsContent>
       </Tabs>
 
-      {/* Sticky Actions */}
       <div className="sticky bottom-0 z-10 flex justify-end gap-4 pt-4 pb-2 -mx-1 px-1 bg-gradient-to-t from-background via-background to-transparent">
         <Button
           type="button"
@@ -988,7 +1025,6 @@ export function ConsultationForm({
 
   const modals = (
     <>
-      {/* Edit Patient Modal - must be outside <form> to prevent submit event bubbling */}
       <EditPatientModal
         open={showEditPatient}
         onOpenChange={setShowEditPatient}
@@ -998,7 +1034,6 @@ export function ConsultationForm({
           setContactEmail(updatedPatient.email || '')
         }}
       />
-      {/* Invoice Action Modal - must be outside <form> to prevent submit event bubbling */}
       {createdInvoice && (
         <InvoiceActionModal
           open={showInvoiceModal}
@@ -1013,6 +1048,7 @@ export function ConsultationForm({
           }}
         />
       )}
+      <TopographyPanel open={showTopography} onClose={() => setShowTopography(false)} />
     </>
   )
 
@@ -1020,7 +1056,6 @@ export function ConsultationForm({
     return (
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <div className="lg:sticky lg:top-6 self-start space-y-6">
-          {/* Edit Patient Button */}
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -1055,7 +1090,6 @@ export function ConsultationForm({
             initialEntries={medicalHistoryEntries}
           />
 
-          {/* Past Consultations */}
           {pastConsultations && pastConsultations.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
@@ -1088,7 +1122,6 @@ export function ConsultationForm({
             </Card>
           )}
 
-          {/* Past Consultation Detail Modal */}
           <Dialog open={!!viewingConsultation} onOpenChange={(open) => !open && setViewingConsultation(null)}>
             <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
               {viewingConsultation && (
