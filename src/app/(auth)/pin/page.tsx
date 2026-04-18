@@ -32,6 +32,15 @@ function PinPageInner() {
       .catch(() => {})
   }, [])
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key >= '0' && e.key <= '9') handleDigit(e.key)
+      else if (e.key === 'Backspace') handleDelete()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
   const handleDigit = (digit: string) => {
     if (pin.length < 4 && !isLoading) {
       const next = pin + digit
@@ -94,7 +103,7 @@ function PinPageInner() {
       toast({
         variant: 'destructive',
         title: 'Erreur',
-        description: 'Impossible de v\u00e9rifier le code.',
+        description: 'Impossible de vérifier le code.',
       })
       setPin('')
     } finally {
@@ -135,13 +144,13 @@ function PinPageInner() {
             </div>
           </div>
           <CardTitle className="text-xl">
-            {isUnlockMode ? 'Session verrouill\u00e9e' : 'Osteoflow'}
+            {isUnlockMode ? 'Session verrouillée' : 'Osteoflow'}
           </CardTitle>
           <CardDescription>
             {isUnlockMode
               ? email
                 ? `Compte : ${email}`
-                : 'Entrez votre code PIN pour d\u00e9verrouiller'
+                : 'Entrez votre code PIN pour déverrouiller'
               : email
               ? `Compte : ${email}`
               : 'Entrez votre code PIN'}
@@ -162,19 +171,19 @@ function PinPageInner() {
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '\u232b'].map(
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map(
               (key, i) => {
                 if (key === '') return <div key={i} />
                 return (
                   <button
                     key={key + i}
                     onClick={() =>
-                      key === '\u232b' ? handleDelete() : handleDigit(key)
+                      key === '⌫' ? handleDelete() : handleDigit(key)
                     }
                     disabled={isLoading}
                     className="h-14 rounded-xl border bg-background hover:bg-muted active:scale-95 font-semibold text-lg transition-all disabled:opacity-50 flex items-center justify-center select-none"
                   >
-                    {key === '\u232b' ? (
+                    {key === '⌫' ? (
                       <Delete className="h-5 w-5" />
                     ) : (
                       key

@@ -35,17 +35,17 @@ interface ElectronAPI {
 
 const navigation = [
   { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard, description: 'Vue d\'ensemble' },
-  { name: 'Patients', href: '/patients', icon: Users, description: 'G\u00e9rer vos patients' },
+  { name: 'Patients', href: '/patients', icon: Users, description: 'Gérer vos patients' },
   { name: 'Consultations', href: '/consultations', icon: Calendar, description: 'Historique' },
   { name: 'Messagerie', href: '/messages', icon: MessageCircle, description: 'Communications' },
   { name: 'Statistiques', href: '/statistics', icon: TrendingUp, description: 'Analyses & tendances' },
-  { name: 'Comptabilit\u00e9', href: '/accounting', icon: BarChart3, description: 'Rapports' },
+  { name: 'Comptabilité', href: '/accounting', icon: BarChart3, description: 'Rapports' },
   { name: 'Objectifs', href: '/objectives', icon: Target, description: 'Suivi des objectifs' },
-  { name: 'Emails', href: '/scheduled-emails', icon: Mail, description: 'Emails programm\u00e9s' },
+  { name: 'Emails', href: '/scheduled-emails', icon: Mail, description: 'Emails programmés' },
   { name: 'Sondages', href: '/surveys', icon: ClipboardList, description: 'Retours patients J+7' },
 
-  { name: 'Importer CSV', href: '/import', icon: Upload, description: 'Importer des donn\u00e9es' },
-  { name: 'Param\u00e8tres', href: '/settings', icon: Settings, description: 'Configuration' },
+  { name: 'Importer CSV', href: '/import', icon: Upload, description: 'Importer des données' },
+  { name: 'Paramètres', href: '/settings', icon: Settings, description: 'Configuration' },
 ]
 
 export function Sidebar() {
@@ -99,10 +99,10 @@ export function Sidebar() {
               <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
                 <AlertTriangle className="h-5 w-5 text-red-400" />
               </div>
-              <h2 className="text-lg font-semibold text-white">D\u00e9connexion</h2>
+              <h2 className="text-lg font-semibold text-white">Déconnexion</h2>
             </div>
             <p className="text-slate-300 text-sm mb-6">
-              Vous allez \u00eatre d\u00e9connect\u00e9 de votre compte Osteoupgrade. Vous devrez vous reconnecter pour utiliser Osteoflow.
+              Vous allez être déconnecté de votre compte Osteoupgrade. Vous devrez vous reconnecter pour utiliser Osteoflow.
             </p>
             <div className="flex gap-3">
               <button
@@ -115,7 +115,7 @@ export function Sidebar() {
                 onClick={() => { setShowLogoutModal(false); handleLogout() }}
                 className="flex-1 rounded-xl bg-red-500/20 border border-red-500/30 px-4 py-2.5 text-sm font-medium text-red-400 hover:bg-red-500/30 transition-all"
               >
-                Se d\u00e9connecter
+                Se déconnecter
               </button>
             </div>
           </div>
@@ -224,7 +224,7 @@ export function Sidebar() {
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5">
                 <LogOut className="h-4 w-4" />
               </div>
-              <span>D\u00e9connexion</span>
+              <span>Déconnexion</span>
             </button>
             {updateReady ? (
               <button
@@ -240,7 +240,7 @@ export function Sidebar() {
                   </div>
                   <div className="text-left">
                     <p className="text-[10px] font-semibold text-emerald-300">v{updateReady} disponible</p>
-                    <p className="text-[9px] text-emerald-400/70">Cliquez pour mettre \u00e0 jour</p>
+                    <p className="text-[9px] text-emerald-400/70">Cliquez pour mettre à jour</p>
                   </div>
                 </div>
               </button>
