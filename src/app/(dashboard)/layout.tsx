@@ -43,7 +43,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen">
       <Sidebar />
       <div className="lg:pl-64">
         <UpdateBanner />
