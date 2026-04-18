@@ -9,6 +9,7 @@ import { ArrowLeft, Edit, Calendar, FileText, Phone, Mail, Briefcase } from 'luc
 import { formatDate, formatPhone, calculateAge } from '@/lib/utils'
 import { ConsultationTimeline } from '@/components/consultations/consultation-timeline'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
+import { DraftResumeBanner } from '@/components/consultations/draft-resume-banner'
 
 interface PatientPageProps {
   params: Promise<{ id: string }>
@@ -47,6 +48,8 @@ export default async function PatientPage({ params }: PatientPageProps) {
 
   return (
     <div className="space-y-6">
+      <DraftResumeBanner patientId={id} />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
