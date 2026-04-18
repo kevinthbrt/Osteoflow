@@ -85,6 +85,9 @@ export default function LoginPage() {
         return
       }
 
+      // Clear session lock if it was set
+      await fetch('/api/session/lock', { method: 'DELETE' }).catch(() => {})
+
       toast({
         variant: 'success',
         title: 'Bienvenue',

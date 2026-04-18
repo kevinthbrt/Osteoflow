@@ -15,6 +15,8 @@ import {
   LayoutDashboard,
   TrendingUp,
   LogOut,
+  Lock,
+  AlertTriangle,
   Mail,
   Upload,
   Target,
@@ -52,6 +54,7 @@ export function Sidebar() {
   const db = createClient()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [updateReady, setUpdateReady] = useState<string | null>(null)
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
 
   useEffect(() => {
     const api = (window as unknown as { electronAPI?: ElectronAPI }).electronAPI
@@ -63,6 +66,11 @@ export function Sidebar() {
     await db.auth.signOut()
     router.push('/login')
     router.refresh()
+  }
+
+  const handleLock = async () => {
+    await fetch('/api/session/lock', { method: 'POST' })
+    router.push('/login?mode=lock')
   }
 
   return (
@@ -80,6 +88,37 @@ export function Sidebar() {
           <Menu className="h-6 w-6" />
         )}
       </Button>
+
+      {/* Logout confirmation modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-red-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-white">Déconnexion</h2>
+            </div>
+            <p className="text-slate-300 text-sm mb-6">
+              Vous allez être déconnecté. Vous devrez sélectionner votre profil pour revenir.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="flex-1 rounded-xl border border-white/10 px-4 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/5 transition-all"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => { setShowLogoutModal(false); handleLogout() }}
+                className="flex-1 rounded-xl bg-red-500/20 border border-red-500/30 px-4 py-2.5 text-sm font-medium text-red-400 hover:bg-red-500/30 transition-all"
+              >
+                Se déconnecter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile overlay */}
       {mobileMenuOpen && (
@@ -166,9 +205,18 @@ export function Sidebar() {
           </nav>
 
           {/* Footer */}
-          <div className="border-t border-white/10 p-4 space-y-3">
+          <div className="border-t border-white/10 p-4 space-y-2">
             <button
-              onClick={handleLogout}
+              onClick={handleLock}
+              className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-indigo-500/10 hover:text-indigo-300 transition-all duration-200"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5">
+                <Lock className="h-4 w-4" />
+              </div>
+              <span>Verrouiller</span>
+            </button>
+            <button
+              onClick={() => setShowLogoutModal(true)}
               className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all duration-200"
             >
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5">

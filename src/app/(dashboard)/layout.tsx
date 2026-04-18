@@ -19,6 +19,20 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
+  // Check session lock
+  try {
+    const { getDatabase } = await import('@/lib/database/connection')
+    const sqliteDb = getDatabase()
+    const lockRow = sqliteDb
+      .prepare("SELECT value FROM app_config WHERE key = 'session_locked'")
+      .get() as { value: string } | undefined
+    if (lockRow?.value === '1') {
+      redirect('/login?mode=lock')
+    }
+  } catch {
+    // ignore if db not available
+  }
+
   // Get practitioner profile
   const { data: practitioner } = await db
     .from('practitioners')

@@ -4,10 +4,6 @@ import { useState, useEffect } from 'react'
 import { X, MapPin, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-const SUPABASE_URL = 'https://chttutptqainrnrbrljf.supabase.co'
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNodHR1dHB0cWFpbnJucmJybGpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4NjAzNjksImV4cCI6MjA3ODQzNjM2OX0.QzZ_AHBchcjEnQ5LHPEVgeGrc_AiFDOeNKA8h-AT2u0'
-
 const REGION_LABELS: Record<string, string> = {
   crane: 'Crâne',
   cervical: 'Cervical',
@@ -59,18 +55,10 @@ export function TopographyPanel({ open, onClose }: TopographyPanelProps) {
     if (views.length > 0) return
     setIsLoading(true)
     setError(false)
-    fetch(
-      `${SUPABASE_URL}/rest/v1/elearning_topographic_views?select=region,name,image_url,description&is_active=eq.true&order=display_order.asc`,
-      {
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-      }
-    )
+    fetch('/api/topography')
       .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setViews(data)
+      .then(({ views: data }) => {
+        if (Array.isArray(data) && data.length > 0) setViews(data)
         else setError(true)
       })
       .catch(() => setError(true))
