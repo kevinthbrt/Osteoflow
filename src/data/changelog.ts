@@ -19,6 +19,21 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.0.49',
+    date: '2026-04-18',
+    title: 'Sécurité session et sauvegarde automatique des consultations',
+    changes: [
+      { type: 'feature', text: 'Bouton "Verrouiller" dans la sidebar : verrouille la session sans déconnecter le compte Osteoupgrade' },
+      { type: 'feature', text: 'Déverrouillage par code PIN avec retour automatique à la consultation en cours si applicable' },
+      { type: 'feature', text: 'Verrouillage automatique après 30 minutes d\'inactivité' },
+      { type: 'feature', text: 'Sauvegarde automatique du brouillon de consultation toutes les 30 secondes' },
+      { type: 'feature', text: 'Restauration du brouillon après déverrouillage si une consultation était en cours' },
+      { type: 'improvement', text: 'La déconnexion affiche un avertissement avant de supprimer le compte Osteoupgrade lié' },
+      { type: 'fix', text: 'Correction de l\'enregistrement du code PIN (bug silencieux dans l\'accès base de données)' },
+      { type: 'fix', text: 'Correction de la connexion au compte Osteoupgrade (table de sessions manquante côté serveur)' },
+    ],
+  },
+  {
     version: '1.0.48',
     date: '2026-04-13',
     title: 'Frise des objectifs améliorée',
