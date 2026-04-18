@@ -19,6 +19,17 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.0.50',
+    date: '2026-04-18',
+    title: 'Topographie Osteoupgrade, saisie PIN clavier et reprise de consultation',
+    changes: [
+      { type: 'feature', text: 'Panneau Topographie dans les consultations : affiche les vraies données Osteoupgrade (22 vues, 10 régions, images et descriptions cliniques complètes)' },
+      { type: 'feature', text: 'Bannière "Consultation en cours" sur le dossier patient : reprend automatiquement un brouillon non terminé' },
+      { type: 'improvement', text: 'Saisie du code PIN possible au clavier physique (chiffres 0–9 et Backspace)' },
+      { type: 'fix', text: 'Correction des caractères accentués affichés en unicode brut dans la sidebar et l\'écran PIN (Déconnexion, verrouillée, etc.)' },
+    ],
+  },
+  {
     version: '1.0.49',
     date: '2026-04-18',
     title: 'Sécurité session et sauvegarde automatique des consultations',
