@@ -31,6 +31,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Loader2, Plus, Pencil, Trash2, Search, X, ClipboardPaste } from 'lucide-react'
 import type { MedicalHistoryType, OnsetDurationUnit, Patient } from '@/types/database'
 import { DoctolibPasteDialog } from './doctolib-paste-dialog'
+import { buildSearchOrFilters } from '@/lib/utils/search'
 
 interface PatientFormProps {
   patient?: Patient
@@ -103,12 +104,16 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
       return
     }
 
-    const { data } = await db
+    let builder = db
       .from('patients')
       .select('id, first_name, last_name')
       .is('archived_at', null)
-      .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
-      .limit(8)
+
+    for (const filter of buildSearchOrFilters(query, ['first_name', 'last_name'])) {
+      builder = builder.or(filter)
+    }
+
+    const { data } = await builder.limit(8)
 
     setReferralResults(data || [])
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -91,6 +91,7 @@ export function ConsultationForm({
   const { toast } = useToast()
   const db = createClient()
   const paymentsRef = useRef(payments)
+  const submittedRef = useRef(false)
   const [showTopography, setShowTopography] = useState(false)
 
   const now = new Date()
@@ -203,6 +204,7 @@ export function ConsultationForm({
     if (mode !== 'create') return
 
     const saveDraft = () => {
+      if (submittedRef.current) return
       const values = getValues()
       fetch('/api/consultation/draft', {
         method: 'POST',
@@ -453,7 +455,10 @@ export function ConsultationForm({
           }
         }
 
-        fetch('/api/consultation/draft', { method: 'DELETE' }).catch(() => {})
+        submittedRef.current = true
+        try {
+          await fetch('/api/consultation/draft', { method: 'DELETE' })
+        } catch {}
 
         if (invoiceId && invoiceNumber) {
           setCreatedInvoice({

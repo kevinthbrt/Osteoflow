@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import Link from 'next/link'
 import { Skeleton } from '@/components/ui/skeleton'
+import { buildSearchOrFilters } from '@/lib/utils/search'
 
 const PAGE_SIZE = 50
 
@@ -71,9 +72,10 @@ async function PatientsTableLoader({
   }
 
   if (query) {
-    const orFilter = `first_name.ilike.%${query}%,last_name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`
-    countQuery = countQuery.or(orFilter)
-    dbQuery = dbQuery.or(orFilter)
+    for (const filter of buildSearchOrFilters(query, ['first_name', 'last_name', 'phone', 'email'])) {
+      countQuery = countQuery.or(filter)
+      dbQuery = dbQuery.or(filter)
+    }
   }
 
   const [{ count }, { data: patients, error }] = await Promise.all([

@@ -54,6 +54,41 @@ export function parseDoctolibPaste(rawText: string): ParsedPatientData {
     }
   }
 
+  // Fallback multi-line header without civility:
+  // Line N-2: "PORTE" (last name, ALL CAPS)
+  // Line N-1: "Christelle" (first name)
+  // Line N:   "F, 11/12/1972 (53 ans)" — gender marker + birth date
+  if ((!result.last_name || !result.first_name || !result.gender) && lines.length >= 3) {
+    const genderDateRegex = /^\s*([FHM])\s*,\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{4})/i
+    for (let i = 2; i < lines.length; i++) {
+      const m = lines[i].match(genderDateRegex)
+      if (!m) continue
+      const potentialLastName = lines[i - 2]
+      const potentialFirstName = lines[i - 1]
+      if (
+        potentialLastName.includes(':') ||
+        potentialFirstName.includes(':') ||
+        looksLikeLabel(potentialLastName) ||
+        looksLikeLabel(potentialFirstName) ||
+        potentialLastName.length < 2 ||
+        potentialFirstName.length < 1 ||
+        potentialLastName !== potentialLastName.toUpperCase()
+      ) {
+        break
+      }
+      if (!result.last_name) result.last_name = potentialLastName
+      if (!result.first_name) result.first_name = potentialFirstName
+      if (!result.gender) {
+        result.gender = m[1].toUpperCase() === 'F' ? 'F' : 'M'
+      }
+      if (!result.birth_date) {
+        const parsed = parseFrenchDate(m[2])
+        if (parsed) result.birth_date = parsed
+      }
+      break
+    }
+  }
+
   // Parse labeled lines (with value on same line or next line)
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -206,6 +241,12 @@ export function parseDoctolibPaste(rawText: string): ParsedPatientData {
         result.gender = 'F'
       } else {
         result.gender = 'M'
+      }
+    } else {
+      // Look for "F, dd/mm/yyyy" or "H, dd/mm/yyyy" marker before a birth date
+      const markerMatch = text.match(/(?:^|\n)\s*([FHM])\s*,\s*\d{1,2}[/.\-]\d{1,2}[/.\-]\d{4}/i)
+      if (markerMatch) {
+        result.gender = markerMatch[1].toUpperCase() === 'F' ? 'F' : 'M'
       }
     }
   }

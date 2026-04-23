@@ -19,6 +19,16 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.0.51',
+    date: '2026-04-23',
+    title: 'Correctifs brouillon, import patient et recherche multi-mots',
+    changes: [
+      { type: 'fix', text: 'Le brouillon de consultation est bien supprimé après enregistrement : plus de bannière "Consultation en cours" proposant de reprendre une séance déjà facturée' },
+      { type: 'fix', text: 'Import patient : détection du nom, prénom et genre même quand "Mme" ou "Mr" est absent, en se basant sur le marqueur "F," ou "H," qui précède la date de naissance' },
+      { type: 'improvement', text: 'Recherche multi-mots dans les barres de recherche patient (dashboard, liste patients, picker "adressé par", nouvelle conversation) : "Martin Dupont" trouve désormais un patient dont le prénom est Martin et le nom Dupont' },
+    ],
+  },
+  {
     version: '1.0.50',
     date: '2026-04-18',
     title: 'Topographie Osteoupgrade, saisie PIN clavier et reprise de consultation',

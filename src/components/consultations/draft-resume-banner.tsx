@@ -15,15 +15,38 @@ export function DraftResumeBanner({ patientId }: DraftResumeBannerProps) {
   const router = useRouter()
 
   useEffect(() => {
-    fetch('/api/consultation/draft')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.draft?.patient_id === patientId) {
-          setHasDraft(true)
-          setSavedAt(data.draft.savedAt ?? null)
-        }
-      })
-      .catch(() => {})
+    let cancelled = false
+
+    const refresh = () => {
+      fetch('/api/consultation/draft')
+        .then((r) => r.json())
+        .then((data) => {
+          if (cancelled) return
+          if (data.draft?.patient_id === patientId) {
+            setHasDraft(true)
+            setSavedAt(data.draft.savedAt ?? null)
+          } else {
+            setHasDraft(false)
+            setSavedAt(null)
+          }
+        })
+        .catch(() => {})
+    }
+
+    refresh()
+
+    const onFocus = () => refresh()
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      cancelled = true
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [patientId])
 
   if (!hasDraft) return null
