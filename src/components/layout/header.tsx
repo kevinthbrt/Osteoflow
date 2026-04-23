@@ -15,6 +15,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { LogOut, Settings, User, Search, HelpCircle } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
+import { buildSearchOrFilters } from '@/lib/utils/search'
 import type { Practitioner } from '@/types/database'
 import { Input } from '@/components/ui/input'
 import { NotificationBell } from '@/components/layout/notification-bell'
@@ -91,13 +92,16 @@ export function Header({ user, practitioner }: HeaderProps) {
 
     setIsSearching(true)
     try {
-      const { data, error } = await db
+      let builder = db
         .from('patients')
         .select('id, first_name, last_name, phone, email')
         .is('archived_at', null)
-        .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
-        .limit(8)
-        .order('last_name')
+
+      for (const filter of buildSearchOrFilters(query, ['first_name', 'last_name', 'phone', 'email'])) {
+        builder = builder.or(filter)
+      }
+
+      const { data, error } = await builder.limit(8).order('last_name')
 
       if (error) {
         console.error('Search error:', error)

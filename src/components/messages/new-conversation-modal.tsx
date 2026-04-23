@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Search, MessageCircle, Loader2, Mail, User, Send, Users, ArrowLeft, Sparkles } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
+import { buildSearchOrFilters } from '@/lib/utils/search'
 import { useToast } from '@/hooks/use-toast'
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback'
 import { QuickReplies } from '@/components/messages/quick-replies'
@@ -80,12 +81,16 @@ export function NewConversationModal({
 
     setIsLoading(true)
     try {
-      const { data, error } = await db
+      let builder = db
         .from('patients')
         .select('id, first_name, last_name, email, phone')
         .is('archived_at', null)
-        .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%`)
-        .limit(10)
+
+      for (const filter of buildSearchOrFilters(query, ['first_name', 'last_name', 'email'])) {
+        builder = builder.or(filter)
+      }
+
+      const { data, error } = await builder.limit(10)
 
       if (error) throw error
       setPatients(data as PatientResult[])
