@@ -32,7 +32,6 @@ export interface BodyMarker {
   eva: number
   type: MarkerType
   shape: MarkerShape
-  note?: string
 }
 
 export interface BodyPath {

@@ -68,9 +68,9 @@ export function ConsultationAnnotationsView({ annotations }: ConsultationAnnotat
               />
               <div className="min-w-0 flex-1">
                 <div className="font-medium">
-                  {m.label} <span className="font-mono text-muted-foreground">· {m.eva}/10 · {m.type}</span>
+                  {m.label || <span className="text-muted-foreground italic">sans étiquette</span>}{' '}
+                  <span className="font-mono text-muted-foreground">· {m.eva}/10 · {m.type}</span>
                 </div>
-                {m.note && <div className="mt-0.5 text-muted-foreground">{m.note}</div>}
               </div>
               <span className="font-mono text-[10px] text-muted-foreground">{m.view === 'front' ? 'FACE' : 'DOS'}</span>
             </div>

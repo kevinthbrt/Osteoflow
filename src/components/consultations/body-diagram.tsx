@@ -6,7 +6,6 @@ import type { BodyMarker, BodyPath, BodyView, MarkerShape } from '@/types/databa
 import {
   BODY_SVG_HEIGHT,
   BODY_SVG_WIDTH,
-  findNearestRegion,
   painColor,
   regionsForView,
 } from '@/lib/consultation-annotations'
@@ -236,8 +235,7 @@ export function BodyDiagram({
         setTrajectoryStart(null)
       }
     } else if (tool === 'marker') {
-      const region = findNearestRegion(view, pt.x, pt.y)
-      onAddMarker(pt.x, pt.y, region?.label ?? 'Zone')
+      onAddMarker(pt.x, pt.y, '')
     } else if (tool === 'select') {
       // Click on empty area deselects
       onSelectMarker(null)
@@ -411,7 +409,7 @@ export function BodyDiagram({
               className="pointer-events-none absolute left-1/2 top-[calc(100%+4px)] -translate-x-1/2 whitespace-nowrap rounded-md border border-border/60 bg-background/95 px-1.5 py-0.5 text-[10px] font-semibold shadow-sm"
               style={{ color }}
             >
-              {m.eva}/10 · {m.label}
+              {m.eva}/10{m.label ? ` · ${m.label}` : ''}
             </div>
           </button>
         )

@@ -5,7 +5,6 @@ import { painColor } from '@/lib/consultation-annotations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Trash2, Circle, X, Zap, Star, Triangle } from 'lucide-react'
 
 const MARKER_TYPES: MarkerType[] = [
@@ -115,15 +114,10 @@ export function MarkerEditor({ marker, onChange, onDelete }: MarkerEditorProps) 
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Note</Label>
-        <Textarea
-          value={marker.note ?? ''}
-          onChange={(e) => onChange({ note: e.target.value })}
-          placeholder="Détails sur cette zone (irradiation, facteurs déclenchants...)"
-          rows={2}
-          className="resize-none"
-        />
+      <div className="flex items-center justify-between pt-1">
+        <p className="text-[11px] text-muted-foreground">
+          Les notes cliniques se rédigent à droite — elles seront liées à cette zone.
+        </p>
       </div>
 
       <div className="flex items-center justify-between pt-1">

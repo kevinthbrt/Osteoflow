@@ -20,7 +20,6 @@ export const bodyMarkerSchema = z.object({
   eva: z.number().min(0).max(10),
   type: markerTypeSchema,
   shape: markerShapeSchema,
-  note: z.string().max(2000).optional(),
 })
 
 export const bodyPathSchema = z.object({
