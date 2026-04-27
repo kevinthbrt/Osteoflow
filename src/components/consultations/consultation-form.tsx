@@ -31,14 +31,18 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin, MousePointer2, Pencil as PencilIcon, Move, Circle as CircleIcon, Zap, Star as StarIcon, Triangle as TriangleIcon } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 import { EditPatientModal } from '@/components/patients/edit-patient-modal'
 import { TopographyPanel } from '@/components/consultations/topography-panel'
-import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment } from '@/types/database'
+import { BodyDiagram, type BodyTool } from '@/components/consultations/body-diagram'
+import { MarkerEditor, PathEditor } from '@/components/consultations/marker-editor'
+import { NotesPanel } from '@/components/consultations/notes-panel'
+import { emptyAnnotations, emptyNotesStructured, NOTE_SECTION_LABELS, NOTE_SECTION_ORDER } from '@/lib/consultation-annotations'
+import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment, BodyMarker, BodyPath, BodyView, MarkerShape, NoteSection, NoteEntry, ConsultationAnnotations, ConsultationNotesStructured } from '@/types/database'
 
 interface ConsultationFormProps {
   patient: Patient
@@ -93,6 +97,40 @@ export function ConsultationForm({
   const paymentsRef = useRef(payments)
   const submittedRef = useRef(false)
   const [showTopography, setShowTopography] = useState(false)
+
+  // === Body annotation + structured notes state ===
+  const initialAnnotations = (consultation?.annotations as ConsultationAnnotations | null | undefined) ?? null
+  const initialNotes = (consultation?.notes_structured as ConsultationNotesStructured | null | undefined) ?? null
+  const [bodyView, setBodyView] = useState<BodyView>('back')
+  const [tool, setTool] = useState<BodyTool>('marker')
+  const [markerShape, setMarkerShape] = useState<MarkerShape>('dot')
+  const [markers, setMarkers] = useState<BodyMarker[]>(initialAnnotations?.markers ?? [])
+  const [paths, setPaths] = useState<BodyPath[]>(initialAnnotations?.paths ?? [])
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null)
+  const [selectedPathId, setSelectedPathId] = useState<string | null>(null)
+  const [noteSection, setNoteSection] = useState<NoteSection>('anamnesis')
+  const [notesStructured, setNotesStructured] = useState<ConsultationNotesStructured>(() => {
+    if (initialNotes) return initialNotes
+    // Convert legacy text fields to one entry per section so editing an old consult is seamless
+    if (mode === 'edit' && consultation) {
+      const seed = emptyNotesStructured()
+      const ts = consultation.created_at || new Date().toISOString()
+      const seedSection = (sec: NoteSection, text: string | null | undefined) => {
+        if (text && text.trim()) {
+          seed[sec].push({ id: crypto.randomUUID(), text: text.trim(), createdAt: ts })
+        }
+      }
+      seedSection('anamnesis', consultation.anamnesis)
+      seedSection('examination', consultation.examination)
+      seedSection('treatment', (consultation as Consultation & { treatment?: string | null }).treatment)
+      seedSection('advice', consultation.advice)
+      return seed
+    }
+    return emptyNotesStructured()
+  })
+
+  const selectedMarker = markers.find((m) => m.id === selectedMarkerId) ?? null
+  const selectedPath = paths.find((p) => p.id === selectedPathId) ?? null
 
   const now = new Date()
   const toLocalDateTimeString = (d: Date) => {
@@ -182,7 +220,7 @@ export function ConsultationForm({
   useEffect(() => {
     const errorKeys = Object.keys(errors)
     if (errorKeys.length === 0) return
-    const consultationFields = ['date_time', 'reason', 'anamnesis', 'examination', 'advice']
+    const consultationFields = ['date_time', 'reason']
     if (errorKeys.some((k) => consultationFields.includes(k))) {
       setActiveTab('consultation')
     }
@@ -209,7 +247,14 @@ export function ConsultationForm({
       fetch('/api/consultation/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...values, payments: paymentsRef.current }),
+        body: JSON.stringify({
+          ...values,
+          payments: paymentsRef.current,
+          markers,
+          paths,
+          notesStructured,
+          bodyView,
+        }),
       }).catch(() => {})
     }
 
@@ -223,11 +268,12 @@ export function ConsultationForm({
         .then(({ draft }) => {
           if (!draft) return
           if (draft.reason) setValue('reason', draft.reason)
-          if (draft.anamnesis) setValue('anamnesis', draft.anamnesis)
-          if (draft.examination) setValue('examination', draft.examination)
-          if (draft.advice) setValue('advice', draft.advice)
           if (draft.date_time) setValue('date_time', draft.date_time)
           if (draft.payments) setPayments(draft.payments)
+          if (Array.isArray(draft.markers)) setMarkers(draft.markers)
+          if (Array.isArray(draft.paths)) setPaths(draft.paths)
+          if (draft.notesStructured) setNotesStructured(draft.notesStructured)
+          if (draft.bodyView === 'front' || draft.bodyView === 'back') setBodyView(draft.bodyView)
           toast({ title: 'Brouillon restauré', description: 'La consultation a été restaurée depuis votre dernière session.' })
         })
         .catch(() => {})
@@ -342,6 +388,78 @@ export function ConsultationForm({
     return FileText
   }
 
+  // === Body annotation handlers ===
+  const handleAddMarker = (cx: number, cy: number, label: string) => {
+    const id = crypto.randomUUID()
+    const newMarker: BodyMarker = {
+      id,
+      view: bodyView,
+      cx,
+      cy,
+      label,
+      eva: 5,
+      type: 'Douleur',
+      shape: markerShape,
+    }
+    setMarkers((prev) => [...prev, newMarker])
+    setSelectedMarkerId(id)
+    setSelectedPathId(null)
+  }
+
+  const handleSelectMarker = (id: string | null) => {
+    setSelectedMarkerId(id)
+    if (id) setSelectedPathId(null)
+  }
+
+  const handleUpdateMarker = (patch: Partial<BodyMarker>) => {
+    if (!selectedMarkerId) return
+    setMarkers((prev) => prev.map((m) => (m.id === selectedMarkerId ? { ...m, ...patch } : m)))
+  }
+
+  const handleDeleteMarker = () => {
+    if (!selectedMarkerId) return
+    setMarkers((prev) => prev.filter((m) => m.id !== selectedMarkerId))
+    setSelectedMarkerId(null)
+  }
+
+  const handleAddPath = (path: Omit<BodyPath, 'id'>) => {
+    const id = crypto.randomUUID()
+    setPaths((prev) => [...prev, { ...path, id }])
+    setSelectedPathId(id)
+    setSelectedMarkerId(null)
+  }
+
+  const handleSelectPath = (id: string | null) => {
+    setSelectedPathId(id)
+    if (id) setSelectedMarkerId(null)
+  }
+
+  const handleUpdatePath = (patch: Partial<BodyPath>) => {
+    if (!selectedPathId) return
+    setPaths((prev) => prev.map((p) => (p.id === selectedPathId ? { ...p, ...patch } : p)))
+  }
+
+  const handleDeletePath = () => {
+    if (!selectedPathId) return
+    setPaths((prev) => prev.filter((p) => p.id !== selectedPathId))
+    setSelectedPathId(null)
+  }
+
+  const handleAddNote = (section: NoteSection, entry: NoteEntry) => {
+    setNotesStructured((prev) => ({ ...prev, [section]: [...prev[section], entry] }))
+  }
+
+  const handleRemoveNote = (section: NoteSection, id: string) => {
+    setNotesStructured((prev) => ({ ...prev, [section]: prev[section].filter((n) => n.id !== id) }))
+  }
+
+  // === Serialize structured notes into legacy text fields for compatibility ===
+  const serializeNotesToText = (entries: NoteEntry[]): string => {
+    return entries
+      .map((e) => (e.markerLabel ? `[${e.markerLabel}${e.markerEva != null ? ` ${e.markerEva}/10` : ''}] ${e.text}` : e.text))
+      .join('\n')
+  }
+
   const onSubmit = async (data: ConsultationWithInvoiceFormData) => {
     setIsLoading(true)
 
@@ -357,6 +475,14 @@ export function ConsultationForm({
         resolvedEmail = contactEmail.trim()
       }
 
+      // Build legacy text fields from structured notes for back-compat (PDF, view page, search)
+      const anamnesisText = serializeNotesToText(notesStructured.anamnesis) || null
+      const examinationText = serializeNotesToText(notesStructured.examination) || null
+      const treatmentText = serializeNotesToText(notesStructured.treatment) || null
+      const adviceText = serializeNotesToText(notesStructured.advice) || null
+      const annotationsPayload: ConsultationAnnotations = { version: 1, markers, paths }
+      const hasStructured = markers.length > 0 || paths.length > 0 || NOTE_SECTION_ORDER.some((s) => notesStructured[s].length > 0)
+
       if (mode === 'create') {
         const { data: newConsultation, error: consultationError } = await db
           .from('consultations')
@@ -365,9 +491,12 @@ export function ConsultationForm({
             date_time: data.date_time,
             session_type_id: data.session_type_id || null,
             reason: data.reason,
-            anamnesis: data.anamnesis || null,
-            examination: data.examination || null,
-            advice: data.advice || null,
+            anamnesis: anamnesisText,
+            examination: examinationText,
+            treatment: treatmentText,
+            advice: adviceText,
+            annotations: hasStructured ? annotationsPayload : null,
+            notes_structured: hasStructured ? notesStructured : null,
             follow_up_7d: data.follow_up_7d,
           })
           .select()
@@ -484,9 +613,12 @@ export function ConsultationForm({
             date_time: data.date_time,
             session_type_id: data.session_type_id || null,
             reason: data.reason,
-            anamnesis: data.anamnesis || null,
-            examination: data.examination || null,
-            advice: data.advice || null,
+            anamnesis: anamnesisText,
+            examination: examinationText,
+            treatment: treatmentText,
+            advice: adviceText,
+            annotations: hasStructured ? annotationsPayload : null,
+            notes_structured: hasStructured ? notesStructured : null,
             follow_up_7d: data.follow_up_7d,
           })
           .eq('id', consultation.id)
@@ -526,10 +658,8 @@ export function ConsultationForm({
   }
 
   const reason = watch('reason')
-  const anamnesis = watch('anamnesis')
-  const examination = watch('examination')
-  const advice = watch('advice')
-  const consultationFilled = !!(reason && (anamnesis || examination || advice))
+  const totalNotesCount = NOTE_SECTION_ORDER.reduce((acc, s) => acc + notesStructured[s].length, 0)
+  const consultationFilled = !!(reason && (totalNotesCount > 0 || markers.length > 0 || paths.length > 0))
   const suiviFacturationFilled = followUp7d || sendPostSessionAdvice || (createInvoice && totalPayments > 0)
 
   const formContent = (
@@ -588,12 +718,12 @@ export function ConsultationForm({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Stethoscope className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Contenu clinique</CardTitle>
+                  <CardTitle className="text-lg">Examen et notes</CardTitle>
                 </div>
                 <Button
                   type="button"
@@ -603,61 +733,98 @@ export function ConsultationForm({
                   onClick={() => setShowTopography(true)}
                 >
                   <MapPin className="h-4 w-4" />
-                  Topographie
+                  Référence anatomique
                 </Button>
               </div>
-              <CardDescription>Anamnèse, examen et conseils</CardDescription>
+              <CardDescription>
+                Annotez le schéma puis rédigez les notes par section. Sélectionnez une zone pour rattacher la note.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="anamnesis">Anamnèse</Label>
-                <Textarea
-                  id="anamnesis"
-                  data-autoresize
-                  {...register('anamnesis')}
-                  onInput={autoResize}
-                  disabled={isLoading}
-                  placeholder="Histoire de la maladie, circonstances d'apparition, évolution..."
-                  rows={4}
-                  className="min-h-[100px] resize-none overflow-hidden transition-[height] duration-200"
-                />
-                {errors.anamnesis && (
-                  <p className="text-sm text-destructive">{errors.anamnesis.message}</p>
-                )}
-              </div>
+            <CardContent className="p-0">
+              <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_360px]">
+                <div className="border-b lg:border-b-0 lg:border-r">
+                  {/* Toolbar */}
+                  <div className="flex flex-wrap items-center gap-2 border-b p-3">
+                    <div className="inline-flex rounded-md border p-0.5">
+                      <button type="button" onClick={() => setBodyView('front')} className={`rounded px-2.5 py-1 text-xs font-medium ${bodyView === 'front' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Face</button>
+                      <button type="button" onClick={() => setBodyView('back')} className={`rounded px-2.5 py-1 text-xs font-medium ${bodyView === 'back' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Dos</button>
+                    </div>
+                    <div className="inline-flex rounded-md border p-0.5">
+                      <button type="button" onClick={() => setTool('select')} title="Sélection" className={`rounded p-1.5 ${tool === 'select' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                        <MousePointer2 className="h-3.5 w-3.5" />
+                      </button>
+                      <button type="button" onClick={() => setTool('marker')} title="Marqueur" className={`rounded p-1.5 ${tool === 'marker' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                        <CircleIcon className="h-3.5 w-3.5" />
+                      </button>
+                      <button type="button" onClick={() => setTool('pen')} title="Stylo libre" className={`rounded p-1.5 ${tool === 'pen' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                        <PencilIcon className="h-3.5 w-3.5" />
+                      </button>
+                      <button type="button" onClick={() => setTool('trajectory')} title="Trajectoire (irradiation)" className={`rounded p-1.5 ${tool === 'trajectory' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                        <Move className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    {tool === 'marker' && (
+                      <div className="inline-flex items-center gap-1 rounded-md border p-0.5">
+                        {(['dot', 'cross', 'bolt', 'star', 'triangle'] as MarkerShape[]).map((s) => {
+                          const Icon = s === 'dot' ? CircleIcon : s === 'cross' ? X : s === 'bolt' ? Zap : s === 'star' ? StarIcon : TriangleIcon
+                          return (
+                            <button key={s} type="button" onClick={() => setMarkerShape(s)} title={s} className={`rounded p-1.5 ${markerShape === s ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+                              <Icon className="h-3.5 w-3.5" />
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                    <div className="ml-auto text-[11px] text-muted-foreground">
+                      {markers.length} zone{markers.length > 1 ? 's' : ''} · {paths.length} tracé{paths.length > 1 ? 's' : ''}
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="examination">Examen clinique et manipulations</Label>
-                <Textarea
-                  id="examination"
-                  data-autoresize
-                  {...register('examination')}
-                  onInput={autoResize}
-                  disabled={isLoading}
-                  placeholder="Tests effectués, dysfonctions trouvées, techniques utilisées..."
-                  rows={4}
-                  className="min-h-[100px] resize-none overflow-hidden transition-[height] duration-200"
-                />
-                {errors.examination && (
-                  <p className="text-sm text-destructive">{errors.examination.message}</p>
-                )}
-              </div>
+                  <BodyDiagram
+                    view={bodyView}
+                    markers={markers}
+                    paths={paths}
+                    selectedMarkerId={selectedMarkerId}
+                    selectedPathId={selectedPathId}
+                    tool={tool}
+                    markerShape={markerShape}
+                    onAddMarker={handleAddMarker}
+                    onSelectMarker={handleSelectMarker}
+                    onAddPath={handleAddPath}
+                    onSelectPath={handleSelectPath}
+                  />
 
-              <div className="space-y-2">
-                <Label htmlFor="advice">Conseils donnés</Label>
-                <Textarea
-                  id="advice"
-                  data-autoresize
-                  {...register('advice')}
-                  onInput={autoResize}
-                  disabled={isLoading}
-                  placeholder="Exercices, postures, recommandations..."
-                  rows={3}
-                  className="min-h-[100px] resize-none overflow-hidden transition-[height] duration-200"
-                />
-                {errors.advice && (
-                  <p className="text-sm text-destructive">{errors.advice.message}</p>
-                )}
+                  {selectedMarker && (
+                    <MarkerEditor
+                      marker={selectedMarker}
+                      onChange={handleUpdateMarker}
+                      onDelete={handleDeleteMarker}
+                    />
+                  )}
+                  {selectedPath && (
+                    <PathEditor
+                      path={selectedPath}
+                      onChange={handleUpdatePath}
+                      onDelete={handleDeletePath}
+                    />
+                  )}
+                  {!selectedMarker && !selectedPath && (
+                    <div className="border-t px-4 py-3 text-xs text-muted-foreground">
+                      Sélectionnez un marqueur ou un tracé pour le modifier. Les nouvelles notes seront liées à la zone sélectionnée.
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3">
+                  <NotesPanel
+                    notes={notesStructured}
+                    section={noteSection}
+                    onSectionChange={setNoteSection}
+                    onAddEntry={handleAddNote}
+                    onRemoveEntry={handleRemoveNote}
+                    selectedMarker={selectedMarker}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -781,40 +948,6 @@ export function ConsultationForm({
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Type de séance</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Label>Type de séance (facturation)</Label>
-                <Select
-                  value={selectedSessionTypeId || 'none'}
-                  onValueChange={handleSessionTypeChange}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un type de séance" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Aucun</SelectItem>
-                    {sessionTypes.map((type) => (
-                      <SelectItem key={type.id} value={type.id}>
-                        {type.name} - {Number(type.price).toFixed(2)} €
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Le type de séance sera affiché sur la facture à la place du motif.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
                 <Clock className="h-5 w-5 text-primary" />
                 <CardTitle className="text-lg">Suivi</CardTitle>
               </div>
@@ -873,29 +1006,57 @@ export function ConsultationForm({
             </CardContent>
           </Card>
 
-          {mode === 'create' && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Facturation</CardTitle>
-                </div>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Facturation</CardTitle>
+              </div>
+              {mode === 'create' && (
                 <CardDescription>
-                  Créez une facture pour cette consultation
+                  Type de séance, montant et mode de paiement
                 </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="create_invoice"
-                    checked={createInvoice}
-                    onCheckedChange={(checked) => setCreateInvoice(!!checked)}
-                    disabled={isLoading}
-                  />
-                  <Label htmlFor="create_invoice" className="cursor-pointer">
-                    Créer une facture
-                  </Label>
-                </div>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Type de séance</Label>
+                <Select
+                  value={selectedSessionTypeId || 'none'}
+                  onValueChange={handleSessionTypeChange}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un type de séance" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucun</SelectItem>
+                    {sessionTypes.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.name} - {Number(type.price).toFixed(2)} €
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Affiché sur la facture à la place du motif.
+                </p>
+              </div>
+
+              {mode === 'create' && (
+                <>
+                  <Separator />
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="create_invoice"
+                      checked={createInvoice}
+                      onCheckedChange={(checked) => setCreateInvoice(!!checked)}
+                      disabled={isLoading}
+                    />
+                    <Label htmlFor="create_invoice" className="cursor-pointer">
+                      Créer une facture
+                    </Label>
+                  </div>
 
                 {createInvoice && (
                   <>
@@ -991,9 +1152,10 @@ export function ConsultationForm({
                     </div>
                   </>
                 )}
-              </CardContent>
-            </Card>
-          )}
+                </>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

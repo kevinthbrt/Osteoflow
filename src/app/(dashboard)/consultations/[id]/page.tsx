@@ -5,10 +5,13 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Edit, User, FileText, Clock, CheckCircle, AlertCircle, Paperclip, Image as ImageIcon, ClipboardList, Gauge, TrendingDown, Activity } from 'lucide-react'
+import { ArrowLeft, Edit, User, FileText, Clock, CheckCircle, AlertCircle, Paperclip, Image as ImageIcon, ClipboardList, Gauge, TrendingDown, Activity, MapPin } from 'lucide-react'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels } from '@/lib/validations/invoice'
 import { ConsultationPaymentEditor } from '@/components/consultations/consultation-payment-editor'
+import { ConsultationAnnotationsView } from '@/components/consultations/consultation-annotations-view'
+import { NOTE_SECTION_LABELS, NOTE_SECTION_ORDER, painColor } from '@/lib/consultation-annotations'
+import type { ConsultationAnnotations, ConsultationNotesStructured } from '@/types/database'
 
 interface ConsultationPageProps {
   params: Promise<{ id: string }>
@@ -127,45 +130,121 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
             </CardContent>
           </Card>
 
-          {/* Clinical Content */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Contenu clinique</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {consultation.anamnesis && (
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                    Anamnèse
-                  </h4>
-                  <p className="text-sm whitespace-pre-wrap">{consultation.anamnesis}</p>
-                </div>
-              )}
-              {consultation.examination && (
-                <div>
-                  <Separator className="my-4" />
-                  <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                    Examen clinique et manipulations
-                  </h4>
-                  <p className="text-sm whitespace-pre-wrap">{consultation.examination}</p>
-                </div>
-              )}
-              {consultation.advice && (
-                <div>
-                  <Separator className="my-4" />
-                  <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                    Conseils donnés
-                  </h4>
-                  <p className="text-sm whitespace-pre-wrap">{consultation.advice}</p>
-                </div>
-              )}
-              {!consultation.anamnesis && !consultation.examination && !consultation.advice && (
-                <p className="text-sm text-muted-foreground italic">
-                  Aucun contenu clinique renseigné
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          {/* Body annotations */}
+          {(() => {
+            const annotations = consultation.annotations as ConsultationAnnotations | null
+            const notes = consultation.notes_structured as ConsultationNotesStructured | null
+            const hasAnnotations = !!annotations && (annotations.markers.length > 0 || annotations.paths.length > 0)
+            const hasStructuredNotes = !!notes && NOTE_SECTION_ORDER.some((s) => notes[s].length > 0)
+            const treatment = (consultation as { treatment?: string | null }).treatment
+
+            if (hasAnnotations || hasStructuredNotes) {
+              return (
+                <>
+                  {hasAnnotations && annotations && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <MapPin className="h-5 w-5" /> Schéma annoté
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ConsultationAnnotationsView annotations={annotations} />
+                      </CardContent>
+                    </Card>
+                  )}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Notes cliniques</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-5">
+                      {NOTE_SECTION_ORDER.map((section) => {
+                        const entries = notes?.[section] ?? []
+                        if (entries.length === 0) return null
+                        return (
+                          <div key={section}>
+                            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                              {NOTE_SECTION_LABELS[section]}
+                            </h4>
+                            <div className="space-y-2">
+                              {entries.map((e) => (
+                                <div key={e.id} className="rounded-lg border bg-muted/40 p-3 text-sm">
+                                  {e.markerLabel && (
+                                    <span
+                                      className="mr-2 inline-flex items-center gap-1 rounded-full border bg-background px-1.5 py-0.5 font-mono text-[10px] font-semibold"
+                                      style={{
+                                        color: e.markerEva != null ? painColor(e.markerEva) : undefined,
+                                        borderColor: e.markerEva != null ? painColor(e.markerEva) : undefined,
+                                      }}
+                                    >
+                                      ● {e.markerLabel}
+                                      {e.markerEva != null && <span>· {e.markerEva}/10</span>}
+                                    </span>
+                                  )}
+                                  <span className="whitespace-pre-wrap">{e.text}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </CardContent>
+                  </Card>
+                </>
+              )
+            }
+
+            // Legacy display
+            return (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Contenu clinique</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {consultation.anamnesis && (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                        Anamnèse
+                      </h4>
+                      <p className="text-sm whitespace-pre-wrap">{consultation.anamnesis}</p>
+                    </div>
+                  )}
+                  {consultation.examination && (
+                    <div>
+                      <Separator className="my-4" />
+                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                        Examen clinique et manipulations
+                      </h4>
+                      <p className="text-sm whitespace-pre-wrap">{consultation.examination}</p>
+                    </div>
+                  )}
+                  {treatment && (
+                    <div>
+                      <Separator className="my-4" />
+                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                        Traitement
+                      </h4>
+                      <p className="text-sm whitespace-pre-wrap">{treatment}</p>
+                    </div>
+                  )}
+                  {consultation.advice && (
+                    <div>
+                      <Separator className="my-4" />
+                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                        Conseils donnés
+                      </h4>
+                      <p className="text-sm whitespace-pre-wrap">{consultation.advice}</p>
+                    </div>
+                  )}
+                  {!consultation.anamnesis && !consultation.examination && !treatment && !consultation.advice && (
+                    <p className="text-sm text-muted-foreground italic">
+                      Aucun contenu clinique renseigné
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })()}
 
           {/* Attachments */}
           {attachments && attachments.length > 0 && (

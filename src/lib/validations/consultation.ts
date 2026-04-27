@@ -1,5 +1,59 @@
 import { z } from 'zod'
 
+export const bodyViewSchema = z.enum(['front', 'back'])
+export const markerShapeSchema = z.enum(['dot', 'cross', 'bolt', 'star', 'triangle'])
+export const markerTypeSchema = z.enum([
+  'Douleur',
+  'Tension',
+  'Restriction',
+  'Trigger point',
+  'Inflammation',
+  'Paresthésie',
+])
+
+export const bodyMarkerSchema = z.object({
+  id: z.string(),
+  view: bodyViewSchema,
+  cx: z.number(),
+  cy: z.number(),
+  label: z.string().max(60),
+  eva: z.number().min(0).max(10),
+  type: markerTypeSchema,
+  shape: markerShapeSchema,
+})
+
+export const bodyPathSchema = z.object({
+  id: z.string(),
+  view: bodyViewSchema,
+  kind: z.enum(['free', 'trajectory']),
+  points: z.array(z.object({ x: z.number(), y: z.number() })),
+  color: z.string().optional(),
+  label: z.string().max(60).optional(),
+})
+
+export const consultationAnnotationsSchema = z.object({
+  version: z.literal(1),
+  markers: z.array(bodyMarkerSchema),
+  paths: z.array(bodyPathSchema),
+})
+
+export const noteEntrySchema = z.object({
+  id: z.string(),
+  text: z.string().max(4000),
+  createdAt: z.string(),
+  markerId: z.string().optional(),
+  markerLabel: z.string().optional(),
+  markerEva: z.number().optional(),
+})
+
+export const consultationNotesStructuredSchema = z.object({
+  version: z.literal(1),
+  anamnesis: z.array(noteEntrySchema),
+  examination: z.array(noteEntrySchema),
+  treatment: z.array(noteEntrySchema),
+  advice: z.array(noteEntrySchema),
+})
+
 export const consultationSchema = z.object({
   patient_id: z.string().uuid('ID patient invalide'),
   date_time: z
@@ -24,11 +78,18 @@ export const consultationSchema = z.object({
     .max(10000, 'L\'examen ne peut pas dépasser 10000 caractères')
     .optional()
     .or(z.literal('')),
+  treatment: z
+    .string()
+    .max(10000, 'Le traitement ne peut pas dépasser 10000 caractères')
+    .optional()
+    .or(z.literal('')),
   advice: z
     .string()
     .max(10000, 'Les conseils ne peuvent pas dépasser 10000 caractères')
     .optional()
     .or(z.literal('')),
+  annotations: consultationAnnotationsSchema.optional().nullable(),
+  notes_structured: consultationNotesStructuredSchema.optional().nullable(),
   follow_up_7d: z.boolean().optional().default(false),
   send_post_session_advice: z.boolean().optional().default(false),
 })
