@@ -18,29 +18,9 @@ const QUICK_CHIPS: Record<NoteSection, string[]> = {
     'Mauvais sommeil',
     'Port de charges',
   ],
-  examination: [
-    'Restriction flexion',
-    'Raideur rotation',
-    'Trigger point',
-    'Contracture',
-    'Déséquilibre bassin',
-    'Test Lasègue +',
-  ],
-  treatment: [
-    'HVLA',
-    'Myofascial',
-    'Crânien',
-    'Viscéral',
-    'Musculo-énergétique',
-    'Trigger point release',
-  ],
-  advice: [
-    'Étirements quotidiens',
-    'Hydratation',
-    'Posture bureau',
-    'Glace 15min',
-    'Revoir à 3 semaines',
-  ],
+  examination: [],
+  treatment: [],
+  advice: [],
 }
 
 function formatTime(iso: string): string {
@@ -173,24 +153,26 @@ export function NotesPanel({
           )}
         </div>
 
-        {/* Quick chips */}
-        <div className="mt-4 space-y-2">
-          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Insertion rapide
-          </Label>
-          <div className="flex flex-wrap gap-1.5">
-            {QUICK_CHIPS[section].map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => addNote(c)}
-                className="rounded-full border bg-background px-2.5 py-1 text-[11px] font-medium transition hover:border-primary/60 hover:text-primary"
-              >
-                + {c}
-              </button>
-            ))}
+        {/* Quick chips — only shown for sections that have suggestions */}
+        {QUICK_CHIPS[section].length > 0 && (
+          <div className="mt-4 space-y-2">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Insertion rapide
+            </Label>
+            <div className="flex flex-wrap gap-1.5">
+              {QUICK_CHIPS[section].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => addNote(c)}
+                  className="rounded-full border bg-background px-2.5 py-1 text-[11px] font-medium transition hover:border-primary/60 hover:text-primary"
+                >
+                  + {c}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Add input */}
         <div className="mt-3 space-y-2">

@@ -112,77 +112,73 @@ function BackSilhouette() {
   )
 }
 
-function ShapeGlyph({ shape, size = 20, color }: { shape: MarkerShape; size?: number; color: string }) {
-  const s = size
-  const half = s / 2
-  if (shape === 'dot') {
-    return (
-      <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} style={{ overflow: 'visible' }}>
-        <circle cx={half} cy={half} r={half - 2} fill={color} stroke="white" strokeWidth={2.5} />
-      </svg>
-    )
-  }
-  if (shape === 'cross') {
-    return (
-      <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} style={{ overflow: 'visible' }}>
-        <circle cx={half} cy={half} r={half - 1} fill="white" stroke={color} strokeWidth={2} />
-        <path
-          d={`M ${half - 5} ${half - 5} L ${half + 5} ${half + 5} M ${half + 5} ${half - 5} L ${half - 5} ${half + 5}`}
-          stroke={color}
-          strokeWidth={2.5}
-          strokeLinecap="round"
-        />
-      </svg>
-    )
-  }
-  if (shape === 'bolt') {
-    return (
-      <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} style={{ overflow: 'visible' }}>
-        <circle cx={half} cy={half} r={half - 1} fill="white" stroke={color} strokeWidth={2} />
-        <path
-          d={`M ${half + 2} ${half - 6} L ${half - 3} ${half + 1} L ${half} ${half + 1} L ${half - 2} ${half + 6} L ${half + 4} ${half - 1} L ${half + 1} ${half - 1} Z`}
-          fill={color}
-        />
-      </svg>
-    )
-  }
-  if (shape === 'star') {
-    const pts: Array<[number, number]> = []
-    for (let i = 0; i < 10; i++) {
-      const r = i % 2 === 0 ? half - 2 : half / 2.6
-      const a = (Math.PI * 2 * i) / 10 - Math.PI / 2
-      pts.push([half + Math.cos(a) * r, half + Math.sin(a) * r])
-    }
-    return (
-      <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} style={{ overflow: 'visible' }}>
-        <polygon
-          points={pts.map((p) => p.join(',')).join(' ')}
-          fill={color}
-          stroke="white"
-          strokeWidth={1.8}
-          strokeLinejoin="round"
-        />
-      </svg>
-    )
-  }
-  // triangle
-  return (
-    <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} style={{ overflow: 'visible' }}>
-      <polygon
-        points={`${half},2 ${s - 2},${s - 2} 2,${s - 2}`}
-        fill={color}
-        stroke="white"
-        strokeWidth={2}
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
 
 function pointsToPath(points: Array<{ x: number; y: number }>): string {
   if (!points.length) return ''
   const [first, ...rest] = points
   return `M ${first.x} ${first.y} ` + rest.map((p) => `L ${p.x} ${p.y}`).join(' ')
+}
+
+function pointsToSmoothPath(points: Array<{ x: number; y: number }>): string {
+  if (points.length < 2) return ''
+  if (points.length === 2) return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`
+  let d = `M ${points[0].x} ${points[0].y}`
+  for (let i = 1; i < points.length - 1; i++) {
+    const xc = (points[i].x + points[i + 1].x) / 2
+    const yc = (points[i].y + points[i + 1].y) / 2
+    d += ` Q ${points[i].x} ${points[i].y} ${xc} ${yc}`
+  }
+  const last = points[points.length - 1]
+  d += ` T ${last.x} ${last.y}`
+  return d
+}
+
+function MarkerShapeSvg({ shape, color }: { shape: MarkerShape; color: string }) {
+  if (shape === 'dot') {
+    return <circle r={9} fill={color} stroke="white" strokeWidth={2.5} />
+  }
+  if (shape === 'cross') {
+    return (
+      <>
+        <circle r={9} fill="white" stroke={color} strokeWidth={2} />
+        <path d="M -4 -4 L 4 4 M 4 -4 L -4 4" stroke={color} strokeWidth={2.5} strokeLinecap="round" fill="none" />
+      </>
+    )
+  }
+  if (shape === 'bolt') {
+    return (
+      <>
+        <circle r={9} fill="white" stroke={color} strokeWidth={2} />
+        <path d="M 2 -6 L -3 1 L 0 1 L -2 6 L 4 -1 L 1 -1 Z" fill={color} />
+      </>
+    )
+  }
+  if (shape === 'star') {
+    const pts: Array<[number, number]> = []
+    for (let i = 0; i < 10; i++) {
+      const r = i % 2 === 0 ? 9 : 3.5
+      const a = (Math.PI * 2 * i) / 10 - Math.PI / 2
+      pts.push([Math.cos(a) * r, Math.sin(a) * r])
+    }
+    return (
+      <polygon
+        points={pts.map((p) => p.join(',')).join(' ')}
+        fill={color}
+        stroke="white"
+        strokeWidth={1.6}
+        strokeLinejoin="round"
+      />
+    )
+  }
+  return (
+    <polygon
+      points="0,-9 8,7 -8,7"
+      fill={color}
+      stroke="white"
+      strokeWidth={1.8}
+      strokeLinejoin="round"
+    />
+  )
 }
 
 export function BodyDiagram({
@@ -247,7 +243,14 @@ export function BodyDiagram({
     const pt = getSvgPoint(e)
     if (!pt) return
     if (tool === 'pen' && drawingPoints) {
-      setDrawingPoints((prev) => (prev ? [...prev, pt] : [pt]))
+      setDrawingPoints((prev) => {
+        if (!prev || prev.length === 0) return [pt]
+        const last = prev[prev.length - 1]
+        const d = Math.hypot(pt.x - last.x, pt.y - last.y)
+        // Skip points too close to the previous one — kills jitter
+        if (d < 3.5) return prev
+        return [...prev, pt]
+      })
     } else if (tool === 'trajectory' && trajectoryStart) {
       setHoverPoint(pt)
     }
@@ -327,7 +330,7 @@ export function BodyDiagram({
                 </>
               ) : (
                 <path
-                  d={pointsToPath(p.points)}
+                  d={pointsToSmoothPath(p.points)}
                   fill="none"
                   stroke={color}
                   strokeWidth={isSelected ? 4 : 2.5}
@@ -342,7 +345,7 @@ export function BodyDiagram({
         {/* Path being drawn (free) */}
         {drawingPoints && drawingPoints.length > 1 && (
           <path
-            d={pointsToPath(drawingPoints)}
+            d={pointsToSmoothPath(drawingPoints)}
             fill="none"
             stroke="hsl(0 80% 52%)"
             strokeWidth={2.5}
@@ -369,51 +372,41 @@ export function BodyDiagram({
         {trajectoryStart && (
           <circle cx={trajectoryStart.x} cy={trajectoryStart.y} r={4} fill="hsl(0 80% 52%)" />
         )}
-      </svg>
 
-      {/* Markers rendered as absolutely-positioned HTML for nicer labels */}
-      {viewMarkers.map((m) => {
-        const leftPct = (m.cx / BODY_SVG_WIDTH) * 100
-        const topPct = (m.cy / BODY_SVG_HEIGHT) * 100
-        const color = painColor(m.eva)
-        const selected = m.id === selectedMarkerId
-        return (
-          <button
-            key={m.id}
-            type="button"
-            aria-label={`Marqueur ${m.label} EVA ${m.eva}`}
-            onClick={(e) => {
-              e.stopPropagation()
-              onSelectMarker(m.id)
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="absolute z-[3] -translate-x-1/2 -translate-y-1/2 border-0 bg-transparent p-0 outline-none"
-            style={{
-              left: `calc(50% + ${(leftPct - 50) * (BODY_SVG_WIDTH / BODY_SVG_HEIGHT)}%)`,
-              top: `${topPct}%`,
-            }}
-          >
-            <div
-              className="relative transition-transform"
-              style={{ transform: selected ? 'scale(1.2)' : 'scale(1)' }}
+        {/* Markers — rendered inside the SVG so coordinates are exact */}
+        {viewMarkers.map((m) => {
+          const color = painColor(m.eva)
+          const selected = m.id === selectedMarkerId
+          const labelText = `${m.eva}/10${m.label ? ` · ${m.label}` : ''}`
+          return (
+            <g
+              key={m.id}
+              transform={`translate(${m.cx} ${m.cy})`}
+              style={{ cursor: 'pointer' }}
+              onClick={(e) => { e.stopPropagation(); onSelectMarker(m.id) }}
+              onPointerDown={(e) => e.stopPropagation()}
             >
-              <ShapeGlyph shape={m.shape} color={color} size={24} />
-              {selected && (
-                <span
-                  className="absolute inset-[-6px] -z-10 rounded-full"
-                  style={{ boxShadow: `0 0 0 3px white, 0 0 0 5px ${color}` }}
-                />
-              )}
-            </div>
-            <div
-              className="pointer-events-none absolute left-1/2 top-[calc(100%+4px)] -translate-x-1/2 whitespace-nowrap rounded-md border border-border/60 bg-background/95 px-1.5 py-0.5 text-[10px] font-semibold shadow-sm"
-              style={{ color }}
-            >
-              {m.eva}/10{m.label ? ` · ${m.label}` : ''}
-            </div>
-          </button>
-        )
-      })}
+              {selected && <circle r={14} fill="none" stroke={color} strokeWidth={2} opacity={0.7} />}
+              <g style={{ transformOrigin: '0 0' }} transform={selected ? 'scale(1.18)' : 'scale(1)'}>
+                <MarkerShapeSvg shape={m.shape} color={color} />
+              </g>
+              <text
+                y={24}
+                textAnchor="middle"
+                fontSize={11}
+                fontWeight={600}
+                fill={color}
+                stroke="white"
+                strokeWidth={3}
+                paintOrder="stroke"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {labelText}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
 
       {/* Legend */}
       <div className="absolute bottom-3 left-3 z-[2] flex items-center gap-2 rounded-lg border border-border/50 bg-background/90 px-3 py-2 text-[10px] shadow-sm backdrop-blur">
