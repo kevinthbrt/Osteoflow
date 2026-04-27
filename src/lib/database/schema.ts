@@ -76,7 +76,10 @@ CREATE TABLE IF NOT EXISTS consultations (
   reason TEXT NOT NULL,
   anamnesis TEXT,
   examination TEXT,
+  treatment TEXT,
   advice TEXT,
+  annotations TEXT,
+  notes_structured TEXT,
   follow_up_7d INTEGER DEFAULT 0,
   follow_up_sent_at TEXT,
   created_at TEXT DEFAULT (datetime('now')),
@@ -352,6 +355,15 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   if (!consultCols.some((c) => c.name === 'post_session_advice_sent_at')) {
     db.exec('ALTER TABLE consultations ADD COLUMN post_session_advice_sent_at TEXT;')
   }
+  if (!consultCols.some((c) => c.name === 'treatment')) {
+    db.exec('ALTER TABLE consultations ADD COLUMN treatment TEXT;')
+  }
+  if (!consultCols.some((c) => c.name === 'annotations')) {
+    db.exec('ALTER TABLE consultations ADD COLUMN annotations TEXT;')
+  }
+  if (!consultCols.some((c) => c.name === 'notes_structured')) {
+    db.exec('ALTER TABLE consultations ADD COLUMN notes_structured TEXT;')
+  }
 
   // Add status to practitioners
   if (!practCols.some((c) => c.name === 'status')) {
@@ -428,4 +440,5 @@ export const BOOLEAN_FIELDS: Record<string, string[]> = {
 export const JSON_FIELDS: Record<string, string[]> = {
   audit_logs: ['old_data', 'new_data'],
   saved_reports: ['filters'],
+  consultations: ['annotations', 'notes_structured'],
 }

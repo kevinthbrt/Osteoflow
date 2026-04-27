@@ -18,6 +18,55 @@ export type AuditAction = 'INSERT' | 'UPDATE' | 'DELETE'
 export type MedicalHistoryType = 'traumatic' | 'medical' | 'surgical' | 'family'
 export type OnsetDurationUnit = 'days' | 'weeks' | 'months' | 'years'
 
+export type BodyView = 'front' | 'back'
+export type MarkerShape = 'dot' | 'cross' | 'bolt' | 'star' | 'triangle'
+export type MarkerType = 'Douleur' | 'Tension' | 'Restriction' | 'Trigger point' | 'Inflammation' | 'Paresthésie'
+export type NoteSection = 'anamnesis' | 'examination' | 'treatment' | 'advice'
+
+export interface BodyMarker {
+  id: string
+  view: BodyView
+  cx: number
+  cy: number
+  label: string
+  eva: number
+  type: MarkerType
+  shape: MarkerShape
+  note?: string
+}
+
+export interface BodyPath {
+  id: string
+  view: BodyView
+  kind: 'free' | 'trajectory'
+  points: Array<{ x: number; y: number }>
+  color?: string
+  label?: string
+}
+
+export interface ConsultationAnnotations {
+  version: 1
+  markers: BodyMarker[]
+  paths: BodyPath[]
+}
+
+export interface NoteEntry {
+  id: string
+  text: string
+  createdAt: string
+  markerId?: string
+  markerLabel?: string
+  markerEva?: number
+}
+
+export interface ConsultationNotesStructured {
+  version: 1
+  anamnesis: NoteEntry[]
+  examination: NoteEntry[]
+  treatment: NoteEntry[]
+  advice: NoteEntry[]
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -219,7 +268,10 @@ export interface Database {
           reason: string
           anamnesis: string | null
           examination: string | null
+          treatment: string | null
           advice: string | null
+          annotations: ConsultationAnnotations | null
+          notes_structured: ConsultationNotesStructured | null
           follow_up_7d: boolean
           follow_up_sent_at: string | null
           created_at: string
@@ -234,7 +286,10 @@ export interface Database {
           reason: string
           anamnesis?: string | null
           examination?: string | null
+          treatment?: string | null
           advice?: string | null
+          annotations?: ConsultationAnnotations | null
+          notes_structured?: ConsultationNotesStructured | null
           follow_up_7d?: boolean
           follow_up_sent_at?: string | null
           created_at?: string
@@ -249,7 +304,10 @@ export interface Database {
           reason?: string
           anamnesis?: string | null
           examination?: string | null
+          treatment?: string | null
           advice?: string | null
+          annotations?: ConsultationAnnotations | null
+          notes_structured?: ConsultationNotesStructured | null
           follow_up_7d?: boolean
           follow_up_sent_at?: string | null
           created_at?: string
