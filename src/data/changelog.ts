@@ -19,6 +19,14 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.0.53',
+    date: '2026-05-04',
+    title: 'Correction suppression des types de séance',
+    changes: [
+      { type: 'fix', text: 'La suppression d\'un type de séance fonctionnait pas à cause d\'une contrainte SQLite (foreign key) — remplacée par une désactivation douce qui préserve l\'historique des consultations existantes' },
+    ],
+  },
+  {
     version: '1.0.52',
     date: '2026-05-04',
     title: 'Gestion des types de séance et facturation améliorée',
