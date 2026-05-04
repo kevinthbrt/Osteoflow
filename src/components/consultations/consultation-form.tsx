@@ -781,40 +781,6 @@ export function ConsultationForm({
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Type de séance</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Label>Type de séance (facturation)</Label>
-                <Select
-                  value={selectedSessionTypeId || 'none'}
-                  onValueChange={handleSessionTypeChange}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un type de séance" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Aucun</SelectItem>
-                    {sessionTypes.map((type) => (
-                      <SelectItem key={type.id} value={type.id}>
-                        {type.name} - {Number(type.price).toFixed(2)} €
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Le type de séance sera affiché sur la facture à la place du motif.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
                 <Clock className="h-5 w-5 text-primary" />
                 <CardTitle className="text-lg">Suivi</CardTitle>
               </div>
@@ -900,6 +866,32 @@ export function ConsultationForm({
                 {createInvoice && (
                   <>
                     <Separator />
+
+                    {sessionTypes.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Type de séance</Label>
+                        <Select
+                          value={selectedSessionTypeId || 'none'}
+                          onValueChange={handleSessionTypeChange}
+                          disabled={isLoading}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner un type de séance" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Aucun</SelectItem>
+                            {sessionTypes.map((type) => (
+                              <SelectItem key={type.id} value={type.id}>
+                                {type.name} - {Number(type.price).toFixed(2)} €
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Affiché sur la facture à la place du motif.
+                        </p>
+                      </div>
+                    )}
 
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">

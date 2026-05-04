@@ -19,6 +19,15 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.0.52',
+    date: '2026-05-04',
+    title: 'Gestion des types de séance et facturation améliorée',
+    changes: [
+      { type: 'improvement', text: 'Paramètres > Facturation : les types de séance peuvent maintenant être modifiés (édition inline) et supprimés' },
+      { type: 'improvement', text: 'Formulaire de consultation : le type de séance est désormais sélectionnable directement dans l\'encart Facturation, avec le montant et le mode de paiement' },
+    ],
+  },
+  {
     version: '1.0.51',
     date: '2026-04-23',
     title: 'Correctifs brouillon, import patient et recherche multi-mots',

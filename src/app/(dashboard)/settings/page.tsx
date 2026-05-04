@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target } from 'lucide-react'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check } from 'lucide-react'
 import type { Practitioner, SessionType } from '@/types/database'
 
 interface PatientListItem {
@@ -59,6 +59,9 @@ export default function SettingsPage() {
   const [newSessionTypeName, setNewSessionTypeName] = useState('')
   const [newSessionTypePrice, setNewSessionTypePrice] = useState('')
   const [isSavingSessionType, setIsSavingSessionType] = useState(false)
+  const [editingSessionTypeId, setEditingSessionTypeId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState('')
+  const [editingPrice, setEditingPrice] = useState('')
 
   // Objectives settings state
   const [objectivesSettings, setObjectivesSettings] = useState({
@@ -367,6 +370,41 @@ export default function SettingsPage() {
       })
     } finally {
       setIsSavingSessionType(false)
+    }
+  }
+
+  const handleDeleteSessionType = async (id: string) => {
+    try {
+      const { error } = await db.from('session_types').delete().eq('id', id)
+      if (error) throw error
+      setSessionTypes((prev) => prev.filter((t) => t.id !== id))
+      toast({ variant: 'success', title: 'Type de séance supprimé' })
+    } catch (error) {
+      console.error('Error deleting session type:', error)
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer le type de séance.' })
+    }
+  }
+
+  const handleUpdateSessionType = async (id: string) => {
+    const priceValue = Number(editingPrice)
+    if (!editingName.trim() || Number.isNaN(priceValue)) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Veuillez saisir un nom et un tarif valide.' })
+      return
+    }
+    try {
+      const { error } = await db
+        .from('session_types')
+        .update({ name: editingName.trim(), price: priceValue })
+        .eq('id', id)
+      if (error) throw error
+      setSessionTypes((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, name: editingName.trim(), price: priceValue } : t))
+      )
+      setEditingSessionTypeId(null)
+      toast({ variant: 'success', title: 'Type de séance modifié' })
+    } catch (error) {
+      console.error('Error updating session type:', error)
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de modifier le type de séance.' })
     }
   }
 
@@ -1066,14 +1104,72 @@ export default function SettingsPage() {
                       {sessionTypes.map((type) => (
                         <div
                           key={type.id}
-                          className="flex items-center justify-between rounded-lg border px-3 py-2"
+                          className="flex items-center gap-2 rounded-lg border px-3 py-2"
                         >
-                          <span className="text-sm font-medium">
-                            {type.name}
-                          </span>
-                          <span className="text-sm text-muted-foreground">
-                            {Number(type.price).toFixed(2)} €
-                          </span>
+                          {editingSessionTypeId === type.id ? (
+                            <>
+                              <Input
+                                className="flex-1 h-8 text-sm"
+                                value={editingName}
+                                onChange={(e) => setEditingName(e.target.value)}
+                              />
+                              <Input
+                                className="w-24 h-8 text-sm"
+                                type="number"
+                                step="0.01"
+                                value={editingPrice}
+                                onChange={(e) => setEditingPrice(e.target.value)}
+                              />
+                              <span className="text-sm text-muted-foreground">€</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-green-600 hover:text-green-700"
+                                onClick={() => handleUpdateSessionType(type.id)}
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => setEditingSessionTypeId(null)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="flex-1 text-sm font-medium">{type.name}</span>
+                              <span className="text-sm text-muted-foreground">
+                                {Number(type.price).toFixed(2)} €
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => {
+                                  setEditingSessionTypeId(type.id)
+                                  setEditingName(type.name)
+                                  setEditingPrice(String(type.price))
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteSessionType(type.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       ))}
                     </div>
