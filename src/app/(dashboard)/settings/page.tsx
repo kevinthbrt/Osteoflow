@@ -225,6 +225,7 @@ export default function SettingsPage() {
             .from('session_types')
             .select('*')
             .eq('practitioner_id', practitionerData.id)
+            .eq('is_active', true)
             .order('name')
 
           if (sessionTypesError) {
@@ -375,7 +376,10 @@ export default function SettingsPage() {
 
   const handleDeleteSessionType = async (id: string) => {
     try {
-      const { error } = await db.from('session_types').delete().eq('id', id)
+      const { error } = await db
+        .from('session_types')
+        .update({ is_active: false })
+        .eq('id', id)
       if (error) throw error
       setSessionTypes((prev) => prev.filter((t) => t.id !== id))
       toast({ variant: 'success', title: 'Type de séance supprimé' })
