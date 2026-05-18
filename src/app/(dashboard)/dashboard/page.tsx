@@ -98,12 +98,13 @@ export default async function DashboardPage() {
 
   // Filter birthdays for next 7 days
   const now = new Date()
-  const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const nextWeek = new Date(todayMidnight.getTime() + 7 * 24 * 60 * 60 * 1000)
   const birthdaysThisWeek = (upcomingBirthdays || []).filter((p: any) => {
     if (!p.birth_date) return false
     const bday = new Date(p.birth_date)
     const thisYearBday = new Date(now.getFullYear(), bday.getMonth(), bday.getDate())
-    if (thisYearBday < now) {
+    if (thisYearBday < todayMidnight) {
       thisYearBday.setFullYear(now.getFullYear() + 1)
     }
     return thisYearBday <= nextWeek
