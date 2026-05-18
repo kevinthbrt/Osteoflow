@@ -10,25 +10,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { AlertTriangle, CheckCircle, ChevronRight, ChevronLeft, X, Activity, FileText } from 'lucide-react'
+import { AlertTriangle, CheckCircle, ChevronRight, ChevronLeft, Activity, FileText, Clock } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type Answer = 'yes' | 'no' | string
 
 interface TreeState {
+  // Duration (AAFP)
+  q_duration: Answer | null            // 'acute' | 'subacute'
   // Red flags
   q1_cauda_equina: Answer | null
   q2_fracture: Answer | null
   q2_trauma_neuro: boolean
   q2_factors: number
-  q3_neoplasia: Answer | null
+  q3_neoplasia: Answer | null          // 'alert' | 'watch' | 'no'
   q3_factors: number
+  q3_has_cancer_hx: boolean
   q4_infection: Answer | null
   q4_factors: number
   q5_aaa: Answer | null
   // Step 2
-  q6_radiation: Answer | null   // yes = radicular, no = axial
+  q6_radiation: Answer | null
   q6_below_knee: Answer | null
   q6_leg_worse: Answer | null
   // Step 3A – Radicular
@@ -39,22 +42,28 @@ interface TreeState {
   q7_shopping_cart: Answer | null
   q7_sudden_onset: Answer | null
   q7_cough_sneeze: Answer | null
-  // Step 3B – Axial
+  // Step 3B – Axial inflammatory → SpA algorithm
   q9_inflammatory: Answer | null
   q9_criteria: number
   q9_extra_articular: boolean
-  q10_location: Answer | null   // 'medial' | 'paravertebral' | 'gluteal' | 'diffuse'
-  q11_discogenic: Answer | null
+  q9_spa_sacroiliitis: Answer | null
+  q9_spa_hlab27: Answer | null
+  q9_spa_clinical_picture: Answer | null
+  // Step 3B – Mechanical
+  q10_location: Answer | null
   q11_centralization: Answer | null
   q12_facet: Answer | null
-  q13_si_joint: Answer | null
   q13_tests_positive: number
+  // Yellow flags / chronic risk (AAFP)
+  q_yellow_flags: string[]
+  q_chronic_risk: Answer | null
 }
 
 const initialState: TreeState = {
+  q_duration: null,
   q1_cauda_equina: null,
   q2_fracture: null, q2_trauma_neuro: false, q2_factors: 0,
-  q3_neoplasia: null, q3_factors: 0,
+  q3_neoplasia: null, q3_factors: 0, q3_has_cancer_hx: false,
   q4_infection: null, q4_factors: 0,
   q5_aaa: null,
   q6_radiation: null, q6_below_knee: null, q6_leg_worse: null,
@@ -62,21 +71,27 @@ const initialState: TreeState = {
   q7_worse_walking: null, q7_shopping_cart: null, q7_sudden_onset: null,
   q7_cough_sneeze: null,
   q9_inflammatory: null, q9_criteria: 0, q9_extra_articular: false,
+  q9_spa_sacroiliitis: null, q9_spa_hlab27: null, q9_spa_clinical_picture: null,
   q10_location: null,
-  q11_discogenic: null, q11_centralization: null,
+  q11_centralization: null,
   q12_facet: null,
-  q13_si_joint: null, q13_tests_positive: 0,
+  q13_tests_positive: 0,
+  q_yellow_flags: [],
+  q_chronic_risk: null,
 }
 
 type Step =
+  | 'duration'
   | 'q1' | 'q2' | 'q3' | 'q4' | 'q5'
+  | 'alert_cauda_equina' | 'alert_fracture' | 'alert_neoplasia' | 'alert_neoplasia_watch' | 'alert_infection' | 'alert_aaa'
   | 'q6'
   | 'q7' | 'q8'
-  | 'q9' | 'q10' | 'q11' | 'q12' | 'q13' | 'q14'
-  | 'alert_cauda_equina' | 'alert_fracture' | 'alert_neoplasia' | 'alert_infection' | 'alert_aaa'
+  | 'q9' | 'q9_spa_sacroiliitis' | 'q9_spa_hlab27' | 'q9_spa_clinical' | 'q9_spa_mri'
+  | 'q10' | 'q11' | 'q12' | 'q13'
+  | 'q14_yellow_flags' | 'q_chronic_risk'
   | 'result'
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Sub-components ──────────────────────────────────────────────────────────
 
 function CheckboxGroup({
   options,
@@ -148,45 +163,100 @@ function RadioGroup({
   )
 }
 
+function StepWrapper({
+  label, badge, badgeVariant, question, hint, children,
+}: {
+  label: string; badge: string; badgeVariant: 'default' | 'secondary' | 'destructive' | 'outline'
+  question: string; hint?: string; children: React.ReactNode
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Badge variant={badgeVariant} className="text-xs">{badge}</Badge>
+        <span className="text-sm font-semibold text-muted-foreground">{label}</span>
+      </div>
+      <p className="font-medium">{question}</p>
+      {hint && <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-3 leading-relaxed">{hint}</p>}
+      {children}
+    </div>
+  )
+}
+
+function AlertStep({
+  title, items, onContinue, continueLabel, variant = 'destructive',
+}: {
+  title: string; items: string[]; onContinue: () => void; continueLabel: string
+  variant?: 'destructive' | 'warning'
+}) {
+  const cls = variant === 'warning'
+    ? 'bg-amber-50 border-amber-200 text-amber-800'
+    : 'bg-destructive/10 border-destructive/30 text-destructive'
+  const icon = variant === 'warning' ? 'text-amber-500' : 'text-destructive'
+  return (
+    <div className="space-y-4">
+      <div className={`flex items-start gap-3 p-4 border rounded-lg ${cls}`}>
+        <AlertTriangle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${icon}`} />
+        <div>
+          <p className="font-semibold">{title}</p>
+          <ul className="mt-2 space-y-1">
+            {items.map((item, i) => (
+              <li key={i} className="text-sm flex items-start gap-1.5">
+                <span className="mt-1">•</span>{item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <Button variant="outline" className="w-full gap-2" onClick={onContinue}>
+        {continueLabel}<ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
+  )
+}
+
 // ─── Result builder ──────────────────────────────────────────────────────────
 
 interface DiagnosisResult {
   primary: string
-  confidence: 'probable' | 'possible' | 'exclusion'
+  confidence: 'probable' | 'possible' | 'exclusion' | 'urgent'
   tests: Array<{ name: string; target: string; result?: string }>
   exams: Array<{ name: string; urgency: 'urgent' | 'if_persistent' | 'not_indicated'; condition?: string }>
-  yellowFlags: boolean
+  yellowFlagWarning: boolean
+  chronicRisk: boolean
   anamnesisSummary: string
 }
 
 function buildResult(state: TreeState): DiagnosisResult {
+  // Acute < 8 weeks → conservative
+  if (state.q_duration === 'acute') {
+    return {
+      primary: 'Lombalgie aiguë — prise en charge conservative',
+      confidence: 'exclusion',
+      tests: [
+        { name: 'Examen neurologique', target: 'Exclure déficit focal', result: '' },
+        { name: 'Palpation paravertébrale', target: 'Spasme / contracture', result: '' },
+      ],
+      exams: [{ name: 'Aucun examen en routine', urgency: 'not_indicated', condition: '< 8 semaines sans drapeau rouge' }],
+      yellowFlagWarning: false,
+      chronicRisk: false,
+      anamnesisSummary: buildAnamnesisText('Lombalgie aiguë (< 8 semaines)', state, 'acute'),
+    }
+  }
+
   const isRadicular = state.q6_radiation === 'yes' && state.q6_below_knee === 'yes' && state.q6_leg_worse === 'yes'
 
   if (isRadicular) {
-    const isYoung = state.q7_age_under60 === 'yes'
     const discFeatures = [
-      state.q7_unilateral === 'yes',
-      state.q7_worse_sitting === 'yes',
-      state.q7_sudden_onset === 'yes',
-      state.q7_cough_sneeze === 'yes',
+      state.q7_unilateral === 'yes', state.q7_worse_sitting === 'yes',
+      state.q7_sudden_onset === 'yes', state.q7_cough_sneeze === 'yes',
     ].filter(Boolean).length
     const stenosisFeatures = [
-      state.q7_age_under60 === 'no',
-      state.q7_unilateral === 'no',
-      state.q7_worse_sitting === 'no',
-      state.q7_worse_walking === 'yes',
-      state.q7_shopping_cart === 'yes',
+      state.q7_age_under60 === 'no', state.q7_unilateral === 'no',
+      state.q7_worse_sitting === 'no', state.q7_worse_walking === 'yes', state.q7_shopping_cart === 'yes',
     ].filter(Boolean).length
-
-    const isDisc = discFeatures >= 2 && isYoung
+    const isDisc = discFeatures >= 2 && state.q7_age_under60 === 'yes'
     const isStenosis = stenosisFeatures >= 3
-
-    const primary = isDisc
-      ? 'Hernie discale probable'
-      : isStenosis
-        ? 'Sténose spinale probable'
-        : 'Radiculopathie lombaire (à préciser)'
-
+    const primary = isDisc ? 'Hernie discale probable' : isStenosis ? 'Sténose spinale probable' : 'Radiculopathie lombaire (à préciser)'
     return {
       primary,
       confidence: 'probable',
@@ -195,67 +265,92 @@ function buildResult(state: TreeState): DiagnosisResult {
         { name: 'Lasègue croisé', target: 'Hernie discale', result: 'Sp 90 %' },
         { name: 'Lasègue assis (distracted SLR)', target: 'Hernie discale', result: 'Sn 41 %' },
         { name: 'Femoral stretch test (L2-L4)', target: 'Radiculopathie haute', result: '' },
-        { name: 'Test de Romberg + démarche élargie', target: 'Sténose spinale', result: 'Sp > 90 %' },
-        { name: 'Extension lombaire reproduit douleur', target: 'Sténose spinale', result: '' },
+        { name: 'Romberg + démarche élargie', target: 'Sténose spinale', result: 'Sp > 90 %' },
+        { name: 'Extension lombaire — reproduit la douleur ?', target: 'Sténose spinale', result: '' },
         { name: 'Force motrice : dorsiflexion cheville', target: 'L4-L5', result: '' },
-        { name: 'Réflexe rotulien', target: 'L4', result: '' },
+        { name: 'Force motrice : flexion plantaire', target: 'S1', result: '' },
+        { name: 'Réflexe rotulien', target: 'L3-L4', result: '' },
         { name: 'Réflexe achilléen', target: 'S1', result: '' },
-        { name: 'Sensibilité face latérale jambe / dos du pied', target: 'L5', result: '' },
-        { name: 'Sensibilité face postérieure jambe / plante', target: 'S1', result: '' },
+        { name: 'Sensibilité face ant.-médiale jambe', target: 'L4', result: '' },
+        { name: 'Sensibilité face latérale jambe / dos du pied / gros orteil', target: 'L5', result: '' },
+        { name: 'Sensibilité face post. jambe / plante / 5e orteil', target: 'S1', result: '' },
       ],
-      exams: [
-        {
-          name: 'IRM lombaire',
-          urgency: 'if_persistent',
-          condition: 'Si déficit neurologique sévère/progressif ou symptômes > 6-8 semaines',
-        },
-      ],
-      yellowFlags: false,
+      exams: [{
+        name: 'IRM lombaire',
+        urgency: 'if_persistent',
+        condition: 'Si déficit neurologique sévère/progressif ou symptômes > 6-8 semaines',
+      }],
+      yellowFlagWarning: false,
+      chronicRisk: false,
       anamnesisSummary: buildAnamnesisText(primary, state, 'radicular'),
     }
   }
 
-  // Axial pain path
-  const isInflammatory = state.q9_criteria >= 4 || state.q9_extra_articular
-  if (isInflammatory) {
+  // Inflammatory → SpA
+  if (state.q9_inflammatory === 'yes') {
+    if (state.q9_spa_sacroiliitis === 'yes') {
+      return {
+        primary: 'Spondylarthrite ankylosante (sacroiliite radiographique)',
+        confidence: 'probable',
+        tests: [
+          { name: 'Mobilité lombaire (Schober)', target: 'Limitation', result: '' },
+          { name: 'Expansion thoracique', target: 'Limitation', result: '' },
+          { name: 'Distance doigt-sol', target: 'Flexion lombaire', result: '' },
+        ],
+        exams: [
+          { name: 'Radiographies bassin / sacro-iliaques', urgency: 'if_persistent', condition: 'Confirme la sacroiliite' },
+          { name: 'IRM sacro-iliaque', urgency: 'if_persistent', condition: 'Si doute sur les radiographies' },
+          { name: 'Bilan biologique : CRP, VS, NFS', urgency: 'if_persistent', condition: '' },
+          { name: 'Référer en rhumatologie', urgency: 'if_persistent', condition: 'Pour confirmation et traitement' },
+        ],
+        yellowFlagWarning: false, chronicRisk: false,
+        anamnesisSummary: buildAnamnesisText('Spondylarthrite ankylosante', state, 'spa'),
+      }
+    }
+    // Non-radiographic SpA
+    const primary = state.q9_spa_clinical_picture === 'yes' ? 'Spondyloarthrite axiale (non radiographique)' : 'Suspicion de spondyloarthrite axiale — IRM recommandée'
     return {
-      primary: 'Suspicion de spondyloarthrite axiale',
-      confidence: 'possible',
+      primary,
+      confidence: state.q9_spa_clinical_picture === 'yes' ? 'probable' : 'possible',
       tests: [
         { name: 'Mobilité lombaire (Schober)', target: 'Raideur', result: '' },
-        { name: 'Extension lombaire activo-passive', target: 'Limitation', result: '' },
-        { name: 'Mobilité thoracique', target: 'Spondylarthrite', result: '' },
+        { name: 'Test de Patrick / FABER', target: 'Articulation SI', result: '' },
+        { name: 'Expansion thoracique', target: 'Limitation', result: '' },
       ],
       exams: [
-        { name: 'Radiographies bassin / sacro-iliaques', urgency: 'if_persistent', condition: 'Profil inflammatoire' },
-        { name: 'Bilan biologique : CRP, NFS', urgency: 'if_persistent', condition: '' },
-        { name: 'HLA-B27', urgency: 'if_persistent', condition: 'Référer en rhumatologie si ≥ 1 paramètre ASAS positif' },
+        { name: 'IRM sacro-iliaque', urgency: 'if_persistent', condition: 'Critère ASAS de référence pour SpA non radiographique' },
+        { name: 'Radiographies bassin', urgency: 'if_persistent', condition: '' },
+        { name: 'Bilan biologique : CRP, VS, NFS, HLA-B27', urgency: 'if_persistent', condition: '' },
+        { name: 'Référer en rhumatologie', urgency: 'if_persistent', condition: 'Si ≥ 1 paramètre ASAS positif' },
       ],
-      yellowFlags: false,
-      anamnesisSummary: buildAnamnesisText('Spondyloarthrite axiale suspectée', state, 'inflammatory'),
+      yellowFlagWarning: false, chronicRisk: false,
+      anamnesisSummary: buildAnamnesisText(primary, state, 'spa'),
     }
   }
 
-  // Mechanical axial
+  // Mechanical
   const loc = state.q10_location
   if (loc === 'gluteal' && state.q13_tests_positive >= 3) {
     return {
       primary: 'Dysfonction sacro-iliaque probable',
       confidence: 'probable',
       tests: [
-        { name: 'Test de distraction', target: 'Articulation SI', result: '' },
-        { name: 'Test de compression', target: 'Articulation SI', result: '' },
-        { name: 'Thrust sacré', target: 'Articulation SI', result: '' },
-        { name: 'Test de Gaenslen', target: 'Articulation SI', result: '' },
-        { name: 'Test de Patrick / FABER', target: 'Articulation SI', result: '' },
-        { name: 'Thigh thrust (cisaillement postérieur)', target: 'Articulation SI', result: '' },
+        { name: 'Test de distraction', target: 'SI', result: '' },
+        { name: 'Test de compression', target: 'SI', result: '' },
+        { name: 'Thrust sacré', target: 'SI', result: '' },
+        { name: 'Test de Gaenslen', target: 'SI', result: '' },
+        { name: 'Test de Patrick / FABER', target: 'SI', result: '' },
+        { name: 'Thigh thrust (cisaillement post.)', target: 'SI', result: 'Cluster ≥ 3 : Sn 80-91 % Sp 63-79 %' },
       ],
-      exams: [{ name: 'Bloc diagnostique SI', urgency: 'if_persistent', condition: 'Confirme le diagnostic' }, { name: 'Pas d\'imagerie en routine', urgency: 'not_indicated', condition: '' }],
-      yellowFlags: false,
+      exams: [
+        { name: 'Bloc diagnostique SI', urgency: 'if_persistent', condition: 'Seul examen confirmatoire' },
+        { name: 'Pas d\'imagerie en routine', urgency: 'not_indicated', condition: '' },
+      ],
+      yellowFlagWarning: state.q_yellow_flags.length >= 2,
+      chronicRisk: state.q_chronic_risk === 'yes',
       anamnesisSummary: buildAnamnesisText('Dysfonction sacro-iliaque', state, 'mechanical'),
     }
   }
-
   if (loc === 'medial' && state.q11_centralization === 'yes') {
     return {
       primary: 'Douleur discogénique probable',
@@ -265,30 +360,30 @@ function buildResult(state: TreeState): DiagnosisResult {
         { name: 'Mouvements répétés en extension', target: 'Centralisation', result: '' },
         { name: 'Mouvements répétés en flexion', target: 'Centralisation', result: '' },
       ],
-      exams: [{ name: 'Pas d\'imagerie en routine', urgency: 'not_indicated', condition: 'Centralisation positive suffit au diagnostic' }],
-      yellowFlags: false,
+      exams: [{ name: 'Pas d\'imagerie en routine', urgency: 'not_indicated', condition: 'Centralisation positive suffit' }],
+      yellowFlagWarning: state.q_yellow_flags.length >= 2,
+      chronicRisk: state.q_chronic_risk === 'yes',
       anamnesisSummary: buildAnamnesisText('Lombalgie discogénique', state, 'mechanical'),
     }
   }
-
   if (loc === 'paravertebral') {
     return {
       primary: 'Syndrome facettaire possible',
       confidence: 'possible',
       tests: [
-        { name: 'Critères de Revel (combinés ≥ 3)', target: 'Facettes', result: 'Sp 66-91 %' },
-        { name: 'Extension + rotation reproduit douleur', target: 'Facettes', result: '' },
+        { name: 'Critères de Revel combinés (≥ 3/7)', target: 'Facettes', result: 'Sp 66-91 %' },
+        { name: 'Extension + rotation ipsilatérale reproduit douleur', target: 'Facettes', result: '' },
         { name: 'Phénomène de non-centralisation', target: 'Facettes', result: 'Sn 100 % / Sp 11-17 %' },
       ],
       exams: [
-        { name: 'Bloc facettaire diagnostique', urgency: 'if_persistent', condition: 'Seul examen diagnostique fiable' },
+        { name: 'Bloc facettaire diagnostique', urgency: 'if_persistent', condition: 'Seul test diagnostique fiable' },
         { name: 'Pas d\'imagerie en routine', urgency: 'not_indicated', condition: '' },
       ],
-      yellowFlags: false,
+      yellowFlagWarning: state.q_yellow_flags.length >= 2,
+      chronicRisk: state.q_chronic_risk === 'yes',
       anamnesisSummary: buildAnamnesisText('Syndrome facettaire', state, 'mechanical'),
     }
   }
-
   // Non-specific
   return {
     primary: 'Lombalgie non spécifique (diagnostic d\'exclusion)',
@@ -298,21 +393,23 @@ function buildResult(state: TreeState): DiagnosisResult {
       { name: 'Palpation paravertébrale', target: 'Spasme musculaire', result: '' },
       { name: 'Mobilité lombaire globale', target: 'Limitation fonctionnelle', result: '' },
     ],
-    exams: [{ name: 'Pas d\'imagerie nécessaire', urgency: 'not_indicated', condition: 'Diagnostic d\'exclusion — 80-90 % des cas' }],
-    yellowFlags: true,
+    exams: [{ name: 'Aucun examen nécessaire', urgency: 'not_indicated', condition: '80-90 % des cas' }],
+    yellowFlagWarning: state.q_yellow_flags.length >= 2,
+    chronicRisk: state.q_chronic_risk === 'yes',
     anamnesisSummary: buildAnamnesisText('Lombalgie non spécifique', state, 'non_specific'),
   }
 }
 
-function buildAnamnesisText(
-  primary: string,
-  state: TreeState,
-  type: 'radicular' | 'inflammatory' | 'mechanical' | 'non_specific'
-): string {
+function buildAnamnesisText(primary: string, state: TreeState, type: string): string {
   const lines: string[] = []
-  lines.push(`=== Arbre décisionnel lombalgie ===`)
+  lines.push('=== Arbre décisionnel lombalgie ===')
   lines.push(`Suspicion diagnostique : ${primary}`)
   lines.push('')
+
+  if (state.q_duration === 'acute') {
+    lines.push('Durée : aiguë (< 8 semaines).')
+    lines.push('Recommandations : rester actif, chaleur locale, AINS, acupuncture / dry needling / TENS si indiqué.')
+  }
 
   if (type === 'radicular') {
     const details: string[] = []
@@ -329,9 +426,11 @@ function buildAnamnesisText(
     lines.push('Irradiation descendant sous le genou, douleur de jambe > douleur de dos.')
   }
 
-  if (type === 'inflammatory') {
-    lines.push(`${state.q9_criteria} critères inflammatoires présents (seuil ≥ 4).`)
+  if (type === 'spa') {
+    lines.push(`${state.q9_criteria} critères inflammatoires présents.`)
     if (state.q9_extra_articular) lines.push('Manifestation(s) extra-articulaire(s) associée(s).')
+    if (state.q9_spa_sacroiliitis === 'yes') lines.push('Sacroiliite radiographique présente → Spondylarthrite ankylosante.')
+    if (state.q9_spa_hlab27 === 'yes') lines.push('HLA-B27 positif.')
   }
 
   if (type === 'mechanical') {
@@ -346,8 +445,26 @@ function buildAnamnesisText(
     if (state.q11_centralization === 'yes') lines.push('Phénomène de centralisation positif (McKenzie).')
   }
 
+  if (type === 'non_specific') {
+    lines.push('Lombalgie non spécifique (strain/sprain). Diagnostic d\'exclusion.')
+    lines.push('Aucune imagerie recommandée en routine.')
+  }
+
   lines.push('')
-  lines.push('Drapeaux rouges : éliminés (syndrome queue de cheval, fracture, néoplasie, infection, AAA).')
+  const flagsItems = []
+  if (state.q1_cauda_equina === 'no') flagsItems.push('queue de cheval')
+  if (state.q2_fracture === 'no') flagsItems.push('fracture')
+  if (['alert', 'watch', 'no'].includes(state.q3_neoplasia || '') && state.q3_neoplasia !== 'alert') flagsItems.push('néoplasie')
+  if (state.q4_infection === 'no') flagsItems.push('infection')
+  if (state.q5_aaa === 'no') flagsItems.push('AAA')
+  if (flagsItems.length) lines.push(`Drapeaux rouges éliminés : ${flagsItems.join(', ')}.`)
+
+  if (state.q_yellow_flags.length > 0) {
+    lines.push(`Drapeaux jaunes présents : ${state.q_yellow_flags.join(', ')}.`)
+  }
+  if (state.q_chronic_risk === 'yes') {
+    lines.push('Facteurs de risque de chronicisation identifiés → plan de traitement ciblé recommandé.')
+  }
 
   return lines.join('\n')
 }
@@ -360,26 +477,19 @@ interface LowBackPainTreeProps {
   onApply: (anamnesis: string) => void
 }
 
-const STEP_LABELS: Partial<Record<Step, string>> = {
-  q1: 'Étape 1 – Drapeaux rouges',
-  q2: 'Étape 1 – Drapeaux rouges',
-  q3: 'Étape 1 – Drapeaux rouges',
-  q4: 'Étape 1 – Drapeaux rouges',
-  q5: 'Étape 1 – Drapeaux rouges',
-  q6: 'Étape 2 – Caractérisation',
-  q7: 'Étape 3A – Causes radiculaires',
-  q8: 'Étape 3A – Localisation neurologique',
-  q9: 'Étape 3B – Mécanique / Inflammatoire',
-  q10: 'Étape 3B – Localisation',
-  q11: 'Étape 3B – Discogénique',
-  q12: 'Étape 3B – Facettaire',
-  q13: 'Étape 3B – Sacro-iliaque',
-  q14: 'Étape 3B – Non spécifique',
-  result: 'Résultat',
+const STEP_PROGRESS: Partial<Record<Step, number>> = {
+  duration: 2,
+  q1: 8, q2: 16, q3: 24, q4: 32, q5: 40,
+  q6: 48,
+  q7: 56, q8: 64,
+  q9: 56, q9_spa_sacroiliitis: 62, q9_spa_hlab27: 68, q9_spa_clinical: 74, q9_spa_mri: 80,
+  q10: 62, q11: 70, q12: 70, q13: 70,
+  q14_yellow_flags: 80, q_chronic_risk: 88,
+  result: 100,
 }
 
 export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps) {
-  const [step, setStep] = useState<Step>('q1')
+  const [step, setStep] = useState<Step>('duration')
   const [state, setState] = useState<TreeState>(initialState)
   const [history, setHistory] = useState<Step[]>([])
   const [q2Checks, setQ2Checks] = useState<string[]>([])
@@ -387,18 +497,13 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
   const [q4Checks, setQ4Checks] = useState<string[]>([])
   const [q9Checks, setQ9Checks] = useState<string[]>([])
   const [q13Checks, setQ13Checks] = useState<string[]>([])
+  const [yellowFlagChecks, setYellowFlagChecks] = useState<string[]>([])
   const [result, setResult] = useState<DiagnosisResult | null>(null)
 
   const reset = () => {
-    setStep('q1')
-    setState(initialState)
-    setHistory([])
-    setQ2Checks([])
-    setQ3Checks([])
-    setQ4Checks([])
-    setQ9Checks([])
-    setQ13Checks([])
-    setResult(null)
+    setStep('duration'); setState(initialState); setHistory([])
+    setQ2Checks([]); setQ3Checks([]); setQ4Checks([]); setQ9Checks([])
+    setQ13Checks([]); setYellowFlagChecks([]); setResult(null)
   }
 
   const goBack = () => {
@@ -422,10 +527,37 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
     setStep('result')
   }
 
-  // ── Steps ──────────────────────────────────────────────────────────────────
+  // Helper: go to yellow flags or result based on whether there's anything to assess
+  const goToYellowFlags = (updates?: Partial<TreeState>) => {
+    setHistory([...history, step])
+    if (updates) setState((s) => ({ ...s, ...updates }))
+    setStep('q14_yellow_flags')
+  }
 
   const renderStep = () => {
     switch (step) {
+
+      // ── Duration (AAFP entry point) ───────────────────────────────────────
+      case 'duration':
+        return (
+          <StepWrapper
+            label="Durée de la douleur"
+            badge="Point de départ"
+            badgeVariant="secondary"
+            question="Depuis combien de temps dure la lombalgie ?"
+            hint="L'algorithme AAFP 2025 distingue la phase aiguë (< 8 semaines, traitement conservateur en première ligne) de la phase subaiguë/chronique (≥ 8 semaines, bilan plus approfondi)."
+          >
+            <RadioGroup
+              value={state.q_duration}
+              onChange={(v) => push('q1', { q_duration: v })}
+              options={[
+                { label: 'Moins de 8 semaines (aiguë)', value: 'acute', description: 'Traitement conservateur recommandé en première intention' },
+                { label: '8 semaines ou plus (subaiguë / chronique)', value: 'subacute', description: 'Bilan diagnostique approfondi recommandé' },
+              ]}
+            />
+          </StepWrapper>
+        )
+
       // ── Q1 : Cauda equina ─────────────────────────────────────────────────
       case 'q1':
         return (
@@ -433,8 +565,8 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
             label="Q1 — Syndrome de la queue de cheval"
             badge="Drapeau rouge 1/5"
             badgeVariant="destructive"
-            question="Le patient présente-t-il l'un des signes suivants ?"
-            hint="Difficultés à uriner / rétention urinaire récente · Incontinence urinaire ou fécale · Engourdissement périnéal (zone en selle) · Faiblesse progressive des deux jambes"
+            question="Le patient présente-t-il ≥ 1 des signes suivants ?"
+            hint="Difficultés à uriner ou rétention urinaire · Incontinence urinaire ou fécale · Engourdissement périnéal (zone en selle) · Faiblesse progressive des deux jambes"
           >
             <RadioGroup
               value={state.q1_cauda_equina}
@@ -444,13 +576,12 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
               }}
               options={[
                 { label: 'Non — aucun de ces signes', value: 'no' },
-                { label: 'Oui — ≥ 1 signe présent', value: 'yes', description: 'Suspicion de syndrome de la queue de cheval' },
+                { label: 'Oui — ≥ 1 signe présent', value: 'yes', description: 'Urgence chirurgicale' },
               ]}
             />
           </StepWrapper>
         )
 
-      // ── Alert cauda equina ────────────────────────────────────────────────
       case 'alert_cauda_equina':
         return (
           <AlertStep
@@ -458,10 +589,11 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
             items={[
               'IRM urgente',
               'Consultation chirurgicale immédiate',
+              'La rétention urinaire aiguë, l\'anesthésie en selle et la perte du tonus anal sont les signes les plus systématiquement retrouvés',
               'Ne pas retarder la prise en charge',
             ]}
             onContinue={() => push('q2')}
-            continueLabel="Continuer l'évaluation"
+            continueLabel="Continuer l'évaluation complète"
           />
         )
 
@@ -473,6 +605,7 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
             badge="Drapeau rouge 2/5"
             badgeVariant="destructive"
             question="Cochez les facteurs de risque présents :"
+            hint="Le traumatisme associé à un déficit neurologique est le signe le plus spécifique (LR+ = 31.1). Risque ≥ 42 % si > 75 ans + ≥ 2 facteurs."
           >
             <CheckboxGroup
               options={[
@@ -481,26 +614,19 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
                 { label: 'Âge > 70 ans', value: 'age70' },
                 { label: 'Corticoïdes au long cours', value: 'steroids' },
                 { label: 'Ostéoporose connue', value: 'osteo' },
-                { label: 'Douleur médiane très localisée sur la colonne', value: 'medial_pain' },
+                { label: 'Douleur médiane très localisée sur les épineuses', value: 'medial_pain' },
               ]}
               selected={q2Checks}
-              onChange={(vals) => setQ2Checks(vals)}
+              onChange={setQ2Checks}
             />
-            <Button
-              className="w-full mt-3"
-              onClick={() => {
-                const trauma = q2Checks.includes('trauma')
-                const neuro = q2Checks.includes('neuro')
-                const factors = q2Checks.length
-                if (trauma && neuro) {
-                  push('alert_fracture', { q2_fracture: 'yes', q2_trauma_neuro: true, q2_factors: factors })
-                } else if (factors >= 2) {
-                  push('alert_fracture', { q2_fracture: 'yes', q2_trauma_neuro: false, q2_factors: factors })
-                } else {
-                  push('q3', { q2_fracture: 'no', q2_factors: factors })
-                }
-              }}
-            >
+            <Button className="w-full mt-3" onClick={() => {
+              const trauma = q2Checks.includes('trauma')
+              const neuro = q2Checks.includes('neuro')
+              const factors = q2Checks.length
+              if (trauma && neuro) push('alert_fracture', { q2_fracture: 'yes', q2_trauma_neuro: true, q2_factors: factors })
+              else if (factors >= 2) push('alert_fracture', { q2_fracture: 'yes', q2_trauma_neuro: false, q2_factors: factors })
+              else push('q3', { q2_fracture: 'no', q2_factors: factors })
+            }}>
               Valider et continuer
             </Button>
           </StepWrapper>
@@ -510,11 +636,9 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
         return (
           <AlertStep
             title="⚠️ Suspicion de fracture vertébrale"
-            items={
-              state.q2_trauma_neuro
-                ? ['Radiographies lombo-sacrées AP/latéral', 'IRM ou TDM urgent (trauma + déficit neuro)', 'LR+ = 31.1 si trauma + déficit neurologique']
-                : ['Radiographies lombo-sacrées AP/latéral', `${state.q2_factors} facteurs de risque identifiés`, 'Risque ≥ 42 % si > 75 ans + ≥ 2 facteurs']
-            }
+            items={state.q2_trauma_neuro
+              ? ['Radiographies lombo-sacrées AP/latéral', 'IRM ou TDM urgent — trauma + déficit neurologique (LR+ = 31.1)']
+              : ['Radiographies lombo-sacrées AP/latéral', `${state.q2_factors} facteurs de risque identifiés`, 'Risque ≥ 42 % si > 75 ans + ≥ 2 facteurs associés']}
             onContinue={() => push('q3')}
             continueLabel="Continuer l'évaluation"
           />
@@ -528,30 +652,33 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
             badge="Drapeau rouge 3/5"
             badgeVariant="destructive"
             question="Cochez les facteurs de risque présents :"
-            hint="Un drapeau rouge isolé a une très faible spécificité. C'est la combinaison qui est informative."
+            hint="⚠️ Un drapeau rouge isolé (ex. douleur nocturne seule) a une très faible spécificité (faux positif > 96 %). C'est la combinaison qui est informative. Un antécédent de cancer SEUL sans autre élément clinique ne suffit pas à déclencher un bilan."
           >
             <CheckboxGroup
               options={[
                 { label: 'Antécédent de cancer', value: 'cancer_hx' },
-                { label: 'Perte de poids inexpliquée', value: 'weight_loss' },
-                { label: 'Douleur principalement nocturne (réveille la nuit)', value: 'night_pain' },
-                { label: '> 50 ans avec facteurs de risque de cancer', value: 'age50' },
-                { label: 'Douleur persistante / aggravée sous traitement > 1 mois', value: 'persistent' },
+                { label: 'Perte de poids inexpliquée récente', value: 'weight_loss' },
+                { label: 'Douleur nocturne (réveille en 2e partie de nuit)', value: 'night_pain' },
+                { label: '> 50 ans avec facteurs de risque de cancer (tabac, expositions)', value: 'age50' },
+                { label: 'Douleur persistante / aggravée malgré traitement > 1 mois', value: 'persistent' },
               ]}
               selected={q3Checks}
               onChange={setQ3Checks}
             />
-            <Button
-              className="w-full mt-3"
-              onClick={() => {
-                const factors = q3Checks.length
-                if (q3Checks.includes('cancer_hx') || factors >= 2) {
-                  push('alert_neoplasia', { q3_neoplasia: 'yes', q3_factors: factors })
-                } else {
-                  push('q4', { q3_neoplasia: 'no', q3_factors: factors })
-                }
-              }}
-            >
+            <Button className="w-full mt-3" onClick={() => {
+              const hasCancerHx = q3Checks.includes('cancer_hx')
+              const otherFactors = q3Checks.filter(v => v !== 'cancer_hx').length
+              const totalFactors = q3Checks.length
+              // Alert: cancer_hx + ≥1 autre facteur, OU ≥2 facteurs sans antécédent de cancer
+              if ((hasCancerHx && otherFactors >= 1) || (!hasCancerHx && totalFactors >= 2)) {
+                push('alert_neoplasia', { q3_neoplasia: 'alert', q3_factors: totalFactors, q3_has_cancer_hx: hasCancerHx })
+              } else if (hasCancerHx && otherFactors === 0) {
+                // Antécédent seul → vigilance mais pas d'alerte immédiate
+                push('alert_neoplasia_watch', { q3_neoplasia: 'watch', q3_factors: 1, q3_has_cancer_hx: true })
+              } else {
+                push('q4', { q3_neoplasia: 'no', q3_factors: totalFactors, q3_has_cancer_hx: hasCancerHx })
+              }
+            }}>
               Valider et continuer
             </Button>
           </StepWrapper>
@@ -562,10 +689,26 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
           <AlertStep
             title="⚠️ Suspicion de néoplasie / métastase"
             items={[
-              state.q3_factors >= 1 && q3Checks.includes('cancer_hx') ? 'LR+ = 27.9 si antécédent de cancer' : `${state.q3_factors} facteurs de risque identifiés`,
+              state.q3_has_cancer_hx ? 'Antécédent de cancer + ≥ 1 élément clinique → LR+ = 27.9' : `${state.q3_factors} facteurs de risque combinés`,
               'IRM lombaire recommandée',
               'Bilan biologique : NFS, VS, CRP',
-            ].filter(Boolean) as string[]}
+              'Référer en oncologie si suspicion confirmée',
+            ]}
+            onContinue={() => push('q4')}
+            continueLabel="Continuer l'évaluation"
+          />
+        )
+
+      case 'alert_neoplasia_watch':
+        return (
+          <AlertStep
+            variant="warning"
+            title="🔶 Antécédent de cancer isolé — surveillance rapprochée"
+            items={[
+              'Un antécédent de cancer seul, sans autre élément clinique, a une spécificité insuffisante pour justifier un bilan immédiat',
+              'Surveillance clinique rapprochée recommandée',
+              'Reconsidérer le bilan si apparition de douleur nocturne, perte de poids ou aggravation sous traitement',
+            ]}
             onContinue={() => push('q4')}
             continueLabel="Continuer l'évaluation"
           />
@@ -579,29 +722,26 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
             badge="Drapeau rouge 4/5"
             badgeVariant="destructive"
             question="Cochez les facteurs de risque présents :"
+            hint="LR+ = 13.7 si usage de drogues IV + autre site d'infection · LR+ = 15.7 si cathéter vasculaire. La fièvre seule est insuffisante."
           >
             <CheckboxGroup
               options={[
                 { label: 'Fièvre', value: 'fever' },
-                { label: 'Immunodépression (VIH, immunosuppresseurs)', value: 'immuno' },
+                { label: 'Immunodépression (VIH, corticoïdes, immunosuppresseurs)', value: 'immuno' },
                 { label: 'Usage de drogues IV', value: 'iv_drugs' },
-                { label: 'Cathéter vasculaire ou infection récente', value: 'catheter' },
-                { label: 'Douleur constante même au repos', value: 'rest_pain' },
+                { label: 'Cathéter vasculaire ou infection bactérienne récente', value: 'catheter' },
+                { label: 'Douleur constante même au repos (pas de position antalgique)', value: 'rest_pain' },
               ]}
               selected={q4Checks}
               onChange={setQ4Checks}
             />
-            <Button
-              className="w-full mt-3"
-              onClick={() => {
-                const factors = q4Checks.length
-                if (q4Checks.includes('fever') && factors >= 2) {
-                  push('alert_infection', { q4_infection: 'yes', q4_factors: factors })
-                } else {
-                  push('q5', { q4_infection: 'no', q4_factors: factors })
-                }
-              }}
-            >
+            <Button className="w-full mt-3" onClick={() => {
+              const factors = q4Checks.length
+              const hasFever = q4Checks.includes('fever')
+              if (hasFever && factors >= 2) push('alert_infection', { q4_infection: 'yes', q4_factors: factors })
+              else if (!hasFever && (q4Checks.includes('iv_drugs') || q4Checks.includes('catheter')) && factors >= 2) push('alert_infection', { q4_infection: 'yes', q4_factors: factors })
+              else push('q5', { q4_infection: 'no', q4_factors: factors })
+            }}>
               Valider et continuer
             </Button>
           </StepWrapper>
@@ -610,12 +750,12 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
       case 'alert_infection':
         return (
           <AlertStep
-            title="⚠️ Suspicion d'infection spinale"
+            title="⚠️ Suspicion d'infection spinale (spondylodiscite)"
             items={[
-              q4Checks.includes('iv_drugs') ? 'LR+ = 13.7 si usage de drogues IV + autre site d\'infection' : '',
-              q4Checks.includes('catheter') ? 'LR+ = 15.7 si cathéter vasculaire' : '',
+              q4Checks.includes('iv_drugs') ? 'Usage de drogues IV + facteur associé : LR+ = 13.7' : '',
+              q4Checks.includes('catheter') ? 'Cathéter vasculaire : LR+ = 15.7' : '',
               'IRM urgente',
-              'Bilan biologique : NFS, VS, CRP',
+              'Bilan biologique : NFS, VS, CRP, hémocultures',
               'Consultation infectiologie',
             ].filter(Boolean) as string[]}
             onContinue={() => push('q5')}
@@ -630,8 +770,8 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
             label="Q5 — Anévrisme de l'aorte abdominale"
             badge="Drapeau rouge 5/5"
             badgeVariant="destructive"
-            question="Le patient présente-t-il ≥ 2 des facteurs suivants ?"
-            hint="Homme > 50 ans · Tabagisme actif ou sevré · Gêne ou douleur abdominale associée"
+            question="Le profil vasculaire est-il évocateur ?"
+            hint="Population à risque : homme > 50 ans, tabagisme actif ou sevré. Association à une douleur abdominale pulsatile."
           >
             <RadioGroup
               value={state.q5_aaa}
@@ -641,7 +781,7 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
               }}
               options={[
                 { label: 'Non — profil non évocateur', value: 'no' },
-                { label: 'Oui — ≥ 2 facteurs présents', value: 'yes', description: 'Palpation abdominale à effectuer' },
+                { label: 'Oui — homme > 50 ans fumeur + douleur abdominale', value: 'yes', description: 'Palpation abdominale à effectuer' },
               ]}
             />
           </StepWrapper>
@@ -652,9 +792,9 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
           <AlertStep
             title="⚠️ Suspicion d'anévrisme de l'aorte abdominale"
             items={[
-              'Palpation abdominale : recherche masse pulsatile',
-              'Échographie abdominale ou TDM',
-              'Consultation vasculaire urgente si masse pulsatile',
+              'Palpation abdominale : rechercher masse pulsatile',
+              'Échographie abdominale ou TDM si doute',
+              'Consultation vasculaire urgente si masse pulsatile identifiée',
             ]}
             onContinue={() => push('q6')}
             continueLabel="Continuer l'évaluation"
@@ -666,27 +806,29 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
         return (
           <StepWrapper
             label="Q6 — Caractérisation de la douleur"
-            badge="Étape 2"
+            badge="Étape 2 — Nœud principal"
             badgeVariant="secondary"
             question="La douleur irradie-t-elle dans la jambe ?"
+            hint="C'est le nœud de branchement principal : voie radiculaire (hernie/sténose) vs voie axiale (mécanique/inflammatoire)."
           >
             <div className="space-y-3">
               <RadioGroup
                 value={state.q6_radiation}
                 onChange={(v) => setState((s) => ({ ...s, q6_radiation: v }))}
                 options={[
-                  { label: 'Non — douleur principalement dorsale / fessière', value: 'no', description: '→ Voie mécanique / inflammatoire' },
+                  { label: 'Non — douleur axiale (dos, fesse, hanche uniquement)', value: 'no', description: '→ Voie mécanique / inflammatoire' },
                   { label: 'Oui — douleur descendant dans la jambe', value: 'yes' },
                 ]}
               />
               {state.q6_radiation === 'yes' && (
-                <div className="space-y-3 pl-2 border-l-2 border-primary/30">
+                <div className="space-y-3 pl-3 border-l-2 border-primary/30">
+                  <p className="text-sm font-medium text-muted-foreground">Précisez :</p>
                   <RadioGroup
                     value={state.q6_below_knee}
                     onChange={(v) => setState((s) => ({ ...s, q6_below_knee: v }))}
                     options={[
-                      { label: 'Descend sous le genou', value: 'yes' },
-                      { label: 'S\'arrête à la cuisse / fesse', value: 'no' },
+                      { label: 'Descend sous le genou (distribution dermatomale)', value: 'yes' },
+                      { label: 'S\'arrête à la cuisse ou à la fesse', value: 'no', description: '→ Irradiation pseudo-radiculaire → voie axiale' },
                     ]}
                   />
                   {state.q6_below_knee !== null && (
@@ -694,8 +836,8 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
                       value={state.q6_leg_worse}
                       onChange={(v) => setState((s) => ({ ...s, q6_leg_worse: v }))}
                       options={[
-                        { label: 'Douleur de jambe > douleur de dos', value: 'yes' },
-                        { label: 'Douleur de dos ≥ douleur de jambe', value: 'no' },
+                        { label: 'Douleur de jambe > douleur de dos', value: 'yes', description: 'Critère clé pour la radiculopathie vraie' },
+                        { label: 'Douleur de dos ≥ douleur de jambe', value: 'no', description: '→ Voie axiale même avec irradiation' },
                       ]}
                     />
                   )}
@@ -725,26 +867,25 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
             label="Q7 — Hernie discale vs Sténose spinale"
             badge="Voie radiculaire"
             badgeVariant="default"
-            question="Répondez aux questions suivantes :"
+            question="Répondez aux questions suivantes (toutes) :"
+            hint="Hernie : pic 30-50 ans. Sténose : > 60 ans. Ces deux pathologies représentent les causes radiculaires les plus fréquentes."
           >
             <div className="space-y-3">
               {[
-                { key: 'q7_age_under60', q: 'Patient âgé de moins de 60 ans ?', note: 'Hernie : pic 30-50 ans · Sténose : > 60 ans' },
+                { key: 'q7_age_under60', q: 'Patient âgé de moins de 60 ans ?', note: 'Hernie : OUI · Sténose : NON (> 60 ans)' },
                 { key: 'q7_unilateral', q: 'Douleur unilatérale ?', note: 'Hernie : unilatérale · Sténose : souvent bilatérale' },
                 { key: 'q7_worse_sitting', q: 'Douleur aggravée en position assise ?', note: 'Hernie : OUI · Sténose : soulagée assis' },
-                { key: 'q7_worse_walking', q: 'Douleur aggravée à la marche et station debout prolongée ?', note: 'Claudication neurogène → sténose' },
-                { key: 'q7_shopping_cart', q: 'Soulagée en se penchant en avant (appui sur caddie) ?', note: '"Shopping cart sign" — sténose Sn 52-70 % Sp 55-83 %' },
+                { key: 'q7_worse_walking', q: 'Douleur aggravée à la marche / station debout prolongée ?', note: 'Claudication neurogène → sténose' },
+                { key: 'q7_shopping_cart', q: 'Soulagée en se penchant en avant (appui caddie) ?', note: '"Shopping cart sign" — Sn 52-70 %, Sp 55-83 % → sténose' },
                 { key: 'q7_sudden_onset', q: 'Début brutal après un effort ?', note: 'Hernie : souvent · Sténose : installation progressive' },
-                { key: 'q7_cough_sneeze', q: 'Douleur augmentée à la toux / éternuement / poussée ?', note: 'Hernie — OR 3.2' },
+                { key: 'q7_cough_sneeze', q: 'Douleur augmentée à la toux / éternuement / poussée ?', note: 'Hernie → OR 3.2' },
               ].map(({ key, q, note }) => (
                 <div key={key} className="space-y-1">
                   <p className="text-sm font-medium">{q}</p>
                   <p className="text-xs text-muted-foreground">{note}</p>
                   <div className="flex gap-2">
                     {(['yes', 'no'] as const).map((v) => (
-                      <button
-                        key={v}
-                        type="button"
+                      <button key={v} type="button"
                         onClick={() => setState((s) => ({ ...s, [key]: v }))}
                         className={`flex-1 py-1.5 rounded-md border text-sm font-medium transition-colors ${
                           (state as any)[key] === v ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent/50'
@@ -762,7 +903,7 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
               disabled={[state.q7_age_under60, state.q7_unilateral, state.q7_worse_sitting, state.q7_worse_walking, state.q7_shopping_cart, state.q7_sudden_onset, state.q7_cough_sneeze].some((v) => v === null)}
               onClick={() => push('q8')}
             >
-              Continuer vers localisation neurologique
+              Continuer → Localisation neurologique
             </Button>
           </StepWrapper>
         )
@@ -786,28 +927,17 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
                     <th className="text-left p-2 font-medium">Réflexe</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
-                  <tr>
-                    <td className="p-2 font-semibold text-primary">L4</td>
-                    <td className="p-2">Face antéro-médiale jambe</td>
-                    <td className="p-2">Dorsiflexion cheville, extension genou</td>
-                    <td className="p-2">Rotulien ↓</td>
-                  </tr>
-                  <tr className="bg-muted/20">
-                    <td className="p-2 font-semibold text-primary">L5</td>
-                    <td className="p-2">Face latérale jambe, dos du pied, gros orteil</td>
-                    <td className="p-2">Dorsiflexion cheville, extension orteils</td>
-                    <td className="p-2">Ischio-jambier médial (inconstant)</td>
-                  </tr>
-                  <tr>
-                    <td className="p-2 font-semibold text-primary">S1</td>
-                    <td className="p-2">Face post. jambe, plante, 5e orteil</td>
-                    <td className="p-2">Flexion plantaire, flexion orteils</td>
-                    <td className="p-2">Achilléen ↓</td>
-                  </tr>
+                <tbody className="divide-y text-xs">
+                  <tr><td className="p-2 font-semibold text-primary">L2</td><td className="p-2">Face ant. cuisse (inguinal → genou)</td><td className="p-2">Flexion hanche</td><td className="p-2">—</td></tr>
+                  <tr className="bg-muted/20"><td className="p-2 font-semibold text-primary">L3</td><td className="p-2">Face ant.-médiale cuisse → genou</td><td className="p-2">Extension genou</td><td className="p-2">Rotulien ↓ (partiel)</td></tr>
+                  <tr><td className="p-2 font-semibold text-primary">L4</td><td className="p-2">Face ant.-médiale jambe</td><td className="p-2">Dorsiflexion cheville, extension genou</td><td className="p-2">Rotulien ↓</td></tr>
+                  <tr className="bg-muted/20"><td className="p-2 font-semibold text-primary">L5</td><td className="p-2">Face latérale jambe, dos du pied, gros orteil</td><td className="p-2">Dorsiflexion cheville, extension orteils, éversion</td><td className="p-2">Ischio-jambier médial (inconstant)</td></tr>
+                  <tr><td className="p-2 font-semibold text-primary">S1</td><td className="p-2">Face post. jambe, plante, 5e orteil</td><td className="p-2">Flexion plantaire, flexion orteils</td><td className="p-2">Achilléen ↓</td></tr>
+                  <tr className="bg-muted/20"><td className="p-2 font-semibold text-primary">S2-S3</td><td className="p-2">Face post. cuisse, périnée</td><td className="p-2">Sphincters (si atteints)</td><td className="p-2">—</td></tr>
                 </tbody>
               </table>
             </div>
+            <p className="text-xs text-muted-foreground mt-2">Test clinique clé : Femoral stretch test pour L2-L4 (patient en décubitus ventral, flexion passive du genou).</p>
             <Button className="w-full mt-4" onClick={() => showResult()}>
               Voir le résultat
             </Button>
@@ -822,48 +952,154 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
             badge="Voie axiale"
             badgeVariant="default"
             question="Cochez les critères de douleur inflammatoire présents :"
+            hint="Seuil : ≥ 4 critères = profil inflammatoire évocateur de spondyloarthrite. Une manifestation extra-articulaire associée renforce la suspicion même en dessous du seuil."
           >
-            <CheckboxGroup
-              options={[
-                { label: 'Début < 45 ans', value: 'onset_45' },
-                { label: 'Apparition progressive / insidieuse', value: 'insidious' },
-                { label: 'Raideur matinale > 30 minutes', value: 'morning_stiff' },
-                { label: 'Amélioré par l\'exercice, pas par le repos', value: 'exercise_better' },
-                { label: 'Douleurs fessières alternantes', value: 'alternating_buttock' },
-                { label: 'Réveils en 2e partie de nuit', value: 'night_waking' },
-              ]}
-              selected={q9Checks}
-              onChange={setQ9Checks}
-            />
-            <div className="mt-3">
-              <p className="text-sm font-medium mb-2">Manifestations extra-articulaires :</p>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Critères ASAS de douleur inflammatoire</p>
               <CheckboxGroup
                 options={[
-                  { label: 'Psoriasis, uvéite, MICI, dactylite', value: 'extra_articular' },
+                  { label: 'Début avant 45 ans', value: 'onset_45' },
+                  { label: 'Début progressif / insidieux', value: 'insidious' },
+                  { label: 'Raideur matinale > 30 minutes', value: 'morning_stiff' },
+                  { label: 'Améliorée par l\'exercice, non améliorée par le repos', value: 'exercise_better' },
+                  { label: 'Douleurs fessières alternantes (droite puis gauche)', value: 'alternating_buttock' },
+                  { label: 'Réveils en 2e partie de nuit (pas en début de nuit)', value: 'night_waking' },
+                ]}
+                selected={q9Checks}
+                onChange={setQ9Checks}
+              />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mt-3">Manifestations extra-articulaires</p>
+              <CheckboxGroup
+                options={[
+                  { label: 'Psoriasis', value: 'psoriasis' },
+                  { label: 'Uvéite', value: 'uveitis' },
+                  { label: 'Maladie inflammatoire intestinale (MICI)', value: 'ibd' },
+                  { label: 'Dactylite', value: 'dactylitis' },
+                  { label: 'Enthésite (talon, fascia plantaire)', value: 'enthesitis' },
                   { label: 'Antécédents familiaux de spondylarthrite', value: 'family_hx' },
                 ]}
                 selected={q9Checks}
                 onChange={setQ9Checks}
               />
             </div>
-            <Button
-              className="w-full mt-3"
-              onClick={() => {
-                const inflammCriteria = q9Checks.filter((v) =>
-                  ['onset_45', 'insidious', 'morning_stiff', 'exercise_better', 'alternating_buttock', 'night_waking'].includes(v)
-                ).length
-                const extraArticular = q9Checks.includes('extra_articular') || q9Checks.includes('family_hx')
-                const updates = { q9_criteria: inflammCriteria, q9_extra_articular: extraArticular }
-                if (inflammCriteria >= 4 || extraArticular) {
-                  showResult({ ...updates, q9_inflammatory: 'yes' })
-                } else {
-                  push('q10', { ...updates, q9_inflammatory: 'no' })
-                }
-              }}
-            >
+            <Button className="w-full mt-3" onClick={() => {
+              const inflammCriteria = ['onset_45','insidious','morning_stiff','exercise_better','alternating_buttock','night_waking'].filter(v => q9Checks.includes(v)).length
+              const extraArticular = ['psoriasis','uveitis','ibd','dactylitis','enthesitis','family_hx'].some(v => q9Checks.includes(v))
+              const updates = { q9_criteria: inflammCriteria, q9_extra_articular: extraArticular }
+              if (inflammCriteria >= 4 || extraArticular) {
+                push('q9_spa_sacroiliitis', { ...updates, q9_inflammatory: 'yes' })
+              } else {
+                push('q10', { ...updates, q9_inflammatory: 'no' })
+              }
+            }}>
               Continuer
             </Button>
           </StepWrapper>
+        )
+
+      // ── SpA algorithm (NEJM) ──────────────────────────────────────────────
+      case 'q9_spa_sacroiliitis':
+        return (
+          <StepWrapper
+            label="SpA — Sacroiliite radiographique"
+            badge="Algorithme SpA (NEJM)"
+            badgeVariant="secondary"
+            question="Y a-t-il une sacroiliite radiographique définie sur les radiographies du bassin ?"
+            hint="Sacroiliite radiographique définie = stade ≥ 2 bilatéral ou stade 3-4 unilatéral (critères de New York). Contexte : lombalgies > 3 mois, âge < 45 ans."
+          >
+            <RadioGroup
+              value={state.q9_spa_sacroiliitis}
+              onChange={(v) => {
+                if (v === 'yes') showResult({ q9_spa_sacroiliitis: 'yes' })
+                else {
+                  // Route based on criteria count
+                  const criteria = state.q9_criteria
+                  if (criteria >= 4) push('q9_spa_clinical', { q9_spa_sacroiliitis: 'no' })
+                  else push('q9_spa_hlab27', { q9_spa_sacroiliitis: 'no' })
+                }
+              }}
+              options={[
+                { label: 'Oui — sacroiliite radiographique présente', value: 'yes', description: '→ Spondylarthrite ankylosante (critères de New York modifiés)' },
+                { label: 'Non / Non évaluée', value: 'no', description: '→ Évaluer les features SpA et le HLA-B27' },
+              ]}
+            />
+          </StepWrapper>
+        )
+
+      case 'q9_spa_hlab27':
+        return (
+          <StepWrapper
+            label="SpA — HLA-B27"
+            badge="Algorithme SpA (NEJM)"
+            badgeVariant="secondary"
+            question="Le HLA-B27 est-il positif ?"
+            hint={`${state.q9_criteria} critère(s) inflammatoire(s) identifié(s). ${state.q9_criteria >= 2 ? 'Avec HLA-B27 positif : évaluer si le tableau clinique est convaincant.' : 'Avec 0-1 critère : HLA-B27 négatif oriente vers d\'autres diagnostics.'}`}
+          >
+            <RadioGroup
+              value={state.q9_spa_hlab27}
+              onChange={(v) => {
+                if (v === 'no' && state.q9_criteria <= 1) {
+                  // 0-1 criteria + HLA-B27 négatif → autres diagnostics
+                  showResult({ q9_spa_hlab27: 'no', q9_spa_clinical_picture: 'no' })
+                } else if (v === 'yes' && state.q9_criteria >= 2) {
+                  push('q9_spa_clinical', { q9_spa_hlab27: 'yes' })
+                } else {
+                  // HLA-B27 positif avec peu de critères, ou négatif avec 2-3 → IRM
+                  push('q9_spa_mri', { q9_spa_hlab27: v })
+                }
+              }}
+              options={[
+                { label: 'Positif', value: 'yes' },
+                { label: 'Négatif', value: 'no' },
+                { label: 'Non réalisé', value: 'unknown', description: '→ À prescrire' },
+              ]}
+            />
+            {state.q9_spa_hlab27 === 'unknown' && (
+              <Button className="w-full mt-3" onClick={() => push('q9_spa_mri', { q9_spa_hlab27: 'unknown' })}>
+                Continuer sans résultat HLA-B27
+              </Button>
+            )}
+          </StepWrapper>
+        )
+
+      case 'q9_spa_clinical':
+        return (
+          <StepWrapper
+            label="SpA — Tableau clinique convaincant ?"
+            badge="Algorithme SpA (NEJM)"
+            badgeVariant="secondary"
+            question="Le tableau clinique global est-il convaincant pour une spondyloarthrite axiale ?"
+            hint="Tenez compte de l'ensemble : nombre de critères inflammatoires, manifestations extra-articulaires, réponse aux AINS, histoire familiale, âge de début."
+          >
+            <RadioGroup
+              value={state.q9_spa_clinical_picture}
+              onChange={(v) => {
+                if (v === 'yes') showResult({ q9_spa_clinical_picture: 'yes' })
+                else push('q9_spa_mri', { q9_spa_clinical_picture: 'no' })
+              }}
+              options={[
+                { label: 'Oui — tableau clinique convaincant', value: 'yes', description: '→ Spondyloarthrite axiale (non radiographique)' },
+                { label: 'Non — tableau peu convaincant', value: 'no', description: '→ IRM sacro-iliaque pour confirmer ou infirmer' },
+              ]}
+            />
+          </StepWrapper>
+        )
+
+      case 'q9_spa_mri':
+        return (
+          <AlertStep
+            variant="warning"
+            title="🔶 IRM sacro-iliaque recommandée"
+            items={[
+              'L\'IRM est l\'examen de référence pour diagnostiquer la SpA non radiographique (critères ASAS)',
+              state.q9_spa_hlab27 === 'yes' ? 'HLA-B27 positif : probabilité pré-test élevée' : 'HLA-B27 négatif ou non réalisé : l\'IRM est l\'étape décisive',
+              'IRM positive (inflammation active SI) → Spondyloarthrite axiale confirmée',
+              'IRM négative → Reconsidérer d\'autres diagnostics',
+              'Référer en rhumatologie',
+            ]}
+            onContinue={() => showResult()}
+            continueLabel="Voir le résultat"
+          />
         )
 
       // ── Q10 : Localisation mécanique ──────────────────────────────────────
@@ -882,13 +1118,13 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
                 if (v === 'medial') push('q11', { q10_location: v })
                 else if (v === 'paravertebral') push('q12', { q10_location: v })
                 else if (v === 'gluteal') push('q13', { q10_location: v })
-                else showResult({ q10_location: v })
+                else goToYellowFlags({ q10_location: v })
               }}
               options={[
                 { label: 'Médiane (sur les épineuses)', value: 'medial', description: '→ Douleur discogénique ou fracture' },
                 { label: 'Paravertébrale (à côté de la colonne)', value: 'paravertebral', description: '→ Origine facettaire ou musculaire' },
                 { label: 'Fessière / sacro-iliaque', value: 'gluteal', description: '→ Dysfonction sacro-iliaque' },
-                { label: 'Diffuse paravertébrale bilatérale', value: 'diffuse', description: '→ Lombalgie non spécifique' },
+                { label: 'Diffuse paravertébrale bilatérale', value: 'diffuse', description: '→ Lombalgie non spécifique (strain/sprain)' },
               ]}
             />
           </StepWrapper>
@@ -902,13 +1138,13 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
             badge="Voie mécanique"
             badgeVariant="default"
             question="Le phénomène de centralisation est-il positif (test de McKenzie) ?"
-            hint="Mouvements répétés qui font migrer la douleur vers le centre (lombaire) → critère le plus spécifique pour la douleur discogénique (LR+ significatif)"
+            hint="Mouvements répétés (extension ou flexion) qui font migrer la douleur vers le centre (lombaire) et la font disparaître en périphérie → c'est le seul test clinique avec LR+ significatif pour la douleur discogénique."
           >
             <RadioGroup
               value={state.q11_centralization}
-              onChange={(v) => showResult({ q11_centralization: v })}
+              onChange={(v) => goToYellowFlags({ q11_centralization: v })}
               options={[
-                { label: 'Oui — centralisation positive', value: 'yes', description: 'Douleur discogénique probable' },
+                { label: 'Oui — centralisation positive', value: 'yes', description: 'Douleur discogénique probable — pas d\'imagerie en routine' },
                 { label: 'Non — pas de centralisation', value: 'no', description: 'Orientation vers syndrome facettaire ou non spécifique' },
               ]}
             />
@@ -922,20 +1158,22 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
             label="Q12 — Syndrome facettaire"
             badge="Voie mécanique"
             badgeVariant="default"
-            question="Caractéristiques évocatrices (critères de Revel) :"
-            hint="Les tests cliniques individuels ont une faible précision. C'est la combinaison qui est informative. Spécificité 66-91 % pour ≥ 3 critères."
+            question="Profil clinique facettaire (critères de Revel) :"
+            hint="Les tests individuels ont une faible précision. Spécificité 66-91 % pour ≥ 3 critères combinés. La non-centralisation a une Sn 100 % mais Sp 11-17 % seulement — à utiliser pour exclure. Le seul examen informatif est le SPECT ou le bloc facettaire diagnostique."
           >
             <div className="text-sm space-y-1 bg-muted/30 rounded-lg p-3 mb-3">
-              <p>· Douleur paravertébrale aggravée en extension + rotation</p>
+              <p className="text-xs font-semibold text-muted-foreground mb-1">Critères de Revel (spécificité 66-91 % si ≥ 3) :</p>
+              <p>· Douleur paravertébrale aggravée en extension + rotation ipsilatérale</p>
               <p>· Irradiation vers hanche / cuisse (pas sous le genou)</p>
-              <p>· Arthrose connue</p>
+              <p>· Arthrose lombaire connue</p>
               <p>· Âge &gt; 65 ans</p>
+              <p>· Douleur non centralisée aux mouvements répétés</p>
             </div>
             <RadioGroup
               value={state.q12_facet}
-              onChange={(v) => showResult({ q12_facet: v })}
+              onChange={(v) => goToYellowFlags({ q12_facet: v })}
               options={[
-                { label: 'Profil facettaire probable (≥ 3 critères)', value: 'probable' },
+                { label: 'Profil facettaire probable (≥ 3 critères de Revel)', value: 'probable' },
                 { label: 'Profil non concluant', value: 'unclear' },
               ]}
             />
@@ -949,8 +1187,8 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
             label="Q13 — Dysfonction sacro-iliaque"
             badge="Voie mécanique"
             badgeVariant="default"
-            question="Tests de provocation SI — cochez ceux positifs :"
-            hint="≥ 3 tests positifs : Sn 80-91 %, Sp 63-79 % (LR+ = 2.44). < 3 tests : exclut la SI avec 92 % de certitude."
+            question="Tests de provocation SI — cochez ceux positifs (sur 6) :"
+            hint="≥ 3 tests positifs : Sn 80-91 %, Sp 63-79 % (LR+ = 2.44, LR− = 0.31). < 3 tests : exclut la SI avec 92 % de certitude (VPN = 87-92 %). L'absence de douleur médiane lombaire + ≥ 3 tests positifs renforce fortement le diagnostic (LR+ pour douleur médiane absente = 2.41)."
           >
             <CheckboxGroup
               options={[
@@ -964,16 +1202,67 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
               selected={q13Checks}
               onChange={setQ13Checks}
             />
-            <Button
-              className="w-full mt-3"
-              onClick={() => showResult({ q13_tests_positive: q13Checks.length })}
-            >
-              Voir le résultat
+            <Button className="w-full mt-3" onClick={() => goToYellowFlags({ q13_tests_positive: q13Checks.length })}>
+              Continuer
             </Button>
           </StepWrapper>
         )
 
-      // ── Result ────────────────────────────────────────────────────────────
+      // ── Q14 : Drapeaux jaunes ─────────────────────────────────────────────
+      case 'q14_yellow_flags':
+        return (
+          <StepWrapper
+            label="Q14 — Drapeaux jaunes (facteurs de chronicisation)"
+            badge="Évaluation psychosociale"
+            badgeVariant="secondary"
+            question="Cochez les facteurs de risque de chronicisation présents :"
+            hint="Ces facteurs psychosociaux sont des prédicteurs indépendants d'évolution vers la lombalgie chronique. Leur identification permet d'adapter le plan de traitement (AAFP 2025)."
+          >
+            <CheckboxGroup
+              options={[
+                { label: 'Catastrophisme (le patient pense que c\'est grave / irréversible)', value: 'catastrophism' },
+                { label: 'Anxiété', value: 'anxiety' },
+                { label: 'Dépression', value: 'depression' },
+                { label: 'Kinésiophobie (peur du mouvement)', value: 'kinesophobia' },
+                { label: 'Insatisfaction au travail ou contexte professionnel difficile', value: 'work' },
+                { label: 'Obésité', value: 'obesity' },
+                { label: 'Tabagisme actif', value: 'smoking' },
+                { label: 'Douleur de forte intensité (EVA ≥ 7/10)', value: 'high_pain' },
+              ]}
+              selected={yellowFlagChecks}
+              onChange={setYellowFlagChecks}
+            />
+            <Button className="w-full mt-3" onClick={() => {
+              setState((s) => ({ ...s, q_yellow_flags: yellowFlagChecks }))
+              if (yellowFlagChecks.length >= 2) push('q_chronic_risk', { q_yellow_flags: yellowFlagChecks })
+              else showResult({ q_yellow_flags: yellowFlagChecks })
+            }}>
+              Continuer
+            </Button>
+          </StepWrapper>
+        )
+
+      // ── Risque de chronicisation (AAFP) ──────────────────────────────────
+      case 'q_chronic_risk':
+        return (
+          <StepWrapper
+            label="Risque de chronicisation — AAFP 2025"
+            badge="Évaluation finale"
+            badgeVariant="secondary"
+            question="Confirmez : le patient présente des facteurs de risque de développer une lombalgie chronique ?"
+            hint={`${yellowFlagChecks.length} drapeaux jaune(s) identifié(s). Selon l'algorithme AAFP 2025 : si oui, élaborer un plan de traitement qui adresse spécifiquement ces facteurs (dépression, anxiété, obésité, tabac). Si non, réassurance + prise en charge conservative.`}
+          >
+            <RadioGroup
+              value={state.q_chronic_risk}
+              onChange={(v) => showResult({ q_chronic_risk: v })}
+              options={[
+                { label: 'Oui — plan de traitement ciblé nécessaire', value: 'yes', description: 'Adresser les facteurs identifiés (AAFP : dépression, anxiété, obésité, tabac)' },
+                { label: 'Non — réassurance et traitement conservateur', value: 'no', description: 'Rester actif, chaleur, AINS, acupuncture, dry needling, TENS' },
+              ]}
+            />
+          </StepWrapper>
+        )
+
       case 'result':
         if (!result) return null
         return <ResultStep result={result} onApply={() => { onApply(result.anamnesisSummary); onClose() }} onReset={reset} />
@@ -983,13 +1272,8 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
     }
   }
 
-  const stepLabel = STEP_LABELS[step] || ''
+  const progress = STEP_PROGRESS[step] ?? 0
   const isAlert = step.startsWith('alert_')
-  const progress = (() => {
-    const allSteps: Step[] = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10', 'q11', 'q12', 'q13', 'result']
-    const idx = allSteps.indexOf(step)
-    return idx < 0 ? 0 : Math.round((idx / (allSteps.length - 1)) * 100)
-  })()
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) { onClose(); reset() } }}>
@@ -1004,14 +1288,11 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
           {step !== 'result' && (
             <div className="mt-3 space-y-1">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{stepLabel}</span>
+                <span>{step === 'duration' ? 'Point de départ' : step.startsWith('q1') || step.startsWith('q2') || step.startsWith('q3') || step.startsWith('q4') || step.startsWith('q5') ? 'Étape 1 — Drapeaux rouges' : step === 'q6' ? 'Étape 2 — Caractérisation' : step.startsWith('q9_spa') ? 'Étape 3B — Algorithme SpA (NEJM)' : step.startsWith('q7') || step === 'q8' ? 'Étape 3A — Causes radiculaires' : step.startsWith('q9') || step.startsWith('q1') ? 'Étape 3B — Causes axiales' : step.startsWith('q14') || step === 'q_chronic_risk' ? 'Étape 4 — Drapeaux jaunes (AAFP)' : ''}</span>
                 <span>{progress}%</span>
               </div>
               <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all duration-500"
-                  style={{ width: `${progress}%` }}
-                />
+                <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
               </div>
             </div>
           )}
@@ -1023,13 +1304,7 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
 
         {!isAlert && step !== 'result' && (
           <div className="px-6 pb-4 flex-shrink-0 border-t pt-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={history.length === 0}
-              onClick={goBack}
-              className="gap-1.5 text-muted-foreground"
-            >
+            <Button variant="ghost" size="sm" disabled={history.length === 0} onClick={goBack} className="gap-1.5 text-muted-foreground">
               <ChevronLeft className="h-4 w-4" />
               Étape précédente
             </Button>
@@ -1040,92 +1315,19 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
   )
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+// ─── Result step ──────────────────────────────────────────────────────────────
 
-function StepWrapper({
-  label,
-  badge,
-  badgeVariant,
-  question,
-  hint,
-  children,
-}: {
-  label: string
-  badge: string
-  badgeVariant: 'default' | 'secondary' | 'destructive' | 'outline'
-  question: string
-  hint?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Badge variant={badgeVariant} className="text-xs">{badge}</Badge>
-        <span className="text-sm font-semibold text-muted-foreground">{label}</span>
-      </div>
-      <p className="font-medium">{question}</p>
-      {hint && (
-        <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-3 leading-relaxed">{hint}</p>
-      )}
-      {children}
-    </div>
-  )
-}
-
-function AlertStep({
-  title,
-  items,
-  onContinue,
-  continueLabel,
-}: {
-  title: string
-  items: string[]
-  onContinue: () => void
-  continueLabel: string
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-start gap-3 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
-        <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
-        <div>
-          <p className="font-semibold text-destructive">{title}</p>
-          <ul className="mt-2 space-y-1">
-            {items.map((item, i) => (
-              <li key={i} className="text-sm flex items-start gap-1.5">
-                <span className="text-destructive mt-1">•</span>
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-      <Button variant="outline" className="w-full gap-2" onClick={onContinue}>
-        {continueLabel}
-        <ChevronRight className="h-4 w-4" />
-      </Button>
-    </div>
-  )
-}
-
-function ResultStep({
-  result,
-  onApply,
-  onReset,
-}: {
-  result: DiagnosisResult
-  onApply: () => void
-  onReset: () => void
-}) {
+function ResultStep({ result, onApply, onReset }: { result: DiagnosisResult; onApply: () => void; onReset: () => void }) {
   const urgencyLabel = {
     urgent: { label: 'Urgent', className: 'text-destructive bg-destructive/10' },
-    if_persistent: { label: 'Si persistance > 6-8 sem.', className: 'text-amber-700 bg-amber-50' },
+    if_persistent: { label: 'Si persistance / indication', className: 'text-amber-700 bg-amber-50' },
     not_indicated: { label: 'Non indiqué en routine', className: 'text-emerald-700 bg-emerald-50' },
   }
-
   const confidenceLabel = {
     probable: { label: 'Probable', className: 'bg-primary/10 text-primary' },
     possible: { label: 'Possible', className: 'bg-amber-100 text-amber-800' },
     exclusion: { label: 'Par exclusion', className: 'bg-muted text-muted-foreground' },
+    urgent: { label: 'Urgence', className: 'bg-destructive/10 text-destructive' },
   }
 
   return (
@@ -1136,18 +1338,24 @@ function ResultStep({
           <CheckCircle className="h-5 w-5 text-primary" />
           <span className="font-bold text-lg">{result.primary}</span>
         </div>
-        <span
-          className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${confidenceLabel[result.confidence].className}`}
-        >
+        <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${confidenceLabel[result.confidence].className}`}>
           {confidenceLabel[result.confidence].label}
         </span>
       </div>
 
-      {/* Yellow flags reminder */}
-      {result.yellowFlags && (
+      {/* Yellow flags warning */}
+      {result.yellowFlagWarning && (
         <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-          <p className="font-medium">⚠️ Évaluer les drapeaux jaunes (facteurs de chronicisation)</p>
-          <p className="text-xs mt-1">Catastrophisme · Anxiété · Dépression · Kinésiophobie · Insatisfaction au travail</p>
+          <p className="font-medium">⚠️ Drapeaux jaunes identifiés — risque de chronicisation</p>
+          <p className="text-xs mt-1">Intégrer une approche biopsychosociale dans le plan de traitement.</p>
+        </div>
+      )}
+
+      {/* Chronic risk */}
+      {result.chronicRisk && (
+        <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
+          <p className="font-medium">📋 Plan de traitement ciblé recommandé (AAFP 2025)</p>
+          <p className="text-xs mt-1">Adresser les facteurs spécifiques : dépression, anxiété, obésité, tabac.</p>
         </div>
       )}
 
@@ -1184,9 +1392,7 @@ function ResultStep({
             const u = urgencyLabel[e.urgency]
             return (
               <div key={i} className="flex items-start gap-3 p-2 rounded-lg text-sm border">
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${u.className}`}>
-                  {u.label}
-                </span>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${u.className}`}>{u.label}</span>
                 <div>
                   <span className="font-medium">{e.name}</span>
                   {e.condition && <p className="text-xs text-muted-foreground">{e.condition}</p>}
@@ -1197,19 +1403,15 @@ function ResultStep({
         </div>
       </div>
 
-      {/* Summary preview */}
+      {/* Summary */}
       <div>
         <h3 className="font-semibold text-sm mb-2">Résumé à insérer dans l'anamnèse</h3>
-        <pre className="text-xs bg-muted/40 rounded-lg p-3 whitespace-pre-wrap font-mono leading-relaxed">
-          {result.anamnesisSummary}
-        </pre>
+        <pre className="text-xs bg-muted/40 rounded-lg p-3 whitespace-pre-wrap font-mono leading-relaxed">{result.anamnesisSummary}</pre>
       </div>
 
       {/* Actions */}
       <div className="flex gap-3">
-        <Button variant="outline" size="sm" onClick={onReset} className="gap-1.5">
-          Recommencer
-        </Button>
+        <Button variant="outline" size="sm" onClick={onReset} className="gap-1.5">Recommencer</Button>
         <Button className="flex-1 gap-2" onClick={onApply}>
           <FileText className="h-4 w-4" />
           Insérer dans l'anamnèse
