@@ -42,7 +42,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Database error' }, { status: 500 })
     }
 
-    if (!emailSettings || emailSettings.length === 0) {
+    // Decrypt passwords
+    const { decryptValue, getOrCreateEncryptionKey } = await import('@/lib/utils/encryption')
+    const encKey = getOrCreateEncryptionKey()
+    const decryptedSettings = (emailSettings || []).map((s: any) => ({
+      ...s,
+      imap_password: decryptValue(s.imap_password, encKey),
+    }))
+
+    if (!decryptedSettings || decryptedSettings.length === 0) {
       return NextResponse.json({
         success: true,
         message: 'No practitioners with email sync enabled',
@@ -59,7 +67,7 @@ export async function GET(request: Request) {
     }> = []
 
     // Process each practitioner's inbox
-    for (const settings of emailSettings) {
+    for (const settings of decryptedSettings) {
       try {
         // Fetch new emails from IMAP
         const fetchResult = await fetchNewEmails(
@@ -280,7 +288,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-      processed: emailSettings.length,
+      processed: decryptedSettings.length,
       total_emails_fetched: totalFetched,
       total_emails_matched: totalMatched,
       duration: Date.now() - startTime,

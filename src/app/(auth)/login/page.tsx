@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Plus, User, Lock, Eye, EyeOff } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import Link from 'next/link'
 
 interface PractitionerItem {
   id: string
@@ -275,6 +276,14 @@ export default function LoginPage() {
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Se connecter
                 </Button>
+              </div>
+              <div className="text-center">
+                <Link
+                  href={`/forgot-password?email=${encodeURIComponent(selectedPractitioner?.email || '')}`}
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4"
+                >
+                  Mot de passe oublié ?
+                </Link>
               </div>
             </form>
           ) : !showCreateForm ? (

@@ -167,6 +167,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (emailSettings) {
+      const { decryptValue, getOrCreateEncryptionKey } = await import('@/lib/utils/encryption')
+      const encKey = getOrCreateEncryptionKey()
       // Use practitioner's SMTP settings
       const result = await sendEmail(
         {
@@ -174,7 +176,7 @@ export async function POST(request: NextRequest) {
           smtp_port: emailSettings.smtp_port,
           smtp_secure: emailSettings.smtp_secure,
           smtp_user: emailSettings.smtp_user,
-          smtp_password: emailSettings.smtp_password,
+          smtp_password: decryptValue(emailSettings.smtp_password, encKey),
           from_name: emailSettings.from_name,
           from_email: emailSettings.from_email,
         },

@@ -21,7 +21,8 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
-  // Check session lock
+  // Check session lock and read configurable timeout
+  let inactivityTimeoutMs = 30 * 60 * 1000 // default 30 min
   try {
     const { getDatabase } = await import('@/lib/database/connection')
     const sqliteDb = getDatabase()
@@ -30,6 +31,12 @@ export default async function DashboardLayout({
       .get() as { value: string } | undefined
     if (lockRow?.value === '1') {
       redirect('/login?mode=lock')
+    }
+    const timeoutRow = sqliteDb
+      .prepare("SELECT value FROM app_config WHERE key = 'inactivity_timeout_minutes'")
+      .get() as { value: string } | undefined
+    if (timeoutRow?.value) {
+      inactivityTimeoutMs = parseInt(timeoutRow.value) * 60 * 1000
     }
   } catch {
     // ignore if db not available
@@ -69,7 +76,7 @@ export default async function DashboardLayout({
       <WhatsNewDialog />
       {/* Listens for license-expired IPC events from the 30-min heartbeat */}
       <LicenseGuard />
-      <InactivityTimer />
+      <InactivityTimer timeoutMs={inactivityTimeoutMs} />
     </div>
   )
 }
