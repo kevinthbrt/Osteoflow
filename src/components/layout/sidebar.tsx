@@ -140,7 +140,7 @@ export function Sidebar() {
       >
         <div className="flex h-full flex-col">
           {/* Logo */}
-          <div className="flex h-20 shrink-0 items-center px-6 border-b border-white/10">
+          <div className="flex h-20 shrink-0 items-center px-6 border-b border-white/10" data-tour="sidebar-logo">
             <Link href="/patients" className="flex items-center space-x-3 group">
               <div className="relative">
                 <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-xl">
@@ -170,6 +170,7 @@ export function Sidebar() {
                   key={item.name}
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
+                  data-tour={`nav-${item.href.replace('/', '')}`}
                   className={cn(
                     'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
                     isActive

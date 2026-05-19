@@ -8,6 +8,7 @@ import { LicenseGuard } from '@/components/layout/license-guard'
 import { InactivityTimer } from '@/components/InactivityTimer'
 import { BackupReminderDialog } from '@/components/layout/backup-reminder-dialog'
 import { CguModal } from '@/components/legal/cgu-modal'
+import { TourWrapper } from '@/components/layout/tour-wrapper'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,21 +67,23 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen">
-      <Sidebar />
-      <div className="lg:pl-64">
-        <UpdateBanner />
-        <Header user={user} practitioner={practitioner} />
-        <main className="p-4 lg:px-8 lg:py-6">
-          {children}
-        </main>
+    <TourWrapper>
+      <div className="min-h-screen">
+        <Sidebar />
+        <div className="lg:pl-64">
+          <UpdateBanner />
+          <Header user={user} practitioner={practitioner} />
+          <main className="p-4 lg:px-8 lg:py-6">
+            {children}
+          </main>
+        </div>
+        <WhatsNewDialog />
+        <BackupReminderDialog />
+        <CguModal />
+        {/* Listens for license-expired IPC events from the 30-min heartbeat */}
+        <LicenseGuard />
+        <InactivityTimer timeoutMs={inactivityTimeoutMs} />
       </div>
-      <WhatsNewDialog />
-      <BackupReminderDialog />
-      <CguModal />
-      {/* Listens for license-expired IPC events from the 30-min heartbeat */}
-      <LicenseGuard />
-      <InactivityTimer timeoutMs={inactivityTimeoutMs} />
-    </div>
+    </TourWrapper>
   )
 }
