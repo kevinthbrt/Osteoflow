@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
   let res: Response
   try {
-    res = await fetch(`${OSTEOUPGRADE_URL}/api/myosteoflow/auth`, {
+    res = await fetch(`${OSTEOUPGRADE_URL}/api/osteoflow/auth`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
