@@ -1,5 +1,5 @@
 /**
- * Local authentication system for Myosteoflow desktop.
+ * Local authentication system for MyOsteoFlow desktop.
  * Replaces Supabase Auth with practitioner selection + password.
  *
  * In desktop mode:

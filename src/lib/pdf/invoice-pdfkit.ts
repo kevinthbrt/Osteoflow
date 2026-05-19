@@ -335,7 +335,7 @@ export async function generateInvoicePdf(data: InvoicePDFData): Promise<Uint8Arr
     .font('Helvetica-Bold')
     .fontSize(8)
     .fillColor(colors.primary)
-    .text('Myosteoflow', pageWidth - margin - 60, footerY + 20, { width: 60, align: 'right' })
+    .text('MyOsteoFlow', pageWidth - margin - 60, footerY + 20, { width: 60, align: 'right' })
 
   doc.end()
 

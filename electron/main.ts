@@ -1,5 +1,5 @@
 /**
- * Electron main process for Myosteoflow desktop application.
+ * Electron main process for MyOsteoFlow desktop application.
  *
  * Responsibilities:
  * - Launch a local Next.js server
@@ -42,7 +42,7 @@ import { startCronJobs, stopCronJobs } from './cron'
   }
 }
 
-// Enforce single instance — prevent multiple Myosteoflow processes.
+// Enforce single instance — prevent multiple MyOsteoFlow processes.
 // If another instance is already running, focus its window and quit this one.
 const gotTheLock = app.requestSingleInstanceLock()
 if (!gotTheLock) {
@@ -243,7 +243,7 @@ const SPLASH_HTML = `data:text/html;charset=utf-8,${encodeURIComponent(`<!DOCTYP
              border-radius:50%; animation:spin .8s linear infinite; margin:0 auto; }
   @keyframes spin { to { transform:rotate(360deg) } }
 </style></head><body><div class="c">
-  <h1>Myosteoflow</h1><p>Chargement en cours…</p><div class="spinner"></div>
+  <h1>MyOsteoFlow</h1><p>Chargement en cours…</p><div class="spinner"></div>
 </div></body></html>`)}`
 
 /**
@@ -256,7 +256,7 @@ function createWindow(): void {
     height: 900,
     minWidth: 900,
     minHeight: 600,
-    title: 'Myosteoflow',
+    title: 'MyOsteoFlow',
     icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -381,7 +381,7 @@ app.on('second-instance', () => {
 })
 
 app.whenReady().then(async () => {
-  console.log('[Electron] Starting Myosteoflow...')
+  console.log('[Electron] Starting MyOsteoFlow...')
 
   // Show window with splash screen immediately — no waiting
   createWindow()
@@ -402,7 +402,7 @@ app.whenReady().then(async () => {
   startCronJobs(PORT)
   setupAutoUpdater()
 
-  console.log('[Electron] Myosteoflow ready!')
+  console.log('[Electron] MyOsteoFlow ready!')
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

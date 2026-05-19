@@ -80,7 +80,7 @@ export function Header({ user, practitioner }: HeaderProps) {
   // Get current page info
   const currentPage = Object.entries(pageTitles).find(([path]) =>
     pathname.startsWith(path)
-  )?.[1] || { title: 'Dashboard', description: 'Bienvenue sur Myosteoflow' }
+  )?.[1] || { title: 'Dashboard', description: 'Bienvenue sur MyOsteoFlow' }
 
   // Patient search
   const searchPatients = useCallback(async (query: string) => {

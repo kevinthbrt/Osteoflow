@@ -19,7 +19,7 @@ export default function ChangelogPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Changelog</h1>
         <p className="text-muted-foreground mt-1">
-          Historique des mises à jour et améliorations d&apos;Myosteoflow
+          Historique des mises à jour et améliorations d&apos;MyOsteoFlow
         </p>
       </div>
 

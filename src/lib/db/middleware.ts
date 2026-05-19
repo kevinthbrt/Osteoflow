@@ -1,5 +1,5 @@
 /**
- * Middleware for Myosteoflow desktop.
+ * Middleware for MyOsteoFlow desktop.
  *
  * Auth is enforced by the dashboard layout (server component) which checks
  * the local SQLite database directly. The middleware is a simple pass-through

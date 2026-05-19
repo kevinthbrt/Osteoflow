@@ -24,11 +24,14 @@ interface TreeState {
   q2_fracture: Answer | null
   q2_trauma_neuro: boolean
   q2_factors: number
+  q2_checks: string[]
   q3_neoplasia: Answer | null          // 'alert' | 'watch' | 'no'
   q3_factors: number
   q3_has_cancer_hx: boolean
+  q3_checks: string[]
   q4_infection: Answer | null
   q4_factors: number
+  q4_checks: string[]
   q5_aaa: Answer | null
   // Step 2
   q6_radiation: Answer | null
@@ -45,6 +48,7 @@ interface TreeState {
   // Step 3B – Axial inflammatory → SpA algorithm
   q9_inflammatory: Answer | null
   q9_criteria: number
+  q9_checks: string[]
   q9_extra_articular: boolean
   q9_spa_sacroiliitis: Answer | null
   q9_spa_hlab27: Answer | null
@@ -62,15 +66,15 @@ interface TreeState {
 const initialState: TreeState = {
   q_duration: null,
   q1_cauda_equina: null,
-  q2_fracture: null, q2_trauma_neuro: false, q2_factors: 0,
-  q3_neoplasia: null, q3_factors: 0, q3_has_cancer_hx: false,
-  q4_infection: null, q4_factors: 0,
+  q2_fracture: null, q2_trauma_neuro: false, q2_factors: 0, q2_checks: [],
+  q3_neoplasia: null, q3_factors: 0, q3_has_cancer_hx: false, q3_checks: [],
+  q4_infection: null, q4_factors: 0, q4_checks: [],
   q5_aaa: null,
   q6_radiation: null, q6_below_knee: null, q6_leg_worse: null,
   q7_age_under60: null, q7_unilateral: null, q7_worse_sitting: null,
   q7_worse_walking: null, q7_shopping_cart: null, q7_sudden_onset: null,
   q7_cough_sneeze: null,
-  q9_inflammatory: null, q9_criteria: 0, q9_extra_articular: false,
+  q9_inflammatory: null, q9_criteria: 0, q9_checks: [], q9_extra_articular: false,
   q9_spa_sacroiliitis: null, q9_spa_hlab27: null, q9_spa_clinical_picture: null,
   q10_location: null,
   q11_centralization: null,
@@ -603,7 +607,7 @@ function buildResult(state: TreeState): DiagnosisResult {
 
 function buildAnamnesisText(primary: string, state: TreeState, type: string): string {
   const lines: string[] = []
-  lines.push('=== Arbre décisionnel lombalgie (Myosteoflow) ===')
+  lines.push('=== Arbre décisionnel lombalgie (MyOsteoFlow) ===')
   lines.push(`Suspicion diagnostique : ${primary}`)
   lines.push('')
 
@@ -613,12 +617,24 @@ function buildAnamnesisText(primary: string, state: TreeState, type: string): st
   }
 
   // ── Drapeaux rouges ──
+  const q2Labels: Record<string, string> = { trauma: 'traumatisme récent', neuro: 'déficit neurologique associé', age70: 'âge > 70 ans', steroids: 'corticoïdes au long cours', osteo: 'ostéoporose connue', medial_pain: 'douleur médiane localisée' }
+  const q3Labels: Record<string, string> = { cancer_hx: 'antécédent de cancer', weight_loss: 'perte de poids inexpliquée', night_pain: 'douleur nocturne', age50: '> 50 ans avec facteurs de risque', persistent: 'douleur persistante > 1 mois malgré traitement' }
+  const q4Labels: Record<string, string> = { fever: 'fièvre', immuno: 'immunodépression', iv_drugs: 'drogues IV', catheter: 'cathéter/infection bactérienne récente', rest_pain: 'douleur constante au repos' }
   const redFlagLines: string[] = []
   if (state.q1_cauda_equina === 'yes') redFlagLines.push('⚠ Signes de queue de cheval présents — orientation urgente')
-  if (state.q2_fracture === 'yes') redFlagLines.push(`⚠ Suspicion de fracture (${state.q2_factors} facteur(s) de risque${state.q2_trauma_neuro ? ', trauma + déficit neurologique' : ''})`)
-  if (state.q3_neoplasia === 'alert') redFlagLines.push(`⚠ Suspicion néoplasie (${state.q3_factors} facteur(s)${state.q3_has_cancer_hx ? ', antécédent de cancer' : ''})`)
-  if (state.q3_neoplasia === 'watch') redFlagLines.push('(!) Antécédent de cancer isolé — surveillance clinique rapprochée')
-  if (state.q4_infection === 'yes') redFlagLines.push(`⚠ Suspicion infection spinale (${state.q4_factors} facteur(s))`)
+  if (state.q2_fracture === 'yes') {
+    const items = state.q2_checks.map(k => q2Labels[k] || k).join(', ')
+    redFlagLines.push(`⚠ Suspicion de fracture (${state.q2_factors} facteur(s) : ${items}${state.q2_trauma_neuro ? ' — trauma + déficit neurologique' : ''})`)
+  }
+  if (state.q3_neoplasia === 'alert') {
+    const items = state.q3_checks.map(k => q3Labels[k] || k).join(', ')
+    redFlagLines.push(`⚠ Suspicion néoplasie (${state.q3_factors} facteur(s) : ${items})`)
+  }
+  if (state.q3_neoplasia === 'watch') redFlagLines.push('(!) Antécédent de cancer isolé sans autre facteur — surveillance rapprochée')
+  if (state.q4_infection === 'yes') {
+    const items = state.q4_checks.map(k => q4Labels[k] || k).join(', ')
+    redFlagLines.push(`⚠ Suspicion infection spinale (${items})`)
+  }
   if (state.q5_aaa === 'yes') redFlagLines.push('⚠ Suspicion anévrisme de l\'aorte abdominale')
   if (redFlagLines.length) {
     lines.push('Drapeaux rouges :')
@@ -657,14 +673,28 @@ function buildAnamnesisText(primary: string, state: TreeState, type: string): st
 
   // ── Voie inflammatoire / SpA ──
   if (type === 'spa') {
+    const inflammCriteriaLabels: Record<string, string> = {
+      onset_45: 'début avant 45 ans', insidious: 'début insidieux/progressif',
+      morning_stiff: 'raideur matinale > 30 min', exercise_better: 'améliorée par l\'exercice',
+      alternating_buttock: 'douleurs fessières alternantes', night_waking: 'réveils en 2e partie de nuit',
+    }
+    const extraArticularLabels: Record<string, string> = {
+      psoriasis: 'psoriasis', uveitis: 'uvéite', ibd: 'MICI',
+      dactylitis: 'dactylite', enthesitis: 'enthésite', family_hx: 'antécédents familiaux SpA',
+    }
+    const inflammChecked = state.q9_checks.filter(k => k in inflammCriteriaLabels).map(k => inflammCriteriaLabels[k])
+    const extraChecked = state.q9_checks.filter(k => k in extraArticularLabels).map(k => extraArticularLabels[k])
     lines.push('')
     lines.push('Profil inflammatoire (critères ASAS) :')
-    lines.push(`  Nombre de critères satisfaits : ${state.q9_criteria}/6.`)
-    if (state.q9_extra_articular) lines.push('  Manifestation(s) extra-articulaire(s) présente(s).')
-    if (state.q9_spa_sacroiliitis === 'yes') lines.push('  Sacroiliite radiographique présente → Critères de New York modifiés positifs.')
-    if (state.q9_spa_hlab27 === 'yes') lines.push('  HLA-B27 positif.')
-    if (state.q9_spa_hlab27 === 'no') lines.push('  HLA-B27 négatif.')
-    if (state.q9_spa_clinical_picture === 'yes') lines.push('  Tableau clinique jugé convaincant pour SpA axiale.')
+    lines.push(`  Critères satisfaits (${state.q9_criteria}/6) :${inflammChecked.length ? ' ' + inflammChecked.join(', ') : ' aucun'}.`)
+    if (extraChecked.length) lines.push(`  Manifestations extra-articulaires : ${extraChecked.join(', ')}.`)
+    else lines.push('  Manifestations extra-articulaires : aucune.')
+    if (state.q9_spa_sacroiliitis === 'yes') lines.push('  Sacroiliite radiographique présente → critères de New York modifiés positifs.')
+    if (state.q9_spa_sacroiliitis === 'no') lines.push('  Sacroiliite radiographique : absente ou non évaluée.')
+    if (state.q9_spa_hlab27 === 'yes') lines.push('  HLA-B27 : positif.')
+    if (state.q9_spa_hlab27 === 'no') lines.push('  HLA-B27 : négatif.')
+    if (state.q9_spa_hlab27 === 'unknown') lines.push('  HLA-B27 : non réalisé — à prescrire.')
+    if (state.q9_spa_clinical_picture === 'yes') lines.push('  Tableau clinique jugé convaincant pour SpA axiale non radiographique.')
     if (state.q9_spa_clinical_picture === 'no') lines.push('  Tableau clinique peu convaincant — IRM sacro-iliaque recommandée.')
   }
 
@@ -727,7 +757,7 @@ function buildAnamnesisText(primary: string, state: TreeState, type: string): st
 interface LowBackPainTreeProps {
   open: boolean
   onClose: () => void
-  onApply: (anamnesis: string) => void
+  onApply: (anamnesis: string, examination?: string) => void
 }
 
 const STEP_PROGRESS: Partial<Record<Step, number>> = {
@@ -876,9 +906,9 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
               const trauma = q2Checks.includes('trauma')
               const neuro = q2Checks.includes('neuro')
               const factors = q2Checks.length
-              if (trauma && neuro) push('alert_fracture', { q2_fracture: 'yes', q2_trauma_neuro: true, q2_factors: factors })
-              else if (factors >= 2) push('alert_fracture', { q2_fracture: 'yes', q2_trauma_neuro: false, q2_factors: factors })
-              else push('q3', { q2_fracture: 'no', q2_factors: factors })
+              if (trauma && neuro) push('alert_fracture', { q2_fracture: 'yes', q2_trauma_neuro: true, q2_factors: factors, q2_checks: q2Checks })
+              else if (factors >= 2) push('alert_fracture', { q2_fracture: 'yes', q2_trauma_neuro: false, q2_factors: factors, q2_checks: q2Checks })
+              else push('q3', { q2_fracture: 'no', q2_factors: factors, q2_checks: q2Checks })
             }}>
               Valider et continuer
             </Button>
@@ -924,12 +954,11 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
               const totalFactors = q3Checks.length
               // Alert: cancer_hx + ≥1 autre facteur, OU ≥2 facteurs sans antécédent de cancer
               if ((hasCancerHx && otherFactors >= 1) || (!hasCancerHx && totalFactors >= 2)) {
-                push('alert_neoplasia', { q3_neoplasia: 'alert', q3_factors: totalFactors, q3_has_cancer_hx: hasCancerHx })
+                push('alert_neoplasia', { q3_neoplasia: 'alert', q3_factors: totalFactors, q3_has_cancer_hx: hasCancerHx, q3_checks: q3Checks })
               } else if (hasCancerHx && otherFactors === 0) {
-                // Antécédent seul → vigilance mais pas d'alerte immédiate
-                push('alert_neoplasia_watch', { q3_neoplasia: 'watch', q3_factors: 1, q3_has_cancer_hx: true })
+                push('alert_neoplasia_watch', { q3_neoplasia: 'watch', q3_factors: 1, q3_has_cancer_hx: true, q3_checks: q3Checks })
               } else {
-                push('q4', { q3_neoplasia: 'no', q3_factors: totalFactors, q3_has_cancer_hx: hasCancerHx })
+                push('q4', { q3_neoplasia: 'no', q3_factors: totalFactors, q3_has_cancer_hx: hasCancerHx, q3_checks: q3Checks })
               }
             }}>
               Valider et continuer
@@ -991,9 +1020,9 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
             <Button className="w-full mt-3" onClick={() => {
               const factors = q4Checks.length
               const hasFever = q4Checks.includes('fever')
-              if (hasFever && factors >= 2) push('alert_infection', { q4_infection: 'yes', q4_factors: factors })
-              else if (!hasFever && (q4Checks.includes('iv_drugs') || q4Checks.includes('catheter')) && factors >= 2) push('alert_infection', { q4_infection: 'yes', q4_factors: factors })
-              else push('q5', { q4_infection: 'no', q4_factors: factors })
+              if (hasFever && factors >= 2) push('alert_infection', { q4_infection: 'yes', q4_factors: factors, q4_checks: q4Checks })
+              else if (!hasFever && (q4Checks.includes('iv_drugs') || q4Checks.includes('catheter')) && factors >= 2) push('alert_infection', { q4_infection: 'yes', q4_factors: factors, q4_checks: q4Checks })
+              else push('q5', { q4_infection: 'no', q4_factors: factors, q4_checks: q4Checks })
             }}>
               Valider et continuer
             </Button>
@@ -1238,7 +1267,7 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
             <Button className="w-full mt-3" onClick={() => {
               const inflammCriteria = ['onset_45','insidious','morning_stiff','exercise_better','alternating_buttock','night_waking'].filter(v => q9Checks.includes(v)).length
               const extraArticular = ['psoriasis','uveitis','ibd','dactylitis','enthesitis','family_hx'].some(v => q9Checks.includes(v))
-              const updates = { q9_criteria: inflammCriteria, q9_extra_articular: extraArticular }
+              const updates = { q9_criteria: inflammCriteria, q9_checks: q9Checks, q9_extra_articular: extraArticular }
               if (inflammCriteria >= 4 || extraArticular) {
                 push('q9_spa_sacroiliitis', { ...updates, q9_inflammatory: 'yes' })
               } else {
@@ -1518,7 +1547,7 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
 
       case 'result':
         if (!result) return null
-        return <ResultStep result={result} onApply={() => { onApply(result.anamnesisSummary); onClose() }} onReset={reset} />
+        return <ResultStep result={result} onApply={(examination) => { onApply(result.anamnesisSummary, examination); onClose() }} onReset={reset} />
 
       default:
         return null
@@ -1577,7 +1606,28 @@ function evidenceLevelClass(level: string): string {
   return 'bg-amber-100 text-amber-800'
 }
 
-function ResultStep({ result, onApply, onReset }: { result: DiagnosisResult; onApply: () => void; onReset: () => void }) {
+function ResultStep({ result, onApply, onReset }: { result: DiagnosisResult; onApply: (examination?: string) => void; onReset: () => void }) {
+  const [checkedTests, setCheckedTests] = useState<Record<number, boolean>>({})
+  const [testNotes, setTestNotes] = useState<Record<number, string>>({})
+
+  const toggleTest = (i: number) =>
+    setCheckedTests(prev => ({ ...prev, [i]: !prev[i] }))
+
+  const checkedCount = Object.values(checkedTests).filter(Boolean).length
+
+  const buildExaminationText = () => {
+    const positiveTests = result.tests
+      .map((t, i) => ({ t, i }))
+      .filter(({ i }) => checkedTests[i])
+    if (!positiveTests.length) return undefined
+    const lines = ['=== Tests cliniques (arbre décisionnel lombalgie) ===']
+    positiveTests.forEach(({ t, i }) => {
+      const note = testNotes[i]?.trim() || 'positif'
+      lines.push(`• ${t.name} [${t.target}] : ${note}`)
+    })
+    return lines.join('\n')
+  }
+
   const urgencyLabel = {
     urgent: { label: 'Urgent', className: 'text-destructive bg-destructive/10' },
     if_persistent: { label: 'Si persistance / indication', className: 'text-amber-700 bg-amber-50' },
@@ -1619,21 +1669,47 @@ function ResultStep({ result, onApply, onReset }: { result: DiagnosisResult; onA
         </div>
       )}
 
-      {/* Tests checklist */}
+      {/* Tests checklist — interactive */}
       <div>
-        <h3 className="font-semibold text-sm mb-2 flex items-center gap-2">
-          <Activity className="h-4 w-4 text-primary" />
-          Tests cliniques à réaliser
-        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-sm flex items-center gap-2">
+            <Activity className="h-4 w-4 text-primary" />
+            Tests cliniques à réaliser
+          </h3>
+          {checkedCount > 0 && (
+            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+              {checkedCount} positif{checkedCount > 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mb-2">Cochez les tests positifs — le résultat sera inséré dans l&apos;examen clinique.</p>
         <div className="space-y-1.5">
           {result.tests.map((t, i) => (
-            <div key={i} className="flex items-start gap-2 p-2 rounded-lg bg-muted/30 text-sm">
-              <input type="checkbox" className="mt-0.5 accent-primary" />
-              <div className="flex-1">
-                <span className="font-medium">{t.name}</span>
-                <span className="text-muted-foreground"> — {t.target}</span>
-                {t.result && <span className="text-xs text-muted-foreground ml-1">({t.result})</span>}
-              </div>
+            <div key={i} className={`rounded-lg border text-sm transition-colors ${checkedTests[i] ? 'border-primary bg-primary/5' : 'bg-muted/20'}`}>
+              <label className="flex items-start gap-2 p-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 accent-primary flex-shrink-0"
+                  checked={!!checkedTests[i]}
+                  onChange={() => toggleTest(i)}
+                />
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium">{t.name}</span>
+                  <span className="text-muted-foreground"> — {t.target}</span>
+                  {t.result && <span className="text-xs text-muted-foreground ml-1">({t.result})</span>}
+                </div>
+              </label>
+              {checkedTests[i] && (
+                <div className="px-2 pb-2 pl-8">
+                  <input
+                    type="text"
+                    placeholder="Note sur le résultat (ex : douleur à 60°, LR+ …)"
+                    value={testNotes[i] || ''}
+                    onChange={e => setTestNotes(prev => ({ ...prev, [i]: e.target.value }))}
+                    className="w-full text-xs border rounded px-2 py-1 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -1735,11 +1811,16 @@ function ResultStep({ result, onApply, onReset }: { result: DiagnosisResult; onA
       </div>
 
       {/* Actions */}
+      {checkedCount > 0 && (
+        <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg text-xs text-primary">
+          <p className="font-medium">{checkedCount} test{checkedCount > 1 ? 's' : ''} positif{checkedCount > 1 ? 's' : ''} — sera{checkedCount > 1 ? 'ont' : ''} ajouté{checkedCount > 1 ? 's' : ''} dans le champ &quot;Examen clinique&quot;.</p>
+        </div>
+      )}
       <div className="flex gap-3">
         <Button variant="outline" size="sm" onClick={onReset} className="gap-1.5">Recommencer</Button>
-        <Button className="flex-1 gap-2" onClick={onApply}>
+        <Button className="flex-1 gap-2" onClick={() => onApply(buildExaminationText())}>
           <FileText className="h-4 w-4" />
-          Insérer dans l'anamnèse
+          Insérer dans l&apos;anamnèse
         </Button>
       </div>
     </div>

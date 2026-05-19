@@ -210,7 +210,7 @@ export default function LoginPage() {
               </svg>
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Myosteoflow</CardTitle>
+          <CardTitle className="text-2xl font-bold [font-family:var(--font-playfair)] italic tracking-wide">MyOsteoFlow</CardTitle>
           <CardDescription>
             {showCreateForm
               ? 'Créez votre profil praticien'

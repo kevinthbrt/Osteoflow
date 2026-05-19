@@ -78,7 +78,7 @@ export default function OsteoupgradeLoginPage() {
       toast({
         variant: 'success',
         title: 'Connecté',
-        description: 'Bienvenue sur Myosteoflow',
+        description: 'Bienvenue sur MyOsteoFlow',
       })
 
       router.push('/pin-setup')
@@ -114,7 +114,7 @@ export default function OsteoupgradeLoginPage() {
               </svg>
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Myosteoflow</CardTitle>
+          <CardTitle className="text-2xl font-bold">MyOsteoFlow</CardTitle>
           <CardDescription>
             Connectez-vous avec votre compte Osteoupgrade Premium
           </CardDescription>

@@ -1063,10 +1063,15 @@ export function ConsultationForm({
       <LowBackPainTree
         open={showDecisionTree}
         onClose={() => setShowDecisionTree(false)}
-        onApply={(summary) => {
+        onApply={(summary, examination) => {
           const current = getValues('anamnesis') || ''
           const separator = current.trim() ? '\n\n' : ''
           setValue('anamnesis', current + separator + summary, { shouldDirty: true })
+          if (examination) {
+            const currentExam = getValues('examination') || ''
+            const examSep = currentExam.trim() ? '\n\n' : ''
+            setValue('examination', currentExam + examSep + examination, { shouldDirty: true })
+          }
         }}
       />
     </>

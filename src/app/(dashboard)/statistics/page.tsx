@@ -363,7 +363,7 @@ export default function StatisticsPage() {
     if (!consultationStats) return
 
     const rows = [
-      ['Statistiques Myosteoflow'],
+      ['Statistiques MyOsteoFlow'],
       [`Période: ${startDate} - ${endDate}`],
       [],
       ['PATIENTS'],

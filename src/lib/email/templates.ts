@@ -101,7 +101,7 @@ export function createInvoiceHtmlEmail({
         <div style="max-width: 640px; margin: 0 auto; padding: 32px 16px;">
           <div style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);">
             <div style="padding: 24px 32px; background: linear-gradient(135deg, ${primaryColor} 0%, #0f172a 100%); color: #ffffff;">
-              <p style="margin: 0; font-size: 14px; opacity: 0.8;">Myosteoflow</p>
+              <p style="margin: 0; font-size: 14px; opacity: 0.8;">MyOsteoFlow</p>
               <h1 style="margin: 8px 0 0; font-size: 22px;">Votre facture est disponible</h1>
               <p style="margin: 8px 0 0; font-size: 15px; opacity: 0.9;">
                 ${practiceName || practitionerName}
@@ -113,7 +113,7 @@ export function createInvoiceHtmlEmail({
             </div>
           </div>
           <p style="text-align: center; margin-top: 16px; color: #94a3b8; font-size: 12px;">
-            Envoyé via Myosteoflow
+            Envoyé via MyOsteoFlow
           </p>
         </div>
       </body>
@@ -217,7 +217,7 @@ export function createFollowUpHtmlEmail({
             </div>
           </div>
           <p style="text-align: center; margin-top: 16px; color: #94a3b8; font-size: 12px;">
-            Envoyé via Myosteoflow
+            Envoyé via MyOsteoFlow
           </p>
         </div>
       </body>
@@ -329,7 +329,7 @@ export function createPostSessionAdviceHtmlEmail({
             </div>
           </div>
           <p style="text-align: center; margin-top: 16px; color: #94a3b8; font-size: 12px;">
-            Envoyé via Myosteoflow
+            Envoyé via MyOsteoFlow
           </p>
         </div>
       </body>

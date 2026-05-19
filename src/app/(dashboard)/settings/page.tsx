@@ -1250,7 +1250,7 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle>Connecter votre messagerie</CardTitle>
                 <CardDescription>
-                  Envoyez et recevez des emails directement depuis Myosteoflow via votre adresse email personnelle
+                  Envoyez et recevez des emails directement depuis MyOsteoFlow via votre adresse email personnelle
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1466,7 +1466,7 @@ export default function SettingsPage() {
                     </div>
                     <h4 className="font-medium mb-1">Synchronisation</h4>
                     <p className="text-sm text-muted-foreground">
-                      Les réponses de vos patients apparaissent automatiquement dans Myosteoflow
+                      Les réponses de vos patients apparaissent automatiquement dans MyOsteoFlow
                     </p>
                   </div>
                   <div className="text-center p-4">

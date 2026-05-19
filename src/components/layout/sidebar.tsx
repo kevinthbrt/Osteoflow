@@ -102,7 +102,7 @@ export function Sidebar() {
               <h2 className="text-lg font-semibold text-white">Déconnexion</h2>
             </div>
             <p className="text-slate-300 text-sm mb-6">
-              Vous allez être déconnecté de votre compte Osteoupgrade. Vous devrez vous reconnecter pour utiliser Myosteoflow.
+              Vous allez être déconnecté de votre compte Osteoupgrade. Vous devrez vous reconnecter pour utiliser MyOsteoFlow.
             </p>
             <div className="flex gap-3">
               <button
@@ -160,8 +160,8 @@ export function Sidebar() {
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-900" />
               </div>
               <div>
-                <span className="text-xl font-bold text-white">
-                  Myosteoflow
+                <span className="text-xl font-bold text-white [font-family:var(--font-playfair)] italic tracking-wide">
+                  MyOsteoFlow
                 </span>
                 <p className="text-[10px] text-indigo-300/70 font-medium tracking-wider uppercase">
                   Gestion de cabinet
@@ -255,7 +255,7 @@ export function Sidebar() {
                     <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-semibold text-slate-300">Myosteoflow v{packageJson.version}</p>
+                    <p className="text-[10px] font-semibold text-slate-300">MyOsteoFlow v{packageJson.version}</p>
                     <p className="text-[9px] text-indigo-300/50">Voir le changelog</p>
                   </div>
                 </div>
