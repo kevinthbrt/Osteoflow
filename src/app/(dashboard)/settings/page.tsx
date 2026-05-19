@@ -1250,7 +1250,7 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle>Connecter votre messagerie</CardTitle>
                 <CardDescription>
-                  Envoyez et recevez des emails directement depuis Osteoflow via votre adresse email personnelle
+                  Envoyez et recevez des emails directement depuis Myosteoflow via votre adresse email personnelle
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1466,7 +1466,7 @@ export default function SettingsPage() {
                     </div>
                     <h4 className="font-medium mb-1">Synchronisation</h4>
                     <p className="text-sm text-muted-foreground">
-                      Les réponses de vos patients apparaissent automatiquement dans Osteoflow
+                      Les réponses de vos patients apparaissent automatiquement dans Myosteoflow
                     </p>
                   </div>
                   <div className="text-center p-4">
@@ -1788,7 +1788,7 @@ function StorageSettings() {
           </CardTitle>
           <CardDescription>
             Choisissez où stocker la base de données de l&apos;application.
-            Le fichier <code className="text-xs bg-muted px-1 rounded">osteoflow.db</code> sera
+            Le fichier <code className="text-xs bg-muted px-1 rounded">myosteoflow.db</code> sera
             créé dans le dossier choisi.
           </CardDescription>
         </CardHeader>
@@ -1843,7 +1843,7 @@ function StorageSettings() {
                 <p className="font-medium mb-1">Important</p>
                 <ul className="space-y-1 list-disc list-inside text-amber-700 dark:text-amber-300">
                   <li>Changer le dossier ne déplace pas les données existantes</li>
-                  <li>Si vous changez le dossier, copiez manuellement <code className="text-xs bg-amber-100 dark:bg-amber-900 px-1 rounded">osteoflow.db</code> vers le nouveau dossier</li>
+                  <li>Si vous changez le dossier, copiez manuellement <code className="text-xs bg-amber-100 dark:bg-amber-900 px-1 rounded">myosteoflow.db</code> vers le nouveau dossier</li>
                   <li>Redémarrez l&apos;application après le changement</li>
                 </ul>
               </div>
@@ -1875,7 +1875,7 @@ function BackupRestoreSettings() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `osteoflow-backup-${new Date().toISOString().split('T')[0]}.db`
+      a.download = `myosteoflow-backup-${new Date().toISOString().split('T')[0]}.db`
       a.click()
       URL.revokeObjectURL(url)
       toast({ title: 'Sauvegarde téléchargée', description: 'Conservez ce fichier en lieu sûr.' })

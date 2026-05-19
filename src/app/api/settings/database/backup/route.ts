@@ -21,7 +21,7 @@ export async function GET() {
     const buffer = fs.readFileSync(backupPath)
     fs.unlinkSync(backupPath)
 
-    const filename = `osteoflow-backup-${new Date().toISOString().split('T')[0]}.db`
+    const filename = `myosteoflow-backup-${new Date().toISOString().split('T')[0]}.db`
 
     return new NextResponse(buffer, {
       headers: {

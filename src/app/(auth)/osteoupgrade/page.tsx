@@ -40,7 +40,7 @@ export default function OsteoupgradeLoginPage() {
     setIsLoading(true)
 
     try {
-      const authRes = await fetch(`${OSTEOUPGRADE_URL}/api/osteoflow/auth`, {
+      const authRes = await fetch(`${OSTEOUPGRADE_URL}/api/myosteoflow/auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -78,7 +78,7 @@ export default function OsteoupgradeLoginPage() {
       toast({
         variant: 'success',
         title: 'Connecté',
-        description: 'Bienvenue sur Osteoflow',
+        description: 'Bienvenue sur Myosteoflow',
       })
 
       router.push('/pin-setup')
@@ -114,7 +114,7 @@ export default function OsteoupgradeLoginPage() {
               </svg>
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Osteoflow</CardTitle>
+          <CardTitle className="text-2xl font-bold">Myosteoflow</CardTitle>
           <CardDescription>
             Connectez-vous avec votre compte Osteoupgrade Premium
           </CardDescription>

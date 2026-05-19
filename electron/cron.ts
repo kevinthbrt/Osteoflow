@@ -1,5 +1,5 @@
 /**
- * Local cron system for Osteoflow desktop.
+ * Local cron system for Myosteoflow desktop.
  *
  * Replaces the Vercel/Supabase cron jobs with local timers.
  * Runs periodic tasks:

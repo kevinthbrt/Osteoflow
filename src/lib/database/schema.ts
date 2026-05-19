@@ -1,5 +1,5 @@
 /**
- * SQLite schema for Osteoflow desktop application.
+ * SQLite schema for Myosteoflow desktop application.
  * Converted from the Supabase/PostgreSQL schema.
  * UUIDs are stored as TEXT, timestamps as TEXT (ISO 8601), booleans as INTEGER (0/1).
  */

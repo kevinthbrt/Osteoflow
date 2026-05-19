@@ -551,7 +551,7 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
                 {showReferralDropdown && referralResults.length > 0 && (
                   <div
                     ref={referralDropdownRef}
-                    className="absolute z-50 mt-1 w-full bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto"
+                    className="absolute z-[200] mt-1 w-full bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto"
                   >
                     {referralResults.map((p) => (
                       <button

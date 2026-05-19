@@ -1,5 +1,5 @@
 {
-  "name": "osteoflow",
+  "name": "myosteoflow",
   "version": "1.0.53",
   "private": true,
   "main": "electron/main.js",
@@ -82,8 +82,8 @@
     "nodemailer": "^6.10.1"
   },
   "build": {
-    "appId": "com.osteoflow.desktop",
-    "productName": "Osteoflow",
+    "appId": "com.myosteoflow.desktop",
+    "productName": "Myosteoflow",
     "directories": {
       "output": "release"
     },
@@ -105,7 +105,7 @@
     "publish": {
       "provider": "github",
       "owner": "kevinthbrt",
-      "repo": "Osteoflow",
+      "repo": "Myosteoflow",
       "releaseType": "release"
     },
     "mac": {

@@ -603,69 +603,121 @@ function buildResult(state: TreeState): DiagnosisResult {
 
 function buildAnamnesisText(primary: string, state: TreeState, type: string): string {
   const lines: string[] = []
-  lines.push('=== Arbre décisionnel lombalgie ===')
+  lines.push('=== Arbre décisionnel lombalgie (Myosteoflow) ===')
   lines.push(`Suspicion diagnostique : ${primary}`)
   lines.push('')
 
-  if (state.q_duration === 'acute') {
-    lines.push('Durée : aiguë (< 8 semaines).')
-    lines.push('Recommandations : rester actif, chaleur locale, AINS, acupuncture / dry needling / TENS si indiqué.')
+  // ── Durée ──
+  if (state.q_duration) {
+    lines.push(`Durée : ${state.q_duration === 'acute' ? 'aiguë (< 8 semaines)' : 'subaiguë / chronique (≥ 8 semaines)'}.`)
   }
 
+  // ── Drapeaux rouges ──
+  const redFlagLines: string[] = []
+  if (state.q1_cauda_equina === 'yes') redFlagLines.push('⚠ Signes de queue de cheval présents — orientation urgente')
+  if (state.q2_fracture === 'yes') redFlagLines.push(`⚠ Suspicion de fracture (${state.q2_factors} facteur(s) de risque${state.q2_trauma_neuro ? ', trauma + déficit neurologique' : ''})`)
+  if (state.q3_neoplasia === 'alert') redFlagLines.push(`⚠ Suspicion néoplasie (${state.q3_factors} facteur(s)${state.q3_has_cancer_hx ? ', antécédent de cancer' : ''})`)
+  if (state.q3_neoplasia === 'watch') redFlagLines.push('(!) Antécédent de cancer isolé — surveillance clinique rapprochée')
+  if (state.q4_infection === 'yes') redFlagLines.push(`⚠ Suspicion infection spinale (${state.q4_factors} facteur(s))`)
+  if (state.q5_aaa === 'yes') redFlagLines.push('⚠ Suspicion anévrisme de l\'aorte abdominale')
+  if (redFlagLines.length) {
+    lines.push('Drapeaux rouges :')
+    redFlagLines.forEach(l => lines.push(`  ${l}`))
+  }
+
+  // ── Irradiation / type de douleur ──
+  if (state.q6_radiation !== null) {
+    if (state.q6_radiation === 'no') {
+      lines.push('Irradiation : douleur axiale uniquement (pas d\'irradiation dans la jambe).')
+    } else if (state.q6_radiation === 'yes') {
+      const belowKnee = state.q6_below_knee === 'yes' ? 'descend sous le genou' : 'ne descend pas sous le genou'
+      const legWorse = state.q6_leg_worse === 'yes' ? 'douleur de jambe > douleur de dos' : 'douleur de dos ≥ douleur de jambe'
+      lines.push(`Irradiation : dans la jambe (${belowKnee}, ${legWorse}).`)
+    }
+  }
+
+  // ── Voie radiculaire ──
   if (type === 'radicular') {
-    const details: string[] = []
-    if (state.q7_age_under60 === 'yes') details.push('< 60 ans')
-    else if (state.q7_age_under60 === 'no') details.push('≥ 60 ans')
-    if (state.q7_unilateral === 'yes') details.push('douleur unilatérale')
-    if (state.q7_unilateral === 'no') details.push('douleur bilatérale')
-    if (state.q7_worse_sitting === 'yes') details.push('aggravée en position assise')
-    if (state.q7_worse_walking === 'yes') details.push('aggravée à la marche (claudication)')
-    if (state.q7_shopping_cart === 'yes') details.push('soulagée en flexion / appui caddie')
-    if (state.q7_cough_sneeze === 'yes') details.push('augmentée à la toux/éternuement')
-    if (state.q7_sudden_onset === 'yes') details.push('début brutal après effort')
-    if (details.length) lines.push(`Caractéristiques : ${details.join(', ')}.`)
-    lines.push('Irradiation descendant sous le genou, douleur de jambe > douleur de dos.')
+    const disc: string[] = []
+    const stenosis: string[] = []
+    if (state.q7_age_under60 === 'yes') disc.push('< 60 ans')
+    if (state.q7_age_under60 === 'no') { stenosis.push('≥ 60 ans') }
+    if (state.q7_unilateral === 'yes') disc.push('unilatérale')
+    if (state.q7_unilateral === 'no') stenosis.push('bilatérale')
+    if (state.q7_worse_sitting === 'yes') disc.push('aggravée assis')
+    if (state.q7_worse_walking === 'yes') stenosis.push('aggravée à la marche / claudication neurogène')
+    if (state.q7_shopping_cart === 'yes') stenosis.push('soulagée en flexion / appui caddie [shopping cart sign]')
+    if (state.q7_sudden_onset === 'yes') disc.push('début brutal après effort')
+    if (state.q7_cough_sneeze === 'yes') disc.push('augmentée à la toux / éternuement')
+    const discStr = disc.filter(Boolean)
+    const stenosisStr = stenosis.filter(Boolean)
+    if (discStr.length) lines.push(`Caractéristiques évocatrices hernie discale : ${discStr.join(', ')}.`)
+    if (stenosisStr.length) lines.push(`Caractéristiques évocatrices sténose spinale : ${stenosisStr.join(', ')}.`)
   }
 
+  // ── Voie inflammatoire / SpA ──
   if (type === 'spa') {
-    lines.push(`${state.q9_criteria} critères inflammatoires présents.`)
-    if (state.q9_extra_articular) lines.push('Manifestation(s) extra-articulaire(s) associée(s).')
-    if (state.q9_spa_sacroiliitis === 'yes') lines.push('Sacroiliite radiographique présente → Spondylarthrite ankylosante.')
-    if (state.q9_spa_hlab27 === 'yes') lines.push('HLA-B27 positif.')
+    lines.push('')
+    lines.push('Profil inflammatoire (critères ASAS) :')
+    lines.push(`  Nombre de critères satisfaits : ${state.q9_criteria}/6.`)
+    if (state.q9_extra_articular) lines.push('  Manifestation(s) extra-articulaire(s) présente(s).')
+    if (state.q9_spa_sacroiliitis === 'yes') lines.push('  Sacroiliite radiographique présente → Critères de New York modifiés positifs.')
+    if (state.q9_spa_hlab27 === 'yes') lines.push('  HLA-B27 positif.')
+    if (state.q9_spa_hlab27 === 'no') lines.push('  HLA-B27 négatif.')
+    if (state.q9_spa_clinical_picture === 'yes') lines.push('  Tableau clinique jugé convaincant pour SpA axiale.')
+    if (state.q9_spa_clinical_picture === 'no') lines.push('  Tableau clinique peu convaincant — IRM sacro-iliaque recommandée.')
   }
 
-  if (type === 'mechanical') {
+  // ── Voie mécanique axiale ──
+  if (type === 'mechanical' || type === 'non_specific') {
+    lines.push('')
+    lines.push('Caractéristiques mécaniques :')
     const locLabels: Record<string, string> = {
-      medial: 'médiane (discogénique)',
+      medial: 'médiane sur les épineuses (discogénique)',
       paravertebral: 'paravertébrale (facettaire)',
       gluteal: 'fessière / sacro-iliaque',
-      diffuse: 'diffuse paravertébrale',
+      diffuse: 'diffuse paravertébrale bilatérale',
     }
-    if (state.q10_location) lines.push(`Localisation : ${locLabels[state.q10_location] || state.q10_location}.`)
-    if (state.q13_tests_positive > 0) lines.push(`Tests de provocation SI positifs : ${state.q13_tests_positive}/6.`)
-    if (state.q11_centralization === 'yes') lines.push('Phénomène de centralisation positif (McKenzie).')
+    if (state.q10_location) lines.push(`  Localisation : ${locLabels[state.q10_location] || state.q10_location}.`)
+    if (state.q11_centralization === 'yes') lines.push('  Phénomène de centralisation positif (McKenzie) → douleur discogénique probable.')
+    if (state.q11_centralization === 'no') lines.push('  Pas de centralisation aux mouvements répétés.')
+    if (state.q12_facet === 'probable') lines.push('  Profil facettaire : ≥ 3 critères de Revel.')
+    if (state.q13_tests_positive > 0) lines.push(`  Tests de provocation SI positifs : ${state.q13_tests_positive}/6${state.q13_tests_positive >= 3 ? ' (cluster ≥ 3 → dysfonction SI probable)' : ''}.`)
   }
 
   if (type === 'non_specific') {
-    lines.push('Lombalgie non spécifique (strain/sprain). Diagnostic d\'exclusion.')
-    lines.push('Aucune imagerie recommandée en routine.')
+    lines.push('  Diagnostic d\'exclusion — aucune imagerie recommandée en routine.')
   }
 
+  // ── Drapeaux rouges éliminés ──
   lines.push('')
-  const flagsItems: string[] = []
-  if (state.q1_cauda_equina === 'no') flagsItems.push('queue de cheval')
-  if (state.q2_fracture === 'no') flagsItems.push('fracture')
-  if (['alert', 'watch', 'no'].includes(state.q3_neoplasia || '') && state.q3_neoplasia !== 'alert') flagsItems.push('néoplasie')
-  if (state.q4_infection === 'no') flagsItems.push('infection')
-  if (state.q5_aaa === 'no') flagsItems.push('AAA')
-  if (flagsItems.length) lines.push(`Drapeaux rouges éliminés : ${flagsItems.join(', ')}.`)
+  const cleared: string[] = []
+  if (state.q1_cauda_equina === 'no') cleared.push('queue de cheval')
+  if (state.q2_fracture === 'no') cleared.push('fracture')
+  if (state.q3_neoplasia === 'no') cleared.push('néoplasie')
+  if (state.q4_infection === 'no') cleared.push('infection')
+  if (state.q5_aaa === 'no') cleared.push('AAA')
+  if (cleared.length) lines.push(`Drapeaux rouges éliminés : ${cleared.join(', ')}.`)
 
+  // ── Drapeaux jaunes ──
+  const yellowLabels: Record<string, string> = {
+    catastrophism: 'catastrophisme',
+    anxiety: 'anxiété',
+    depression: 'dépression',
+    kinesophobia: 'kinésiophobie',
+    work: 'insatisfaction au travail',
+    obesity: 'obésité',
+    smoking: 'tabagisme actif',
+    high_pain: 'douleur intense (EVA ≥ 7)',
+  }
   if (state.q_yellow_flags.length > 0) {
-    lines.push(`Drapeaux jaunes présents : ${state.q_yellow_flags.join(', ')}.`)
+    const labels = state.q_yellow_flags.map(f => yellowLabels[f] || f)
+    lines.push(`Drapeaux jaunes (${state.q_yellow_flags.length}) : ${labels.join(', ')}.`)
+  } else if (state.q_yellow_flags.length === 0 && state.q_chronic_risk !== null) {
+    lines.push('Drapeaux jaunes : aucun identifié.')
   }
-  if (state.q_chronic_risk === 'yes') {
-    lines.push('Facteurs de risque de chronicisation identifiés → plan de traitement ciblé recommandé.')
-  }
+  if (state.q_chronic_risk === 'yes') lines.push('Facteurs de risque de chronicisation → plan biopsychosocial ciblé recommandé.')
+  if (state.q_chronic_risk === 'no') lines.push('Risque de chronicisation faible → réassurance et traitement conservateur.')
 
   return lines.join('\n')
 }

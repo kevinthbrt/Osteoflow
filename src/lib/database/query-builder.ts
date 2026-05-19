@@ -113,7 +113,7 @@ function findForeignKey(
   parentTable: string,
   childTable: string
 ): { column: string; referencedColumn: string; direction: 'parent' | 'child' } {
-  // Common relationships in the Osteoflow schema
+  // Common relationships in the Myosteoflow schema
   const relationships: Record<string, Record<string, { column: string; ref: string; dir: 'parent' | 'child' }>> = {
     consultations: {
       patients: { column: 'patient_id', ref: 'id', dir: 'parent' },

@@ -144,7 +144,7 @@ function PinPageInner() {
             </div>
           </div>
           <CardTitle className="text-xl">
-            {isUnlockMode ? 'Session verrouillée' : 'Osteoflow'}
+            {isUnlockMode ? 'Session verrouillée' : 'Myosteoflow'}
           </CardTitle>
           <CardDescription>
             {isUnlockMode

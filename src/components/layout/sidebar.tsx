@@ -63,7 +63,7 @@ export function Sidebar() {
   }, [])
 
   const handleLock = async () => {
-    window.dispatchEvent(new Event('osteoflow:before-lock'))
+    window.dispatchEvent(new Event('myosteoflow:before-lock'))
     await new Promise((r) => setTimeout(r, 400))
     await fetch('/api/session/lock', { method: 'POST' })
     router.push('/pin?mode=unlock')
@@ -102,7 +102,7 @@ export function Sidebar() {
               <h2 className="text-lg font-semibold text-white">Déconnexion</h2>
             </div>
             <p className="text-slate-300 text-sm mb-6">
-              Vous allez être déconnecté de votre compte Osteoupgrade. Vous devrez vous reconnecter pour utiliser Osteoflow.
+              Vous allez être déconnecté de votre compte Osteoupgrade. Vous devrez vous reconnecter pour utiliser Myosteoflow.
             </p>
             <div className="flex gap-3">
               <button
@@ -161,7 +161,7 @@ export function Sidebar() {
               </div>
               <div>
                 <span className="text-xl font-bold text-white">
-                  Osteoflow
+                  Myosteoflow
                 </span>
                 <p className="text-[10px] text-indigo-300/70 font-medium tracking-wider uppercase">
                   Gestion de cabinet
@@ -255,7 +255,7 @@ export function Sidebar() {
                     <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-semibold text-slate-300">Osteoflow v{packageJson.version}</p>
+                    <p className="text-[10px] font-semibold text-slate-300">Myosteoflow v{packageJson.version}</p>
                     <p className="text-[9px] text-indigo-300/50">Voir le changelog</p>
                   </div>
                 </div>

@@ -27,7 +27,7 @@ export async function POST() {
 
   try {
     const res = await fetch(
-      `${OSTEOUPGRADE_URL}/api/osteoflow/verify?token=${encodeURIComponent(token)}&device_id=${encodeURIComponent(deviceId)}`,
+      `${OSTEOUPGRADE_URL}/api/myosteoflow/verify?token=${encodeURIComponent(token)}&device_id=${encodeURIComponent(deviceId)}`,
       { signal: AbortSignal.timeout(8000) }
     )
     const data = await res.json()

@@ -1,5 +1,5 @@
 /**
- * Cloudflare Worker for Osteoflow patient surveys.
+ * Cloudflare Worker for Myosteoflow patient surveys.
  *
  * Serves a beautiful, mobile-friendly survey form and stores responses in KV.
  * The Electron desktop app registers surveys before sending J+7 emails,
@@ -463,7 +463,7 @@ function renderSurveyPage(survey: SurveyData): string {
     </p>
   </div>
 
-  <p class="footer">Envoy&eacute; via Osteoflow</p>
+  <p class="footer">Envoy&eacute; via Myosteoflow</p>
 
   <script>
     let rating = null, evaScore = 0, evaChanged = false, painReduction = null, mobility = null;
@@ -578,7 +578,7 @@ function renderAlreadySubmittedPage(survey: SurveyData): string {
     <h1>Merci ${survey.patient_first_name} !</h1>
     <p>Vous avez d&eacute;j&agrave; r&eacute;pondu &agrave; ce questionnaire. Vos r&eacute;ponses ont &eacute;t&eacute; transmises.</p>
   </div>
-  <p class="footer">Envoy&eacute; via Osteoflow</p>
+  <p class="footer">Envoy&eacute; via Myosteoflow</p>
 </body>
 </html>`
 }
@@ -615,7 +615,7 @@ function renderExpiredPage(): string {
     <h1>Questionnaire indisponible</h1>
     <p>Ce questionnaire a expir&eacute; ou n'existe pas. Si vous pensez qu'il s'agit d'une erreur, contactez votre praticien.</p>
   </div>
-  <p class="footer">Osteoflow</p>
+  <p class="footer">Myosteoflow</p>
 </body>
 </html>`
 }

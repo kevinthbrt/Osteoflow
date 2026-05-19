@@ -4,7 +4,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { QueryProvider } from '@/components/providers/query-provider'
 
 export const metadata: Metadata = {
-  title: 'Osteoflow - Gestion de cabinet',
+  title: 'Myosteoflow - Gestion de cabinet',
   description: 'Application de gestion de cabinet d\'ostéopathie',
 }
 

@@ -215,7 +215,7 @@ export function ConsultationForm({
       }).catch(() => {})
     }
 
-    window.addEventListener('osteoflow:before-lock', saveDraft)
+    window.addEventListener('myosteoflow:before-lock', saveDraft)
 
     const shouldRestore = sessionStorage.getItem('restore_consultation_draft')
     if (shouldRestore) {
@@ -239,7 +239,7 @@ export function ConsultationForm({
 
     return () => {
       clearInterval(interval)
-      window.removeEventListener('osteoflow:before-lock', saveDraft)
+      window.removeEventListener('myosteoflow:before-lock', saveDraft)
     }
   }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
