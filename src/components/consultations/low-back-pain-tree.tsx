@@ -240,6 +240,7 @@ interface DiagnosisResult {
   exams: Array<{ name: string; urgency: 'urgent' | 'if_persistent' | 'not_indicated'; condition?: string }>
   yellowFlagWarning: boolean
   chronicRisk: boolean
+  isAcute: boolean
   anamnesisSummary: string
   treatment: TreatmentRec
 }
@@ -424,22 +425,7 @@ const TREATMENT_RECS: Record<string, TreatmentRec> = {
 }
 
 function buildResult(state: TreeState): DiagnosisResult {
-  // Acute < 8 weeks → conservative
-  if (state.q_duration === 'acute') {
-    return {
-      primary: 'Lombalgie aiguë — prise en charge conservative',
-      confidence: 'exclusion',
-      tests: [
-        { name: 'Examen neurologique', target: 'Exclure déficit focal', result: '' },
-        { name: 'Palpation paravertébrale', target: 'Spasme / contracture', result: '' },
-      ],
-      exams: [{ name: 'Aucun examen en routine', urgency: 'not_indicated', condition: '< 8 semaines sans drapeau rouge' }],
-      yellowFlagWarning: false,
-      chronicRisk: false,
-      anamnesisSummary: buildAnamnesisText('Lombalgie aiguë (< 8 semaines)', state, 'acute'),
-      treatment: TREATMENT_RECS.non_specific,
-    }
-  }
+  const isAcute = state.q_duration === 'acute'
 
   const isRadicular = state.q6_radiation === 'yes' && state.q6_below_knee === 'yes' && state.q6_leg_worse === 'yes'
 
@@ -480,6 +466,7 @@ function buildResult(state: TreeState): DiagnosisResult {
       }],
       yellowFlagWarning: false,
       chronicRisk: false,
+      isAcute,
       anamnesisSummary: buildAnamnesisText(primary, state, 'radicular'),
       treatment: isStenosis ? TREATMENT_RECS.stenosis : TREATMENT_RECS.disc_radicular,
     }
@@ -502,7 +489,7 @@ function buildResult(state: TreeState): DiagnosisResult {
           { name: 'Bilan biologique : CRP, VS, NFS', urgency: 'if_persistent', condition: '' },
           { name: 'Référer en rhumatologie', urgency: 'if_persistent', condition: 'Pour confirmation et traitement' },
         ],
-        yellowFlagWarning: false, chronicRisk: false,
+        yellowFlagWarning: false, chronicRisk: false, isAcute,
         anamnesisSummary: buildAnamnesisText('Spondylarthrite ankylosante', state, 'spa'),
         treatment: TREATMENT_RECS.spa,
       }
@@ -523,7 +510,7 @@ function buildResult(state: TreeState): DiagnosisResult {
         { name: 'Bilan biologique : CRP, VS, NFS, HLA-B27', urgency: 'if_persistent', condition: '' },
         { name: 'Référer en rhumatologie', urgency: 'if_persistent', condition: 'Si ≥ 1 paramètre ASAS positif' },
       ],
-      yellowFlagWarning: false, chronicRisk: false,
+      yellowFlagWarning: false, chronicRisk: false, isAcute,
       anamnesisSummary: buildAnamnesisText(primary, state, 'spa'),
       treatment: TREATMENT_RECS.spa,
     }
@@ -549,6 +536,7 @@ function buildResult(state: TreeState): DiagnosisResult {
       ],
       yellowFlagWarning: state.q_yellow_flags.length >= 2,
       chronicRisk: state.q_chronic_risk === 'yes',
+      isAcute,
       anamnesisSummary: buildAnamnesisText('Dysfonction sacro-iliaque', state, 'mechanical'),
       treatment: TREATMENT_RECS.si,
     }
@@ -565,6 +553,7 @@ function buildResult(state: TreeState): DiagnosisResult {
       exams: [{ name: 'Pas d\'imagerie en routine', urgency: 'not_indicated', condition: 'Centralisation positive suffit' }],
       yellowFlagWarning: state.q_yellow_flags.length >= 2,
       chronicRisk: state.q_chronic_risk === 'yes',
+      isAcute,
       anamnesisSummary: buildAnamnesisText('Lombalgie discogénique', state, 'mechanical'),
       treatment: TREATMENT_RECS.discogenic,
     }
@@ -584,6 +573,7 @@ function buildResult(state: TreeState): DiagnosisResult {
       ],
       yellowFlagWarning: state.q_yellow_flags.length >= 2,
       chronicRisk: state.q_chronic_risk === 'yes',
+      isAcute,
       anamnesisSummary: buildAnamnesisText('Syndrome facettaire', state, 'mechanical'),
       treatment: TREATMENT_RECS.facet,
     }
@@ -600,6 +590,7 @@ function buildResult(state: TreeState): DiagnosisResult {
     exams: [{ name: 'Aucun examen nécessaire', urgency: 'not_indicated', condition: '80-90 % des cas' }],
     yellowFlagWarning: state.q_yellow_flags.length >= 2,
     chronicRisk: state.q_chronic_risk === 'yes',
+    isAcute,
     anamnesisSummary: buildAnamnesisText('Lombalgie non spécifique', state, 'non_specific'),
     treatment: TREATMENT_RECS.non_specific,
   }
@@ -1671,6 +1662,14 @@ function ResultStep({ result, onApply, onReset }: { result: DiagnosisResult; onA
           {confidenceLabel[result.confidence].label}
         </span>
       </div>
+
+      {/* Acute phase banner */}
+      {result.isAcute && (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+          <p className="font-medium flex items-center gap-1.5"><Clock className="h-4 w-4" /> Phase aiguë (&lt; 8 semaines)</p>
+          <p className="text-xs mt-1">Traitement conservateur recommandé en première intention. Imagerie non recommandée sauf drapeau rouge identifié.</p>
+        </div>
+      )}
 
       {/* Yellow flags warning */}
       {result.yellowFlagWarning && (
