@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Loader2, Lock, Mail, Eye, EyeOff, ExternalLink } from 'lucide-react'
 
 const OSTEOUPGRADE_URL =
-  process.env.NEXT_PUBLIC_OSTEOUPGRADE_URL || 'https://osteoupgrade.vercel.app'
+  process.env.NEXT_PUBLIC_OSTEOUPGRADE_URL || 'https://www.osteo-upgrade.fr'
 
 // Auth is proxied through /api/license/auth to avoid CORS in dev and desktop
 const AUTH_ENDPOINT = '/api/license/auth'

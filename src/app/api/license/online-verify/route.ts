@@ -4,7 +4,7 @@ import { getDatabase } from '@/lib/database/connection'
 export const dynamic = 'force-dynamic'
 
 const OSTEOUPGRADE_URL =
-  process.env.NEXT_PUBLIC_OSTEOUPGRADE_URL || 'https://osteoupgrade.vercel.app'
+  process.env.NEXT_PUBLIC_OSTEOUPGRADE_URL || 'https://www.osteo-upgrade.fr'
 
 function getAppConfig(key: string): string | null {
   const db = getDatabase()
