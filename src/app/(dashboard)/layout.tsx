@@ -6,6 +6,7 @@ import { UpdateBanner } from '@/components/layout/update-banner'
 import { WhatsNewDialog } from '@/components/layout/whats-new-dialog'
 import { LicenseGuard } from '@/components/layout/license-guard'
 import { InactivityTimer } from '@/components/InactivityTimer'
+import { BackupReminderDialog } from '@/components/layout/backup-reminder-dialog'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,6 +75,7 @@ export default async function DashboardLayout({
         </main>
       </div>
       <WhatsNewDialog />
+      <BackupReminderDialog />
       {/* Listens for license-expired IPC events from the 30-min heartbeat */}
       <LicenseGuard />
       <InactivityTimer timeoutMs={inactivityTimeoutMs} />

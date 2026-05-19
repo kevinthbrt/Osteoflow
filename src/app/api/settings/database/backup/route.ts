@@ -21,6 +21,13 @@ export async function GET() {
     const buffer = fs.readFileSync(backupPath)
     fs.unlinkSync(backupPath)
 
+    // Record backup date
+    const now = new Date().toISOString()
+    db.prepare(
+      "INSERT INTO app_config (key, value) VALUES ('last_backup_date', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+    ).run(now)
+    db.prepare("DELETE FROM app_config WHERE key = 'backup_reminder_snoozed_until'").run()
+
     const filename = `myosteoflow-backup-${new Date().toISOString().split('T')[0]}.db`
 
     return new NextResponse(buffer, {
