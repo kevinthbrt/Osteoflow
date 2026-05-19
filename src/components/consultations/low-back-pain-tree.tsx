@@ -518,7 +518,7 @@ function buildResult(state: TreeState): DiagnosisResult {
 
   // Mechanical
   const loc = state.q10_location
-  if (loc === 'gluteal' && state.q13_tests_positive >= 3) {
+  if (loc === 'gluteal') {
     return {
       primary: 'Dysfonction sacro-iliaque probable',
       confidence: 'probable',
@@ -703,7 +703,7 @@ function buildAnamnesisText(primary: string, state: TreeState, type: string): st
     if (state.q11_centralization === 'yes') lines.push('  Phénomène de centralisation positif (McKenzie) → douleur discogénique probable.')
     if (state.q11_centralization === 'no') lines.push('  Pas de centralisation aux mouvements répétés.')
     if (state.q12_facet === 'probable') lines.push('  Profil facettaire : ≥ 3 critères de Revel.')
-    if (state.q13_tests_positive > 0) lines.push(`  Tests de provocation SI positifs : ${state.q13_tests_positive}/6${state.q13_tests_positive >= 3 ? ' (cluster ≥ 3 → dysfonction SI probable)' : ''}.`)
+    if (state.q10_location === 'gluteal') lines.push('  Localisation fessière/SI → tests de provocation SI à réaliser lors de l\'examen clinique.')
   }
 
   if (type === 'non_specific') {
@@ -757,7 +757,7 @@ const STEP_PROGRESS: Partial<Record<Step, number>> = {
   q6: 48,
   q7: 56, q8: 64,
   q9: 56, q9_spa_sacroiliitis: 62, q9_spa_hlab27: 68, q9_spa_clinical: 74, q9_spa_mri: 80,
-  q10: 62, q11: 70, q12: 70, q13: 70,
+  q10: 62, q11: 70, q12: 70,
   q14_yellow_flags: 80, q_chronic_risk: 88,
   result: 100,
 }
@@ -1390,7 +1390,7 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
                 setState((s) => ({ ...s, q10_location: v }))
                 if (v === 'medial') push('q11', { q10_location: v })
                 else if (v === 'paravertebral') push('q12', { q10_location: v })
-                else if (v === 'gluteal') push('q13', { q10_location: v })
+                else if (v === 'gluteal') goToYellowFlags({ q10_location: v })
                 else goToYellowFlags({ q10_location: v })
               }}
               options={[
@@ -1450,34 +1450,6 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
                 { label: 'Profil non concluant', value: 'unclear' },
               ]}
             />
-          </StepWrapper>
-        )
-
-      // ── Q13 : Sacro-iliaque ───────────────────────────────────────────────
-      case 'q13':
-        return (
-          <StepWrapper
-            label="Q13 — Dysfonction sacro-iliaque"
-            badge="Voie mécanique"
-            badgeVariant="default"
-            question="Tests de provocation SI — cochez ceux positifs (sur 6) :"
-            hint="≥ 3 tests positifs : Sn 80-91 %, Sp 63-79 % (LR+ = 2.44, LR− = 0.31). < 3 tests : exclut la SI avec 92 % de certitude (VPN = 87-92 %). L'absence de douleur médiane lombaire + ≥ 3 tests positifs renforce fortement le diagnostic (LR+ pour douleur médiane absente = 2.41)."
-          >
-            <CheckboxGroup
-              options={[
-                { label: 'Test de distraction', value: 't1' },
-                { label: 'Test de compression', value: 't2' },
-                { label: 'Thrust sacré', value: 't3' },
-                { label: 'Test de Gaenslen', value: 't4' },
-                { label: 'Test de Patrick / FABER', value: 't5' },
-                { label: 'Thigh thrust (cisaillement postérieur)', value: 't6' },
-              ]}
-              selected={q13Checks}
-              onChange={setQ13Checks}
-            />
-            <Button className="w-full mt-3" onClick={() => goToYellowFlags({ q13_tests_positive: q13Checks.length })}>
-              Continuer
-            </Button>
           </StepWrapper>
         )
 

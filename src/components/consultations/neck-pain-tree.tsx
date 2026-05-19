@@ -526,7 +526,7 @@ function buildResult(state: NeckTreeState): DiagnosisResult {
   }
 
   // Cervicogenic headache
-  if ((state.q10_location === 'suboccipital' || state.q7_headache === 'yes') && state.q12_frt_positive === 'yes') {
+  if ((state.q10_location === 'suboccipital' || state.q7_headache === 'yes') && state.q12_criteria_checks.length >= 1) {
     const criteriaCount = state.q12_criteria_checks.length
     const primary = criteriaCount >= 3 ? 'Céphalée cervicogénique probable' : 'Céphalée cervicogénique possible'
     const confidence = criteriaCount >= 3 ? 'probable' : 'possible'
@@ -697,14 +697,11 @@ function buildAnamnesisText(primary: string, state: NeckTreeState, type: string)
   if (type === 'radicular') {
     lines.push('')
     lines.push('Voie radiculaire cervicale :')
+    lines.push('  → Tests de confirmation à réaliser : Spurling, ULNT, Bakody (voir résumé d\'examen).')
     if (state.q13_level) {
       const lev: Record<string, string> = { C5: 'C5 (épaule, deltoïde)', C6: 'C6 (pouce, index)', C7: 'C7 (majeur)', C8: 'C8 (annulaire, auriculaire)', T1: 'T1 (face médiale avant-bras)', unclear: 'niveau imprécis / multiple' }
       lines.push(`  Niveau suspecté : ${lev[state.q13_level] || state.q13_level}.`)
     }
-    if (state.q13_spurling === 'yes') lines.push('  Spurling : positif.')
-    if (state.q13_spurling === 'no') lines.push('  Spurling : négatif.')
-    if (state.q13_ulnt_positive) lines.push('  ULNT combinés : positifs (Sn 97 %).')
-    if (state.q13_bakody === 'yes') lines.push('  Signe de Bakody : positif.')
   }
 
   // ── WAD ──
@@ -717,8 +714,8 @@ function buildAnamnesisText(primary: string, state: NeckTreeState, type: string)
   if (type === 'cervicogenic') {
     lines.push('')
     lines.push('Céphalée cervicogénique :')
-    lines.push(`  Critères cliniques présents : ${state.q12_criteria_checks.length}/7.`)
-    lines.push(`  FRT : ${state.q12_frt_positive === 'yes' ? 'positif (limitation < 32°)' : 'négatif'}.`)
+    lines.push(`  Critères cliniques présents (anamnèse) : ${state.q12_criteria_checks.length}/7.`)
+    lines.push('  → FRT (test de flexion-rotation) à réaliser lors de l\'examen — limitation < 32° ipsilatérale = positif (Sn 91 %, Sp 90 %).')
   }
 
   // ── Mécanique ──
@@ -792,7 +789,7 @@ const STEP_PROGRESS: Partial<Record<Step, number>> = {
   q8_wad: 56, q8_wad_grade: 62,
   q9: 56, q10: 62, q11: 70,
   q12_headache: 70,
-  q13_radicular: 56, q13_level: 64,
+  q13_level: 56,
   q14_yellow_flags: 80, q_chronic_risk: 88,
   result: 100,
 }
@@ -1241,7 +1238,7 @@ export function NeckPainTree({ open, onClose, onApply }: NeckPainTreeProps) {
               }
               onClick={() => {
                 const radicular = state.q6_arm_radiation === 'yes' && state.q6_paresthesias === 'yes' && state.q6_arm_worse === 'yes'
-                push(radicular ? 'q13_radicular' : 'q7')
+                push(radicular ? 'q13_level' : 'q7')
               }}
             >
               Continuer
@@ -1416,131 +1413,41 @@ export function NeckPainTree({ open, onClose, onApply }: NeckPainTreeProps) {
             label="Q12 — Céphalée cervicogénique"
             badge="Voie céphalée cervicogénique"
             badgeVariant="default"
-            question="Cochez les critères cliniques présents :"
-            hint="Critères IHS de céphalée cervicogénique : douleur unilatérale, postéro-antérieure, déclenchée par les mouvements du cou. FRT < 32° = critère diagnostique validé vs bloc anesthésique."
+            question="Cochez les critères cliniques présents (anamnèse) :"
+            hint="Critères IHS basés sur l'interrogatoire. Le test FRT (flexion-rotation cervicale) sera proposé dans le résumé pour confirmer le diagnostic lors de l'examen clinique."
           >
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Critères cliniques IHS</p>
-                <CheckboxGroup
-                  options={[
-                    { label: 'Toujours du même côté (unilatérale)', value: 'unilateral' },
-                    { label: 'Irradiation nuque → front / tempe (postéro-antérieure)', value: 'posterior_anterior' },
-                    { label: 'Déclenchée par les mouvements du cou ou posture prolongée', value: 'movement_triggered' },
-                    { label: 'Modérée, non pulsatile (≠ migraine)', value: 'non_pulsatile' },
-                    { label: 'Durée variable (heures à jours)', value: 'variable_duration' },
-                    { label: 'Antécédent de traumatisme cervical', value: 'trauma_hx' },
-                    { label: 'Nausées / photophobie présentes (mais non prédominantes)', value: 'nausea_photo' },
-                  ]}
-                  selected={q12Checks}
-                  onChange={setQ12Checks}
-                />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Test de flexion-rotation cervicale (FRT)</p>
-                <p className="text-xs text-muted-foreground mb-2">Patient en décubitus, tête en flexion maximale (menton vers le sternum), rotation cervicale gauche et droite. Positif si limitation &lt; 32° du côté symptomatique.</p>
-                <RadioGroup
-                  value={state.q12_frt_positive}
-                  onChange={(v) => setState((s) => ({ ...s, q12_frt_positive: v }))}
-                  options={[
-                    { label: 'FRT positif — limitation < 32° du côté symptomatique', value: 'yes', description: 'Critère diagnostique validé (Sn 91 %, Sp 90 %)' },
-                    { label: 'FRT négatif — amplitude normale', value: 'no', description: '→ Céphalée cervicogénique moins probable' },
-                  ]}
-                />
-              </div>
-            </div>
+            <CheckboxGroup
+              options={[
+                { label: 'Toujours du même côté (sans changement de côté)', value: 'unilateral' },
+                { label: 'Irradiation nuque → front / tempe (postéro-antérieure)', value: 'posterior_anterior' },
+                { label: 'Déclenchée par les mouvements du cou ou posture prolongée', value: 'movement_triggered' },
+                { label: 'Modérée, non pulsatile (≠ migraine)', value: 'non_pulsatile' },
+                { label: 'Durée variable (heures à jours)', value: 'variable_duration' },
+                { label: 'Antécédent de traumatisme cervical', value: 'trauma_hx' },
+                { label: 'Nausées / photophobie (présentes mais non prédominantes)', value: 'nausea_photo' },
+              ]}
+              selected={q12Checks}
+              onChange={setQ12Checks}
+            />
             <Button
               className="w-full mt-3"
-              disabled={state.q12_frt_positive === null}
-              onClick={() => goToYellowFlags({ q12_criteria_checks: q12Checks, q12_frt_positive: state.q12_frt_positive })}
+              disabled={q12Checks.length === 0}
+              onClick={() => goToYellowFlags({ q12_criteria_checks: q12Checks })}
             >
               Continuer
             </Button>
           </StepWrapper>
         )
 
-      // ── Q13 : Radiculopathie cervicale ────────────────────────────────────
-      case 'q13_radicular':
-        return (
-          <StepWrapper
-            label="Q13 — Tests radiculopathie cervicale"
-            badge="Voie radiculaire"
-            badgeVariant="default"
-            question="Réalisez les tests cliniques de radiculopathie :"
-          >
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Test de Spurling (compression foraminale)</p>
-                <p className="text-xs text-muted-foreground">Extension + rotation ipsilatérale + pression axiale → reproduction de la douleur radiculaire. Sn 38-98 %, Sp 84-100 %.</p>
-                <div className="flex gap-2">
-                  {(['yes', 'no'] as const).map((v) => (
-                    <button key={v} type="button"
-                      onClick={() => setState((s) => ({ ...s, q13_spurling: v }))}
-                      className={`flex-1 py-1.5 rounded-md border text-sm font-medium transition-colors ${
-                        state.q13_spurling === v ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent/50'
-                      }`}
-                    >
-                      {v === 'yes' ? 'Positif' : 'Négatif'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-sm font-medium">ULNT combinés (4 tests neurodynamiques)</p>
-                <p className="text-xs text-muted-foreground">ULNT 1 médian + ULNT 2 radial + ULNT 3 ulnaire + variation — Cluster Sn 97 %, Sp 51 %.</p>
-                <div className="flex gap-2">
-                  {(['yes', 'no'] as const).map((v) => (
-                    <button key={v} type="button"
-                      onClick={() => setState((s) => ({ ...s, q13_ulnt_positive: v === 'yes' }))}
-                      className={`flex-1 py-1.5 rounded-md border text-sm font-medium transition-colors ${
-                        (state.q13_ulnt_positive ? 'yes' : 'no') === v ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent/50'
-                      }`}
-                    >
-                      {v === 'yes' ? 'Positifs' : 'Négatifs'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Signe de Bakody (abduction de l'épaule)</p>
-                <p className="text-xs text-muted-foreground">Main ipsilatérale posée sur le dessus de la tête → soulagement de la douleur radiculaire. Sn 49 %, Sp 76 %.</p>
-                <div className="flex gap-2">
-                  {(['yes', 'no', 'not_done'] as const).map((v) => (
-                    <button key={v} type="button"
-                      onClick={() => setState((s) => ({ ...s, q13_bakody: v }))}
-                      className={`flex-1 py-1.5 rounded-md border text-sm font-medium transition-colors ${
-                        state.q13_bakody === v ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent/50'
-                      }`}
-                    >
-                      {v === 'yes' ? 'Positif' : v === 'no' ? 'Négatif' : 'Non réalisé'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <Button
-              className="w-full mt-3"
-              disabled={state.q13_spurling === null || state.q13_bakody === null}
-              onClick={() => push('q13_level', {
-                q13_spurling: state.q13_spurling,
-                q13_ulnt_positive: state.q13_ulnt_positive,
-                q13_bakody: state.q13_bakody,
-              })}
-            >
-              Continuer → Localisation radiculaire
-            </Button>
-          </StepWrapper>
-        )
-
+      // ── Q13 : Niveau radiculaire (symptômes → dermatome) ─────────────────────
       case 'q13_level':
         return (
           <StepWrapper
-            label="Q13b — Niveau radiculaire cervical"
+            label="Q13 — Niveau radiculaire cervical"
             badge="Voie radiculaire"
             badgeVariant="default"
-            question="Identifiez le niveau radiculaire selon le tableau dermatome / myotome / réflexe :"
+            question="Où le patient ressent-il ses symptômes ? (douleur, paresthésies, faiblesse)"
+            hint="Sélectionnez le niveau correspondant à la distribution des symptômes décrits par le patient. Les tests de confirmation (Spurling, ULNT, Bakody) seront proposés dans le résumé."
           >
             <div className="rounded-lg border overflow-hidden text-sm mb-3">
               <table className="w-full">

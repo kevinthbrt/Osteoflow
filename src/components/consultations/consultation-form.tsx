@@ -29,6 +29,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin, GitBranch } from 'lucide-react'
@@ -95,6 +96,7 @@ export function ConsultationForm({
   const paymentsRef = useRef(payments)
   const submittedRef = useRef(false)
   const [showTopography, setShowTopography] = useState(false)
+  const [showDiagnosticSelector, setShowDiagnosticSelector] = useState(false)
   const [showDecisionTree, setShowDecisionTree] = useState(false)
   const [showNeckTree, setShowNeckTree] = useState(false)
 
@@ -608,26 +610,16 @@ export function ConsultationForm({
                   <Stethoscope className="h-5 w-5 text-primary" />
                   <CardTitle className="text-lg">Contenu clinique</CardTitle>
                 </div>
-                <div className="flex items-center gap-1 flex-wrap">
+                <div className="flex items-center gap-1">
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     className="gap-1.5 text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowDecisionTree(true)}
+                    onClick={() => setShowDiagnosticSelector(true)}
                   >
                     <GitBranch className="h-4 w-4" />
-                    Lombalgie
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1.5 text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowNeckTree(true)}
-                  >
-                    <GitBranch className="h-4 w-4" />
-                    Cervicalgie
+                    Aide au diagnostic
                   </Button>
                   <Button
                     type="button"
@@ -1081,6 +1073,31 @@ export function ConsultationForm({
         />
       )}
       <TopographyPanel open={showTopography} onClose={() => setShowTopography(false)} />
+      <Dialog open={showDiagnosticSelector} onOpenChange={setShowDiagnosticSelector}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Aide au diagnostic</DialogTitle>
+            <DialogDescription>Choisissez la région à analyser</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 mt-1">
+            <button
+              onClick={() => { setShowDiagnosticSelector(false); setShowDecisionTree(true) }}
+              className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all text-sm font-medium"
+            >
+              <span className="text-2xl">🦴</span>
+              Lombalgie
+            </button>
+            <button
+              onClick={() => { setShowDiagnosticSelector(false); setShowNeckTree(true) }}
+              className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all text-sm font-medium"
+            >
+              <span className="text-2xl">🫀</span>
+              Cervicalgie
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <LowBackPainTree
         open={showDecisionTree}
         onClose={() => setShowDecisionTree(false)}
