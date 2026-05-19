@@ -19,7 +19,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check } from 'lucide-react'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield } from 'lucide-react'
+import { CGU_SECTIONS, PRIVACY_SECTIONS, CGU_VERSION, CGU_DATE, type LegalSection } from '@/lib/legal/documents'
 import type { Practitioner, SessionType } from '@/types/database'
 
 interface PatientListItem {
@@ -44,6 +45,106 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+
+function renderInline(text: string) {
+  return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
+    i % 2 === 1 ? <strong key={i} className="font-semibold text-foreground">{part}</strong> : part
+  )
+}
+
+function LegalDoc({ sections }: { sections: LegalSection[] }) {
+  return (
+    <div className="space-y-2 text-sm">
+      {sections.map((s, i) => {
+        switch (s.type) {
+          case 'h1': return <h1 key={i} className="text-base font-bold text-foreground pt-1">{s.content}</h1>
+          case 'h2': return <h2 key={i} className="text-sm font-semibold text-foreground border-b pb-1 mt-4">{s.content}</h2>
+          case 'h3': return <h3 key={i} className="text-sm font-medium text-foreground mt-3">{s.content}</h3>
+          case 'p': return <p key={i} className="text-muted-foreground leading-relaxed">{renderInline(s.content ?? '')}</p>
+          case 'ul': return (
+            <ul key={i} className="list-disc list-inside space-y-1 pl-2">
+              {s.items?.map((item, j) => (
+                <li key={j} className="text-muted-foreground leading-relaxed">{renderInline(item)}</li>
+              ))}
+            </ul>
+          )
+          case 'table': return (
+            <div key={i} className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse border border-border">
+                <thead className="bg-muted">
+                  <tr>{s.headers?.map((h, j) => <th key={j} className="border border-border px-2 py-1 text-left font-semibold">{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {s.rows?.map((row, j) => (
+                    <tr key={j}>{row.map((cell, k) => <td key={k} className="border border-border px-2 py-1 text-muted-foreground">{cell}</td>)}</tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+          case 'hr': return <hr key={i} className="my-2 border-border" />
+          default: return null
+        }
+      })}
+    </div>
+  )
+}
+
+function LegalSettingsTab() {
+  const [acceptedAt, setAcceptedAt] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/legal/status')
+      .then((r) => r.json())
+      .then((d) => setAcceptedAt(d.acceptedAt ?? null))
+      .catch(() => {})
+  }, [])
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-primary" />
+            Légal &amp; Confidentialité
+          </CardTitle>
+          <CardDescription>
+            Version {CGU_VERSION} · En vigueur depuis le {CGU_DATE}
+            {acceptedAt && (
+              <span className="ml-2 text-green-600">
+                · Acceptées le {new Date(acceptedAt).toLocaleDateString('fr-FR')}
+              </span>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="cgu">
+            <TabsList className="mb-4">
+              <TabsTrigger value="cgu" className="gap-1.5 text-xs">
+                <FileText className="h-3.5 w-3.5" />
+                CGU
+              </TabsTrigger>
+              <TabsTrigger value="privacy" className="gap-1.5 text-xs">
+                <Shield className="h-3.5 w-3.5" />
+                Confidentialité
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="cgu">
+              <div className="max-h-[60vh] overflow-y-auto pr-1">
+                <LegalDoc sections={CGU_SECTIONS} />
+              </div>
+            </TabsContent>
+            <TabsContent value="privacy">
+              <div className="max-h-[60vh] overflow-y-auto pr-1">
+                <LegalDoc sections={PRIVACY_SECTIONS} />
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
 
 export default function SettingsPage() {
   const [practitioner, setPractitioner] = useState<Practitioner | null>(null)
@@ -751,6 +852,10 @@ export default function SettingsPage() {
           <TabsTrigger value="objectives">
             <Target className="mr-2 h-4 w-4" />
             Objectifs
+          </TabsTrigger>
+          <TabsTrigger value="legal">
+            <Shield className="mr-2 h-4 w-4" />
+            Légal
           </TabsTrigger>
         </TabsList>
 
@@ -1667,6 +1772,11 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Legal Tab */}
+        <TabsContent value="legal">
+          <LegalSettingsTab />
         </TabsContent>
       </Tabs>
 
