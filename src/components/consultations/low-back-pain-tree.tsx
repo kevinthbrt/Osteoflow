@@ -216,6 +216,19 @@ function AlertStep({
 
 // ─── Result builder ──────────────────────────────────────────────────────────
 
+interface TreatmentRec {
+  manualTherapy: {
+    evidenceLevel: string
+    techniques: string[]
+    warning?: string
+  }
+  exercises: {
+    evidenceLevel: string
+    protocol: string[]
+  }
+  keyNotes: string[]
+}
+
 interface DiagnosisResult {
   primary: string
   confidence: 'probable' | 'possible' | 'exclusion' | 'urgent'
@@ -224,6 +237,186 @@ interface DiagnosisResult {
   yellowFlagWarning: boolean
   chronicRisk: boolean
   anamnesisSummary: string
+  treatment: TreatmentRec
+}
+
+const TREATMENT_RECS: Record<string, TreatmentRec> = {
+  non_specific: {
+    manualTherapy: {
+      evidenceLevel: 'Modéré',
+      techniques: [
+        'HVLA (thrust) lombaire et thoraco-lombaire',
+        'Mobilisations articulaires (grades III-IV)',
+        'Techniques myofasciales (MFR) — réduction de la douleur ES : −0.69',
+        'OMT incluant techniques viscérales (diaphragme) — bénéfice additionnel démontré',
+      ],
+    },
+    exercises: {
+      evidenceLevel: 'Élevé',
+      protocol: [
+        'Renforcement du core : gainage ventral, latéral, bird-dog — 3×/sem, progression sur 8 semaines',
+        'Exercices de contrôle moteur : transverse + multifides → progression vers tâches fonctionnelles',
+        'Marche structurée : 30 min/j, 5×/sem (SMD analgésique : −1.05)',
+        'Pilates : 2-3×/sem — meilleur effet sur la douleur (SMD : −1.14) et le handicap',
+        'Éducation : rester actif, éviter le repos au lit, pronostic favorable attendu',
+      ],
+    },
+    keyNotes: [
+      'Combinaison TM + exercice systématiquement supérieure à chaque modalité isolée',
+      'OMT : 65 % obtiennent ≥ 30 % de soulagement vs 46 % dans le groupe sham (SMD douleur : −0.59)',
+    ],
+  },
+  disc_radicular: {
+    manualTherapy: {
+      evidenceLevel: 'Modéré',
+      techniques: [
+        'HVLA lombaire (technique de Maigne) — 3 séances à 1 semaine d\'intervalle',
+        'Mobilisations en distraction lombaire',
+        'Mobilisation neurale (neurodynamique) — niveau de preuve B',
+      ],
+      warning: 'Éviter HVLA si déficit neurologique progressif, syndrome de la queue de cheval ou hernie séquestrée massive',
+    },
+    exercises: {
+      evidenceLevel: 'Modéré',
+      protocol: [
+        'Évaluation de la préférence directionnelle (McKenzie) : mouvements répétés extension / flexion / glissement latéral',
+        'Extension (la plus fréquente, 83 % des cas) : prone press-ups, 10 rép. toutes les 2-3h, passif → actif',
+        'Stabilisation : activation transverse + multifides, puis exercices fonctionnels',
+        'Éducation posturale : éviter la flexion prolongée, support lombaire',
+        'Marche : reprise progressive, limiter la position assise prolongée',
+      ],
+    },
+    keyNotes: [
+      'Centralisation observée chez ~70 % des patients → prédit un bon pronostic',
+      'HVLA vs sham : réduction EVA −1.20 ; vs kiné seule : −1.26 à court/moyen terme',
+      'À 24 mois : McKenzie ≡ conseils guidés selon les guidelines',
+    ],
+  },
+  stenosis: {
+    manualTherapy: {
+      evidenceLevel: 'Modéré',
+      techniques: [
+        'Mobilisation en distraction lombaire (flexion-distraction)',
+        'Mobilisation de la hanche et de l\'articulation sacro-iliaque',
+        'Étirements manuels des fléchisseurs de hanche et des ischio-jambiers',
+      ],
+      warning: 'Éviter les techniques en extension (aggravation de la sténose)',
+    },
+    exercises: {
+      evidenceLevel: 'Modéré',
+      protocol: [
+        'Exercices en flexion : genoux-poitrine, bascule pelvienne postérieure, flexion assise — 2-3×/j',
+        'Vélo stationnaire : 20-30 min, 3-5×/sem (la flexion ouvre le canal rachidien)',
+        'Marche sur tapis roulant : progression graduelle de la distance, avec pauses en flexion',
+        'Renforcement du tronc : gainage en flexion, exercices de stabilisation',
+        'Aquathérapie : marche en piscine, exercices en flexion en eau profonde',
+      ],
+    },
+    keyNotes: [
+      'TM + exercice individualisé > médicaments ± injections à 2 mois (MD : 2.0 sur ZCQ, IC 95% : 0.4-3.6)',
+      'Les différences s\'estompent à 6 mois — l\'exercice régulier reste essentiel au long terme',
+    ],
+  },
+  si: {
+    manualTherapy: {
+      evidenceLevel: 'Modéré (B)',
+      techniques: [
+        'Manipulation SI : thrust en décubitus latéral (rotation lombaire), thrust sacré',
+        'Mobilisation avec mouvement (MWM) de Mulligan',
+        'Techniques de muscle energy (MET) pour dysfonctions iliaques (antériorité/postériorité)',
+        'Mobilisation des tissus mous péri-articulaires (piriforme, moyen fessier, ligaments SI)',
+      ],
+    },
+    exercises: {
+      evidenceLevel: 'Modéré (B)',
+      protocol: [
+        'Stabilisation de la ceinture pelvienne : transverse, plancher pelvien, multifides → co-contraction → fonctionnel',
+        'Auto-mobilisation SI : en postériorité de l\'iliaque',
+        'Étirements spécifiques : piriforme, fléchisseurs de hanche, ischio-jambiers, adducteurs',
+        'Renforcement : ponts fessiers, clamshells, squats partiels',
+        'Ceinture pelvienne de soutien : bénéfique notamment en post-partum',
+      ],
+    },
+    keyNotes: [
+      'TM la plus efficace à court terme ; exercices remarquables à 12 semaines ; équivalents à 24 semaines',
+      'Core + MWM de Mulligan : réduit douleur, handicap et améliore la fonction',
+    ],
+  },
+  discogenic: {
+    manualTherapy: {
+      evidenceLevel: 'Faible à Modéré',
+      techniques: [
+        'Mobilisations en flexion-distraction (technique de Cox)',
+        'Mobilisations postéro-antérieures segmentaires',
+        'Techniques myofasciales des paravertébraux',
+      ],
+    },
+    exercises: {
+      evidenceLevel: 'Modéré',
+      protocol: [
+        'McKenzie : évaluation de la préférence directionnelle (seul test clinique avec LR+ significatif)',
+        'Exercices répétés dans la direction de centralisation (le plus souvent en extension)',
+        'Contrôle moteur : supérieur à la manipulation et aux exercices à domicile en phase chronique',
+        'Éviter la position assise prolongée, utiliser un support lombaire',
+      ],
+    },
+    keyNotes: [
+      'La centralisation est le seul test clinique avec LR+ significatif pour la douleur discogénique',
+      'Programme de contrôle moteur supérieur à la manipulation seule pour les formes chroniques',
+    ],
+  },
+  facet: {
+    manualTherapy: {
+      evidenceLevel: 'Faible',
+      techniques: [
+        'HVLA lombaire segmentaire ciblant le niveau symptomatique',
+        'Mobilisations postéro-antérieures (PA) grades III-IV',
+        'Techniques de mobilisation en rotation',
+        'Techniques myofasciales des paravertébraux et du carré des lombes',
+      ],
+      warning: 'Éviter l\'extension forcée (facteur aggravant)',
+    },
+    exercises: {
+      evidenceLevel: 'Faible',
+      protocol: [
+        'Exercices en flexion : genoux-poitrine, bascule pelvienne postérieure',
+        'Core : gainage, exercices de stabilisation lombaire',
+        'Étirements : fléchisseurs de hanche (psoas), extenseurs lombaires',
+        'Mobilité thoracique : rotations douces (pour décharger le rachis lombaire)',
+      ],
+    },
+    keyNotes: [
+      'Données spécifiques limitées — reposent principalement sur les données de la lombalgie non spécifique',
+      'Seul examen confirmatoire fiable : bloc facettaire diagnostique ou SPECT',
+    ],
+  },
+  spa: {
+    manualTherapy: {
+      evidenceLevel: 'Très faible',
+      techniques: [
+        'Mobilisations douces uniquement (grades I-II)',
+        'Techniques myofasciales et de tissus mous',
+        'Mobilisation thoracique et costale (maintien de l\'expansion thoracique)',
+        'Mobilisation des hanches et des épaules',
+      ],
+      warning: '⚠️ PAS de HVLA sur rachis ankylosé ou en voie d\'ankylose — risque de fracture. Référer en rhumatologie pour traitement médicamenteux (AINS 1re ligne, puis biothérapies si échec)',
+    },
+    exercises: {
+      evidenceLevel: 'Élevé',
+      protocol: [
+        'Aérobie : natation, vélo, marche rapide — 3-5×/sem, 30 min',
+        'Renforcement : muscles du tronc, extenseurs du rachis, muscles posturaux — 2-3×/sem',
+        'Flexibilité quotidienne : extension rachis, rotation, flexion latérale, expansion thoracique',
+        'Neuro-moteur : exercices posturaux, proprioception, équilibre',
+        'Hydrothérapie / balnéothérapie : piscine chaude — améliore la douleur et le bien-être global',
+      ],
+    },
+    keyNotes: [
+      'Exercice supervisé haute intensité : améliore ASDAS (−0.6) et BASFI (−0.9)',
+      'Exercices de groupe supervisés > exercices à domicile pour la mobilité et le bien-être',
+      'Rôle ostéopathique complémentaire — le traitement médicamenteux est indispensable',
+    ],
+  },
 }
 
 function buildResult(state: TreeState): DiagnosisResult {
@@ -240,6 +433,7 @@ function buildResult(state: TreeState): DiagnosisResult {
       yellowFlagWarning: false,
       chronicRisk: false,
       anamnesisSummary: buildAnamnesisText('Lombalgie aiguë (< 8 semaines)', state, 'acute'),
+      treatment: TREATMENT_RECS.non_specific,
     }
   }
 
@@ -283,6 +477,7 @@ function buildResult(state: TreeState): DiagnosisResult {
       yellowFlagWarning: false,
       chronicRisk: false,
       anamnesisSummary: buildAnamnesisText(primary, state, 'radicular'),
+      treatment: isStenosis ? TREATMENT_RECS.stenosis : TREATMENT_RECS.disc_radicular,
     }
   }
 
@@ -305,6 +500,7 @@ function buildResult(state: TreeState): DiagnosisResult {
         ],
         yellowFlagWarning: false, chronicRisk: false,
         anamnesisSummary: buildAnamnesisText('Spondylarthrite ankylosante', state, 'spa'),
+        treatment: TREATMENT_RECS.spa,
       }
     }
     // Non-radiographic SpA
@@ -325,6 +521,7 @@ function buildResult(state: TreeState): DiagnosisResult {
       ],
       yellowFlagWarning: false, chronicRisk: false,
       anamnesisSummary: buildAnamnesisText(primary, state, 'spa'),
+      treatment: TREATMENT_RECS.spa,
     }
   }
 
@@ -349,6 +546,7 @@ function buildResult(state: TreeState): DiagnosisResult {
       yellowFlagWarning: state.q_yellow_flags.length >= 2,
       chronicRisk: state.q_chronic_risk === 'yes',
       anamnesisSummary: buildAnamnesisText('Dysfonction sacro-iliaque', state, 'mechanical'),
+      treatment: TREATMENT_RECS.si,
     }
   }
   if (loc === 'medial' && state.q11_centralization === 'yes') {
@@ -364,6 +562,7 @@ function buildResult(state: TreeState): DiagnosisResult {
       yellowFlagWarning: state.q_yellow_flags.length >= 2,
       chronicRisk: state.q_chronic_risk === 'yes',
       anamnesisSummary: buildAnamnesisText('Lombalgie discogénique', state, 'mechanical'),
+      treatment: TREATMENT_RECS.discogenic,
     }
   }
   if (loc === 'paravertebral') {
@@ -382,6 +581,7 @@ function buildResult(state: TreeState): DiagnosisResult {
       yellowFlagWarning: state.q_yellow_flags.length >= 2,
       chronicRisk: state.q_chronic_risk === 'yes',
       anamnesisSummary: buildAnamnesisText('Syndrome facettaire', state, 'mechanical'),
+      treatment: TREATMENT_RECS.facet,
     }
   }
   // Non-specific
@@ -397,6 +597,7 @@ function buildResult(state: TreeState): DiagnosisResult {
     yellowFlagWarning: state.q_yellow_flags.length >= 2,
     chronicRisk: state.q_chronic_risk === 'yes',
     anamnesisSummary: buildAnamnesisText('Lombalgie non spécifique', state, 'non_specific'),
+    treatment: TREATMENT_RECS.non_specific,
   }
 }
 
@@ -451,7 +652,7 @@ function buildAnamnesisText(primary: string, state: TreeState, type: string): st
   }
 
   lines.push('')
-  const flagsItems = []
+  const flagsItems: string[] = []
   if (state.q1_cauda_equina === 'no') flagsItems.push('queue de cheval')
   if (state.q2_fracture === 'no') flagsItems.push('fracture')
   if (['alert', 'watch', 'no'].includes(state.q3_neoplasia || '') && state.q3_neoplasia !== 'alert') flagsItems.push('néoplasie')
@@ -1317,6 +1518,13 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
 
 // ─── Result step ──────────────────────────────────────────────────────────────
 
+function evidenceLevelClass(level: string): string {
+  if (level.startsWith('Élevé')) return 'bg-emerald-100 text-emerald-800'
+  if (level.startsWith('Modéré')) return 'bg-blue-100 text-blue-800'
+  if (level.startsWith('Très faible')) return 'bg-red-100 text-red-800'
+  return 'bg-amber-100 text-amber-800'
+}
+
 function ResultStep({ result, onApply, onReset }: { result: DiagnosisResult; onApply: () => void; onReset: () => void }) {
   const urgencyLabel = {
     urgent: { label: 'Urgent', className: 'text-destructive bg-destructive/10' },
@@ -1403,9 +1611,74 @@ function ResultStep({ result, onApply, onReset }: { result: DiagnosisResult; onA
         </div>
       </div>
 
+      <Separator />
+
+      {/* Treatment recommendations */}
+      <div>
+        <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+          <Activity className="h-4 w-4 text-primary" />
+          Recommandations de pratique
+        </h3>
+
+        {/* Manual therapy */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Thérapie manuelle</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${evidenceLevelClass(result.treatment.manualTherapy.evidenceLevel)}`}>
+              Preuve {result.treatment.manualTherapy.evidenceLevel}
+            </span>
+          </div>
+          {result.treatment.manualTherapy.warning && (
+            <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+              {result.treatment.manualTherapy.warning}
+            </div>
+          )}
+          <ul className="space-y-1">
+            {result.treatment.manualTherapy.techniques.map((t, i) => (
+              <li key={i} className="text-sm flex items-start gap-1.5 text-muted-foreground">
+                <span className="mt-1 text-primary flex-shrink-0">·</span>{t}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Exercises */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Protocole d&apos;exercices</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${evidenceLevelClass(result.treatment.exercises.evidenceLevel)}`}>
+              Preuve {result.treatment.exercises.evidenceLevel}
+            </span>
+          </div>
+          <ul className="space-y-1">
+            {result.treatment.exercises.protocol.map((e, i) => (
+              <li key={i} className="text-sm flex items-start gap-1.5 text-muted-foreground">
+                <span className="mt-1 text-primary flex-shrink-0">·</span>{e}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Key notes */}
+        {result.treatment.keyNotes.length > 0 && (
+          <div className="p-3 bg-muted/30 rounded-lg">
+            <p className="text-xs font-semibold text-muted-foreground mb-1.5">Points essentiels</p>
+            <ul className="space-y-1">
+              {result.treatment.keyNotes.map((note, i) => (
+                <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                  <span className="flex-shrink-0">·</span>{note}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
       {/* Summary */}
       <div>
-        <h3 className="font-semibold text-sm mb-2">Résumé à insérer dans l'anamnèse</h3>
+        <h3 className="font-semibold text-sm mb-2">Résumé à insérer dans l&apos;anamnèse</h3>
         <pre className="text-xs bg-muted/40 rounded-lg p-3 whitespace-pre-wrap font-mono leading-relaxed">{result.anamnesisSummary}</pre>
       </div>
 
