@@ -532,6 +532,15 @@ export function ConsultationForm({
   const examination = watch('examination')
   const advice = watch('advice')
   const consultationFilled = !!(reason && (anamnesis || examination || advice))
+
+  // Auto-resize textareas when values are set programmatically (e.g. via decision tree)
+  useEffect(() => {
+    const textareas = document.querySelectorAll<HTMLTextAreaElement>('textarea[data-autoresize]')
+    textareas.forEach((ta) => {
+      ta.style.height = 'auto'
+      ta.style.height = `${ta.scrollHeight}px`
+    })
+  }, [anamnesis, examination, advice])
   const suiviFacturationFilled = followUp7d || sendPostSessionAdvice || (createInvoice && totalPayments > 0)
 
   const formContent = (
