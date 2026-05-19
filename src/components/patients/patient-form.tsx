@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -51,6 +52,7 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
   const [isDoctolibDialogOpen, setIsDoctolibDialogOpen] = useState(false)
   const referralInputRef = useRef<HTMLInputElement>(null)
   const referralDropdownRef = useRef<HTMLDivElement>(null)
+  const [referralDropdownPos, setReferralDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const router = useRouter()
   const { toast } = useToast()
   const db = createClient()
@@ -120,8 +122,16 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
   }, [])
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const updateReferralDropdownPos = () => {
+    if (referralInputRef.current) {
+      const rect = referralInputRef.current.getBoundingClientRect()
+      setReferralDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width })
+    }
+  }
+
   const handleReferralSearchChange = (value: string) => {
     setReferralSearch(value)
+    updateReferralDropdownPos()
     setShowReferralDropdown(true)
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
     searchTimeoutRef.current = setTimeout(() => {
@@ -543,15 +553,16 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
                   ref={referralInputRef}
                   value={referralSearch}
                   onChange={(e) => handleReferralSearchChange(e.target.value)}
-                  onFocus={() => referralSearch.length >= 2 && setShowReferralDropdown(true)}
+                  onFocus={() => { if (referralSearch.length >= 2) { updateReferralDropdownPos(); setShowReferralDropdown(true) } }}
                   disabled={isLoading}
                   placeholder="Rechercher un patient..."
                   className="pl-8"
                 />
-                {showReferralDropdown && referralResults.length > 0 && (
+                {showReferralDropdown && referralResults.length > 0 && referralDropdownPos && createPortal(
                   <div
                     ref={referralDropdownRef}
-                    className="absolute z-[200] mt-1 w-full bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto"
+                    style={{ position: 'absolute', top: referralDropdownPos.top + 4, left: referralDropdownPos.left, width: referralDropdownPos.width, zIndex: 9999 }}
+                    className="bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto"
                   >
                     {referralResults.map((p) => (
                       <button
@@ -563,7 +574,8 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
                         {p.first_name} {p.last_name}
                       </button>
                     ))}
-                  </div>
+                  </div>,
+                  document.body
                 )}
               </div>
             )}

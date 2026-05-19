@@ -1121,6 +1121,12 @@ export function ConsultationForm({
               {currentPatient.phone && <p className="text-muted-foreground">{currentPatient.phone}</p>}
               {currentPatient.email && <p className="text-muted-foreground">{currentPatient.email}</p>}
               {currentPatient.profession && <p className="text-muted-foreground">{currentPatient.profession}</p>}
+              {currentPatient.notes && (
+                <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md">
+                  <p className="text-xs font-medium text-amber-800 mb-1">Notes</p>
+                  <p className="text-xs text-amber-900 whitespace-pre-wrap">{currentPatient.notes}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

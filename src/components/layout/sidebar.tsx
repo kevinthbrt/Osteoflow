@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
@@ -142,22 +143,9 @@ export function Sidebar() {
           <div className="flex h-20 shrink-0 items-center px-6 border-b border-white/10">
             <Link href="/patients" className="flex items-center space-x-3 group">
               <div className="relative">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 group-hover:shadow-xl gradient-primary">
-                  <svg
-                    className="w-6 h-6 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                    />
-                  </svg>
+                <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-xl">
+                  <Image src="/icon.png" alt="MyOsteoFlow" width={40} height={40} className="object-cover" priority />
                 </div>
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-900" />
               </div>
               <div>
                 <span className="text-xl font-bold text-white [font-family:var(--font-playfair)] italic tracking-wide">
