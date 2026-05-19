@@ -39,6 +39,7 @@ import { MedicalHistorySectionWrapper } from '@/components/patients/medical-hist
 import { EditPatientModal } from '@/components/patients/edit-patient-modal'
 import { TopographyPanel } from '@/components/consultations/topography-panel'
 import { LowBackPainTree } from '@/components/consultations/low-back-pain-tree'
+import { NeckPainTree } from '@/components/consultations/neck-pain-tree'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -95,6 +96,7 @@ export function ConsultationForm({
   const submittedRef = useRef(false)
   const [showTopography, setShowTopography] = useState(false)
   const [showDecisionTree, setShowDecisionTree] = useState(false)
+  const [showNeckTree, setShowNeckTree] = useState(false)
 
   const now = new Date()
   const toLocalDateTimeString = (d: Date) => {
@@ -606,7 +608,7 @@ export function ConsultationForm({
                   <Stethoscope className="h-5 w-5 text-primary" />
                   <CardTitle className="text-lg">Contenu clinique</CardTitle>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 flex-wrap">
                   <Button
                     type="button"
                     variant="ghost"
@@ -615,7 +617,17 @@ export function ConsultationForm({
                     onClick={() => setShowDecisionTree(true)}
                   >
                     <GitBranch className="h-4 w-4" />
-                    Aide au diagnostic
+                    Lombalgie
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowNeckTree(true)}
+                  >
+                    <GitBranch className="h-4 w-4" />
+                    Cervicalgie
                   </Button>
                   <Button
                     type="button"
@@ -1072,6 +1084,25 @@ export function ConsultationForm({
       <LowBackPainTree
         open={showDecisionTree}
         onClose={() => setShowDecisionTree(false)}
+        onApply={(summary, examination, advice) => {
+          const current = getValues('anamnesis') || ''
+          const separator = current.trim() ? '\n\n' : ''
+          setValue('anamnesis', current + separator + summary, { shouldDirty: true })
+          if (examination) {
+            const currentExam = getValues('examination') || ''
+            const examSep = currentExam.trim() ? '\n\n' : ''
+            setValue('examination', currentExam + examSep + examination, { shouldDirty: true })
+          }
+          if (advice) {
+            const currentAdvice = getValues('advice') || ''
+            const adviceSep = currentAdvice.trim() ? '\n\n' : ''
+            setValue('advice', currentAdvice + adviceSep + advice, { shouldDirty: true })
+          }
+        }}
+      />
+      <NeckPainTree
+        open={showNeckTree}
+        onClose={() => setShowNeckTree(false)}
         onApply={(summary, examination, advice) => {
           const current = getValues('anamnesis') || ''
           const separator = current.trim() ? '\n\n' : ''
