@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { changelog } from '@/data/changelog'
 import packageJson from '../../../package.json'
 
-const LAST_SEEN_KEY = 'osteoflow_last_seen_version'
+const LAST_SEEN_KEY = 'myosteoflow_last_seen_version'
 
 const typeConfig = {
   feature: { icon: Sparkles, label: 'Nouveau', className: 'bg-emerald-100 text-emerald-700' },

@@ -29,15 +29,18 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin, GitBranch } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 import { EditPatientModal } from '@/components/patients/edit-patient-modal'
 import { TopographyPanel } from '@/components/consultations/topography-panel'
+import { LowBackPainTree } from '@/components/consultations/low-back-pain-tree'
+import { NeckPainTree } from '@/components/consultations/neck-pain-tree'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -93,6 +96,9 @@ export function ConsultationForm({
   const paymentsRef = useRef(payments)
   const submittedRef = useRef(false)
   const [showTopography, setShowTopography] = useState(false)
+  const [showDiagnosticSelector, setShowDiagnosticSelector] = useState(false)
+  const [showDecisionTree, setShowDecisionTree] = useState(false)
+  const [showNeckTree, setShowNeckTree] = useState(false)
 
   const now = new Date()
   const toLocalDateTimeString = (d: Date) => {
@@ -213,7 +219,7 @@ export function ConsultationForm({
       }).catch(() => {})
     }
 
-    window.addEventListener('osteoflow:before-lock', saveDraft)
+    window.addEventListener('myosteoflow:before-lock', saveDraft)
 
     const shouldRestore = sessionStorage.getItem('restore_consultation_draft')
     if (shouldRestore) {
@@ -237,7 +243,7 @@ export function ConsultationForm({
 
     return () => {
       clearInterval(interval)
-      window.removeEventListener('osteoflow:before-lock', saveDraft)
+      window.removeEventListener('myosteoflow:before-lock', saveDraft)
     }
   }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -530,6 +536,15 @@ export function ConsultationForm({
   const examination = watch('examination')
   const advice = watch('advice')
   const consultationFilled = !!(reason && (anamnesis || examination || advice))
+
+  // Auto-resize textareas when values are set programmatically (e.g. via decision tree)
+  useEffect(() => {
+    const textareas = document.querySelectorAll<HTMLTextAreaElement>('textarea[data-autoresize]')
+    textareas.forEach((ta) => {
+      ta.style.height = 'auto'
+      ta.style.height = `${ta.scrollHeight}px`
+    })
+  }, [anamnesis, examination, advice])
   const suiviFacturationFilled = followUp7d || sendPostSessionAdvice || (createInvoice && totalPayments > 0)
 
   const formContent = (
@@ -595,16 +610,28 @@ export function ConsultationForm({
                   <Stethoscope className="h-5 w-5 text-primary" />
                   <CardTitle className="text-lg">Contenu clinique</CardTitle>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowTopography(true)}
-                >
-                  <MapPin className="h-4 w-4" />
-                  Topographie
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowDiagnosticSelector(true)}
+                  >
+                    <GitBranch className="h-4 w-4" />
+                    Aide au diagnostic
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowTopography(true)}
+                  >
+                    <MapPin className="h-4 w-4" />
+                    Topographie
+                  </Button>
+                </div>
               </div>
               <CardDescription>Anamnèse, examen et conseils</CardDescription>
             </CardHeader>
@@ -1046,6 +1073,69 @@ export function ConsultationForm({
         />
       )}
       <TopographyPanel open={showTopography} onClose={() => setShowTopography(false)} />
+      <Dialog open={showDiagnosticSelector} onOpenChange={setShowDiagnosticSelector}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Aide au diagnostic</DialogTitle>
+            <DialogDescription>Choisissez la région à analyser</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 mt-1">
+            <button
+              onClick={() => { setShowDiagnosticSelector(false); setShowDecisionTree(true) }}
+              className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all text-sm font-medium"
+            >
+              <span className="text-2xl">🦴</span>
+              Lombalgie
+            </button>
+            <button
+              onClick={() => { setShowDiagnosticSelector(false); setShowNeckTree(true) }}
+              className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all text-sm font-medium"
+            >
+              <span className="text-2xl">🫀</span>
+              Cervicalgie
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <LowBackPainTree
+        open={showDecisionTree}
+        onClose={() => setShowDecisionTree(false)}
+        onApply={(summary, examination, advice) => {
+          const current = getValues('anamnesis') || ''
+          const separator = current.trim() ? '\n\n' : ''
+          setValue('anamnesis', current + separator + summary, { shouldDirty: true })
+          if (examination) {
+            const currentExam = getValues('examination') || ''
+            const examSep = currentExam.trim() ? '\n\n' : ''
+            setValue('examination', currentExam + examSep + examination, { shouldDirty: true })
+          }
+          if (advice) {
+            const currentAdvice = getValues('advice') || ''
+            const adviceSep = currentAdvice.trim() ? '\n\n' : ''
+            setValue('advice', currentAdvice + adviceSep + advice, { shouldDirty: true })
+          }
+        }}
+      />
+      <NeckPainTree
+        open={showNeckTree}
+        onClose={() => setShowNeckTree(false)}
+        onApply={(summary, examination, advice) => {
+          const current = getValues('anamnesis') || ''
+          const separator = current.trim() ? '\n\n' : ''
+          setValue('anamnesis', current + separator + summary, { shouldDirty: true })
+          if (examination) {
+            const currentExam = getValues('examination') || ''
+            const examSep = currentExam.trim() ? '\n\n' : ''
+            setValue('examination', currentExam + examSep + examination, { shouldDirty: true })
+          }
+          if (advice) {
+            const currentAdvice = getValues('advice') || ''
+            const adviceSep = currentAdvice.trim() ? '\n\n' : ''
+            setValue('advice', currentAdvice + adviceSep + advice, { shouldDirty: true })
+          }
+        }}
+      />
     </>
   )
 
@@ -1079,6 +1169,12 @@ export function ConsultationForm({
               {currentPatient.phone && <p className="text-muted-foreground">{currentPatient.phone}</p>}
               {currentPatient.email && <p className="text-muted-foreground">{currentPatient.email}</p>}
               {currentPatient.profession && <p className="text-muted-foreground">{currentPatient.profession}</p>}
+              {currentPatient.notes && (
+                <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md">
+                  <p className="text-xs font-medium text-amber-800 mb-1">Notes</p>
+                  <p className="text-xs text-amber-900 whitespace-pre-wrap">{currentPatient.notes}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

@@ -1,5 +1,5 @@
 /**
- * Server-side database client for Osteoflow desktop.
+ * Server-side database client for MyOsteoFlow desktop.
  *
  * Returns a local SQLite-backed query builder client.
  *

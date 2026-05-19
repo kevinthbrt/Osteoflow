@@ -19,7 +19,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check } from 'lucide-react'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield } from 'lucide-react'
+import { CGU_SECTIONS, PRIVACY_SECTIONS, CGU_VERSION, CGU_DATE, type LegalSection } from '@/lib/legal/documents'
 import type { Practitioner, SessionType } from '@/types/database'
 
 interface PatientListItem {
@@ -44,6 +45,106 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+
+function renderInline(text: string) {
+  return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
+    i % 2 === 1 ? <strong key={i} className="font-semibold text-foreground">{part}</strong> : part
+  )
+}
+
+function LegalDoc({ sections }: { sections: LegalSection[] }) {
+  return (
+    <div className="space-y-2 text-sm">
+      {sections.map((s, i) => {
+        switch (s.type) {
+          case 'h1': return <h1 key={i} className="text-base font-bold text-foreground pt-1">{s.content}</h1>
+          case 'h2': return <h2 key={i} className="text-sm font-semibold text-foreground border-b pb-1 mt-4">{s.content}</h2>
+          case 'h3': return <h3 key={i} className="text-sm font-medium text-foreground mt-3">{s.content}</h3>
+          case 'p': return <p key={i} className="text-muted-foreground leading-relaxed">{renderInline(s.content ?? '')}</p>
+          case 'ul': return (
+            <ul key={i} className="list-disc list-inside space-y-1 pl-2">
+              {s.items?.map((item, j) => (
+                <li key={j} className="text-muted-foreground leading-relaxed">{renderInline(item)}</li>
+              ))}
+            </ul>
+          )
+          case 'table': return (
+            <div key={i} className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse border border-border">
+                <thead className="bg-muted">
+                  <tr>{s.headers?.map((h, j) => <th key={j} className="border border-border px-2 py-1 text-left font-semibold">{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {s.rows?.map((row, j) => (
+                    <tr key={j}>{row.map((cell, k) => <td key={k} className="border border-border px-2 py-1 text-muted-foreground">{cell}</td>)}</tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+          case 'hr': return <hr key={i} className="my-2 border-border" />
+          default: return null
+        }
+      })}
+    </div>
+  )
+}
+
+function LegalSettingsTab() {
+  const [acceptedAt, setAcceptedAt] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/legal/status')
+      .then((r) => r.json())
+      .then((d) => setAcceptedAt(d.acceptedAt ?? null))
+      .catch(() => {})
+  }, [])
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-primary" />
+            Légal &amp; Confidentialité
+          </CardTitle>
+          <CardDescription>
+            Version {CGU_VERSION} · En vigueur depuis le {CGU_DATE}
+            {acceptedAt && (
+              <span className="ml-2 text-green-600">
+                · Acceptées le {new Date(acceptedAt).toLocaleDateString('fr-FR')}
+              </span>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="cgu">
+            <TabsList className="mb-4">
+              <TabsTrigger value="cgu" className="gap-1.5 text-xs">
+                <FileText className="h-3.5 w-3.5" />
+                CGU
+              </TabsTrigger>
+              <TabsTrigger value="privacy" className="gap-1.5 text-xs">
+                <Shield className="h-3.5 w-3.5" />
+                Confidentialité
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="cgu">
+              <div className="max-h-[60vh] overflow-y-auto pr-1">
+                <LegalDoc sections={CGU_SECTIONS} />
+              </div>
+            </TabsContent>
+            <TabsContent value="privacy">
+              <div className="max-h-[60vh] overflow-y-auto pr-1">
+                <LegalDoc sections={PRIVACY_SECTIONS} />
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
 
 export default function SettingsPage() {
   const [practitioner, setPractitioner] = useState<Practitioner | null>(null)
@@ -745,9 +846,16 @@ export default function SettingsPage() {
             <Lock className="mr-2 h-4 w-4" />
             Sécurité
           </TabsTrigger>
+          <TabsTrigger value="audit">
+            Journal
+          </TabsTrigger>
           <TabsTrigger value="objectives">
             <Target className="mr-2 h-4 w-4" />
             Objectifs
+          </TabsTrigger>
+          <TabsTrigger value="legal">
+            <Shield className="mr-2 h-4 w-4" />
+            Légal
           </TabsTrigger>
         </TabsList>
 
@@ -1247,7 +1355,7 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle>Connecter votre messagerie</CardTitle>
                 <CardDescription>
-                  Envoyez et recevez des emails directement depuis Osteoflow via votre adresse email personnelle
+                  Envoyez et recevez des emails directement depuis MyOsteoFlow via votre adresse email personnelle
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1463,7 +1571,7 @@ export default function SettingsPage() {
                     </div>
                     <h4 className="font-medium mb-1">Synchronisation</h4>
                     <p className="text-sm text-muted-foreground">
-                      Les réponses de vos patients apparaissent automatiquement dans Osteoflow
+                      Les réponses de vos patients apparaissent automatiquement dans MyOsteoFlow
                     </p>
                   </div>
                   <div className="text-center p-4">
@@ -1550,7 +1658,15 @@ export default function SettingsPage() {
 
         {/* Security Tab */}
         <TabsContent value="security">
-          <PasswordSettings practitioner={practitioner} />
+          <div className="space-y-6">
+            <InactivitySettings />
+            <PasswordSettings practitioner={practitioner} />
+          </div>
+        </TabsContent>
+
+        {/* Audit Log Tab */}
+        <TabsContent value="audit">
+          <AuditLogViewer />
         </TabsContent>
 
         {/* Objectives Tab */}
@@ -1656,6 +1772,11 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Legal Tab */}
+        <TabsContent value="legal">
+          <LegalSettingsTab />
         </TabsContent>
       </Tabs>
 
@@ -1777,7 +1898,7 @@ function StorageSettings() {
           </CardTitle>
           <CardDescription>
             Choisissez où stocker la base de données de l&apos;application.
-            Le fichier <code className="text-xs bg-muted px-1 rounded">osteoflow.db</code> sera
+            Le fichier <code className="text-xs bg-muted px-1 rounded">myosteoflow.db</code> sera
             créé dans le dossier choisi.
           </CardDescription>
         </CardHeader>
@@ -1832,7 +1953,7 @@ function StorageSettings() {
                 <p className="font-medium mb-1">Important</p>
                 <ul className="space-y-1 list-disc list-inside text-amber-700 dark:text-amber-300">
                   <li>Changer le dossier ne déplace pas les données existantes</li>
-                  <li>Si vous changez le dossier, copiez manuellement <code className="text-xs bg-amber-100 dark:bg-amber-900 px-1 rounded">osteoflow.db</code> vers le nouveau dossier</li>
+                  <li>Si vous changez le dossier, copiez manuellement <code className="text-xs bg-amber-100 dark:bg-amber-900 px-1 rounded">myosteoflow.db</code> vers le nouveau dossier</li>
                   <li>Redémarrez l&apos;application après le changement</li>
                 </ul>
               </div>
@@ -1840,7 +1961,99 @@ function StorageSettings() {
           </div>
         </CardContent>
       </Card>
+
+      <BackupRestoreSettings />
     </div>
+  )
+}
+
+function BackupRestoreSettings() {
+  const [isBackingUp, setIsBackingUp] = useState(false)
+  const [isRestoring, setIsRestoring] = useState(false)
+  const { toast } = useToast()
+
+  const handleBackup = async () => {
+    setIsBackingUp(true)
+    try {
+      const res = await fetch('/api/settings/database/backup')
+      if (!res.ok) {
+        const data = await res.json()
+        toast({ variant: 'destructive', title: 'Erreur', description: data.error })
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `myosteoflow-backup-${new Date().toISOString().split('T')[0]}.db`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast({ title: 'Sauvegarde téléchargée', description: 'Conservez ce fichier en lieu sûr.' })
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de créer la sauvegarde.' })
+    } finally {
+      setIsBackingUp(false)
+    }
+  }
+
+  const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.name.endsWith('.db')) {
+      toast({ variant: 'destructive', title: 'Fichier invalide', description: 'Sélectionnez un fichier .db' })
+      return
+    }
+    setIsRestoring(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/settings/database/restore', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) {
+        toast({ variant: 'destructive', title: 'Erreur', description: data.error })
+        return
+      }
+      toast({ title: 'Restauration effectuée', description: data.message })
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de restaurer la base.' })
+    } finally {
+      setIsRestoring(false)
+      e.target.value = ''
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Download className="h-5 w-5 text-primary" />
+          Sauvegarde et restauration
+        </CardTitle>
+        <CardDescription>
+          Sauvegardez vos données régulièrement pour éviter toute perte.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button onClick={handleBackup} disabled={isBackingUp} variant="outline" className="gap-2">
+            {isBackingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Télécharger la sauvegarde
+          </Button>
+          <label>
+            <Button asChild variant="outline" className="gap-2 cursor-pointer" disabled={isRestoring}>
+              <span>
+                {isRestoring ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                Restaurer depuis une sauvegarde
+              </span>
+            </Button>
+            <input type="file" accept=".db" className="hidden" onChange={handleRestore} disabled={isRestoring} />
+          </label>
+        </div>
+        <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 rounded-lg text-xs text-amber-800 dark:text-amber-200">
+          ⚠️ La restauration remplace toutes les données actuelles. L&apos;application redémarre après la restauration.
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -2050,6 +2263,206 @@ function PasswordSettings({ practitioner }: { practitioner: Practitioner | null 
             {hasPassword ? 'Modifier le mot de passe' : 'Définir le mot de passe'}
           </Button>
         </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function InactivitySettings() {
+  const [minutes, setMinutes] = useState(30)
+  const [isSaving, setIsSaving] = useState(false)
+  const { toast } = useToast()
+
+  useEffect(() => {
+    fetch('/api/settings/security')
+      .then((r) => r.json())
+      .then((d) => { if (d.inactivity_timeout_minutes) setMinutes(d.inactivity_timeout_minutes) })
+      .catch(() => {})
+  }, [])
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      const res = await fetch('/api/settings/security', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inactivity_timeout_minutes: minutes }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast({ variant: 'destructive', title: 'Erreur', description: data.error })
+        return
+      }
+      toast({ title: 'Enregistré', description: `Verrouillage automatique après ${minutes} minutes d'inactivité.` })
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de sauvegarder.' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Lock className="h-5 w-5 text-primary" />
+          Verrouillage automatique
+        </CardTitle>
+        <CardDescription>
+          L&apos;application se verrouille automatiquement après une période d&apos;inactivité.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="inactivity-timeout">Délai d&apos;inactivité (minutes)</Label>
+          <div className="flex items-center gap-3">
+            <Input
+              id="inactivity-timeout"
+              type="number"
+              min={1}
+              max={480}
+              value={minutes}
+              onChange={(e) => setMinutes(Math.max(1, Math.min(480, parseInt(e.target.value) || 30)))}
+              className="w-28"
+            />
+            <span className="text-sm text-muted-foreground">minutes (1 à 480)</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Par défaut : 30 minutes. La session se verrouille et demande le PIN pour reprendre.
+          </p>
+        </div>
+        <Button onClick={handleSave} disabled={isSaving} size="sm">
+          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Enregistrer
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
+function AuditLogViewer() {
+  const [logs, setLogs] = useState<Array<{ id: string; table_name: string; record_id: string; action: string; created_at: string }>>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [action, setAction] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
+  const limit = 50
+
+  const fetchLogs = async (p = page, a = action) => {
+    setIsLoading(true)
+    try {
+      const params = new URLSearchParams({ page: String(p), limit: String(limit) })
+      if (a) params.set('action', a)
+      const res = await fetch(`/api/audit-logs?${params}`)
+      const data = await res.json()
+      if (res.ok) {
+        setLogs(data.logs)
+        setTotal(data.total)
+        setPage(p)
+      }
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de charger les logs.' })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchLogs(1, '') }, [])
+
+  const handleExportCsv = () => {
+    const header = 'Date,Action,Table,Record ID\n'
+    const rows = logs.map((l) => `"${l.created_at}","${l.action}","${l.table_name}","${l.record_id}"`).join('\n')
+    const blob = new Blob([header + rows], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `audit-log-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const actionColors: Record<string, string> = {
+    INSERT: 'bg-emerald-100 text-emerald-800',
+    UPDATE: 'bg-blue-100 text-blue-800',
+    DELETE: 'bg-red-100 text-red-800',
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Journal d&apos;audit
+            </CardTitle>
+            <CardDescription>Historique des modifications de données ({total} entrées)</CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <select
+              value={action}
+              onChange={(e) => { setAction(e.target.value); fetchLogs(1, e.target.value) }}
+              className="text-sm border rounded-md px-2 py-1.5 bg-background"
+            >
+              <option value="">Toutes les actions</option>
+              <option value="INSERT">INSERT</option>
+              <option value="UPDATE">UPDATE</option>
+              <option value="DELETE">DELETE</option>
+            </select>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={logs.length === 0}>
+              <Download className="h-4 w-4 mr-1.5" />
+              CSV
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+        ) : logs.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">Aucun enregistrement</p>
+        ) : (
+          <div className="space-y-3">
+            <div className="rounded-lg border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="text-left p-2 font-medium">Date</th>
+                    <th className="text-left p-2 font-medium">Action</th>
+                    <th className="text-left p-2 font-medium">Table</th>
+                    <th className="text-left p-2 font-medium hidden sm:table-cell">Enregistrement</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {logs.map((log) => (
+                    <tr key={log.id} className="hover:bg-muted/20">
+                      <td className="p-2 text-xs text-muted-foreground whitespace-nowrap">
+                        {new Date(log.created_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                      </td>
+                      <td className="p-2">
+                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${actionColors[log.action] || 'bg-muted'}`}>
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="p-2 font-mono text-xs">{log.table_name}</td>
+                      <td className="p-2 font-mono text-xs hidden sm:table-cell truncate max-w-[120px]">{log.record_id}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {total > limit && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Page {page} / {Math.ceil(total / limit)}</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => fetchLogs(page - 1, action)}>Précédent</Button>
+                  <Button variant="outline" size="sm" disabled={page >= Math.ceil(total / limit)} onClick={() => fetchLogs(page + 1, action)}>Suivant</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

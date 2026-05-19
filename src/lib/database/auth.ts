@@ -1,5 +1,5 @@
 /**
- * Local authentication system for Osteoflow desktop.
+ * Local authentication system for MyOsteoFlow desktop.
  * Replaces Supabase Auth with practitioner selection + password.
  *
  * In desktop mode:

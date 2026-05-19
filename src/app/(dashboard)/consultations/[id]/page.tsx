@@ -35,7 +35,7 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
     notFound()
   }
 
-  const patient = consultation.patient as typeof consultation.patient & { id: string; first_name: string; last_name: string; gender: string }
+  const patient = consultation.patient as typeof consultation.patient & { id: string; first_name: string; last_name: string; gender: string; date_of_birth?: string; phone?: string; email?: string; notes?: string }
   const invoice = consultation.invoices?.[0]
 
   // Fetch attachments
@@ -424,6 +424,18 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
                     {patient.last_name} {patient.first_name}
                   </span>
                 </div>
+                {patient.phone && (
+                  <p className="text-xs text-muted-foreground">{patient.phone}</p>
+                )}
+                {patient.email && (
+                  <p className="text-xs text-muted-foreground">{patient.email}</p>
+                )}
+                {patient.notes && (
+                  <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md">
+                    <p className="text-xs font-medium text-amber-800 mb-1">Notes</p>
+                    <p className="text-xs text-amber-900 whitespace-pre-wrap">{patient.notes}</p>
+                  </div>
+                )}
                 <Button variant="outline" className="w-full" asChild>
                   <Link href={`/patients/${patient.id}`}>
                     Voir le dossier
