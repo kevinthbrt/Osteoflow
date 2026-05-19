@@ -11,7 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/hooks/use-toast'
 
 const REMINDER_INTERVAL_DAYS = 14
 const CHECK_DELAY_MS = 4000 // wait a few seconds after login before showing
