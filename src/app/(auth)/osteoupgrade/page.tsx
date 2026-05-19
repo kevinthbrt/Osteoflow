@@ -18,6 +18,9 @@ import { Loader2, Lock, Mail, Eye, EyeOff, ExternalLink } from 'lucide-react'
 const OSTEOUPGRADE_URL =
   process.env.NEXT_PUBLIC_OSTEOUPGRADE_URL || 'https://osteoupgrade.vercel.app'
 
+// Auth is proxied through /api/license/auth to avoid CORS in dev and desktop
+const AUTH_ENDPOINT = '/api/license/auth'
+
 export default function OsteoupgradeLoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -40,7 +43,7 @@ export default function OsteoupgradeLoginPage() {
     setIsLoading(true)
 
     try {
-      const authRes = await fetch(`${OSTEOUPGRADE_URL}/api/myosteoflow/auth`, {
+      const authRes = await fetch(AUTH_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
