@@ -236,7 +236,7 @@ interface TreatmentRec {
 interface DiagnosisResult {
   primary: string
   confidence: 'probable' | 'possible' | 'exclusion' | 'urgent'
-  tests: Array<{ name: string; target: string; result?: string }>
+  tests: Array<{ name: string; target: string; result?: string; refinement?: string }>
   exams: Array<{ name: string; urgency: 'urgent' | 'if_persistent' | 'not_indicated'; condition?: string }>
   yellowFlagWarning: boolean
   chronicRisk: boolean
@@ -459,19 +459,19 @@ function buildResult(state: TreeState): DiagnosisResult {
       primary,
       confidence: 'probable',
       tests: [
-        { name: 'Lasègue ipsilatéral (SLR)', target: 'Hernie discale', result: 'Sn 92 %' },
-        { name: 'Lasègue croisé', target: 'Hernie discale', result: 'Sp 90 %' },
-        { name: 'Lasègue assis (distracted SLR)', target: 'Hernie discale', result: 'Sn 41 %' },
-        { name: 'Femoral stretch test (L2-L4)', target: 'Radiculopathie haute', result: '' },
-        { name: 'Romberg + démarche élargie', target: 'Sténose spinale', result: 'Sp > 90 %' },
-        { name: 'Extension lombaire — reproduit la douleur ?', target: 'Sténose spinale', result: '' },
-        { name: 'Force motrice : dorsiflexion cheville', target: 'L4-L5', result: '' },
-        { name: 'Force motrice : flexion plantaire', target: 'S1', result: '' },
-        { name: 'Réflexe rotulien', target: 'L3-L4', result: '' },
-        { name: 'Réflexe achilléen', target: 'S1', result: '' },
-        { name: 'Sensibilité face ant.-médiale jambe', target: 'L4', result: '' },
-        { name: 'Sensibilité face latérale jambe / dos du pied / gros orteil', target: 'L5', result: '' },
-        { name: 'Sensibilité face post. jambe / plante / 5e orteil', target: 'S1', result: '' },
+        { name: 'Lasègue ipsilatéral (SLR)', target: 'Hernie discale', result: 'Sn 92 %', refinement: 'Lasègue positif → argument fort pour hernie discale (Sn 92 %)' },
+        { name: 'Lasègue croisé', target: 'Hernie discale', result: 'Sp 90 %', refinement: 'Lasègue croisé positif → hernie paramédiane probable (Sp 90 %)' },
+        { name: 'Lasègue assis (distracted SLR)', target: 'Hernie discale', result: 'Sn 41 %', refinement: 'Test de Waddell positif — possible facteur psychosocial' },
+        { name: 'Femoral stretch test (L2-L4)', target: 'Radiculopathie haute', result: '', refinement: 'Stretch test positif → compression radiculaire L2-L4' },
+        { name: 'Romberg + démarche élargie', target: 'Sténose spinale', result: 'Sp > 90 %', refinement: 'Romberg positif → sténose spinale évoquée (Sp > 90 %)' },
+        { name: 'Extension lombaire — reproduit la douleur ?', target: 'Sténose spinale', result: '', refinement: 'Extension reproductrice → sténose spinale renforcée' },
+        { name: 'Force motrice : dorsiflexion cheville', target: 'L4-L5', result: '', refinement: 'Déficit moteur L4-L5 objectivé → IRM si progressif' },
+        { name: 'Force motrice : flexion plantaire', target: 'S1', result: '', refinement: 'Déficit moteur S1 objectivé → surveillance neurologique' },
+        { name: 'Réflexe rotulien', target: 'L3-L4', result: '', refinement: 'Réflexe rotulien diminué/aboli → atteinte L3-L4 confirmée' },
+        { name: 'Réflexe achilléen', target: 'S1', result: '', refinement: 'Réflexe achilléen diminué/aboli → atteinte S1 confirmée' },
+        { name: 'Sensibilité face ant.-médiale jambe', target: 'L4', result: '', refinement: 'Hypoesthésie L4 objectivée' },
+        { name: 'Sensibilité face latérale jambe / dos du pied / gros orteil', target: 'L5', result: '', refinement: 'Hypoesthésie L5 objectivée' },
+        { name: 'Sensibilité face post. jambe / plante / 5e orteil', target: 'S1', result: '', refinement: 'Hypoesthésie S1 objectivée' },
       ],
       exams: [{
         name: 'IRM lombaire',
@@ -492,9 +492,9 @@ function buildResult(state: TreeState): DiagnosisResult {
         primary: 'Spondylarthrite ankylosante (sacroiliite radiographique)',
         confidence: 'probable',
         tests: [
-          { name: 'Mobilité lombaire (Schober)', target: 'Limitation', result: '' },
-          { name: 'Expansion thoracique', target: 'Limitation', result: '' },
-          { name: 'Distance doigt-sol', target: 'Flexion lombaire', result: '' },
+          { name: 'Mobilité lombaire (Schober)', target: 'Limitation', result: '', refinement: 'Schober positif → limitation de mobilité lombaire confirmée' },
+          { name: 'Expansion thoracique', target: 'Limitation', result: '', refinement: 'Expansion thoracique réduite → critère diagnostique SpA' },
+          { name: 'Distance doigt-sol', target: 'Flexion lombaire', result: '', refinement: 'Distance doigt-sol augmentée → atteinte globale du rachis' },
         ],
         exams: [
           { name: 'Radiographies bassin / sacro-iliaques', urgency: 'if_persistent', condition: 'Confirme la sacroiliite' },
@@ -513,9 +513,9 @@ function buildResult(state: TreeState): DiagnosisResult {
       primary,
       confidence: state.q9_spa_clinical_picture === 'yes' ? 'probable' : 'possible',
       tests: [
-        { name: 'Mobilité lombaire (Schober)', target: 'Raideur', result: '' },
-        { name: 'Test de Patrick / FABER', target: 'Articulation SI', result: '' },
-        { name: 'Expansion thoracique', target: 'Limitation', result: '' },
+        { name: 'Mobilité lombaire (Schober)', target: 'Raideur', result: '', refinement: 'Schober positif → limitation de mobilité lombaire confirmée' },
+        { name: 'Test de Patrick / FABER', target: 'Articulation SI', result: '', refinement: 'FABER positif → tension articulation sacro-iliaque' },
+        { name: 'Expansion thoracique', target: 'Limitation', result: '', refinement: 'Expansion thoracique réduite → critère diagnostique SpA' },
       ],
       exams: [
         { name: 'IRM sacro-iliaque', urgency: 'if_persistent', condition: 'Critère ASAS de référence pour SpA non radiographique' },
@@ -536,12 +536,12 @@ function buildResult(state: TreeState): DiagnosisResult {
       primary: 'Dysfonction sacro-iliaque probable',
       confidence: 'probable',
       tests: [
-        { name: 'Test de distraction', target: 'SI', result: '' },
-        { name: 'Test de compression', target: 'SI', result: '' },
-        { name: 'Thrust sacré', target: 'SI', result: '' },
-        { name: 'Test de Gaenslen', target: 'SI', result: '' },
-        { name: 'Test de Patrick / FABER', target: 'SI', result: '' },
-        { name: 'Thigh thrust (cisaillement post.)', target: 'SI', result: 'Cluster ≥ 3 : Sn 80-91 % Sp 63-79 %' },
+        { name: 'Test de distraction', target: 'SI', result: '', refinement: 'Distraction positive → provocation douleur SI' },
+        { name: 'Test de compression', target: 'SI', result: '', refinement: 'Compression positive → provocation douleur SI' },
+        { name: 'Thrust sacré', target: 'SI', result: '', refinement: 'Thrust sacré positif → provocation douleur SI' },
+        { name: 'Test de Gaenslen', target: 'SI', result: '', refinement: 'Gaenslen positif → tension bilatérale SI' },
+        { name: 'Test de Patrick / FABER', target: 'SI', result: '', refinement: 'FABER positif → tension SI / hanche' },
+        { name: 'Thigh thrust (cisaillement post.)', target: 'SI', result: 'Cluster ≥ 3 : Sn 80-91 % Sp 63-79 %', refinement: 'Thigh thrust positif → cisaillement postérieur SI' },
       ],
       exams: [
         { name: 'Bloc diagnostique SI', urgency: 'if_persistent', condition: 'Seul examen confirmatoire' },
@@ -558,9 +558,9 @@ function buildResult(state: TreeState): DiagnosisResult {
       primary: 'Douleur discogénique probable',
       confidence: 'probable',
       tests: [
-        { name: 'Phénomène de centralisation (McKenzie)', target: 'Discogénique', result: 'LR+ significatif' },
-        { name: 'Mouvements répétés en extension', target: 'Centralisation', result: '' },
-        { name: 'Mouvements répétés en flexion', target: 'Centralisation', result: '' },
+        { name: 'Phénomène de centralisation (McKenzie)', target: 'Discogénique', result: 'LR+ significatif', refinement: 'Centralisation confirmée cliniquement → douleur discogénique validée' },
+        { name: 'Mouvements répétés en extension', target: 'Centralisation', result: '', refinement: 'Préférence directionnelle en extension identifiée' },
+        { name: 'Mouvements répétés en flexion', target: 'Centralisation', result: '', refinement: 'Préférence directionnelle en flexion identifiée' },
       ],
       exams: [{ name: 'Pas d\'imagerie en routine', urgency: 'not_indicated', condition: 'Centralisation positive suffit' }],
       yellowFlagWarning: state.q_yellow_flags.length >= 2,
@@ -574,8 +574,8 @@ function buildResult(state: TreeState): DiagnosisResult {
       primary: 'Syndrome facettaire possible',
       confidence: 'possible',
       tests: [
-        { name: 'Critères de Revel combinés (≥ 3/7)', target: 'Facettes', result: 'Sp 66-91 %' },
-        { name: 'Extension + rotation ipsilatérale reproduit douleur', target: 'Facettes', result: '' },
+        { name: 'Critères de Revel combinés (≥ 3/7)', target: 'Facettes', result: 'Sp 66-91 %', refinement: '≥ 3 critères de Revel → syndrome facettaire confirmé (Sp 66-91 %)' },
+        { name: 'Extension + rotation ipsilatérale reproduit douleur', target: 'Facettes', result: '', refinement: 'Test extension-rotation positif → critère facettaire validé' },
         { name: 'Phénomène de non-centralisation', target: 'Facettes', result: 'Sn 100 % / Sp 11-17 %' },
       ],
       exams: [
@@ -757,7 +757,7 @@ function buildAnamnesisText(primary: string, state: TreeState, type: string): st
 interface LowBackPainTreeProps {
   open: boolean
   onClose: () => void
-  onApply: (anamnesis: string, examination?: string) => void
+  onApply: (anamnesis: string, examination?: string, advice?: string) => void
 }
 
 const STEP_PROGRESS: Partial<Record<Step, number>> = {
@@ -1547,7 +1547,7 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
 
       case 'result':
         if (!result) return null
-        return <ResultStep result={result} onApply={(examination) => { onApply(result.anamnesisSummary, examination); onClose() }} onReset={reset} />
+        return <ResultStep result={result} onApply={(examination, advice) => { onApply(result.anamnesisSummary, examination, advice); onClose() }} onReset={reset} />
 
       default:
         return null
@@ -1606,7 +1606,7 @@ function evidenceLevelClass(level: string): string {
   return 'bg-amber-100 text-amber-800'
 }
 
-function ResultStep({ result, onApply, onReset }: { result: DiagnosisResult; onApply: (examination?: string) => void; onReset: () => void }) {
+function ResultStep({ result, onApply, onReset }: { result: DiagnosisResult; onApply: (examination?: string, advice?: string) => void; onReset: () => void }) {
   const [checkedTests, setCheckedTests] = useState<Record<number, boolean>>({})
   const [testNotes, setTestNotes] = useState<Record<number, string>>({})
 
@@ -1625,6 +1625,25 @@ function ResultStep({ result, onApply, onReset }: { result: DiagnosisResult; onA
       const note = testNotes[i]?.trim() || 'positif'
       lines.push(`• ${t.name} [${t.target}] : ${note}`)
     })
+    return lines.join('\n')
+  }
+
+  const buildAdviceText = () => {
+    const { treatment, primary } = result
+    const lines: string[] = []
+    lines.push(`=== Conseils — ${primary} ===`)
+    lines.push('')
+    lines.push(`Protocole d'exercices (niveau de preuve : ${treatment.exercises.evidenceLevel}) :`)
+    treatment.exercises.protocol.forEach(e => lines.push(`• ${e}`))
+    if (treatment.manualTherapy.warning) {
+      lines.push('')
+      lines.push(`⚠ ${treatment.manualTherapy.warning}`)
+    }
+    if (treatment.keyNotes.length) {
+      lines.push('')
+      lines.push('Points essentiels :')
+      treatment.keyNotes.forEach(n => lines.push(`• ${n}`))
+    }
     return lines.join('\n')
   }
 
@@ -1715,6 +1734,28 @@ function ResultStep({ result, onApply, onReset }: { result: DiagnosisResult; onA
         </div>
       </div>
 
+      {/* Diagnostic refinement based on positive tests */}
+      {checkedCount > 0 && (() => {
+        const refinements = result.tests
+          .map((t, i) => ({ t, i }))
+          .filter(({ i }) => checkedTests[i] && result.tests[i].refinement)
+          .map(({ t, i }) => ({ msg: t.refinement!, note: testNotes[i] }))
+        if (!refinements.length) return null
+        return (
+          <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+            <p className="text-xs font-semibold text-primary mb-2">Raffinement diagnostique</p>
+            <ul className="space-y-1">
+              {refinements.map((r, i) => (
+                <li key={i} className="text-xs flex items-start gap-1.5">
+                  <span className="text-primary flex-shrink-0 mt-0.5">✓</span>
+                  <span>{r.msg}{r.note ? ` — ${r.note}` : ''}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
+      })()}
+
       <Separator />
 
       {/* Exams */}
@@ -1785,6 +1826,15 @@ function ResultStep({ result, onApply, onReset }: { result: DiagnosisResult; onA
               </li>
             ))}
           </ul>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full mt-2 gap-1.5 text-xs"
+            onClick={() => onApply(buildExaminationText(), buildAdviceText())}
+          >
+            <FileText className="h-3.5 w-3.5" />
+            Insérer dans les conseils et fermer
+          </Button>
         </div>
 
         {/* Key notes */}
