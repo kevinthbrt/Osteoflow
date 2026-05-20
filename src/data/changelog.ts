@@ -19,6 +19,14 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.1.3',
+    date: '2026-05-20',
+    title: 'Correctif logo dans la sidebar et écrans de connexion',
+    changes: [
+      { type: 'fix', text: 'Le logo s\'affiche correctement dans la sidebar, l\'écran de connexion et l\'écran PIN sur macOS (le serveur Electron sert maintenant les fichiers statiques directement).' },
+    ],
+  },
+  {
     version: '1.1.2',
     date: '2026-05-20',
     title: 'Correctifs logo, fenêtre et icône Mac',
