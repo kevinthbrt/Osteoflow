@@ -189,6 +189,7 @@ export function Dashboard({
             <Button
               className="gap-2 bg-white/15 text-white border border-white/20 hover:bg-white/25 backdrop-blur-sm"
               onClick={() => setIsNewConsultationOpen(true)}
+              data-tour="dashboard-new-consult"
             >
               <Plus className="h-4 w-4" />
               Nouvelle consultation
@@ -274,7 +275,7 @@ export function Dashboard({
       </div>
 
       {/* Stats cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 stagger-children">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 stagger-children" data-tour="dashboard-stats">
         {statCards.map((stat) => (
           <Card key={stat.label} className="stat-card">
             <CardContent className="p-6">

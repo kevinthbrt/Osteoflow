@@ -15,7 +15,7 @@ export async function GET() {
     const config = readConfig()
     const defaultDir = getAppDataDir()
     const currentDir = config.databaseDir || defaultDir
-    const dbPath = path.join(currentDir, 'osteoflow.db')
+    const dbPath = path.join(currentDir, 'myosteoflow.db')
     const dbExists = fs.existsSync(dbPath)
 
     return NextResponse.json({
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       }
 
       // Check write permissions by trying to create a test file
-      const testFile = path.join(databaseDir, '.osteoflow-test')
+      const testFile = path.join(databaseDir, '.myosteoflow-test')
       try {
         fs.writeFileSync(testFile, 'test')
         fs.unlinkSync(testFile)

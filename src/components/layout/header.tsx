@@ -19,6 +19,7 @@ import { buildSearchOrFilters } from '@/lib/utils/search'
 import type { Practitioner } from '@/types/database'
 import { Input } from '@/components/ui/input'
 import { NotificationBell } from '@/components/layout/notification-bell'
+import { useTour } from '@/contexts/tour-context'
 
 interface LocalUser {
   id: string
@@ -54,6 +55,7 @@ export function Header({ user, practitioner }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
   const db = createClient()
+  const { startTour } = useTour()
 
   // Patient search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -80,7 +82,7 @@ export function Header({ user, practitioner }: HeaderProps) {
   // Get current page info
   const currentPage = Object.entries(pageTitles).find(([path]) =>
     pathname.startsWith(path)
-  )?.[1] || { title: 'Dashboard', description: 'Bienvenue sur Osteoflow' }
+  )?.[1] || { title: 'Dashboard', description: 'Bienvenue sur MyOsteoFlow' }
 
   // Patient search
   const searchPatients = useCallback(async (query: string) => {
@@ -173,7 +175,7 @@ export function Header({ user, practitioner }: HeaderProps) {
         <div className="flex-1" />
 
         {/* Search bar - patient search */}
-        <div className="hidden md:block relative" ref={searchRef}>
+        <div className="hidden md:block relative" ref={searchRef} data-tour="header-search">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -235,7 +237,10 @@ export function Header({ user, practitioner }: HeaderProps) {
           <Button
             variant="ghost"
             size="icon"
+            onClick={startTour}
+            data-tour="header-help"
             className="hidden sm:flex rounded-full text-muted-foreground hover:text-foreground h-9 w-9"
+            title="Visite guidée"
           >
             <HelpCircle className="h-4 w-4" />
           </Button>

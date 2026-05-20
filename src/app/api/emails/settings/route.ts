@@ -100,7 +100,13 @@ export async function POST(request: Request) {
 
     const data = validation.data
 
-    // Test connections before saving
+    // Encrypt passwords before saving
+    const { getOrCreateEncryptionKey, encryptValue } = await import('@/lib/utils/encryption')
+    const encKey = getOrCreateEncryptionKey()
+    const encryptedSmtpPassword = encryptValue(data.smtp_password, encKey)
+    const encryptedImapPassword = encryptValue(data.imap_password, encKey)
+
+    // Test connections before saving (using plaintext passwords for the test)
     const smtpTest = await testSmtpConnection({
       smtp_host: data.smtp_host,
       smtp_port: data.smtp_port,
@@ -156,12 +162,12 @@ export async function POST(request: Request) {
       smtp_port: data.smtp_port,
       smtp_secure: data.smtp_secure,
       smtp_user: data.smtp_user,
-      smtp_password: data.smtp_password,
+      smtp_password: encryptedSmtpPassword,
       imap_host: data.imap_host,
       imap_port: data.imap_port,
       imap_secure: data.imap_secure,
       imap_user: data.imap_user,
-      imap_password: data.imap_password,
+      imap_password: encryptedImapPassword,
       from_name: fromName,
       from_email: data.from_email,
       sync_enabled: data.sync_enabled,

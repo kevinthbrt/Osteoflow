@@ -1,5 +1,5 @@
 /**
- * SQLite database connection manager for Osteoflow desktop.
+ * SQLite database connection manager for MyOsteoFlow desktop.
  * Uses better-sqlite3 for synchronous, high-performance SQLite access.
  * The database file is stored in the user's app data directory,
  * or in a custom directory specified via config.json.

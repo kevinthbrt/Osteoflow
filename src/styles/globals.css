@@ -1,3 +1,5 @@
+@import './driver-tour.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -386,3 +388,53 @@
 .stagger-children > *:nth-child(3) { animation-delay: 120ms; }
 .stagger-children > *:nth-child(4) { animation-delay: 180ms; }
 .stagger-children > *:nth-child(5) { animation-delay: 240ms; }
+
+/* ── Driver.js tour overrides ─────────────────────────────── */
+.osteoflow-tour-popover {
+  border-radius: 16px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid rgba(99, 102, 241, 0.2) !important;
+  padding: 20px !important;
+  max-width: 340px !important;
+}
+
+.osteoflow-tour-popover .driver-popover-title {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  margin-bottom: 8px !important;
+}
+
+.osteoflow-tour-popover .driver-popover-description {
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+  color: #64748b !important;
+}
+
+.osteoflow-tour-popover .driver-popover-footer {
+  margin-top: 16px !important;
+}
+
+.osteoflow-tour-popover .driver-popover-progress-text {
+  font-size: 11px !important;
+  color: #94a3b8 !important;
+}
+
+.osteoflow-tour-popover button.driver-popover-next-btn,
+.osteoflow-tour-popover button.driver-popover-prev-btn,
+.osteoflow-tour-popover button.driver-popover-done-btn {
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 6px 14px !important;
+}
+
+.osteoflow-tour-popover button.driver-popover-next-btn,
+.osteoflow-tour-popover button.driver-popover-done-btn {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+  border-color: transparent !important;
+}
+
+.osteoflow-tour-popover button.driver-popover-next-btn:hover,
+.osteoflow-tour-popover button.driver-popover-done-btn:hover {
+  opacity: 0.9 !important;
+}

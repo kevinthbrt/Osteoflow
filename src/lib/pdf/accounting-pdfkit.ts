@@ -274,7 +274,7 @@ export async function generateAccountingPdf(data: AccountingPdfData): Promise<Ui
   doc.strokeColor(BORDER).lineWidth(0.5)
   doc.moveTo(margin, footerY).lineTo(margin + contentWidth, footerY).stroke()
   doc.font('Helvetica').fontSize(7).fillColor(MUTED)
-  doc.text('Document généré automatiquement par Osteoflow', margin, footerY + 6)
+  doc.text('Document généré automatiquement par MyOsteoFlow', margin, footerY + 6)
   doc.text('Récapitulatif comptable - Document non contractuel', margin, footerY + 6, {
     width: contentWidth,
     align: 'right',

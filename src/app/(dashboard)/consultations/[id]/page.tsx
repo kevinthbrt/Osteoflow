@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { ArrowLeft, Edit, User, FileText, Clock, CheckCircle, AlertCircle, Paperclip, Image as ImageIcon, ClipboardList, Gauge, TrendingDown, Activity } from 'lucide-react'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels } from '@/lib/validations/invoice'
+import { MarkdownText } from '@/components/ui/markdown-text'
 import { ConsultationPaymentEditor } from '@/components/consultations/consultation-payment-editor'
 
 interface ConsultationPageProps {
@@ -35,7 +36,7 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
     notFound()
   }
 
-  const patient = consultation.patient as typeof consultation.patient & { id: string; first_name: string; last_name: string; gender: string }
+  const patient = consultation.patient as typeof consultation.patient & { id: string; first_name: string; last_name: string; gender: string; date_of_birth?: string; phone?: string; email?: string; notes?: string }
   const invoice = consultation.invoices?.[0]
 
   // Fetch attachments
@@ -138,7 +139,7 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
                   <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
                     Anamnèse
                   </h4>
-                  <p className="text-sm whitespace-pre-wrap">{consultation.anamnesis}</p>
+                  <MarkdownText text={consultation.anamnesis} />
                 </div>
               )}
               {consultation.examination && (
@@ -147,7 +148,7 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
                   <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
                     Examen clinique et manipulations
                   </h4>
-                  <p className="text-sm whitespace-pre-wrap">{consultation.examination}</p>
+                  <MarkdownText text={consultation.examination} />
                 </div>
               )}
               {consultation.advice && (
@@ -156,7 +157,7 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
                   <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
                     Conseils donnés
                   </h4>
-                  <p className="text-sm whitespace-pre-wrap">{consultation.advice}</p>
+                  <MarkdownText text={consultation.advice} />
                 </div>
               )}
               {!consultation.anamnesis && !consultation.examination && !consultation.advice && (
@@ -424,6 +425,18 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
                     {patient.last_name} {patient.first_name}
                   </span>
                 </div>
+                {patient.phone && (
+                  <p className="text-xs text-muted-foreground">{patient.phone}</p>
+                )}
+                {patient.email && (
+                  <p className="text-xs text-muted-foreground">{patient.email}</p>
+                )}
+                {patient.notes && (
+                  <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md">
+                    <p className="text-xs font-medium text-amber-800 mb-1">Notes</p>
+                    <p className="text-xs text-amber-900 whitespace-pre-wrap">{patient.notes}</p>
+                  </div>
+                )}
                 <Button variant="outline" className="w-full" asChild>
                   <Link href={`/patients/${patient.id}`}>
                     Voir le dossier

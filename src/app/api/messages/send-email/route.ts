@@ -5,9 +5,28 @@ export async function POST(request: Request) {
     const { Resend } = await import('resend')
     const { createClient, createServiceClient } = await import('@/lib/db/server')
     const { sendEmail, createHtmlEmail } = await import('@/lib/email/smtp-service')
+    const { getDatabase } = await import('@/lib/database/connection')
     const getResend = () => new Resend(process.env.RESEND_API_KEY)
 
-    const { conversationId, patientEmail, patientName, content } = await request.json()
+    // Support both JSON (no attachments) and multipart/form-data (with attachments)
+    let conversationId: string, patientEmail: string, patientName: string, content: string
+    let attachmentFiles: File[] = []
+
+    const contentType = request.headers.get('content-type') || ''
+    if (contentType.includes('multipart/form-data')) {
+      const form = await request.formData()
+      conversationId = form.get('conversationId') as string
+      patientEmail = form.get('patientEmail') as string
+      patientName = form.get('patientName') as string
+      content = form.get('content') as string
+      attachmentFiles = form.getAll('attachments') as File[]
+    } else {
+      const body = await request.json()
+      conversationId = body.conversationId
+      patientEmail = body.patientEmail
+      patientName = body.patientName
+      content = body.content
+    }
 
     if (!conversationId || !patientEmail || !content) {
       return NextResponse.json(
@@ -46,6 +65,16 @@ export async function POST(request: Request) {
       .eq('is_verified', true)
       .single()
 
+    // Load attachment buffers once (used both for SMTP and DB storage)
+    const attachmentBuffers = await Promise.all(
+      attachmentFiles.map(async (f) => ({
+        filename: f.name,
+        content: Buffer.from(await f.arrayBuffer()),
+        contentType: f.type || 'application/octet-stream',
+        size: f.size,
+      }))
+    )
+
     if (emailSettings) {
       // Use practitioner's SMTP settings
       const emailContent = `Bonjour ${patientName},\n\n${content}`
@@ -65,6 +94,11 @@ export async function POST(request: Request) {
           to: patientEmail,
           subject,
           html: htmlEmail,
+          attachments: attachmentBuffers.map((a) => ({
+            filename: a.filename,
+            content: a.content,
+            contentType: a.contentType,
+          })),
         }
       )
 
@@ -135,7 +169,7 @@ export async function POST(request: Request) {
     }
 
     // Save message to database
-    const { error: messageError } = await db.from('messages').insert({
+    const { data: savedMessage, error: messageError } = await db.from('messages').insert({
       conversation_id: conversationId,
       content,
       direction: 'outgoing',
@@ -146,10 +180,26 @@ export async function POST(request: Request) {
       email_message_id: emailMessageId,
       to_email: patientEmail,
       from_email: emailSettings?.from_email || practitioner.email,
-    })
+    }).select('id').single()
 
     if (messageError) {
       console.error('Error saving message:', messageError)
+    }
+
+    // Save attachments to SQLite
+    if (savedMessage?.id && attachmentBuffers.length > 0) {
+      const rawDb = getDatabase()
+      const stmt = rawDb.prepare(`
+        INSERT INTO message_attachments (message_id, filename, mime_type, file_size, data)
+        VALUES (?, ?, ?, ?, ?)
+      `)
+      for (const a of attachmentBuffers) {
+        try {
+          stmt.run(savedMessage.id, a.filename, a.contentType, a.size, a.content)
+        } catch (e) {
+          console.error('[send-email] attachment save error', e)
+        }
+      }
     }
 
     return NextResponse.json({ success: true, messageId: emailMessageId })

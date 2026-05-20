@@ -169,6 +169,12 @@ export async function POST(request: NextRequest) {
 
         const template = customTemplate || defaultEmailTemplates.follow_up_7d
 
+        // Calculate actual delay in days between consultation and scheduled send
+        const delayDays = Math.round(
+          (new Date(task.scheduled_for).getTime() - new Date(consultation.date_time).getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
+
         // Prepare variables
         const variables = {
           patient_name: `${patient.first_name} ${patient.last_name}`,
@@ -179,6 +185,7 @@ export async function POST(request: NextRequest) {
           practice_name:
             practitioner.practice_name ||
             `${practitioner.first_name} ${practitioner.last_name}`,
+          days: String(delayDays),
         }
 
         // Replace variables in template
@@ -255,13 +262,15 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (emailSettings) {
+          const { decryptValue, getOrCreateEncryptionKey } = await import('@/lib/utils/encryption')
+          const encKey = getOrCreateEncryptionKey()
           const result = await sendEmail(
             {
               smtp_host: emailSettings.smtp_host,
               smtp_port: emailSettings.smtp_port,
               smtp_secure: emailSettings.smtp_secure,
               smtp_user: emailSettings.smtp_user,
-              smtp_password: emailSettings.smtp_password,
+              smtp_password: decryptValue(emailSettings.smtp_password, encKey),
               from_name: emailSettings.from_name,
               from_email: emailSettings.from_email,
             },
@@ -486,13 +495,15 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (emailSettings) {
+      const { decryptValue, getOrCreateEncryptionKey } = await import('@/lib/utils/encryption')
+      const encKey = getOrCreateEncryptionKey()
       const result = await sendEmail(
         {
           smtp_host: emailSettings.smtp_host,
           smtp_port: emailSettings.smtp_port,
           smtp_secure: emailSettings.smtp_secure,
           smtp_user: emailSettings.smtp_user,
-          smtp_password: emailSettings.smtp_password,
+          smtp_password: decryptValue(emailSettings.smtp_password, encKey),
           from_name: emailSettings.from_name,
           from_email: emailSettings.from_email,
         },

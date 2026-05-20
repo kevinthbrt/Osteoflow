@@ -1,5 +1,5 @@
 {
-  "name": "osteoflow-survey-worker",
+  "name": "myosteoflow-survey-worker",
   "version": "1.0.0",
   "private": true,
   "scripts": {

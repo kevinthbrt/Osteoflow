@@ -1,5 +1,5 @@
 /**
- * Client-side database client for Osteoflow desktop.
+ * Client-side database client for MyOsteoFlow desktop.
  *
  * Returns a browser-safe client that proxies database operations
  * through API routes (/api/db, /api/auth/*).

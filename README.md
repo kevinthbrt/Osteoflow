@@ -1,4 +1,4 @@
-# Osteoflow
+# Myosteoflow
 
 Application web de gestion de cabinet d'ostéopathie : patients, consultations, facturation, emails automatiques et comptabilité.
 
@@ -35,8 +35,8 @@ Application web de gestion de cabinet d'ostéopathie : patients, consultations, 
 ### 1. Cloner le projet
 
 ```bash
-git clone https://github.com/votre-repo/osteoflow.git
-cd osteoflow
+git clone https://github.com/votre-repo/myosteoflow.git
+cd myosteoflow
 npm install
 ```
 
@@ -109,7 +109,7 @@ Avec Vercel, utilisez [vercel.json](https://vercel.com/docs/cron-jobs) :
 ## Structure du projet
 
 ```
-osteoflow/
+myosteoflow/
 ├── src/
 │   ├── app/                    # Next.js App Router
 │   │   ├── (auth)/            # Routes publiques (login)

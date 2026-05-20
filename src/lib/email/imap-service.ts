@@ -103,7 +103,16 @@ function extractTextFromParts(parts: unknown): { text?: string; html?: string } 
   return result
 }
 
-function decodeQuotedPrintable(input: string): string {
+// Many French senders use ISO-8859-1 / Windows-1252. Node's 'latin1' encoding
+// covers both for the accented characters that matter (à â é è ê ë î ï ô ù û ü ç).
+function parseCharset(headers: string): BufferEncoding {
+  const match = headers.match(/charset=["']?([^\s;"'\r\n]+)/i)
+  if (!match) return 'utf8'
+  const cs = match[1].toLowerCase().replace(/[^a-z0-9]/g, '')
+  return cs === 'utf8' ? 'utf8' : 'latin1'
+}
+
+function decodeQuotedPrintable(input: string, charset: BufferEncoding = 'utf8'): string {
   const normalized = input.replace(/=\r?\n/g, '')
   const bytes: number[] = []
 
@@ -124,12 +133,12 @@ function decodeQuotedPrintable(input: string): string {
     }
   }
 
-  return Buffer.from(bytes).toString('utf8')
+  return Buffer.from(bytes).toString(charset)
 }
 
-function normalizeEmailContent(content?: string): string | undefined {
+function normalizeEmailContent(content?: string, charset: BufferEncoding = 'utf8'): string | undefined {
   if (!content) return undefined
-  const decoded = decodeQuotedPrintable(content)
+  const decoded = decodeQuotedPrintable(content, charset)
   return decoded.replace(/=\s*$/g, '').trim()
 }
 
@@ -192,23 +201,25 @@ export async function fetchNewEmails(
           // Parse the raw email source to extract text
           const source = message.source.toString()
 
-          // Simple extraction - look for plain text between boundaries
-          const textMatch = source.match(/Content-Type: text\/plain[^]*?\r\n\r\n([^]*?)(?:\r\n--|\r\n\r\n$)/i)
+          // Simple extraction - look for plain text between boundaries.
+          // Capture the part headers (group 1) to extract charset, then body (group 2).
+          const textMatch = source.match(/(Content-Type: text\/plain[^]*?)\r\n\r\n([^]*?)(?:\r\n--|\r\n\r\n$)/i)
           if (textMatch) {
-            email.textContent = normalizeEmailContent(textMatch[1])
+            email.textContent = normalizeEmailContent(textMatch[2], parseCharset(textMatch[1]))
           }
 
-          const htmlMatch = source.match(/Content-Type: text\/html[^]*?\r\n\r\n([^]*?)(?:\r\n--|\r\n\r\n$)/i)
+          const htmlMatch = source.match(/(Content-Type: text\/html[^]*?)\r\n\r\n([^]*?)(?:\r\n--|\r\n\r\n$)/i)
           if (htmlMatch) {
-            email.htmlContent = normalizeEmailContent(htmlMatch[1])
+            email.htmlContent = normalizeEmailContent(htmlMatch[2], parseCharset(htmlMatch[1]))
           }
 
           // If no multipart, try simple body
           if (!email.textContent && !email.htmlContent) {
             const bodyStart = source.indexOf('\r\n\r\n')
             if (bodyStart > -1) {
+              const headers = source.substring(0, bodyStart)
               const body = source.substring(bodyStart + 4).trim()
-              const normalized = normalizeEmailContent(body)
+              const normalized = normalizeEmailContent(body, parseCharset(headers))
               // Detect if the body is HTML and categorize accordingly
               if (normalized && /^\s*<(!DOCTYPE|html|head|body)/i.test(normalized)) {
                 email.htmlContent = normalized

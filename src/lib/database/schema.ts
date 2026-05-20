@@ -1,5 +1,5 @@
 /**
- * SQLite schema for Osteoflow desktop application.
+ * SQLite schema for MyOsteoFlow desktop application.
  * Converted from the Supabase/PostgreSQL schema.
  * UUIDs are stored as TEXT, timestamps as TEXT (ISO 8601), booleans as INTEGER (0/1).
  */
@@ -408,6 +408,26 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     );
   `)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_manual_revenue_practitioner ON manual_revenue_entries(practitioner_id, year);`)
+
+  // Add configurable follow-up delay to practitioners
+  const practFollowUpCols = db.pragma('table_info(practitioners)') as Array<{ name: string }>
+  if (!practFollowUpCols.some((c) => c.name === 'follow_up_delay_days')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN follow_up_delay_days INTEGER NOT NULL DEFAULT 7;')
+  }
+
+  // Message attachments — files attached to sent/received messages
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS message_attachments (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      message_id TEXT REFERENCES messages(id) ON DELETE CASCADE,
+      filename TEXT NOT NULL,
+      mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+      file_size INTEGER NOT NULL DEFAULT 0,
+      data BLOB NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_message_attachments_message ON message_attachments(message_id);`)
 }
 
 /**

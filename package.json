@@ -1,6 +1,6 @@
 {
-  "name": "osteoflow",
-  "version": "1.0.53",
+  "name": "myosteoflow",
+  "version": "1.1.0",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -46,6 +46,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "date-fns-tz": "^3.1.3",
+    "driver.js": "^1.4.0",
     "electron-updater": "^6.3.9",
     "imapflow": "^1.2.7",
     "lucide-react": "^0.441.0",
@@ -82,8 +83,8 @@
     "nodemailer": "^6.10.1"
   },
   "build": {
-    "appId": "com.osteoflow.desktop",
-    "productName": "Osteoflow",
+    "appId": "com.myosteoflow.desktop",
+    "productName": "Myosteoflow",
     "directories": {
       "output": "release"
     },
@@ -105,16 +106,34 @@
     "publish": {
       "provider": "github",
       "owner": "kevinthbrt",
-      "repo": "Osteoflow",
+      "repo": "Myosteoflow",
       "releaseType": "release"
     },
     "mac": {
       "target": [
-        "dmg",
-        "zip"
+        { "target": "dmg", "arch": ["arm64", "x64"] },
+        { "target": "zip", "arch": ["arm64", "x64"] }
       ],
       "category": "public.app-category.medical",
-      "minimumSystemVersion": "10.15.0"
+      "minimumSystemVersion": "10.15.0",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "MyOsteoFlow utilise le microphone pour la dictée de l'anamnèse."
+      }
+    },
+    "dmg": {
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" },
+        {
+          "x": 270, "y": 380, "type": "file",
+          "path": "installer/Ouvrir Osteoflow.command",
+          "name": "⚠️ Si app bloquée — double-cliquez ici.command"
+        }
+      ]
     },
     "win": {
       "target": [

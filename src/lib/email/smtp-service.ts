@@ -186,7 +186,7 @@ export function createHtmlEmail(
             ${footer}
           </div>
           <p style="text-align: center; margin-top: 16px; color: #9ca3af; font-size: 12px;">
-            Envoyé via Osteoflow
+            Envoyé via MyOsteoFlow
           </p>
         </div>
       </body>

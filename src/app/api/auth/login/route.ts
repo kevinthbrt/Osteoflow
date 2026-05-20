@@ -77,7 +77,7 @@ export async function PUT(request: Request) {
     const { getDatabase } = await import('@/lib/database/connection')
     const { verifyPassword, hashPassword } = await import('@/lib/database/auth')
 
-    const { email, password, oldPassword } = await request.json()
+    const { email, password, oldPassword, skipOldPassword } = await request.json()
 
     if (!email || !password || password.length < 4) {
       return NextResponse.json(
@@ -97,8 +97,8 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Praticien non trouvé' }, { status: 404 })
     }
 
-    // If already has a password, verify old password
-    if (practitioner.password_hash) {
+    // If already has a password, verify old password (unless skipOldPassword is set — used by forgot-password flow after PIN verification)
+    if (practitioner.password_hash && !skipOldPassword) {
       if (!oldPassword || !verifyPassword(oldPassword, practitioner.password_hash)) {
         return NextResponse.json(
           { error: 'Ancien mot de passe incorrect' },

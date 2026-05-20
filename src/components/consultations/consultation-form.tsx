@@ -29,15 +29,21 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin, GitBranch } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 import { EditPatientModal } from '@/components/patients/edit-patient-modal'
 import { TopographyPanel } from '@/components/consultations/topography-panel'
+import { LowBackPainTree } from '@/components/consultations/low-back-pain-tree'
+import { NeckPainTree } from '@/components/consultations/neck-pain-tree'
+import { AnamnesisRecorder } from '@/components/consultations/anamnesis-recorder'
+import { MarkdownField } from '@/components/ui/markdown-field'
+import { MarkdownText } from '@/components/ui/markdown-text'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -82,6 +88,7 @@ export function ConsultationForm({
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [createdInvoice, setCreatedInvoice] = useState<CreatedInvoice | null>(null)
   const [sendPostSessionAdvice, setSendPostSessionAdvice] = useState(false)
+  const [followUpDays, setFollowUpDays] = useState<number>((practitioner as any).follow_up_delay_days ?? 7)
   const [contactEmail, setContactEmail] = useState(currentPatient.email || '')
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [existingAttachments, setExistingAttachments] = useState<ConsultationAttachment[]>([])
@@ -93,6 +100,9 @@ export function ConsultationForm({
   const paymentsRef = useRef(payments)
   const submittedRef = useRef(false)
   const [showTopography, setShowTopography] = useState(false)
+  const [showDiagnosticSelector, setShowDiagnosticSelector] = useState(false)
+  const [showDecisionTree, setShowDecisionTree] = useState(false)
+  const [showNeckTree, setShowNeckTree] = useState(false)
 
   const now = new Date()
   const toLocalDateTimeString = (d: Date) => {
@@ -213,7 +223,7 @@ export function ConsultationForm({
       }).catch(() => {})
     }
 
-    window.addEventListener('osteoflow:before-lock', saveDraft)
+    window.addEventListener('myosteoflow:before-lock', saveDraft)
 
     const shouldRestore = sessionStorage.getItem('restore_consultation_draft')
     if (shouldRestore) {
@@ -237,7 +247,7 @@ export function ConsultationForm({
 
     return () => {
       clearInterval(interval)
-      window.removeEventListener('osteoflow:before-lock', saveDraft)
+      window.removeEventListener('myosteoflow:before-lock', saveDraft)
     }
   }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -433,7 +443,7 @@ export function ConsultationForm({
 
         if (data.follow_up_7d && newConsultation) {
           const scheduledFor = new Date(data.date_time)
-          scheduledFor.setDate(scheduledFor.getDate() + 7)
+          scheduledFor.setDate(scheduledFor.getDate() + followUpDays)
 
           await db.from('scheduled_tasks').insert({
             practitioner_id: practitioner.id,
@@ -530,6 +540,15 @@ export function ConsultationForm({
   const examination = watch('examination')
   const advice = watch('advice')
   const consultationFilled = !!(reason && (anamnesis || examination || advice))
+
+  // Auto-resize textareas when values are set programmatically (e.g. via decision tree)
+  useEffect(() => {
+    const textareas = document.querySelectorAll<HTMLTextAreaElement>('textarea[data-autoresize]')
+    textareas.forEach((ta) => {
+      ta.style.height = 'auto'
+      ta.style.height = `${ta.scrollHeight}px`
+    })
+  }, [anamnesis, examination, advice])
   const suiviFacturationFilled = followUp7d || sendPostSessionAdvice || (createInvoice && totalPayments > 0)
 
   const formContent = (
@@ -595,31 +614,48 @@ export function ConsultationForm({
                   <Stethoscope className="h-5 w-5 text-primary" />
                   <CardTitle className="text-lg">Contenu clinique</CardTitle>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowTopography(true)}
-                >
-                  <MapPin className="h-4 w-4" />
-                  Topographie
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowDiagnosticSelector(true)}
+                  >
+                    <GitBranch className="h-4 w-4" />
+                    Aide au diagnostic
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowTopography(true)}
+                  >
+                    <MapPin className="h-4 w-4" />
+                    Topographie
+                  </Button>
+                </div>
               </div>
               <CardDescription>Anamnèse, examen et conseils</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <AnamnesisRecorder
+                onApply={(data) => {
+                  if (data.reason) setValue('reason', data.reason, { shouldDirty: true })
+                  if (data.anamnesis) setValue('anamnesis', data.anamnesis, { shouldDirty: true })
+                }}
+                disabled={isLoading}
+              />
               <div className="space-y-2">
                 <Label htmlFor="anamnesis">Anamnèse</Label>
-                <Textarea
+                <MarkdownField
                   id="anamnesis"
-                  data-autoresize
-                  {...register('anamnesis')}
-                  onInput={autoResize}
+                  value={anamnesis || ''}
+                  onChange={(val) => setValue('anamnesis', val, { shouldDirty: true })}
                   disabled={isLoading}
                   placeholder="Histoire de la maladie, circonstances d'apparition, évolution..."
                   rows={4}
-                  className="min-h-[100px] resize-none overflow-hidden transition-[height] duration-200"
                 />
                 {errors.anamnesis && (
                   <p className="text-sm text-destructive">{errors.anamnesis.message}</p>
@@ -786,7 +822,7 @@ export function ConsultationForm({
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center flex-wrap gap-x-2 gap-y-2">
                 <Checkbox
                   id="follow_up_7d"
                   checked={followUp7d}
@@ -794,8 +830,18 @@ export function ConsultationForm({
                   disabled={isLoading}
                 />
                 <Label htmlFor="follow_up_7d" className="cursor-pointer">
-                  Demander des nouvelles à J+7 (email automatique)
+                  Demander des nouvelles à J+
                 </Label>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={followUpDays}
+                  onChange={(e) => setFollowUpDays(Math.max(1, parseInt(e.target.value) || 1))}
+                  disabled={isLoading || !followUp7d}
+                  className="w-16 h-7 rounded-md border border-input bg-background px-2 text-sm text-center disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <span className="text-sm text-muted-foreground">jours (email automatique)</span>
               </div>
               {followUp7d && !effectiveEmail && (
                 <p className="text-sm text-yellow-600 mt-2">
@@ -1046,6 +1092,69 @@ export function ConsultationForm({
         />
       )}
       <TopographyPanel open={showTopography} onClose={() => setShowTopography(false)} />
+      <Dialog open={showDiagnosticSelector} onOpenChange={setShowDiagnosticSelector}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Aide au diagnostic</DialogTitle>
+            <DialogDescription>Choisissez la région à analyser</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 mt-1">
+            <button
+              onClick={() => { setShowDiagnosticSelector(false); setShowDecisionTree(true) }}
+              className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all text-sm font-medium"
+            >
+              <span className="text-2xl">🦴</span>
+              Lombalgie
+            </button>
+            <button
+              onClick={() => { setShowDiagnosticSelector(false); setShowNeckTree(true) }}
+              className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all text-sm font-medium"
+            >
+              <span className="text-2xl">🫀</span>
+              Cervicalgie
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <LowBackPainTree
+        open={showDecisionTree}
+        onClose={() => setShowDecisionTree(false)}
+        onApply={(summary, examination, advice) => {
+          const current = getValues('anamnesis') || ''
+          const separator = current.trim() ? '\n\n' : ''
+          setValue('anamnesis', current + separator + summary, { shouldDirty: true })
+          if (examination) {
+            const currentExam = getValues('examination') || ''
+            const examSep = currentExam.trim() ? '\n\n' : ''
+            setValue('examination', currentExam + examSep + examination, { shouldDirty: true })
+          }
+          if (advice) {
+            const currentAdvice = getValues('advice') || ''
+            const adviceSep = currentAdvice.trim() ? '\n\n' : ''
+            setValue('advice', currentAdvice + adviceSep + advice, { shouldDirty: true })
+          }
+        }}
+      />
+      <NeckPainTree
+        open={showNeckTree}
+        onClose={() => setShowNeckTree(false)}
+        onApply={(summary, examination, advice) => {
+          const current = getValues('anamnesis') || ''
+          const separator = current.trim() ? '\n\n' : ''
+          setValue('anamnesis', current + separator + summary, { shouldDirty: true })
+          if (examination) {
+            const currentExam = getValues('examination') || ''
+            const examSep = currentExam.trim() ? '\n\n' : ''
+            setValue('examination', currentExam + examSep + examination, { shouldDirty: true })
+          }
+          if (advice) {
+            const currentAdvice = getValues('advice') || ''
+            const adviceSep = currentAdvice.trim() ? '\n\n' : ''
+            setValue('advice', currentAdvice + adviceSep + advice, { shouldDirty: true })
+          }
+        }}
+      />
     </>
   )
 
@@ -1079,6 +1188,12 @@ export function ConsultationForm({
               {currentPatient.phone && <p className="text-muted-foreground">{currentPatient.phone}</p>}
               {currentPatient.email && <p className="text-muted-foreground">{currentPatient.email}</p>}
               {currentPatient.profession && <p className="text-muted-foreground">{currentPatient.profession}</p>}
+              {currentPatient.notes && (
+                <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md">
+                  <p className="text-xs font-medium text-amber-800 mb-1">Notes</p>
+                  <p className="text-xs text-amber-900 whitespace-pre-wrap">{currentPatient.notes}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -1135,7 +1250,7 @@ export function ConsultationForm({
                         <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">
                           Anamnèse
                         </h4>
-                        <p className="text-sm whitespace-pre-wrap">{viewingConsultation.anamnesis}</p>
+                        <MarkdownText text={viewingConsultation.anamnesis} />
                       </div>
                     )}
                     {viewingConsultation.examination && (
@@ -1144,7 +1259,7 @@ export function ConsultationForm({
                         <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1 mt-3">
                           Examen clinique et manipulations
                         </h4>
-                        <p className="text-sm whitespace-pre-wrap">{viewingConsultation.examination}</p>
+                        <MarkdownText text={viewingConsultation.examination} />
                       </div>
                     )}
                     {viewingConsultation.advice && (
@@ -1153,7 +1268,7 @@ export function ConsultationForm({
                         <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1 mt-3">
                           Conseils donnés
                         </h4>
-                        <p className="text-sm whitespace-pre-wrap">{viewingConsultation.advice}</p>
+                        <MarkdownText text={viewingConsultation.advice} />
                       </div>
                     )}
                     {!viewingConsultation.anamnesis && !viewingConsultation.examination && !viewingConsultation.advice && (

@@ -20,7 +20,14 @@ function upsertConfig(key: string, value: string) {
 }
 
 export async function POST(request: Request) {
-  const { action, pin } = await request.json()
+  const body = await request.json()
+  const { action, pin } = body
+
+  // Allow checking if a PIN is configured without providing the PIN
+  if (action === 'check') {
+    const pinHash = getAppConfig('license_pin_hash')
+    return NextResponse.json({ has_pin: !!pinHash })
+  }
 
   if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
     return NextResponse.json(

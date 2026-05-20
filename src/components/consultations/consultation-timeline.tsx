@@ -21,6 +21,7 @@ import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels } from '@/lib/validations/invoice'
 import { FileText, Edit, Eye, Clock, CheckCircle, AlertCircle, Trash2 } from 'lucide-react'
 import type { Consultation, Invoice } from '@/types/database'
+import { MarkdownText } from '@/components/ui/markdown-text'
 
 interface ConsultationWithInvoice extends Consultation {
   invoices: Invoice[] | null
@@ -149,9 +150,7 @@ export function ConsultationTimeline({
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
                         Anamnèse
                       </p>
-                      <p className="text-sm whitespace-pre-wrap line-clamp-3">
-                        {consultation.anamnesis}
-                      </p>
+                      <MarkdownText text={consultation.anamnesis} className="line-clamp-3" />
                     </div>
                   )}
                   {consultation.examination && (
@@ -159,9 +158,7 @@ export function ConsultationTimeline({
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
                         Examen / Manipulations
                       </p>
-                      <p className="text-sm whitespace-pre-wrap line-clamp-3">
-                        {consultation.examination}
-                      </p>
+                      <MarkdownText text={consultation.examination} className="line-clamp-3" />
                     </div>
                   )}
                   {consultation.advice && (
@@ -169,9 +166,7 @@ export function ConsultationTimeline({
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
                         Conseils
                       </p>
-                      <p className="text-sm whitespace-pre-wrap line-clamp-3">
-                        {consultation.advice}
-                      </p>
+                      <MarkdownText text={consultation.advice} className="line-clamp-3" />
                     </div>
                   )}
                 </div>
