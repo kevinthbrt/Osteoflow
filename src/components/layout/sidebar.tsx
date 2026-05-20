@@ -140,8 +140,8 @@ export function Sidebar() {
       >
         <div className="flex h-full flex-col">
           {/* Logo */}
-          <div className="flex h-20 shrink-0 items-center px-6 border-b border-white/10" data-tour="sidebar-logo">
-            <Link href="/patients" className="flex items-center space-x-3 group">
+          <div className="flex h-20 shrink-0 items-center px-6 border-b border-white/10 [-webkit-app-region:drag]" data-tour="sidebar-logo">
+            <Link href="/patients" className="flex items-center space-x-3 group [-webkit-app-region:no-drag]">
               <div className="relative">
                 <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-xl">
                   <Image src="/icon.png" alt="MyOsteoFlow" width={40} height={40} className="object-cover" priority />
