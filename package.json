@@ -106,7 +106,7 @@
     "publish": {
       "provider": "github",
       "owner": "kevinthbrt",
-      "repo": "Myosteoflow",
+      "repo": "Osteoflow",
       "releaseType": "release"
     },
     "mac": {
