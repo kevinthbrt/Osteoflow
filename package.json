@@ -93,6 +93,7 @@
       "electron/**/*.js.map",
       ".next/**/*",
       "assets/**/*",
+      "installer/**/*",
       "package.json",
       "next.config.mjs"
     ],
