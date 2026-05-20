@@ -137,7 +137,7 @@ const STEPS = [
 ]
 
 async function launchDriver(onDone: () => void) {
-  const { driver } = await import('driver.js')
+  const { driver } = await import('@/lib/driver-tour.mjs')
 
   // Filter out steps whose element doesn't exist on the current page
   const activeSteps = STEPS.filter((s) => {
