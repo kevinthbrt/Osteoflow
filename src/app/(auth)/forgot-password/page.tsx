@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,7 +12,7 @@ import Link from 'next/link'
 
 type Step = 'verify-pin' | 'new-password' | 'success' | 'no-pin'
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordContent() {
   const [step, setStep] = useState<Step>('verify-pin')
   const [pin, setPin] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -215,5 +215,17 @@ export default function ForgotPasswordPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <ForgotPasswordContent />
+    </Suspense>
   )
 }
