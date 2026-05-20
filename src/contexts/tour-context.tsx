@@ -1,6 +1,5 @@
 'use client'
 
-import 'driver.js/dist/driver.css'
 import { createContext, useCallback, useContext, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 
