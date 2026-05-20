@@ -48,46 +48,43 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   const [structured, setStructured] = useState<{ reason: string; anamnesis: string } | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
   const [elapsed, setElapsed] = useState(0)
+
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Refs that are always fresh inside recognition callbacks
   const finalTextRef = useRef('')
   const stateRef = useRef<RecorderState>('idle')
   const restartCountRef = useRef(0)
   const intentionalStopRef = useRef(false)
+  // Keep SR constructor accessible for restarts without closure issues
+  const SRRef = useRef<(new () => SpeechRecognitionInstance) | null>(null)
 
-  useEffect(() => {
-    finalTextRef.current = finalText
-  }, [finalText])
-
-  useEffect(() => {
-    stateRef.current = state
-  }, [state])
+  useEffect(() => { finalTextRef.current = finalText }, [finalText])
+  useEffect(() => { stateRef.current = state }, [state])
 
   const stopTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
-    }
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
   }, [])
 
-  const createAndStartRecognition = useCallback((SR: new () => SpeechRecognitionInstance) => {
-    const recognition = new SR()
-    recognition.continuous = true
-    recognition.interimResults = true
-    recognition.lang = 'fr-FR'
+  const stopReconnectTimer = useCallback(() => {
+    if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null }
+  }, [])
 
+  // Attach handlers to a recognition instance — never clears transcript
+  const attachHandlers = useCallback((recognition: SpeechRecognitionInstance) => {
     recognition.onresult = (e: SpeechRecognitionEvent) => {
       let interim = ''
       let newFinal = ''
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript
-        if (e.results[i].isFinal) {
-          newFinal += t + ' '
-        } else {
-          interim += t
-        }
+        if (e.results[i].isFinal) newFinal += t + ' '
+        else interim += t
       }
-      if (newFinal) setFinalText((prev) => prev + newFinal)
+      if (newFinal) {
+        finalTextRef.current += newFinal
+        setFinalText(finalTextRef.current)
+      }
       setInterimText(interim)
     }
 
@@ -103,30 +100,39 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     recognition.onend = () => {
       setInterimText('')
       if (intentionalStopRef.current) return
-      // Auto-restart on unexpected end (network cut, timeout, etc.)
-      const currentState = stateRef.current
-      if (currentState === 'recording' || currentState === 'reconnecting') {
-        if (restartCountRef.current < MAX_RESTARTS) {
-          restartCountRef.current++
-          setState('reconnecting')
-          setTimeout(() => {
-            if (intentionalStopRef.current) return
-            const newRec = createAndStartRecognition(SR)
-            recognitionRef.current = newRec
-            setState('recording')
-          }, 1500)
-        } else {
-          // Too many restarts — go to error but keep transcript
+      const cur = stateRef.current
+      if (cur !== 'recording' && cur !== 'reconnecting') return
+
+      if (restartCountRef.current >= MAX_RESTARTS) {
+        setState('error')
+        setErrorMsg('Connexion interrompue. Le texte dicté est conservé — vous pouvez le structurer.')
+        stopTimer()
+        return
+      }
+
+      restartCountRef.current++
+      setState('reconnecting')
+      stopReconnectTimer()
+      reconnectTimerRef.current = setTimeout(() => {
+        if (intentionalStopRef.current || !SRRef.current) return
+        const SR = SRRef.current
+        const newRec = new SR()
+        newRec.continuous = true
+        newRec.interimResults = true
+        newRec.lang = 'fr-FR'
+        attachHandlers(newRec)
+        recognitionRef.current = newRec
+        try {
+          newRec.start()
+          setState('recording')
+        } catch {
           setState('error')
-          setErrorMsg('Connexion interrompue. Le texte dicté est conservé ci-dessous.')
+          setErrorMsg('Impossible de redémarrer l\'écoute.')
           stopTimer()
         }
-      }
+      }, 1500)
     }
-
-    recognition.start()
-    return recognition
-  }, [stopTimer])
+  }, [stopTimer, stopReconnectTimer])
 
   const startRecording = useCallback(() => {
     const SR = getSpeechRecognition()
@@ -136,33 +142,43 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       return
     }
 
+    // Full reset
+    SRRef.current = SR
+    finalTextRef.current = ''
     setFinalText('')
     setInterimText('')
     setStructured(null)
     setErrorMsg('')
     setElapsed(0)
-    finalTextRef.current = ''
     restartCountRef.current = 0
     intentionalStopRef.current = false
 
-    recognitionRef.current = createAndStartRecognition(SR)
+    const recognition = new SR()
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.lang = 'fr-FR'
+    attachHandlers(recognition)
+    recognitionRef.current = recognition
+    recognition.start()
     setState('recording')
     timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000)
-  }, [createAndStartRecognition])
+  }, [attachHandlers])
 
   const stopRecording = useCallback(() => {
     intentionalStopRef.current = true
+    stopReconnectTimer()
     recognitionRef.current?.stop()
     recognitionRef.current = null
     stopTimer()
     setState('idle')
-  }, [stopTimer])
+  }, [stopTimer, stopReconnectTimer])
 
   const handleStructure = useCallback(async () => {
     const text = finalTextRef.current.trim()
     if (!text) return
 
     intentionalStopRef.current = true
+    stopReconnectTimer()
     if (recognitionRef.current) {
       recognitionRef.current.stop()
       recognitionRef.current = null
@@ -190,7 +206,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       setErrorMsg('Impossible de contacter le serveur.')
       setState('error')
     }
-  }, [stopTimer])
+  }, [stopTimer, stopReconnectTimer])
 
   const handleApply = useCallback(() => {
     if (!structured) return
@@ -208,6 +224,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
 
   const handleReset = useCallback(() => {
     intentionalStopRef.current = true
+    stopReconnectTimer()
     recognitionRef.current?.stop()
     recognitionRef.current = null
     stopTimer()
@@ -219,15 +236,16 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     setElapsed(0)
     restartCountRef.current = 0
     finalTextRef.current = ''
-  }, [stopTimer])
+  }, [stopTimer, stopReconnectTimer])
 
   useEffect(() => {
     return () => {
       intentionalStopRef.current = true
+      stopReconnectTimer()
       recognitionRef.current?.stop()
       stopTimer()
     }
-  }, [stopTimer])
+  }, [stopTimer, stopReconnectTimer])
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60)
@@ -294,20 +312,15 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
         )}
       </div>
 
-      {/* Transcript area */}
+      {/* Transcript */}
       {(state === 'recording' || state === 'reconnecting' || state === 'error' || (hasTranscript && state !== 'done')) && (
         <div className="min-h-[80px] max-h-[200px] overflow-y-auto rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed">
           <span>{finalText}</span>
-          {interimText && (
-            <span className="text-muted-foreground italic">{interimText}</span>
-          )}
-          {!finalText && !interimText && (
-            <span className="text-muted-foreground">Parlez maintenant…</span>
-          )}
+          {interimText && <span className="text-muted-foreground italic">{interimText}</span>}
+          {!finalText && !interimText && <span className="text-muted-foreground">Parlez maintenant…</span>}
         </div>
       )}
 
-      {/* Error message */}
       {state === 'error' && errorMsg && (
         <p className="text-xs text-destructive">{errorMsg}</p>
       )}
@@ -316,9 +329,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       {state === 'done' && structured && (
         <div className="rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed max-h-[300px] overflow-y-auto">
           {structured.reason && (
-            <p className="font-semibold text-foreground mb-3">
-              Motif : {structured.reason}
-            </p>
+            <p className="font-semibold text-foreground mb-3">Motif : {structured.reason}</p>
           )}
           <div className="text-muted-foreground space-y-1">
             {structured.anamnesis.split('\n').map((line, i) => {
