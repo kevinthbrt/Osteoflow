@@ -402,7 +402,7 @@ app.whenReady().then(async () => {
 
   // Allow microphone access for speech recognition (dictée IA)
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    if (permission === 'media' || permission === 'microphone') {
+    if (permission === 'media') {
       callback(true)
     } else {
       callback(false)
