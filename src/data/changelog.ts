@@ -19,6 +19,16 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.1.2',
+    date: '2026-05-20',
+    title: 'Correctifs logo, fenêtre et icône Mac',
+    changes: [
+      { type: 'fix', text: 'Logo de l\'application affiché correctement sur l\'écran de connexion et l\'écran PIN (remplace l\'icône cœur générique).' },
+      { type: 'fix', text: 'Image du logo visible dans la sidebar (le dossier public/ est maintenant inclus dans le build Electron).' },
+      { type: 'improvement', text: 'La fenêtre peut être déplacée en cliquant-glissant depuis la zone du logo dans la sidebar sur macOS.' },
+    ],
+  },
+  {
     version: '1.1.1',
     date: '2026-05-20',
     title: 'Correctifs icône, mise à jour Mac et build',
