@@ -19,6 +19,14 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.1.4',
+    date: '2026-05-20',
+    title: 'Correctif définitif du logo sur macOS',
+    changes: [
+      { type: 'fix', text: 'Logo bundlé directement dans le build Next.js (import statique) — résout définitivement l\'image cassée dans la sidebar, l\'écran de connexion et l\'écran PIN sur macOS ARM64.' },
+    ],
+  },
+  {
     version: '1.1.3',
     date: '2026-05-20',
     title: 'Correctif logo dans la sidebar et écrans de connexion',

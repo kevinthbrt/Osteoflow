@@ -12,6 +12,7 @@ import { Loader2, Plus, User, Lock, Eye, EyeOff } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import Link from 'next/link'
 import Image from 'next/image'
+import logo from '../../../public/icon.png'
 
 interface PractitionerItem {
   id: string
@@ -196,7 +197,7 @@ export default function LoginPage() {
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
             <div className="w-14 h-14 rounded-xl overflow-hidden shadow-lg">
-              <Image src="/icon.png" alt="MyOsteoFlow" width={56} height={56} className="object-cover" priority />
+              <Image src={logo} alt="MyOsteoFlow" width={56} height={56} className="object-cover" priority />
             </div>
           </div>
           <CardTitle className="text-2xl font-bold [font-family:var(--font-playfair)] italic tracking-wide">MyOsteoFlow</CardTitle>
