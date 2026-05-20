@@ -408,6 +408,12 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     );
   `)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_manual_revenue_practitioner ON manual_revenue_entries(practitioner_id, year);`)
+
+  // Add configurable follow-up delay to practitioners
+  const practFollowUpCols = db.pragma('table_info(practitioners)') as Array<{ name: string }>
+  if (!practFollowUpCols.some((c) => c.name === 'follow_up_delay_days')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN follow_up_delay_days INTEGER NOT NULL DEFAULT 7;')
+  }
 }
 
 /**

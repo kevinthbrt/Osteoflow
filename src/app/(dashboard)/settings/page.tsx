@@ -172,6 +172,8 @@ export default function SettingsPage() {
     average_consultation_price: '',
   })
   const [isSavingObjectives, setIsSavingObjectives] = useState(false)
+  const [followUpDelay, setFollowUpDelay] = useState('7')
+  const [isSavingFollowUpDelay, setIsSavingFollowUpDelay] = useState(false)
 
   // Email connection states
   const [selectedProvider, setSelectedProvider] = useState<string>('')
@@ -274,6 +276,29 @@ export default function SettingsPage() {
     }
   }
 
+  // Save follow-up delay
+  const handleSaveFollowUpDelay = async () => {
+    if (!practitioner) return
+    const days = parseInt(followUpDelay, 10)
+    if (isNaN(days) || days < 1 || days > 365) {
+      toast({ variant: 'destructive', title: 'Valeur invalide', description: 'Entrez un nombre de jours entre 1 et 365.' })
+      return
+    }
+    setIsSavingFollowUpDelay(true)
+    try {
+      const { error } = await db
+        .from('practitioners')
+        .update({ follow_up_delay_days: days } as any)
+        .eq('id', practitioner.id)
+      if (error) throw error
+      toast({ variant: 'success', title: 'Délai enregistré', description: `Les emails de suivi seront envoyés à J+${days}.` })
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de sauvegarder le délai.' })
+    } finally {
+      setIsSavingFollowUpDelay(false)
+    }
+  }
+
   // Fetch data
   useEffect(() => {
     async function fetchData() {
@@ -310,6 +335,7 @@ export default function SettingsPage() {
           setSettingsValue('invoice_prefix', practitionerData.invoice_prefix)
           setSettingsValue('primary_color', practitionerData.primary_color)
           setStampUrl(practitionerData.stamp_url)
+          setFollowUpDelay(String((practitionerData as any).follow_up_delay_days ?? 7))
 
           // Get patients for export
           const { data: patientsData } = await db
@@ -1583,6 +1609,41 @@ export default function SettingsPage() {
                       Mot de passe d&apos;application dédié, vos identifiants principaux restent protégés
                     </p>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Follow-up delay */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Mail className="h-4 w-4 text-primary" />
+                  Délai d&apos;envoi du suivi patient
+                </CardTitle>
+                <CardDescription>
+                  Nombre de jours après la consultation avant l&apos;envoi automatique de l&apos;email de satisfaction (J+7 par défaut).
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground shrink-0">Envoyer à J+</span>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={followUpDelay}
+                    onChange={(e) => setFollowUpDelay(e.target.value)}
+                    className="w-24"
+                  />
+                  <span className="text-sm text-muted-foreground shrink-0">jours</span>
+                  <Button
+                    onClick={handleSaveFollowUpDelay}
+                    disabled={isSavingFollowUpDelay}
+                    size="sm"
+                  >
+                    {isSavingFollowUpDelay && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                    Enregistrer
+                  </Button>
                 </div>
               </CardContent>
             </Card>

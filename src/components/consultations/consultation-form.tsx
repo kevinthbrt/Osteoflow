@@ -438,8 +438,9 @@ export function ConsultationForm({
         }
 
         if (data.follow_up_7d && newConsultation) {
+          const followUpDelay = (practitioner as any).follow_up_delay_days ?? 7
           const scheduledFor = new Date(data.date_time)
-          scheduledFor.setDate(scheduledFor.getDate() + 7)
+          scheduledFor.setDate(scheduledFor.getDate() + followUpDelay)
 
           await db.from('scheduled_tasks').insert({
             practitioner_id: practitioner.id,
@@ -821,7 +822,7 @@ export function ConsultationForm({
                   disabled={isLoading}
                 />
                 <Label htmlFor="follow_up_7d" className="cursor-pointer">
-                  Demander des nouvelles à J+7 (email automatique)
+                  Demander des nouvelles à J+{(practitioner as any).follow_up_delay_days ?? 7} (email automatique)
                 </Label>
               </div>
               {followUp7d && !effectiveEmail && (

@@ -169,6 +169,12 @@ export async function POST(request: NextRequest) {
 
         const template = customTemplate || defaultEmailTemplates.follow_up_7d
 
+        // Calculate actual delay in days between consultation and scheduled send
+        const delayDays = Math.round(
+          (new Date(task.scheduled_for).getTime() - new Date(consultation.date_time).getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
+
         // Prepare variables
         const variables = {
           patient_name: `${patient.first_name} ${patient.last_name}`,
@@ -179,6 +185,7 @@ export async function POST(request: NextRequest) {
           practice_name:
             practitioner.practice_name ||
             `${practitioner.first_name} ${practitioner.last_name}`,
+          days: String(delayDays),
         }
 
         // Replace variables in template

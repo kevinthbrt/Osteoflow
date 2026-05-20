@@ -16,7 +16,7 @@ Cordialement,
     subject: 'Comment allez-vous ? - {{practice_name}}',
     body: `Bonjour {{patient_first_name}},
 
-Votre séance du {{consultation_date}} remonte à quelques jours maintenant.
+Votre séance du {{consultation_date}} remonte à {{days}} jours maintenant.
 
 Afin de me dire comment vous vous sentez aujourd'hui, vous pouvez remplir ce court questionnaire qui ne vous prendra que quelques secondes.
 
