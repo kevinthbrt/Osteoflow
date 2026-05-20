@@ -19,6 +19,23 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.1.0',
+    date: '2026-05-20',
+    title: 'Dictée IA, pièces jointes messagerie et correctifs majeurs',
+    changes: [
+      { type: 'feature', text: 'Dictée intelligente de l\'anamnèse : enregistrez vocalement et laissez Claude structurer le texte automatiquement (motif + anamnèse formatée en Markdown)' },
+      { type: 'feature', text: 'Pièces jointes dans la messagerie : joignez des fichiers (PDF, images, documents) à vos emails patients, visualisez et téléchargez les pièces jointes reçues' },
+      { type: 'improvement', text: 'Rendu Markdown dans les consultations : le texte structuré par l\'IA (gras, paragraphes) s\'affiche correctement dans la fiche consultation, le panneau des consultations précédentes et la timeline patient' },
+      { type: 'improvement', text: 'Premiers démarrages : les fenêtres CGU, visite guidée et rappel de sauvegarde s\'affichent maintenant dans l\'ordre (CGU → guide → sauvegarde) sans se superposer' },
+      { type: 'improvement', text: 'Installation Mac Apple Silicon : le DMG inclut un script "Ouvrir Osteoflow.command" qui retire automatiquement le blocage Gatekeeper en double-cliquant' },
+      { type: 'fix', text: 'Restauration de sauvegarde : corrige l\'erreur "database disk image is malformed" causée par des fichiers WAL/SHM orphelins laissés lors de la restauration' },
+      { type: 'fix', text: 'Dictée vocale : le transcript n\'est plus effacé lors d\'une reconnexion automatique après coupure réseau' },
+      { type: 'fix', text: 'Messagerie : les caractères accentués français (é, è, à, ê, ë…) s\'affichent correctement dans les emails reçus encodés en ISO-8859-1 / Windows-1252' },
+      { type: 'fix', text: 'Bouton Resync boîte de réception : re-importe tous les emails depuis IMAP avec l\'encodage corrigé (utile pour les messages déjà reçus avant la mise à jour)' },
+      { type: 'improvement', text: 'CGU mise à jour v1.1 : ajout de la section sur la dictée IA et le traitement des données par Anthropic via le proxy Osteoupgrade' },
+    ],
+  },
+  {
     version: '1.0.53',
     date: '2026-05-04',
     title: 'Correction suppression des types de séance',
