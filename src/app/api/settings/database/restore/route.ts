@@ -29,6 +29,9 @@ export async function POST(request: Request) {
     // Backup current DB before overwriting
     fs.copyFileSync(dbPath, backupPath)
 
+    // Close connection BEFORE writing — writing to an open SQLite file corrupts it
+    closeDatabase()
+
     // Write the uploaded file
     fs.writeFileSync(dbPath, buffer)
 
