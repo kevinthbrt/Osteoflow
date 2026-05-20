@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Mic, MicOff, Sparkles, Loader2, RotateCcw, Check, AlertCircle } from 'lucide-react'
+import { Mic, MicOff, Sparkles, Loader2, RotateCcw, Check, AlertCircle, WifiOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface AnamnesisRecorderProps {
@@ -10,9 +10,8 @@ interface AnamnesisRecorderProps {
   disabled?: boolean
 }
 
-type RecorderState = 'idle' | 'recording' | 'processing' | 'done' | 'error'
+type RecorderState = 'idle' | 'recording' | 'reconnecting' | 'processing' | 'done' | 'error'
 
-// Minimal SpeechRecognition type declarations
 interface SpeechRecognitionEvent extends Event {
   resultIndex: number
   results: SpeechRecognitionResultList
@@ -40,6 +39,8 @@ function getSpeechRecognition(): (new () => SpeechRecognitionInstance) | null {
   )
 }
 
+const MAX_RESTARTS = 10
+
 export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle')
   const [finalText, setFinalText] = useState('')
@@ -50,11 +51,17 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const finalTextRef = useRef('')
+  const stateRef = useRef<RecorderState>('idle')
+  const restartCountRef = useRef(0)
+  const intentionalStopRef = useRef(false)
 
-  // Keep ref in sync so onend closure has fresh value
   useEffect(() => {
     finalTextRef.current = finalText
   }, [finalText])
+
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -63,21 +70,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     }
   }, [])
 
-  const startRecording = useCallback(() => {
-    const SR = getSpeechRecognition()
-    if (!SR) {
-      setErrorMsg("La reconnaissance vocale n'est pas disponible dans ce navigateur.")
-      setState('error')
-      return
-    }
-
-    setFinalText('')
-    setInterimText('')
-    setStructured(null)
-    setErrorMsg('')
-    setElapsed(0)
-    finalTextRef.current = ''
-
+  const createAndStartRecognition = useCallback((SR: new () => SpeechRecognitionInstance) => {
     const recognition = new SR()
     recognition.continuous = true
     recognition.interimResults = true
@@ -94,15 +87,14 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
           interim += t
         }
       }
-      if (newFinal) {
-        setFinalText((prev) => prev + newFinal)
-      }
+      if (newFinal) setFinalText((prev) => prev + newFinal)
       setInterimText(interim)
     }
 
     recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
       if (e.error === 'no-speech') return
       if (e.error === 'aborted') return
+      if (e.error === 'network') return // handled in onend
       setErrorMsg(`Erreur microphone : ${e.error}`)
       setState('error')
       stopTimer()
@@ -110,16 +102,56 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
 
     recognition.onend = () => {
       setInterimText('')
+      if (intentionalStopRef.current) return
+      // Auto-restart on unexpected end (network cut, timeout, etc.)
+      const currentState = stateRef.current
+      if (currentState === 'recording' || currentState === 'reconnecting') {
+        if (restartCountRef.current < MAX_RESTARTS) {
+          restartCountRef.current++
+          setState('reconnecting')
+          setTimeout(() => {
+            if (intentionalStopRef.current) return
+            const newRec = createAndStartRecognition(SR)
+            recognitionRef.current = newRec
+            setState('recording')
+          }, 1500)
+        } else {
+          // Too many restarts — go to error but keep transcript
+          setState('error')
+          setErrorMsg('Connexion interrompue. Le texte dicté est conservé ci-dessous.')
+          stopTimer()
+        }
+      }
     }
 
-    recognitionRef.current = recognition
     recognition.start()
-    setState('recording')
-
-    timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000)
+    return recognition
   }, [stopTimer])
 
+  const startRecording = useCallback(() => {
+    const SR = getSpeechRecognition()
+    if (!SR) {
+      setErrorMsg("La reconnaissance vocale n'est pas disponible dans ce navigateur.")
+      setState('error')
+      return
+    }
+
+    setFinalText('')
+    setInterimText('')
+    setStructured(null)
+    setErrorMsg('')
+    setElapsed(0)
+    finalTextRef.current = ''
+    restartCountRef.current = 0
+    intentionalStopRef.current = false
+
+    recognitionRef.current = createAndStartRecognition(SR)
+    setState('recording')
+    timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000)
+  }, [createAndStartRecognition])
+
   const stopRecording = useCallback(() => {
+    intentionalStopRef.current = true
     recognitionRef.current?.stop()
     recognitionRef.current = null
     stopTimer()
@@ -130,7 +162,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     const text = finalTextRef.current.trim()
     if (!text) return
 
-    // Stop recording if still running
+    intentionalStopRef.current = true
     if (recognitionRef.current) {
       recognitionRef.current.stop()
       recognitionRef.current = null
@@ -163,7 +195,6 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   const handleApply = useCallback(() => {
     if (!structured) return
     onApply(structured)
-    // Reset after injection so the recorder disappears cleanly
     setTimeout(() => {
       setState('idle')
       setFinalText('')
@@ -176,6 +207,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   }, [structured, onApply])
 
   const handleReset = useCallback(() => {
+    intentionalStopRef.current = true
     recognitionRef.current?.stop()
     recognitionRef.current = null
     stopTimer()
@@ -185,12 +217,13 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     setStructured(null)
     setErrorMsg('')
     setElapsed(0)
+    restartCountRef.current = 0
     finalTextRef.current = ''
   }, [stopTimer])
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
+      intentionalStopRef.current = true
       recognitionRef.current?.stop()
       stopTimer()
     }
@@ -208,6 +241,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     <div className={cn(
       'rounded-xl border bg-muted/30 p-4 space-y-3 transition-all',
       state === 'recording' && 'border-red-300 bg-red-50/50 dark:bg-red-950/20',
+      state === 'reconnecting' && 'border-amber-300 bg-amber-50/50 dark:bg-amber-950/20',
       state === 'done' && 'border-green-300 bg-green-50/50 dark:bg-green-950/20',
     )}>
       {/* Header */}
@@ -218,10 +252,15 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               Écoute en cours — {formatTime(elapsed)}
             </span>
+          ) : state === 'reconnecting' ? (
+            <span className="flex items-center gap-1.5 text-sm font-medium text-amber-600">
+              <WifiOff className="h-3.5 w-3.5 animate-pulse" />
+              Reconnexion en cours…
+            </span>
           ) : state === 'processing' ? (
             <span className="flex items-center gap-1.5 text-sm font-medium text-indigo-600">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Claude structure l'anamnèse…
+              Claude structure l&apos;anamnèse…
             </span>
           ) : state === 'done' ? (
             <span className="flex items-center gap-1.5 text-sm font-medium text-green-700">
@@ -231,7 +270,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
           ) : state === 'error' ? (
             <span className="flex items-center gap-1.5 text-sm font-medium text-destructive">
               <AlertCircle className="h-3.5 w-3.5" />
-              Erreur
+              Écoute interrompue
             </span>
           ) : (
             <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
@@ -256,7 +295,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       </div>
 
       {/* Transcript area */}
-      {(state === 'recording' || (hasTranscript && state !== 'done')) && (
+      {(state === 'recording' || state === 'reconnecting' || state === 'error' || (hasTranscript && state !== 'done')) && (
         <div className="min-h-[80px] max-h-[200px] overflow-y-auto rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed">
           <span>{finalText}</span>
           {interimText && (
@@ -266,6 +305,11 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
             <span className="text-muted-foreground">Parlez maintenant…</span>
           )}
         </div>
+      )}
+
+      {/* Error message */}
+      {state === 'error' && errorMsg && (
+        <p className="text-xs text-destructive">{errorMsg}</p>
       )}
 
       {/* Structured result */}
@@ -294,21 +338,10 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
         </div>
       )}
 
-      {/* Error */}
-      {state === 'error' && errorMsg && (
-        <p className="text-sm text-destructive">{errorMsg}</p>
-      )}
-
       {/* Actions */}
       <div className="flex items-center gap-2 flex-wrap">
         {state === 'idle' && !hasTranscript && (
-          <Button
-            type="button"
-            size="sm"
-            onClick={startRecording}
-            disabled={disabled}
-            className="gap-1.5"
-          >
+          <Button type="button" size="sm" onClick={startRecording} disabled={disabled} className="gap-1.5">
             <Mic className="h-3.5 w-3.5" />
             Démarrer l&apos;écoute
           </Button>
@@ -316,24 +349,12 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
 
         {state === 'recording' && (
           <>
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              onClick={stopRecording}
-              className="gap-1.5"
-            >
+            <Button type="button" size="sm" variant="destructive" onClick={stopRecording} className="gap-1.5">
               <MicOff className="h-3.5 w-3.5" />
               Arrêter
             </Button>
             {hasTranscript && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={handleStructure}
-                className="gap-1.5"
-              >
+              <Button type="button" size="sm" variant="outline" onClick={handleStructure} className="gap-1.5">
                 <Sparkles className="h-3.5 w-3.5" />
                 Structurer maintenant
               </Button>
@@ -341,25 +362,22 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
           </>
         )}
 
-        {state === 'idle' && hasTranscript && (
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleStructure}
-            className="gap-1.5"
-          >
+        {state === 'reconnecting' && (
+          <Button type="button" size="sm" variant="outline" onClick={stopRecording} className="gap-1.5">
+            <MicOff className="h-3.5 w-3.5" />
+            Annuler
+          </Button>
+        )}
+
+        {(state === 'idle' || state === 'error') && hasTranscript && (
+          <Button type="button" size="sm" onClick={handleStructure} className="gap-1.5">
             <Sparkles className="h-3.5 w-3.5" />
             Structurer avec Claude
           </Button>
         )}
 
         {state === 'done' && (
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleApply}
-            className="gap-1.5 bg-green-600 hover:bg-green-700"
-          >
+          <Button type="button" size="sm" onClick={handleApply} className="gap-1.5 bg-green-600 hover:bg-green-700">
             <Check className="h-3.5 w-3.5" />
             Injecter dans la consultation
           </Button>
