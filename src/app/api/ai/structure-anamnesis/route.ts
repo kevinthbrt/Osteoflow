@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/database/connection'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,20 +35,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Transcription vide' }, { status: 400 })
     }
 
-    const db = getDatabase()
-    const row = db
-      .prepare("SELECT value FROM app_config WHERE key = 'anthropic_api_key'")
-      .get() as { value: string } | undefined
-
-    if (!row?.value) {
-      return NextResponse.json({ error: 'Clé API Anthropic non configurée. Allez dans Paramètres → IA.' }, { status: 400 })
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) {
+      return NextResponse.json({ error: "Clé API Anthropic non configurée sur le serveur." }, { status: 500 })
     }
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': row.value,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
@@ -70,7 +65,7 @@ export async function POST(req: Request) {
       const err = await res.text()
       console.error('[AI structure]', res.status, err)
       return NextResponse.json(
-        { error: `Erreur API Anthropic (${res.status}). Vérifiez votre clé.` },
+        { error: `Erreur API Anthropic (${res.status}).` },
         { status: 502 }
       )
     }
@@ -80,11 +75,9 @@ export async function POST(req: Request) {
 
     let parsed: { reason: string; anamnesis: string }
     try {
-      // Strip potential markdown code fences
       const json = content.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim()
       parsed = JSON.parse(json)
     } catch {
-      // Fallback: return raw text as anamnesis only
       parsed = { reason: '', anamnesis: content }
     }
 

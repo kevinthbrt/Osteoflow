@@ -231,6 +231,12 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
           )}
         </div>
 
+        {state === 'idle' && !hasTranscript && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            Ne citez pas le nom du patient dans la dictée.
+          </p>
+        )}
+
         {state !== 'idle' && (
           <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={handleReset}>
             <RotateCcw className="h-3 w-3 mr-1" />
