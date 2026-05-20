@@ -32,6 +32,13 @@ export async function POST(request: Request) {
     // Close connection BEFORE writing — writing to an open SQLite file corrupts it
     closeDatabase()
 
+    // Delete WAL and SHM files — if left from the old DB, SQLite tries to apply
+    // them to the restored file and reports "database disk image is malformed"
+    for (const ext of ['-wal', '-shm']) {
+      const f = dbPath + ext
+      if (fs.existsSync(f)) fs.unlinkSync(f)
+    }
+
     // Write the uploaded file
     fs.writeFileSync(dbPath, buffer)
 
