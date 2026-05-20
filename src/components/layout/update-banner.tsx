@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Download, RefreshCw, X, CheckCircle, ArrowRight } from 'lucide-react'
+import { Download, RefreshCw, X, CheckCircle, ArrowRight, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface ElectronAPI {
@@ -15,6 +15,18 @@ interface ElectronAPI {
 
 type UpdateState = 'idle' | 'downloading' | 'ready'
 
+function getElectronAPI(): ElectronAPI | undefined {
+  return (window as unknown as { electronAPI?: ElectronAPI }).electronAPI
+}
+
+function getMacDmgUrl(version: string): string {
+  const arch = navigator.userAgent.includes('arm') || navigator.platform === 'MacIntel' && 'maxTouchPoints' in navigator && navigator.maxTouchPoints > 1
+    ? 'arm64'
+    : 'x64'
+  const archSuffix = arch === 'arm64' ? '-arm64' : ''
+  return `https://github.com/kevinthbrt/Osteoflow/releases/download/v${version}/Myosteoflow-${version}${archSuffix}.dmg`
+}
+
 export function UpdateBanner() {
   const [state, setState] = useState<UpdateState>('idle')
   const [version, setVersion] = useState<string>('')
@@ -22,7 +34,7 @@ export function UpdateBanner() {
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
-    const api = (window as unknown as { electronAPI?: ElectronAPI }).electronAPI
+    const api = getElectronAPI()
     if (!api?.isDesktop) return
 
     api.onUpdateAvailable((v) => {
@@ -44,9 +56,60 @@ export function UpdateBanner() {
 
   if (state === 'idle' || (state === 'downloading' && dismissed)) return null
 
-  const api = (window as unknown as { electronAPI?: ElectronAPI }).electronAPI
+  const api = getElectronAPI()
+  const isMac = api?.platform === 'darwin'
 
-  // When update is ready: prominent, non-dismissable banner with instructions
+  // When update is ready on macOS: show download link instead of restart
+  if (state === 'ready' && isMac) {
+    return (
+      <div className="relative z-50 border-b-2 border-emerald-400 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white px-4 py-4">
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2 text-base font-semibold">
+            <CheckCircle className="h-5 w-5" />
+            Mise à jour v{version} disponible
+          </div>
+
+          <div className="flex items-center gap-2 text-sm text-emerald-100">
+            <span className="flex items-center gap-1.5">
+              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">1</span>
+              Téléchargez le nouveau DMG
+            </span>
+            <ArrowRight className="h-3 w-3 text-emerald-300" />
+            <span className="flex items-center gap-1.5">
+              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">2</span>
+              Glissez l&apos;app dans Applications
+            </span>
+            <ArrowRight className="h-3 w-3 text-emerald-300" />
+            <span className="flex items-center gap-1.5">
+              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">3</span>
+              Relancez l&apos;application
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-9 px-6 text-sm font-semibold shadow-lg"
+              onClick={() => window.open(getMacDmgUrl(version), '_blank')}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Télécharger v{version}
+            </Button>
+            <button
+              onClick={() => setDismissed(true)}
+              className="p-1.5 rounded hover:bg-white/20 transition-colors"
+              aria-label="Fermer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // When update is ready on Windows/Linux: restart button
   if (state === 'ready') {
     return (
       <div className="relative z-50 border-b-2 border-emerald-400 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white px-4 py-4">
@@ -116,3 +179,4 @@ export function UpdateBanner() {
     </div>
   )
 }
+
