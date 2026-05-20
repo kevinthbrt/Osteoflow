@@ -19,6 +19,16 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.1.1',
+    date: '2026-05-20',
+    title: 'Correctifs icône, mise à jour Mac et build',
+    changes: [
+      { type: 'fix', text: 'Icône de l\'application corrigée sur macOS (logo Osteoflow au lieu de l\'icône Electron par défaut).' },
+      { type: 'improvement', text: 'Sur macOS, la notification de mise à jour propose désormais un lien de téléchargement direct du DMG au lieu d\'un bouton de redémarrage non fonctionnel.' },
+      { type: 'fix', text: 'Correction du script d\'installation Gatekeeper (.command) absent du DMG dans la version précédente.' },
+    ],
+  },
+  {
     version: '1.1.0',
     date: '2026-05-20',
     title: 'Dictée IA, arbres décisionnels, pièces jointes et refonte identité',
