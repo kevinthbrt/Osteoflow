@@ -31,6 +31,11 @@ import {
   Sparkles,
   Trash2,
   Loader2,
+  Paperclip,
+  X,
+  Download,
+  FileText,
+  Image,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -102,6 +107,7 @@ export default function MessagesPage() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
+  const [attachments, setAttachments] = useState<File[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
@@ -214,21 +220,23 @@ export default function MessagesPage() {
 
     setIsSending(true)
     try {
-      // Send email via API
+      // Use FormData to support attachments
+      const form = new FormData()
+      form.append('conversationId', selectedConversation.id)
+      form.append('patientEmail', recipientEmail)
+      form.append('patientName', recipientName)
+      form.append('content', newMessage.trim())
+      attachments.forEach((f) => form.append('attachments', f))
+
       const response = await fetch('/api/messages/send-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversationId: selectedConversation.id,
-          patientEmail: recipientEmail,
-          patientName: recipientName,
-          content: newMessage.trim(),
-        }),
+        body: form,
       })
 
       if (!response.ok) throw new Error('Échec envoi email')
 
       setNewMessage('')
+      setAttachments([])
       await fetchMessages(selectedConversation.id)
       await fetchConversations()
 
@@ -369,6 +377,8 @@ export default function MessagesPage() {
           hasEmail={isValidEmail(getContactEmail(selectedConversation))}
           previewName={getContactName(selectedConversation)}
           onQuickReply={(content) => setNewMessage(content)}
+          attachments={attachments}
+          onAttachmentsChange={setAttachments}
         />
       </div>
     )
@@ -542,6 +552,8 @@ export default function MessagesPage() {
               hasEmail={isValidEmail(getContactEmail(selectedConversation))}
               previewName={getContactName(selectedConversation)}
               onQuickReply={(content) => setNewMessage(content)}
+              attachments={attachments}
+              onAttachmentsChange={setAttachments}
             />
           </>
         ) : (
@@ -574,6 +586,46 @@ export default function MessagesPage() {
   )
 }
 
+function MessageAttachments({ messageId, isOutgoing }: { messageId: string; isOutgoing: boolean }) {
+  const [attachments, setAttachments] = useState<Array<{ id: string; filename: string; mime_type: string; file_size: number }>>([])
+
+  useEffect(() => {
+    fetch(`/api/messages/attachments?message_id=${messageId}`)
+      .then((r) => r.ok ? r.json() : { attachments: [] })
+      .then((d) => setAttachments(d.attachments || []))
+      .catch(() => {})
+  }, [messageId])
+
+  if (attachments.length === 0) return null
+
+  return (
+    <div className="mt-2 flex flex-col gap-1.5">
+      {attachments.map((a) => {
+        const isImage = a.mime_type.startsWith('image/')
+        const size = a.file_size < 1024 * 1024
+          ? `${(a.file_size / 1024).toFixed(0)} Ko`
+          : `${(a.file_size / (1024 * 1024)).toFixed(1)} Mo`
+        return (
+          <a
+            key={a.id}
+            href={`/api/messages/attachments/${a.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs transition-colors hover:bg-black/5 ${
+              isOutgoing ? 'border-primary-foreground/30 text-primary-foreground' : 'border-border text-foreground'
+            }`}
+          >
+            {isImage ? <Image className="h-3.5 w-3.5 shrink-0" /> : <FileText className="h-3.5 w-3.5 shrink-0" />}
+            <span className="truncate max-w-[140px]">{a.filename}</span>
+            <span className={`shrink-0 ${isOutgoing ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>{size}</span>
+            <Download className="h-3 w-3 shrink-0 opacity-60" />
+          </a>
+        )
+      })}
+    </div>
+  )
+}
+
 // Message bubble component
 function MessageBubble({ message }: { message: Message }) {
   const isOutgoing = message.direction === 'outgoing'
@@ -601,6 +653,7 @@ function MessageBubble({ message }: { message: Message }) {
         }`}
       >
         <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        <MessageAttachments messageId={message.id} isOutgoing={isOutgoing} />
         <div
           className={`flex items-center gap-1 mt-1 text-xs ${
             isOutgoing ? 'text-primary-foreground/70' : 'text-muted-foreground'
@@ -624,6 +677,24 @@ function MessageBubble({ message }: { message: Message }) {
   )
 }
 
+function AttachmentPill({ file, onRemove }: { file: File; onRemove: () => void }) {
+  const isImage = file.type.startsWith('image/')
+  const size = file.size < 1024 * 1024
+    ? `${(file.size / 1024).toFixed(0)} Ko`
+    : `${(file.size / (1024 * 1024)).toFixed(1)} Mo`
+
+  return (
+    <div className="flex items-center gap-1.5 rounded-full border bg-muted px-2.5 py-1 text-xs max-w-[180px]">
+      {isImage ? <Image className="h-3 w-3 shrink-0 text-blue-500" /> : <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />}
+      <span className="truncate text-foreground">{file.name}</span>
+      <span className="text-muted-foreground shrink-0">{size}</span>
+      <button onClick={onRemove} className="shrink-0 text-muted-foreground hover:text-destructive">
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  )
+}
+
 // Message input component
 function MessageInput({
   value,
@@ -633,6 +704,8 @@ function MessageInput({
   hasEmail,
   previewName,
   onQuickReply,
+  attachments,
+  onAttachmentsChange,
 }: {
   value: string
   onChange: (value: string) => void
@@ -641,12 +714,27 @@ function MessageInput({
   hasEmail: boolean
   previewName?: string
   onQuickReply: (content: string) => void
+  attachments: File[]
+  onAttachmentsChange: (files: File[]) => void
 }) {
   const [showQuickReplies, setShowQuickReplies] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const greeting = previewName ? `Bonjour ${previewName},` : 'Bonjour,'
   const previewContent = value.trim()
     ? `${greeting}\n\n${value}`
     : `${greeting}\n\nVotre message apparaîtra ici.`
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    onAttachmentsChange([...attachments, ...files])
+    e.target.value = ''
+  }
+
+  const removeAttachment = (index: number) => {
+    onAttachmentsChange(attachments.filter((_, i) => i !== index))
+  }
+
+  const canSend = (value.trim() || attachments.length > 0) && !isSending && hasEmail
 
   return (
     <div className="p-4 border-t bg-background">
@@ -655,6 +743,13 @@ function MessageInput({
           Prévisualisation
         </p>
         <p className="mt-2 whitespace-pre-wrap text-foreground">{previewContent}</p>
+        {attachments.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {attachments.map((f, i) => (
+              <AttachmentPill key={i} file={f} onRemove={() => removeAttachment(i)} />
+            ))}
+          </div>
+        )}
       </div>
       {showQuickReplies && (
         <QuickReplies
@@ -671,9 +766,33 @@ function MessageInput({
           size="icon"
           onClick={() => setShowQuickReplies(!showQuickReplies)}
           className="flex-shrink-0"
+          title="Réponses rapides"
         >
           <Sparkles className="h-4 w-4" />
         </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isSending}
+          className="flex-shrink-0 relative"
+          title="Joindre un fichier"
+        >
+          <Paperclip className="h-4 w-4" />
+          {attachments.length > 0 && (
+            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center font-medium">
+              {attachments.length}
+            </span>
+          )}
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={handleFileChange}
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+        />
         <div className="flex-1">
           <Textarea
             placeholder="Écrivez votre message..."
@@ -685,10 +804,10 @@ function MessageInput({
         </div>
         <Button
           onClick={onSend}
-          disabled={!value.trim() || isSending || !hasEmail}
+          disabled={!canSend}
           className="flex-shrink-0"
         >
-          <Send className="h-4 w-4" />
+          {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </div>
     </div>

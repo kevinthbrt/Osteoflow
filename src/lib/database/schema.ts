@@ -414,6 +414,20 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   if (!practFollowUpCols.some((c) => c.name === 'follow_up_delay_days')) {
     db.exec('ALTER TABLE practitioners ADD COLUMN follow_up_delay_days INTEGER NOT NULL DEFAULT 7;')
   }
+
+  // Message attachments — files attached to sent/received messages
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS message_attachments (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      message_id TEXT REFERENCES messages(id) ON DELETE CASCADE,
+      filename TEXT NOT NULL,
+      mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+      file_size INTEGER NOT NULL DEFAULT 0,
+      data BLOB NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_message_attachments_message ON message_attachments(message_id);`)
 }
 
 /**
