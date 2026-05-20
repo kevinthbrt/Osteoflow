@@ -2,9 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Mic, MicOff, Sparkles, Loader2, RotateCcw, Check, AlertCircle, WifiOff, Settings } from 'lucide-react'
+import { Mic, MicOff, Sparkles, Loader2, RotateCcw, Check, AlertCircle, WifiOff, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import Link from 'next/link'
 
 interface AnamnesisRecorderProps {
   onApply: (data: { reason: string; anamnesis: string }) => void
@@ -20,7 +19,7 @@ type RecorderState =
   | 'done'
   | 'error'
 
-// ─── Web Speech API types ───────────────────────────────────────────────────
+// ─── Web Speech API types ────────────────────────────────────────────────────
 
 interface SpeechRecognitionEvent extends Event {
   resultIndex: number
@@ -51,14 +50,78 @@ function getSpeechRecognition(): (new () => SpeechRecognitionInstance) | null {
 
 const MAX_RESTARTS = 10
 
-// True when running inside the packaged or dev Electron app.
-// webkitSpeechRecognition requires Google's proprietary API keys which Electron
-// does not ship, so we fall back to MediaRecorder + Whisper in that context.
+// Vrai quand on est dans l'app desktop Electron.
+// webkitSpeechRecognition nécessite les clés API Google (absentes d'Electron),
+// on bascule donc sur MediaRecorder + Whisper local via Transformers.js.
 function isElectron(): boolean {
   return typeof window !== 'undefined' && !!(window as any).electronAPI?.isDesktop
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Singleton Whisper (chargé une seule fois, en cache après le premier dl) ──
+
+let whisperPipeline: any = null
+let whisperLoading: Promise<any> | null = null
+
+async function getWhisperPipeline(
+  onProgress: (msg: string) => void
+): Promise<any> {
+  if (whisperPipeline) return whisperPipeline
+
+  // Évite de charger plusieurs fois en parallèle
+  if (!whisperLoading) {
+    whisperLoading = (async () => {
+      const { pipeline } = await import('@huggingface/transformers')
+
+      whisperPipeline = await pipeline(
+        'automatic-speech-recognition',
+        'Xenova/whisper-base',
+        {
+          progress_callback: (p: any) => {
+            if (p?.status === 'downloading') {
+              const pct = p.progress != null ? `${Math.round(p.progress)}%` : ''
+              onProgress(`Téléchargement du modèle Whisper… ${pct}`)
+            } else if (p?.status === 'loading') {
+              onProgress('Chargement du modèle…')
+            }
+          },
+        }
+      )
+      return whisperPipeline
+    })()
+  }
+
+  return whisperLoading
+}
+
+// ─── Décode un Blob WebM/Opus en Float32Array 16 kHz (entrée attendue par Whisper) ──
+
+async function decodeAudioTo16kHz(blob: Blob): Promise<Float32Array> {
+  const arrayBuffer = await blob.arrayBuffer()
+  // Décode avec le sample rate natif
+  const ctx = new AudioContext()
+  let decoded: AudioBuffer
+  try {
+    decoded = await ctx.decodeAudioData(arrayBuffer)
+  } finally {
+    ctx.close()
+  }
+
+  // Rééchantillonne à 16 kHz (Whisper attend 16 000 Hz)
+  const targetRate = 16000
+  const offlineCtx = new OfflineAudioContext(
+    1,
+    Math.ceil(decoded.duration * targetRate),
+    targetRate
+  )
+  const src = offlineCtx.createBufferSource()
+  src.buffer = decoded
+  src.connect(offlineCtx.destination)
+  src.start(0)
+  const resampled = await offlineCtx.startRendering()
+  return resampled.getChannelData(0)
+}
+
+// ─── Composant ───────────────────────────────────────────────────────────────
 
 export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle')
@@ -66,21 +129,22 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   const [interimText, setInterimText] = useState('')
   const [structured, setStructured] = useState<{ reason: string; anamnesis: string } | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
+  const [statusMsg, setStatusMsg] = useState('')
   const [elapsed, setElapsed] = useState(0)
 
-  // ── Refs shared by both modes ──────────────────────────────────────────────
+  // ── Refs communs ──────────────────────────────────────────────────────────
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const finalTextRef = useRef('')
   const stateRef = useRef<RecorderState>('idle')
 
-  // ── Web Speech API refs ────────────────────────────────────────────────────
+  // ── Web Speech API ─────────────────────────────────────────────────────────
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const restartCountRef = useRef(0)
   const intentionalStopRef = useRef(false)
   const SRRef = useRef<(new () => SpeechRecognitionInstance) | null>(null)
 
-  // ── MediaRecorder refs ─────────────────────────────────────────────────────
+  // ── MediaRecorder (Electron) ───────────────────────────────────────────────
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<BlobPart[]>([])
   const mediaStreamRef = useRef<MediaStream | null>(null)
@@ -96,7 +160,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null }
   }, [])
 
-  // ── Structure with Claude ─────────────────────────────────────────────────
+  // ── Structuration Claude ──────────────────────────────────────────────────
 
   const handleStructure = useCallback(async () => {
     const text = finalTextRef.current.trim()
@@ -104,19 +168,16 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
 
     intentionalStopRef.current = true
     stopReconnectTimer()
-    if (recognitionRef.current) {
-      recognitionRef.current.stop()
-      recognitionRef.current = null
-      stopTimer()
-    }
-    if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop()
-    }
+    recognitionRef.current?.stop()
+    recognitionRef.current = null
+    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
     mediaStreamRef.current?.getTracks().forEach((t) => t.stop())
     mediaStreamRef.current = null
+    stopTimer()
 
     setState('processing')
     setInterimText('')
+    setStatusMsg('')
 
     try {
       const res = await fetch('/api/ai/structure-anamnesis', {
@@ -125,11 +186,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
         body: JSON.stringify({ transcript: text }),
       })
       const data = await res.json()
-      if (!res.ok) {
-        setErrorMsg(data.error || 'Erreur lors de la structuration.')
-        setState('error')
-        return
-      }
+      if (!res.ok) { setErrorMsg(data.error || 'Erreur lors de la structuration.'); setState('error'); return }
       setStructured(data)
       setState('done')
     } catch {
@@ -138,16 +195,14 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     }
   }, [stopTimer, stopReconnectTimer])
 
-  // ── Full reset ────────────────────────────────────────────────────────────
+  // ── Réinitialisation ──────────────────────────────────────────────────────
 
   const handleReset = useCallback(() => {
     intentionalStopRef.current = true
     stopReconnectTimer()
     recognitionRef.current?.stop()
     recognitionRef.current = null
-    if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop()
-    }
+    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
     mediaStreamRef.current?.getTracks().forEach((t) => t.stop())
     mediaStreamRef.current = null
     stopTimer()
@@ -156,6 +211,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     setInterimText('')
     setStructured(null)
     setErrorMsg('')
+    setStatusMsg('')
     setElapsed(0)
     restartCountRef.current = 0
     finalTextRef.current = ''
@@ -167,51 +223,44 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       intentionalStopRef.current = true
       stopReconnectTimer()
       recognitionRef.current?.stop()
-      if (mediaRecorderRef.current?.state === 'recording') {
-        mediaRecorderRef.current.stop()
-      }
+      if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
       mediaStreamRef.current?.getTracks().forEach((t) => t.stop())
       stopTimer()
     }
   }, [stopTimer, stopReconnectTimer])
 
   // ════════════════════════════════════════════════════════════════════════════
-  // MODE A – MediaRecorder (Electron)
-  // webkitSpeechRecognition fails in Electron because it requires Google's
-  // proprietary API keys, which Electron doesn't include. We capture audio
-  // with MediaRecorder and send it to /api/ai/transcribe (OpenAI Whisper).
+  // MODE A – MediaRecorder + Whisper local (Electron)
+  // webkitSpeechRecognition nécessite les clés Google absentes d'Electron.
+  // On enregistre l'audio avec MediaRecorder, puis on transcrit localement
+  // via Transformers.js (modèle Xenova/whisper-base, ~77 Mo, mis en cache).
   // ════════════════════════════════════════════════════════════════════════════
 
   const transcribeBlob = useCallback(async (blob: Blob) => {
     setState('transcribing')
+    setStatusMsg('Préparation…')
     try {
-      const form = new FormData()
-      form.append('audio', blob, 'recording.webm')
-      const res = await fetch('/api/ai/transcribe', { method: 'POST', body: form })
-      const data = await res.json()
+      const float32 = await decodeAudioTo16kHz(blob)
 
-      if (!res.ok) {
-        if (data.error === 'NO_KEY') {
-          setErrorMsg('Clé API OpenAI non configurée. Ajoutez-la dans Paramètres > IA.')
-        } else {
-          setErrorMsg(data.error || 'Erreur de transcription.')
-        }
-        setState('error')
-        return
-      }
+      const pipe = await getWhisperPipeline((msg) => setStatusMsg(msg))
+      setStatusMsg('Transcription en cours…')
 
-      const text = (data.transcript ?? '').trim()
+      const result = await pipe(float32, { language: 'french', task: 'transcribe' })
+      const text: string = (result?.text ?? '').trim()
+
       if (!text) {
-        setErrorMsg("Aucun texte détecté. Vérifiez que le microphone capte bien votre voix.")
+        setErrorMsg("Aucun texte détecté. Vérifiez que le micro capte bien votre voix.")
         setState('error')
         return
       }
 
       finalTextRef.current = text
       setFinalText(text)
+      setStatusMsg('')
       setState('idle')
-    } catch {
-      setErrorMsg('Impossible de transcrire le fichier audio.')
+    } catch (err) {
+      console.error('[Whisper]', err)
+      setErrorMsg("Erreur de transcription. Connexion internet requise au premier lancement pour télécharger le modèle (~77 Mo).")
       setState('error')
     }
   }, [])
@@ -222,6 +271,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     setInterimText('')
     setStructured(null)
     setErrorMsg('')
+    setStatusMsg('')
     setElapsed(0)
     audioChunksRef.current = []
     intentionalStopRef.current = false
@@ -229,14 +279,10 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       mediaStreamRef.current = stream
-
       const recorder = new MediaRecorder(stream)
       audioChunksRef.current = []
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data)
-      }
-
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
       recorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop())
         mediaStreamRef.current = null
@@ -256,14 +302,12 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
 
   const stopMediaRecorder = useCallback(() => {
     stopTimer()
-    if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop()
-    }
+    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
   }, [stopTimer])
 
   // ════════════════════════════════════════════════════════════════════════════
-  // MODE B – Web Speech API (browser)
-  // Real-time transcription via the browser's built-in speech recognition.
+  // MODE B – Web Speech API (navigateur)
+  // Transcription en temps réel via l'API speech intégrée au navigateur.
   // ════════════════════════════════════════════════════════════════════════════
 
   const attachHandlers = useCallback(
@@ -276,37 +320,26 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
           if (e.results[i].isFinal) newFinal += t + ' '
           else interim += t
         }
-        if (newFinal) {
-          finalTextRef.current += newFinal
-          setFinalText(finalTextRef.current)
-        }
+        if (newFinal) { finalTextRef.current += newFinal; setFinalText(finalTextRef.current) }
         setInterimText(interim)
       }
-
       recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
-        if (e.error === 'no-speech') return
-        if (e.error === 'aborted') return
-        if (e.error === 'network') return // handled in onend
+        if (e.error === 'no-speech' || e.error === 'aborted' || e.error === 'network') return
         setErrorMsg(`Erreur microphone : ${e.error}`)
         setState('error')
         stopTimer()
       }
-
       recognition.onend = () => {
         setInterimText('')
         if (intentionalStopRef.current) return
         const cur = stateRef.current
         if (cur !== 'recording' && cur !== 'reconnecting') return
-
         if (restartCountRef.current >= MAX_RESTARTS) {
           setState('error')
-          setErrorMsg(
-            'Connexion interrompue. Le texte dicté est conservé — vous pouvez le structurer.'
-          )
+          setErrorMsg('Connexion interrompue. Le texte dicté est conservé — vous pouvez le structurer.')
           stopTimer()
           return
         }
-
         restartCountRef.current++
         setState('reconnecting')
         stopReconnectTimer()
@@ -319,14 +352,8 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
           newRec.lang = 'fr-FR'
           attachHandlers(newRec)
           recognitionRef.current = newRec
-          try {
-            newRec.start()
-            setState('recording')
-          } catch {
-            setState('error')
-            setErrorMsg("Impossible de redémarrer l'écoute.")
-            stopTimer()
-          }
+          try { newRec.start(); setState('recording') }
+          catch { setState('error'); setErrorMsg("Impossible de redémarrer l'écoute."); stopTimer() }
         }, 1500)
       }
     },
@@ -335,22 +362,17 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
 
   const startSpeechRecognition = useCallback(() => {
     const SR = getSpeechRecognition()
-    if (!SR) {
-      setErrorMsg("La reconnaissance vocale n'est pas disponible dans ce navigateur.")
-      setState('error')
-      return
-    }
-
+    if (!SR) { setErrorMsg("La reconnaissance vocale n'est pas disponible dans ce navigateur."); setState('error'); return }
     SRRef.current = SR
     finalTextRef.current = ''
     setFinalText('')
     setInterimText('')
     setStructured(null)
     setErrorMsg('')
+    setStatusMsg('')
     setElapsed(0)
     restartCountRef.current = 0
     intentionalStopRef.current = false
-
     const recognition = new SR()
     recognition.continuous = true
     recognition.interimResults = true
@@ -371,9 +393,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     setState('idle')
   }, [stopTimer, stopReconnectTimer])
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // Unified handlers
-  // ════════════════════════════════════════════════════════════════════════════
+  // ─── Handlers unifiés ─────────────────────────────────────────────────────
 
   const startRecording = useCallback(() => {
     if (isElectron()) startMediaRecorder()
@@ -394,14 +414,13 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       setInterimText('')
       setStructured(null)
       setErrorMsg('')
+      setStatusMsg('')
       setElapsed(0)
       finalTextRef.current = ''
     }, 300)
   }, [structured, onApply])
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // Render
-  // ════════════════════════════════════════════════════════════════════════════
+  // ─── Rendu ────────────────────────────────────────────────────────────────
 
   const hasTranscript = finalText.trim().length > 0
 
@@ -421,7 +440,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
         state === 'done' && 'border-green-300 bg-green-50/50 dark:bg-green-950/20'
       )}
     >
-      {/* Header */}
+      {/* En-tête */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {state === 'recording' ? (
@@ -437,8 +456,12 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
             </span>
           ) : state === 'transcribing' ? (
             <span className="flex items-center gap-1.5 text-sm font-medium text-indigo-600">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Transcription Whisper en cours…
+              {statusMsg.includes('éléchargement') ? (
+                <Download className="h-3.5 w-3.5 animate-pulse" />
+              ) : (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              )}
+              {statusMsg || 'Transcription…'}
             </span>
           ) : state === 'processing' ? (
             <span className="flex items-center gap-1.5 text-sm font-medium text-indigo-600">
@@ -461,7 +484,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
               Dictée de l&apos;anamnèse
               {isElectron() && (
                 <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded px-1.5 py-0.5 font-normal">
-                  Whisper
+                  Whisper local
                 </span>
               )}
             </span>
@@ -470,7 +493,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
 
         {state === 'idle' && !hasTranscript && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
-            Ne citez pas le nom du patient dans la dictée.
+            Ne citez pas le nom du patient.
           </p>
         )}
 
@@ -489,9 +512,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
         (hasTranscript && state !== 'done')) && (
         <div className="min-h-[80px] max-h-[200px] overflow-y-auto rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed">
           <span>{finalText}</span>
-          {interimText && (
-            <span className="text-muted-foreground italic">{interimText}</span>
-          )}
+          {interimText && <span className="text-muted-foreground italic">{interimText}</span>}
           {!finalText && !interimText && (
             <span className="text-muted-foreground">
               {state === 'recording' && isElectron()
@@ -503,20 +524,10 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       )}
 
       {state === 'error' && errorMsg && (
-        <div className="flex items-start gap-2">
-          <p className="text-xs text-destructive flex-1">{errorMsg}</p>
-          {errorMsg.includes('OpenAI') && (
-            <Link href="/settings?tab=ai" className="shrink-0">
-              <Button variant="outline" size="sm" className="h-6 px-2 text-xs gap-1">
-                <Settings className="h-3 w-3" />
-                Configurer
-              </Button>
-            </Link>
-          )}
-        </div>
+        <p className="text-xs text-destructive">{errorMsg}</p>
       )}
 
-      {/* Structured result */}
+      {/* Résultat structuré */}
       {state === 'done' && structured && (
         <div className="rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed max-h-[300px] overflow-y-auto">
           {structured.reason && (
@@ -530,12 +541,8 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
                 <p key={i} className="leading-relaxed">
                   {parts.map((part, j) =>
                     j % 2 === 1 ? (
-                      <strong key={j} className="font-semibold text-foreground">
-                        {part}
-                      </strong>
-                    ) : (
-                      part
-                    )
+                      <strong key={j} className="font-semibold text-foreground">{part}</strong>
+                    ) : part
                   )}
                 </p>
               )
@@ -547,13 +554,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       {/* Actions */}
       <div className="flex items-center gap-2 flex-wrap">
         {state === 'idle' && !hasTranscript && (
-          <Button
-            type="button"
-            size="sm"
-            onClick={startRecording}
-            disabled={disabled}
-            className="gap-1.5"
-          >
+          <Button type="button" size="sm" onClick={startRecording} disabled={disabled} className="gap-1.5">
             <Mic className="h-3.5 w-3.5" />
             Démarrer l&apos;écoute
           </Button>
@@ -561,25 +562,12 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
 
         {state === 'recording' && (
           <>
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              onClick={stopRecording}
-              className="gap-1.5"
-            >
+            <Button type="button" size="sm" variant="destructive" onClick={stopRecording} className="gap-1.5">
               <MicOff className="h-3.5 w-3.5" />
               Arrêter
             </Button>
-            {/* Structure during recording only available in browser (real-time SR) */}
             {hasTranscript && !isElectron() && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={handleStructure}
-                className="gap-1.5"
-              >
+              <Button type="button" size="sm" variant="outline" onClick={handleStructure} className="gap-1.5">
                 <Sparkles className="h-3.5 w-3.5" />
                 Structurer maintenant
               </Button>
@@ -588,13 +576,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
         )}
 
         {state === 'reconnecting' && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={stopRecording}
-            className="gap-1.5"
-          >
+          <Button type="button" size="sm" variant="outline" onClick={stopRecording} className="gap-1.5">
             <MicOff className="h-3.5 w-3.5" />
             Annuler
           </Button>
@@ -608,12 +590,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
         )}
 
         {state === 'done' && (
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleApply}
-            className="gap-1.5 bg-green-600 hover:bg-green-700"
-          >
+          <Button type="button" size="sm" onClick={handleApply} className="gap-1.5 bg-green-600 hover:bg-green-700">
             <Check className="h-3.5 w-3.5" />
             Injecter dans la consultation
           </Button>

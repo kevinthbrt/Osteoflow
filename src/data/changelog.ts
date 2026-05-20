@@ -19,6 +19,15 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.1.7',
+    date: '2026-05-20',
+    title: 'Dictée vocale gratuite via Whisper local',
+    changes: [
+      { type: 'fix', text: 'Dictée dans l\'app bureau : remplacement de webkitSpeechRecognition (incompatible Electron) par Whisper Base via Transformers.js — fonctionne 100 % en local, sans clé API ni abonnement.' },
+      { type: 'improvement', text: 'Premier lancement : téléchargement automatique du modèle Whisper (~77 Mo). Ensuite tout reste en cache local, pas de connexion requise.' },
+    ],
+  },
+  {
     version: '1.1.6',
     date: '2026-05-20',
     title: 'Correctifs images et dictée vocale',

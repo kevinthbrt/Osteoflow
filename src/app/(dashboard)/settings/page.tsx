@@ -2547,138 +2547,48 @@ function AuditLogViewer() {
  * AI settings: OpenAI API key for Whisper transcription (Electron dictation).
  */
 function AiSettings() {
-  const [key, setKey] = useState('')
-  const [saved, setSaved] = useState(false)
-  const [preview, setPreview] = useState<string | null>(null)
-  const [isSaving, setIsSaving] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [showKey, setShowKey] = useState(false)
-  const { toast } = useToast()
-
-  useEffect(() => {
-    fetch('/api/ai/openai-key')
-      .then((r) => r.json())
-      .then((d) => {
-        setSaved(d.configured)
-        setPreview(d.preview)
-      })
-      .catch(() => {})
-  }, [])
-
-  const handleSave = async () => {
-    if (!key.trim()) return
-    setIsSaving(true)
-    try {
-      const res = await fetch('/api/ai/openai-key', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: key.trim() }),
-      })
-      if (res.ok) {
-        setSaved(true)
-        setPreview(`sk-...${key.trim().slice(-4)}`)
-        setKey('')
-        toast({ variant: 'success', title: 'Clé enregistrée', description: 'La clé OpenAI a été sauvegardée.' })
-      }
-    } catch {
-      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de sauvegarder la clé.' })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleDelete = async () => {
-    setIsDeleting(true)
-    try {
-      await fetch('/api/ai/openai-key', { method: 'DELETE' })
-      setSaved(false)
-      setPreview(null)
-      setKey('')
-      toast({ variant: 'success', title: 'Clé supprimée' })
-    } catch {
-      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer la clé.' })
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Mic className="h-5 w-5 text-primary" />
-          Dictée vocale — Whisper (Electron)
+          Dictée vocale
         </CardTitle>
         <CardDescription>
-          Dans l&apos;application de bureau, la dictée utilise OpenAI Whisper.
-          Ajoutez votre clé API OpenAI pour activer la transcription.
+          Fonctionnement de la reconnaissance vocale selon l&apos;environnement.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {saved && preview && (
-          <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-            <div className="flex items-center gap-2 text-sm text-green-800 dark:text-green-200">
-              <CheckCircle2 className="h-4 w-4" />
-              <span>Clé configurée : <code className="font-mono">{preview}</code></span>
+      <CardContent className="space-y-3">
+        <div className="rounded-lg border p-4 space-y-3 text-sm">
+          <div className="flex items-start gap-3">
+            <span className="text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded px-1.5 py-0.5 mt-0.5 shrink-0">
+              App bureau
+            </span>
+            <div>
+              <p className="font-medium">Whisper local (gratuit, hors ligne)</p>
+              <p className="text-muted-foreground text-xs mt-0.5">
+                Le modèle Whisper Base (~77 Mo) tourne directement sur votre machine via WebAssembly.
+                Téléchargement automatique au premier lancement, puis 100 % local.
+                Aucune donnée n&apos;est envoyée à l&apos;extérieur.
+              </p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-            >
-              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-            </Button>
           </div>
-        )}
-
-        <div className="space-y-2">
-          <Label htmlFor="openai_key">{saved ? 'Remplacer la clé' : 'Clé API OpenAI'}</Label>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Input
-                id="openai_key"
-                type={showKey ? 'text' : 'password'}
-                placeholder="sk-..."
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowKey(!showKey)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+          <div className="flex items-start gap-3">
+            <span className="text-[10px] font-semibold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded px-1.5 py-0.5 mt-0.5 shrink-0">
+              Navigateur
+            </span>
+            <div>
+              <p className="font-medium">Temps réel (Google Speech API)</p>
+              <p className="text-muted-foreground text-xs mt-0.5">
+                La reconnaissance vocale intégrée au navigateur retranscrit en direct pendant que vous parlez.
+              </p>
             </div>
-            <Button onClick={handleSave} disabled={!key.trim() || isSaving}>
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Enregistrer'}
-            </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Obtenez votre clé sur{' '}
-            <a
-              href="https://platform.openai.com/api-keys"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-foreground"
-            >
-              platform.openai.com/api-keys
-            </a>
-            . La transcription coûte ~0,006 $ / minute.
-          </p>
         </div>
-
-        <div className="p-3 rounded-lg bg-muted/50 text-xs text-muted-foreground space-y-1">
-          <p className="font-medium text-foreground flex items-center gap-1">
-            <Sparkles className="h-3.5 w-3.5" />
-            Comment ça fonctionne ?
-          </p>
-          <p>Dans le navigateur : reconnaissance vocale en temps réel (Google Speech API intégrée au navigateur).</p>
-          <p>Dans l&apos;application de bureau : enregistrement audio local, puis transcription via OpenAI Whisper.</p>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          La dictée dans l&apos;app bureau fonctionne sans clé API ni abonnement.
+          Connexion internet requise uniquement lors du premier téléchargement du modèle.
+        </p>
       </CardContent>
     </Card>
   )
