@@ -111,11 +111,29 @@
     },
     "mac": {
       "target": [
-        "dmg",
-        "zip"
+        { "target": "dmg", "arch": ["arm64", "x64"] },
+        { "target": "zip", "arch": ["arm64", "x64"] }
       ],
       "category": "public.app-category.medical",
-      "minimumSystemVersion": "10.15.0"
+      "minimumSystemVersion": "10.15.0",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "MyOsteoFlow utilise le microphone pour la dictée de l'anamnèse."
+      }
+    },
+    "dmg": {
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" },
+        {
+          "x": 270, "y": 380, "type": "file",
+          "path": "installer/Ouvrir Osteoflow.command",
+          "name": "⚠️ Si app bloquée — double-cliquez ici.command"
+        }
+      ]
     },
     "win": {
       "target": [
