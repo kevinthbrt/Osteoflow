@@ -12,7 +12,7 @@ import { Loader2, Plus, User, Lock, Eye, EyeOff } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import Link from 'next/link'
 import Image from 'next/image'
-import logo from '../../../public/icon.png'
+import logo from '@/assets/icon.png'
 
 interface PractitionerItem {
   id: string

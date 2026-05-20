@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
-import logo from '../../../../public/icon.png'
+import logo from '@/assets/icon.png'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Card,
