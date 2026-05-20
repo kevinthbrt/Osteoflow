@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Loader2, Plus, User, Lock, Eye, EyeOff } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface PractitionerItem {
   id: string
@@ -194,20 +195,8 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
-              <svg
-                className="w-8 h-8 text-primary-foreground"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                />
-              </svg>
+            <div className="w-14 h-14 rounded-xl overflow-hidden shadow-lg">
+              <Image src="/icon.png" alt="MyOsteoFlow" width={56} height={56} className="object-cover" priority />
             </div>
           </div>
           <CardTitle className="text-2xl font-bold [font-family:var(--font-playfair)] italic tracking-wide">MyOsteoFlow</CardTitle>

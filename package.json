@@ -94,6 +94,7 @@
       ".next/**/*",
       "assets/**/*",
       "installer/**/*",
+      "public/**/*",
       "package.json",
       "next.config.mjs"
     ],
