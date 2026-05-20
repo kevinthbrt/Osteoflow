@@ -9,7 +9,7 @@
  * - Handle application lifecycle
  */
 
-import { app, BrowserWindow, shell, dialog, Notification, ipcMain } from 'electron'
+import { app, BrowserWindow, shell, dialog, Notification, ipcMain, session } from 'electron'
 import path from 'path'
 import { startCronJobs, stopCronJobs } from './cron'
 
@@ -399,6 +399,15 @@ app.on('second-instance', () => {
 
 app.whenReady().then(async () => {
   console.log('[Electron] Starting MyOsteoFlow...')
+
+  // Allow microphone access for speech recognition (dictée IA)
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    if (permission === 'media' || permission === 'microphone') {
+      callback(true)
+    } else {
+      callback(false)
+    }
+  })
 
   // Show window with splash screen immediately — no waiting
   createWindow()
