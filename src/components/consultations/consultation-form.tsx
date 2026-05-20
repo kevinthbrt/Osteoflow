@@ -43,6 +43,7 @@ import { LowBackPainTree } from '@/components/consultations/low-back-pain-tree'
 import { NeckPainTree } from '@/components/consultations/neck-pain-tree'
 import { AnamnesisRecorder } from '@/components/consultations/anamnesis-recorder'
 import { MarkdownField } from '@/components/ui/markdown-field'
+import { MarkdownText } from '@/components/ui/markdown-text'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -1249,7 +1250,7 @@ export function ConsultationForm({
                         <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">
                           Anamnèse
                         </h4>
-                        <p className="text-sm whitespace-pre-wrap">{viewingConsultation.anamnesis}</p>
+                        <MarkdownText text={viewingConsultation.anamnesis} />
                       </div>
                     )}
                     {viewingConsultation.examination && (
@@ -1258,7 +1259,7 @@ export function ConsultationForm({
                         <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1 mt-3">
                           Examen clinique et manipulations
                         </h4>
-                        <p className="text-sm whitespace-pre-wrap">{viewingConsultation.examination}</p>
+                        <MarkdownText text={viewingConsultation.examination} />
                       </div>
                     )}
                     {viewingConsultation.advice && (
@@ -1267,7 +1268,7 @@ export function ConsultationForm({
                         <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1 mt-3">
                           Conseils donnés
                         </h4>
-                        <p className="text-sm whitespace-pre-wrap">{viewingConsultation.advice}</p>
+                        <MarkdownText text={viewingConsultation.advice} />
                       </div>
                     )}
                     {!viewingConsultation.anamnesis && !viewingConsultation.examination && !viewingConsultation.advice && (

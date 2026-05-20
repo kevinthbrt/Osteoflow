@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { ArrowLeft, Edit, User, FileText, Clock, CheckCircle, AlertCircle, Paperclip, Image as ImageIcon, ClipboardList, Gauge, TrendingDown, Activity } from 'lucide-react'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels } from '@/lib/validations/invoice'
+import { MarkdownText } from '@/components/ui/markdown-text'
 import { ConsultationPaymentEditor } from '@/components/consultations/consultation-payment-editor'
 
 interface ConsultationPageProps {
@@ -138,7 +139,7 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
                   <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
                     Anamnèse
                   </h4>
-                  <p className="text-sm whitespace-pre-wrap">{consultation.anamnesis}</p>
+                  <MarkdownText text={consultation.anamnesis} />
                 </div>
               )}
               {consultation.examination && (
@@ -147,7 +148,7 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
                   <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
                     Examen clinique et manipulations
                   </h4>
-                  <p className="text-sm whitespace-pre-wrap">{consultation.examination}</p>
+                  <MarkdownText text={consultation.examination} />
                 </div>
               )}
               {consultation.advice && (
@@ -156,7 +157,7 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
                   <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
                     Conseils donnés
                   </h4>
-                  <p className="text-sm whitespace-pre-wrap">{consultation.advice}</p>
+                  <MarkdownText text={consultation.advice} />
                 </div>
               )}
               {!consultation.anamnesis && !consultation.examination && !consultation.advice && (
