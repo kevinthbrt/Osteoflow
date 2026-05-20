@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
+import logo from '../../../../public/icon.png'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Card,
@@ -125,7 +126,7 @@ function PinPageInner() {
         <CardHeader className="text-center">
           <div className="flex justify-center mb-3">
             <div className="w-14 h-14 rounded-xl overflow-hidden shadow-lg">
-              <Image src="/icon.png" alt="MyOsteoFlow" width={56} height={56} className="object-cover" priority />
+              <Image src={logo} alt="MyOsteoFlow" width={56} height={56} className="object-cover" priority />
             </div>
           </div>
           <CardTitle className="text-xl">

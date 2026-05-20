@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
+import logo from '../../../public/icon.png'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
@@ -144,7 +145,7 @@ export function Sidebar() {
             <Link href="/patients" className="flex items-center space-x-3 group [-webkit-app-region:no-drag]">
               <div className="relative">
                 <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-xl">
-                  <Image src="/icon.png" alt="MyOsteoFlow" width={40} height={40} className="object-cover" priority />
+                  <Image src={logo} alt="MyOsteoFlow" width={40} height={40} className="object-cover" priority />
                 </div>
               </div>
               <div>
