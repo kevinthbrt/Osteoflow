@@ -163,6 +163,16 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   const handleApply = useCallback(() => {
     if (!structured) return
     onApply(structured)
+    // Reset after injection so the recorder disappears cleanly
+    setTimeout(() => {
+      setState('idle')
+      setFinalText('')
+      setInterimText('')
+      setStructured(null)
+      setErrorMsg('')
+      setElapsed(0)
+      finalTextRef.current = ''
+    }, 300)
   }, [structured, onApply])
 
   const handleReset = useCallback(() => {
@@ -260,13 +270,27 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
 
       {/* Structured result */}
       {state === 'done' && structured && (
-        <div className="rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed max-h-[300px] overflow-y-auto whitespace-pre-wrap">
+        <div className="rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed max-h-[300px] overflow-y-auto">
           {structured.reason && (
-            <p className="font-semibold text-foreground mb-2">
+            <p className="font-semibold text-foreground mb-3">
               Motif : {structured.reason}
             </p>
           )}
-          <p className="text-muted-foreground">{structured.anamnesis}</p>
+          <div className="text-muted-foreground space-y-1">
+            {structured.anamnesis.split('\n').map((line, i) => {
+              if (!line.trim()) return <div key={i} className="h-1" />
+              const parts = line.split(/\*\*(.+?)\*\*/g)
+              return (
+                <p key={i} className="leading-relaxed">
+                  {parts.map((part, j) =>
+                    j % 2 === 1
+                      ? <strong key={j} className="font-semibold text-foreground">{part}</strong>
+                      : part
+                  )}
+                </p>
+              )
+            })}
+          </div>
         </div>
       )}
 

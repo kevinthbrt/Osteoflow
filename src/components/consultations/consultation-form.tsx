@@ -42,6 +42,7 @@ import { TopographyPanel } from '@/components/consultations/topography-panel'
 import { LowBackPainTree } from '@/components/consultations/low-back-pain-tree'
 import { NeckPainTree } from '@/components/consultations/neck-pain-tree'
 import { AnamnesisRecorder } from '@/components/consultations/anamnesis-recorder'
+import { MarkdownField } from '@/components/ui/markdown-field'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -647,15 +648,13 @@ export function ConsultationForm({
               />
               <div className="space-y-2">
                 <Label htmlFor="anamnesis">Anamnèse</Label>
-                <Textarea
+                <MarkdownField
                   id="anamnesis"
-                  data-autoresize
-                  {...register('anamnesis')}
-                  onInput={autoResize}
+                  value={anamnesis || ''}
+                  onChange={(val) => setValue('anamnesis', val, { shouldDirty: true })}
                   disabled={isLoading}
                   placeholder="Histoire de la maladie, circonstances d'apparition, évolution..."
                   rows={4}
-                  className="min-h-[100px] resize-none overflow-hidden transition-[height] duration-200"
                 />
                 {errors.anamnesis && (
                   <p className="text-sm text-destructive">{errors.anamnesis.message}</p>

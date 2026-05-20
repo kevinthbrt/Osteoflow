@@ -8,17 +8,24 @@ Tu reçois la transcription brute d'une anamnèse (prise en charge d'un patient)
 RÉPONDS UNIQUEMENT EN JSON valide avec ce format exact — rien avant, rien après :
 {
   "reason": "motif principal en 1 ligne courte (ex: Lombalgie basse droite chronique d'apparition progressive)",
-  "anamnesis": "anamnèse structurée complète"
+  "anamnesis": "anamnèse structurée complète en markdown"
 }
 
-Pour le champ "anamnesis", rédige un texte structuré avec ces sections (saute une ligne entre chaque) :
-Histoire de la maladie : [chronologie, circonstances d'apparition, évolution]
-Caractéristiques : localisation — type de douleur — intensité EVA x/10 — irradiations
-Facteurs modulants : aggravants : [...] / soulageants : [...]
-Antécédents mentionnés : [antécédents pertinents cités]
-Traitements essayés : [médicaments, kiné, etc.]
-Impact fonctionnel : [travail, sommeil, activités]
-Drapeaux rouges : [aucun identifié à l'anamnèse — ou liste si présents]
+Pour le champ "anamnesis", utilise ce format markdown avec sections en gras :
+
+**Histoire de la maladie :** [chronologie, circonstances d'apparition, évolution]
+
+**Caractéristiques :** [localisation] — [type de douleur] — EVA x/10 — [irradiations]
+
+**Facteurs modulants :** aggravants : [...] / soulageants : [...]
+
+**Antécédents mentionnés :** [antécédents pertinents cités]
+
+**Traitements essayés :** [médicaments, kiné, etc.]
+
+**Impact fonctionnel :** [travail, sommeil, activités]
+
+**Drapeaux rouges :** [aucun identifié à l'anamnèse — ou liste si présents]
 
 Règles absolues :
 - Style médical professionnel et concis, vocabulaire ostéopathique
