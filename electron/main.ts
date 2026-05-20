@@ -400,13 +400,15 @@ app.on('second-instance', () => {
 app.whenReady().then(async () => {
   console.log('[Electron] Starting MyOsteoFlow...')
 
-  // Allow microphone access for speech recognition (dictée IA)
-  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    if (permission === 'media') {
-      callback(true)
-    } else {
-      callback(false)
-    }
+  // Allow microphone access for speech recognition (dictée IA).
+  // setPermissionRequestHandler: called when the page explicitly requests permission.
+  // setPermissionCheckHandler: called when the page checks whether permission is already granted.
+  // Both must return true for webkitSpeechRecognition to work in Electron.
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(permission === 'media')
+  })
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    return permission === 'media'
   })
 
   // Show window with splash screen immediately — no waiting
