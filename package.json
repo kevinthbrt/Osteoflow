@@ -111,6 +111,7 @@
       "releaseType": "release"
     },
     "mac": {
+      "icon": "assets/icon.png",
       "target": [
         { "target": "dmg", "arch": ["arm64", "x64"] },
         { "target": "zip", "arch": ["arm64", "x64"] }
