@@ -191,16 +191,28 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     })
   }, [pathname, router])
 
-  // Check first launch — only once on mount
+  // Check first launch — only once on mount.
+  // Wait for CGU acceptance if not yet done, so the tour never overlaps the legal modal.
   useEffect(() => {
-    fetch('/api/tour/status')
+    const tryStartTour = () => {
+      fetch('/api/tour/status')
+        .then((r) => r.json())
+        .then((d) => { if (!d.seen) setTimeout(() => startTour(), 1500) })
+        .catch(() => {})
+    }
+
+    fetch('/api/legal/status')
       .then((r) => r.json())
       .then((d) => {
-        if (!d.seen) {
-          setTimeout(() => startTour(), 1500)
+        if (d.accepted) {
+          tryStartTour()
+        } else {
+          window.addEventListener('cgu-accepted', tryStartTour, { once: true })
         }
       })
       .catch(() => {})
+
+    return () => window.removeEventListener('cgu-accepted', tryStartTour)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

@@ -14,7 +14,10 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 
 const REMINDER_INTERVAL_DAYS = 14
-const CHECK_DELAY_MS = 4000 // wait a few seconds after login before showing
+// Delay after login (CGU already accepted) before showing the reminder
+const CHECK_DELAY_MS = 4000
+// Longer delay after CGU acceptance — gives the tour time to start first
+const CHECK_DELAY_POST_CGU_MS = 12000
 
 type Mode = 'first_time' | 'reminder'
 
@@ -26,35 +29,53 @@ export function BackupReminderDialog() {
   const { toast } = useToast()
 
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch('/api/settings/database/backup-status')
-        if (!res.ok) return
-        const { lastBackupDate: last, snoozedUntil } = await res.json() as {
-          lastBackupDate: string | null
-          snoozedUntil: string | null
+    let timer: ReturnType<typeof setTimeout>
+
+    const scheduleCheck = (delayMs: number) => {
+      timer = setTimeout(async () => {
+        try {
+          const res = await fetch('/api/settings/database/backup-status')
+          if (!res.ok) return
+          const { lastBackupDate: last, snoozedUntil } = await res.json() as {
+            lastBackupDate: string | null
+            snoozedUntil: string | null
+          }
+
+          if (snoozedUntil && new Date(snoozedUntil) > new Date()) return
+
+          setLastBackupDate(last)
+
+          if (!last) {
+            setMode('first_time')
+            setOpen(true)
+            return
+          }
+
+          const daysSince = (Date.now() - new Date(last).getTime()) / (1000 * 60 * 60 * 24)
+          if (daysSince >= REMINDER_INTERVAL_DAYS) {
+            setMode('reminder')
+            setOpen(true)
+          }
+        } catch {
+          // fail silently
         }
+      }, delayMs)
+    }
 
-        // Don't show if snoozed
-        if (snoozedUntil && new Date(snoozedUntil) > new Date()) return
-
-        setLastBackupDate(last)
-
-        if (!last) {
-          setMode('first_time')
-          setOpen(true)
-          return
+    // Only show after CGU is accepted — avoids stacking on top of the legal modal
+    fetch('/api/legal/status')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.accepted) {
+          scheduleCheck(CHECK_DELAY_MS)
+        } else {
+          // CGU not yet accepted: wait for it, then use a longer delay so the
+          // tour has time to start before we show another dialog
+          const onCguAccepted = () => scheduleCheck(CHECK_DELAY_POST_CGU_MS)
+          window.addEventListener('cgu-accepted', onCguAccepted, { once: true })
         }
-
-        const daysSince = (Date.now() - new Date(last).getTime()) / (1000 * 60 * 60 * 24)
-        if (daysSince >= REMINDER_INTERVAL_DAYS) {
-          setMode('reminder')
-          setOpen(true)
-        }
-      } catch {
-        // fail silently
-      }
-    }, CHECK_DELAY_MS)
+      })
+      .catch(() => scheduleCheck(CHECK_DELAY_MS))
 
     return () => clearTimeout(timer)
   }, [])

@@ -145,6 +145,7 @@ export function CguModal() {
     try {
       await fetch('/api/legal/accept', { method: 'POST' })
       setOpen(false)
+      window.dispatchEvent(new CustomEvent('cgu-accepted'))
     } catch {
       // silent — user can retry
     } finally {
