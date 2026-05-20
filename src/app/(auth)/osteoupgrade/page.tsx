@@ -15,6 +15,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Lock, Mail, Eye, EyeOff, ExternalLink } from 'lucide-react'
 import Image from 'next/image'
+import logo from '@/assets/icon.png'
 
 const OSTEOUPGRADE_URL =
   process.env.NEXT_PUBLIC_OSTEOUPGRADE_URL || 'https://www.osteo-upgrade.fr'
@@ -102,7 +103,7 @@ export default function OsteoupgradeLoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <Image src="/icon.png" alt="MyOsteoFlow" width={56} height={56} />
+            <Image src={logo} alt="MyOsteoFlow" width={56} height={56} />
           </div>
           <CardTitle className="text-2xl font-bold">MyOsteoFlow</CardTitle>
           <CardDescription>
