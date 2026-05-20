@@ -36,6 +36,7 @@ import {
   Download,
   FileText,
   Image,
+  RefreshCw,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -112,6 +113,7 @@ export default function MessagesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
   const [showNewModal, setShowNewModal] = useState(false)
   const [isMobileView, setIsMobileView] = useState(false)
   const { toast } = useToast()
@@ -297,6 +299,29 @@ export default function MessagesPage() {
     }
   }
 
+  const handleResync = async () => {
+    setIsSyncing(true)
+    try {
+      const res = await fetch('/api/emails/resync', { method: 'POST' })
+      if (!res.ok) throw new Error()
+      await fetch('/api/emails/check-inbox')
+      await fetchConversations()
+      toast({
+        variant: 'success',
+        title: 'Resynchronisation terminée',
+        description: 'Les emails ont été re-importés avec les bons caractères.',
+      })
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de resynchroniser la boîte de réception.',
+      })
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   const filteredConversations = conversations.filter((conv) => {
     if (!searchQuery) return true
     const searchLower = searchQuery.toLowerCase()
@@ -395,6 +420,16 @@ export default function MessagesPage() {
               <MessageCircle className="h-5 w-5 text-primary" />
               Messagerie
             </h1>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleResync}
+              disabled={isSyncing}
+              title="Resynchroniser la boîte de réception (corrige les caractères spéciaux)"
+              className="px-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            </Button>
             <Button size="sm" onClick={() => setShowNewModal(true)}>
               <Plus className="h-4 w-4 mr-1" />
               Nouveau
