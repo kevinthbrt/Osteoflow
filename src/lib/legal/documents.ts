@@ -1,5 +1,5 @@
-export const CGU_VERSION = '1.0'
-export const CGU_DATE = '19 mai 2026'
+export const CGU_VERSION = '1.1'
+export const CGU_DATE = '20 mai 2026'
 
 export interface LegalSection {
   type: 'h1' | 'h2' | 'h3' | 'p' | 'ul' | 'table' | 'hr'
@@ -55,7 +55,18 @@ export const CGU_SECTIONS: LegalSection[] = [
   { type: 'h3', content: '4.5 Rapports comptables' },
   { type: 'p', content: "Si l'Utilisateur active l'envoi de rapport comptable, un PDF contenant les données financières du cabinet est transmis à l'adresse email de l'expert-comptable renseignée par l'Utilisateur, via le service Resend. Aucune donnée patient identifiable n'est incluse." },
 
-  { type: 'h3', content: '4.6 Accord de sous-traitance (Article 28 RGPD)' },
+  { type: 'h3', content: '4.6 Dictée intelligente (fonctionnalité IA)' },
+  { type: 'p', content: "Le Logiciel propose optionnellement une fonctionnalité de dictée vocale assistée par intelligence artificielle permettant de structurer automatiquement l'anamnèse d'une consultation. Lorsque l'Utilisateur active cette fonctionnalité :" },
+  { type: 'ul', items: [
+    "la transcription vocale est réalisée localement par le navigateur (API Web Speech, service Google) et n'est pas conservée par l'Éditeur ;",
+    "le texte transcrit est transmis à Anthropic (États-Unis) via un proxy sécurisé exploité par l'Éditeur (Osteoupgrade), aux fins de structuration du contenu clinique ;",
+    "**aucune donnée identifiant le patient** (nom, prénom, date de naissance, numéro de sécurité sociale) ne doit figurer dans la dictée — l'Utilisateur en est seul responsable ;",
+    "Anthropic peut conserver les données transmises conformément à sa politique de confidentialité ; l'Éditeur recommande de consulter celle-ci sur anthropic.com ;",
+    "l'utilisation de cette fonctionnalité est entièrement facultative et n'affecte pas le fonctionnement du reste du Logiciel.",
+  ]},
+  { type: 'p', content: "La base juridique du traitement est le **consentement implicite** de l'Utilisateur au moment où il active la dictée. L'Utilisateur reste responsable d'informer ses patients si des données les concernant sont susceptibles d'être dictées." },
+
+  { type: 'h3', content: '4.7 Accord de sous-traitance (Article 28 RGPD)' },
   { type: 'p', content: "En acceptant les présentes CGU, l'Utilisateur reconnaît que l'Éditeur agit en qualité de **sous-traitant** et s'engage à :" },
   { type: 'ul', items: [
     "ne traiter les données que sur instruction documentée de l'Utilisateur (usage normal du Logiciel) ;",
