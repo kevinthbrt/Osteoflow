@@ -19,6 +19,15 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.1.6',
+    date: '2026-05-20',
+    title: 'Correctifs images et dictée vocale',
+    changes: [
+      { type: 'fix', text: 'Images (logos) : désactivation de l\'optimisation Next.js pour les servir directement depuis les fichiers statiques — résout les images cassées dans l\'app packagée.' },
+      { type: 'fix', text: 'Dictée vocale : ajout du gestionnaire de vérification de permission (setPermissionCheckHandler) en plus de la demande, et déclaration NSSpeechRecognitionUsageDescription sur macOS.' },
+    ],
+  },
+  {
     version: '1.1.5',
     date: '2026-05-20',
     title: 'Correctif dictée vocale et logo',

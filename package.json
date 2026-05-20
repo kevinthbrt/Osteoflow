@@ -1,6 +1,6 @@
 {
   "name": "myosteoflow",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -124,7 +124,8 @@
       "entitlements": "entitlements.mac.plist",
       "entitlementsInherit": "entitlements.mac.plist",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "MyOsteoFlow utilise le microphone pour la dictée de l'anamnèse."
+        "NSMicrophoneUsageDescription": "MyOsteoFlow utilise le microphone pour la dictée de l'anamnèse.",
+        "NSSpeechRecognitionUsageDescription": "MyOsteoFlow utilise la reconnaissance vocale pour la dictée de l'anamnèse."
       }
     },
     "dmg": {
