@@ -85,6 +85,7 @@ export function ConsultationForm({
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [createdInvoice, setCreatedInvoice] = useState<CreatedInvoice | null>(null)
   const [sendPostSessionAdvice, setSendPostSessionAdvice] = useState(false)
+  const [followUpDays, setFollowUpDays] = useState<number>((practitioner as any).follow_up_delay_days ?? 7)
   const [contactEmail, setContactEmail] = useState(currentPatient.email || '')
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [existingAttachments, setExistingAttachments] = useState<ConsultationAttachment[]>([])
@@ -438,9 +439,8 @@ export function ConsultationForm({
         }
 
         if (data.follow_up_7d && newConsultation) {
-          const followUpDelay = (practitioner as any).follow_up_delay_days ?? 7
           const scheduledFor = new Date(data.date_time)
-          scheduledFor.setDate(scheduledFor.getDate() + followUpDelay)
+          scheduledFor.setDate(scheduledFor.getDate() + followUpDays)
 
           await db.from('scheduled_tasks').insert({
             practitioner_id: practitioner.id,
@@ -814,7 +814,7 @@ export function ConsultationForm({
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center flex-wrap gap-x-2 gap-y-2">
                 <Checkbox
                   id="follow_up_7d"
                   checked={followUp7d}
@@ -822,8 +822,18 @@ export function ConsultationForm({
                   disabled={isLoading}
                 />
                 <Label htmlFor="follow_up_7d" className="cursor-pointer">
-                  Demander des nouvelles à J+{(practitioner as any).follow_up_delay_days ?? 7} (email automatique)
+                  Demander des nouvelles à J+
                 </Label>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={followUpDays}
+                  onChange={(e) => setFollowUpDays(Math.max(1, parseInt(e.target.value) || 1))}
+                  disabled={isLoading || !followUp7d}
+                  className="w-16 h-7 rounded-md border border-input bg-background px-2 text-sm text-center disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <span className="text-sm text-muted-foreground">jours (email automatique)</span>
               </div>
               {followUp7d && !effectiveEmail && (
                 <p className="text-sm text-yellow-600 mt-2">
