@@ -206,6 +206,23 @@ async function startNextServer(): Promise<void> {
         }
       }
 
+      // Serve public/ static files directly (icon.png, etc.)
+      // Next.js can't find them in packaged Electron apps without this.
+      const cleanUrl = reqUrl.split('?')[0]
+      if (!cleanUrl.startsWith('/_next/') && !cleanUrl.startsWith('/api/')) {
+        const publicPath = path.join(realDir, 'public', cleanUrl)
+        try {
+          const data = fs.readFileSync(publicPath)
+          const ext = path.extname(publicPath)
+          res.setHeader('Content-Type', MIME_TYPES[ext] || 'application/octet-stream')
+          res.setHeader('Cache-Control', 'public, max-age=3600')
+          res.end(data)
+          return
+        } catch {
+          // Not a public file, fall through to NextServer
+        }
+      }
+
       try {
         await handle(req, res)
       } catch (err) {
