@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield } from 'lucide-react'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield, Sparkles } from 'lucide-react'
 import { CGU_SECTIONS, PRIVACY_SECTIONS, CGU_VERSION, CGU_DATE, type LegalSection } from '@/lib/legal/documents'
 import type { Practitioner, SessionType } from '@/types/database'
 
@@ -175,6 +175,13 @@ export default function SettingsPage() {
   const [followUpDelay, setFollowUpDelay] = useState('7')
   const [isSavingFollowUpDelay, setIsSavingFollowUpDelay] = useState(false)
 
+  // AI settings
+  const [aiKey, setAiKey] = useState('')
+  const [aiKeyPreview, setAiKeyPreview] = useState<string | null>(null)
+  const [aiKeyConfigured, setAiKeyConfigured] = useState(false)
+  const [isSavingAiKey, setIsSavingAiKey] = useState(false)
+  const [showAiKey, setShowAiKey] = useState(false)
+
   // Email connection states
   const [selectedProvider, setSelectedProvider] = useState<string>('')
   const [emailSettings, setEmailSettings] = useState<{
@@ -299,6 +306,34 @@ export default function SettingsPage() {
     }
   }
 
+  // Save AI key
+  const handleSaveAiKey = async () => {
+    setIsSavingAiKey(true)
+    try {
+      const res = await fetch('/api/ai/key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: aiKey.trim() || null }),
+      })
+      if (!res.ok) throw new Error()
+      const keyToSave = aiKey.trim()
+      if (keyToSave) {
+        setAiKeyConfigured(true)
+        setAiKeyPreview(`sk-ant-...${keyToSave.slice(-4)}`)
+        setAiKey('')
+        toast({ variant: 'success', title: 'Clé API enregistrée', description: "L'IA est maintenant disponible dans les consultations." })
+      } else {
+        setAiKeyConfigured(false)
+        setAiKeyPreview(null)
+        toast({ title: 'Clé API supprimée', description: "L'IA a été désactivée." })
+      }
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: "Impossible d'enregistrer la clé API." })
+    } finally {
+      setIsSavingAiKey(false)
+    }
+  }
+
   // Fetch data
   useEffect(() => {
     async function fetchData() {
@@ -360,6 +395,16 @@ export default function SettingsPage() {
           } else if (sessionTypesData) {
             setSessionTypes(sessionTypesData)
           }
+
+          // Fetch AI key status
+          try {
+            const aiRes = await fetch('/api/ai/key')
+            if (aiRes.ok) {
+              const aiData = await aiRes.json()
+              setAiKeyConfigured(aiData.configured)
+              setAiKeyPreview(aiData.preview)
+            }
+          } catch {}
 
           // Fetch email settings
           try {
@@ -882,6 +927,10 @@ export default function SettingsPage() {
           <TabsTrigger value="legal">
             <Shield className="mr-2 h-4 w-4" />
             Légal
+          </TabsTrigger>
+          <TabsTrigger value="ai">
+            <Sparkles className="mr-2 h-4 w-4" />
+            IA
           </TabsTrigger>
         </TabsList>
 
@@ -1838,6 +1887,109 @@ export default function SettingsPage() {
         {/* Legal Tab */}
         <TabsContent value="legal">
           <LegalSettingsTab />
+        </TabsContent>
+
+        {/* AI Tab */}
+        <TabsContent value="ai">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  Intelligence Artificielle
+                </CardTitle>
+                <CardDescription>
+                  Configurez votre clé API Anthropic pour activer la dictée et structuration automatique de l&apos;anamnèse.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {aiKeyConfigured && aiKeyPreview && (
+                  <div className="flex items-center gap-3 p-3 rounded-lg border border-green-200 bg-green-50">
+                    <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-green-800">Clé API configurée</p>
+                      <p className="text-xs text-green-700 font-mono">{aiKeyPreview}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0"
+                      onClick={async () => {
+                        setIsSavingAiKey(true)
+                        try {
+                          const res = await fetch('/api/ai/key', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: null }) })
+                          if (res.ok) { setAiKeyConfigured(false); setAiKeyPreview(null); setAiKey(''); toast({ title: 'Clé API supprimée' }) }
+                        } finally { setIsSavingAiKey(false) }
+                      }}
+                      disabled={isSavingAiKey}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <Label htmlFor="ai_key">
+                    {aiKeyConfigured ? 'Remplacer la clé API Anthropic' : 'Clé API Anthropic'}
+                  </Label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        id="ai_key"
+                        type={showAiKey ? 'text' : 'password'}
+                        placeholder="sk-ant-api03-..."
+                        value={aiKey}
+                        onChange={(e) => setAiKey(e.target.value)}
+                        className="pr-20"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-7 px-2"
+                        onClick={() => setShowAiKey(!showAiKey)}
+                      >
+                        {showAiKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleSaveAiKey}
+                      disabled={isSavingAiKey || !aiKey.trim()}
+                    >
+                      {isSavingAiKey && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Enregistrer
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    La clé est stockée localement et chiffrée. Elle ne transite jamais par un serveur externe.
+                  </p>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium">Comment obtenir une clé API ?</h4>
+                  <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal list-inside">
+                    <li>Créez un compte sur console.anthropic.com</li>
+                    <li>Allez dans &quot;API Keys&quot; et créez une nouvelle clé</li>
+                    <li>Copiez la clé (commence par sk-ant-) et collez-la ci-dessus</li>
+                    <li>Ajoutez des crédits dans &quot;Billing&quot; (environ 5–10 € pour débuter)</li>
+                  </ol>
+                </div>
+
+                <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                  <p className="text-sm font-medium">Coût estimé</p>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Par anamnèse</span><span className="font-medium">~0,03 – 0,10 €</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">10 consultations/jour</span><span className="font-medium">~0,30 – 1,00 € /jour</span></div>
+                    <div className="flex justify-between col-span-2"><span className="text-muted-foreground">Estimation mensuelle</span><span className="font-medium">~6 – 20 €/mois</span></div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 

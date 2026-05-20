@@ -41,6 +41,7 @@ import { EditPatientModal } from '@/components/patients/edit-patient-modal'
 import { TopographyPanel } from '@/components/consultations/topography-panel'
 import { LowBackPainTree } from '@/components/consultations/low-back-pain-tree'
 import { NeckPainTree } from '@/components/consultations/neck-pain-tree'
+import { AnamnesisRecorder } from '@/components/consultations/anamnesis-recorder'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -637,6 +638,13 @@ export function ConsultationForm({
               <CardDescription>Anamnèse, examen et conseils</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <AnamnesisRecorder
+                onApply={(data) => {
+                  if (data.reason) setValue('reason', data.reason, { shouldDirty: true })
+                  if (data.anamnesis) setValue('anamnesis', data.anamnesis, { shouldDirty: true })
+                }}
+                disabled={isLoading}
+              />
               <div className="space-y-2">
                 <Label htmlFor="anamnesis">Anamnèse</Label>
                 <Textarea
