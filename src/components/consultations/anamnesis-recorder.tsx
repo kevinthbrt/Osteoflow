@@ -219,28 +219,10 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
 
       setStatusMsg('Transcription en cours…')
 
-      // 2. En Electron : IPC direct vers le processus principal (Whisper tourne en Node.js,
-      //    hors du bundler Next.js). En navigateur : API route fetch.
-      let text: string
-      if (isElectron()) {
-        // Copie le buffer — les ArrayBuffers transférés via IPC sont détachés
-        const copy = float32.buffer.slice(0)
-        text = await (window as any).electronAPI.transcribe(copy)
-        text = (text ?? '').trim()
-      } else {
-        const res = await fetch('/api/ai/transcribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/octet-stream' },
-          body: float32.buffer as ArrayBuffer,
-        })
-        const data = await res.json()
-        if (!res.ok) {
-          setErrorMsg(data.error || 'Erreur de transcription.')
-          setState('error')
-          return
-        }
-        text = (data.transcript ?? '').trim()
-      }
+      // 2. IPC vers le processus principal Electron (Whisper tourne dans un Worker Thread).
+      //    Le buffer est copié avant transfert — postMessage détache l'original.
+      const copy = float32.buffer.slice(0)
+      const text = ((await (window as any).electronAPI.transcribe(copy)) ?? '').trim()
 
       if (!text) {
         setErrorMsg("Aucun texte détecté. Vérifiez que le micro capte bien votre voix.")
@@ -286,7 +268,13 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
         stream.getTracks().forEach((t) => t.stop())
         mediaStreamRef.current = null
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-        transcribeBlob(blob)
+        // .catch() is mandatory — an unhandled async rejection triggers webpack
+        // HMR full reload which shows a white screen in dev mode.
+        transcribeBlob(blob).catch((err) => {
+          console.error('[Recorder] transcribeBlob:', err)
+          setErrorMsg('Erreur inattendue lors de la transcription.')
+          setState('error')
+        })
       }
 
       recorder.start()
