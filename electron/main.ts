@@ -13,58 +13,6 @@ import { app, BrowserWindow, shell, dialog, Notification, ipcMain, session } fro
 import path from 'path'
 import { startCronJobs, stopCronJobs } from './cron'
 
-// ─── Whisper (local speech recognition) ──────────────────────────────────────
-// @huggingface/transformers runs in a Worker Thread so ONNX Runtime inference
-// never blocks the main process event loop (which would freeze the Electron
-// window). The main thread only routes IPC ↔ worker messages.
-
-let whisperWorker: any = null
-let whisperWorkerReady: Promise<void> | null = null
-const whisperPending = new Map<number, { resolve: (t: string) => void; reject: (e: Error) => void }>()
-let whisperCallId = 0
-
-function initWhisper(): void {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { Worker } = require('worker_threads')
-  const workerPath = path.join(__dirname, 'whisper-worker.js')
-  const cacheDir = path.join(app.getPath('userData'), 'whisper-cache')
-
-  whisperWorker = new Worker(workerPath, { workerData: { cacheDir } })
-
-  whisperWorkerReady = new Promise<void>((resolve, reject) => {
-    whisperWorker.once('message', (msg: any) => {
-      if (msg.type === 'ready') resolve()
-      else reject(new Error(msg.error ?? 'Whisper worker init failed'))
-    })
-  })
-
-  whisperWorker.on('message', (msg: any) => {
-    if (msg.type === 'ready' || msg.type === 'error') return // handled above
-    const cb = whisperPending.get(msg.id)
-    if (!cb) return
-    whisperPending.delete(msg.id)
-    if (msg.error) cb.reject(new Error(msg.error))
-    else cb.resolve(msg.text)
-  })
-
-  whisperWorker.on('error', (err: Error) => {
-    console.error('[Whisper Worker] Crash:', err)
-    whisperWorkerReady = null
-    for (const cb of whisperPending.values()) cb.reject(err)
-    whisperPending.clear()
-  })
-}
-
-ipcMain.handle('whisper:transcribe', async (_event, buffer: ArrayBuffer) => {
-  if (!whisperWorkerReady) throw new Error('Modèle Whisper non disponible — relancez l\'application.')
-  await whisperWorkerReady
-  const id = ++whisperCallId
-  return new Promise<string>((resolve, reject) => {
-    whisperPending.set(id, { resolve, reject })
-    // Transfer the ArrayBuffer zero-copy to the worker thread
-    whisperWorker.postMessage({ id, buffer }, [buffer])
-  })
-})
 
 // Polyfill diagnostics_channel.tracingChannel for Node.js 18 (Electron 28).
 // nodemailer v7+ requires this API which was added in Node.js 20.
@@ -485,10 +433,6 @@ app.whenReady().then(async () => {
   loadApp() // Navigate from splash to the real app
   startCronJobs(PORT)
   setupAutoUpdater()
-
-  // Démarre le chargement de Whisper en arrière-plan dès le démarrage de l'app.
-  // Le modèle (~77 Mo) sera prêt bien avant la première dictée.
-  initWhisper()
 
   console.log('[Electron] MyOsteoFlow ready!')
 

@@ -50,37 +50,8 @@ function getSpeechRecognition(): (new () => SpeechRecognitionInstance) | null {
 
 const MAX_RESTARTS = 10
 
-// Vrai quand on est dans l'app desktop Electron.
-// webkitSpeechRecognition nécessite les clés API Google (absentes d'Electron),
-// on bascule donc sur MediaRecorder + Whisper local via Transformers.js.
 function isElectron(): boolean {
   return typeof window !== 'undefined' && !!(window as any).electronAPI?.isDesktop
-}
-
-// ─── Décode un Blob WebM/Opus en Float32Array 16 kHz (entrée attendue par Whisper) ──
-// Fait côté navigateur via AudioContext — évite tout import de bibliothèque lourde
-// dans le bundle client.
-
-async function decodeAudioTo16kHz(blob: Blob): Promise<Float32Array> {
-  const arrayBuffer = await blob.arrayBuffer()
-  const ctx = new AudioContext()
-  // Décode le WebM/Opus avec le sample rate natif du device
-  const decoded = await ctx.decodeAudioData(arrayBuffer)
-  ctx.close()
-
-  // Rééchantillonne à 16 kHz (taux attendu par Whisper)
-  const targetRate = 16000
-  const offlineCtx = new OfflineAudioContext(
-    1,
-    Math.ceil(decoded.duration * targetRate),
-    targetRate
-  )
-  const src = offlineCtx.createBufferSource()
-  src.buffer = decoded
-  src.connect(offlineCtx.destination)
-  src.start(0)
-  const resampled = await offlineCtx.startRendering()
-  return resampled.getChannelData(0)
 }
 
 // ─── Composant ───────────────────────────────────────────────────────────────
@@ -192,10 +163,10 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   }, [stopTimer, stopReconnectTimer])
 
   // ════════════════════════════════════════════════════════════════════════════
-  // MODE A – MediaRecorder + Whisper local (Electron)
+  // MODE A – MediaRecorder + Groq Whisper API (Electron)
   // webkitSpeechRecognition nécessite les clés Google absentes d'Electron.
-  // On enregistre l'audio avec MediaRecorder, puis on transcrit localement
-  // via Transformers.js (modèle Xenova/whisper-base, ~77 Mo, mis en cache).
+  // On enregistre l'audio avec MediaRecorder, puis on envoie le blob WebM
+  // directement à notre API route qui appelle Groq (Whisper large-v3-turbo).
   // ════════════════════════════════════════════════════════════════════════════
 
   const transcribeBlob = useCallback(async (blob: Blob) => {
@@ -206,24 +177,23 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     }
 
     setState('transcribing')
-    setStatusMsg('Décodage audio…')
+    setStatusMsg('Transcription en cours…')
 
     try {
-      // 1. Décode WebM → Float32Array 16 kHz dans le navigateur
-      const float32 = await decodeAudioTo16kHz(blob)
-      if (float32.length === 0) {
-        setErrorMsg("Aucun audio détecté.")
+      const res = await fetch('/api/ai/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'audio/webm' },
+        body: blob,
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        setErrorMsg(data.error || 'Erreur de transcription.')
         setState('error')
         return
       }
 
-      setStatusMsg('Transcription en cours…')
-
-      // 2. IPC vers le processus principal Electron (Whisper tourne dans un Worker Thread).
-      //    Le buffer est copié avant transfert — postMessage détache l'original.
-      const copy = float32.buffer.slice(0)
-      const text = ((await (window as any).electronAPI.transcribe(copy)) ?? '').trim()
-
+      const text = (data.transcript ?? '').trim()
       if (!text) {
         setErrorMsg("Aucun texte détecté. Vérifiez que le micro capte bien votre voix.")
         setState('error')
@@ -234,14 +204,9 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       setFinalText(text)
       setStatusMsg('')
       setState('idle')
-    } catch (err: any) {
-      console.error('[Whisper]', err)
-      const msg = typeof err?.message === 'string' ? err.message : ''
-      if (msg.includes('non disponible')) {
-        setErrorMsg("Modèle Whisper non chargé. Relancez l'application et patientez quelques secondes.")
-      } else {
-        setErrorMsg("Erreur de transcription. Connexion internet requise au premier lancement pour télécharger le modèle (~77 Mo).")
-      }
+    } catch (err) {
+      console.error('[Groq transcribe]', err)
+      setErrorMsg("Erreur de transcription. Vérifiez votre connexion internet.")
       setState('error')
     }
   }, [])

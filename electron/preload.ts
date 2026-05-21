@@ -42,10 +42,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onLicenseExpired: (callback: (payload: { message: string; code: string }) => void) => {
     ipcRenderer.on('license-expired', (_event, payload) => callback(payload))
   },
-
-  // Whisper transcription — runs in the main process (Node.js) to avoid
-  // Next.js bundler resolution issues with @huggingface/transformers.
-  // Accepts a Float32Array buffer (PCM audio at 16 kHz), returns transcript.
-  transcribe: (buffer: ArrayBuffer): Promise<string> =>
-    ipcRenderer.invoke('whisper:transcribe', buffer),
 })
