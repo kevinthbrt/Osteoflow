@@ -205,22 +205,29 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       // 1. Décode WebM → Float32Array 16 kHz dans le navigateur
       const float32 = await decodeAudioTo16kHz(blob)
 
-      // 2. Envoie les données PCM brutes à l'API route (Whisper tourne côté serveur)
       setStatusMsg('Transcription en cours…')
-      const res = await fetch('/api/ai/transcribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/octet-stream' },
-        body: float32.buffer as ArrayBuffer,
-      })
 
-      const data = await res.json()
-      if (!res.ok) {
-        setErrorMsg(data.error || 'Erreur de transcription.')
-        setState('error')
-        return
+      // 2. En Electron : IPC direct vers le processus principal (Whisper tourne en Node.js,
+      //    hors du bundler Next.js). En navigateur : API route fetch.
+      let text: string
+      if (isElectron()) {
+        text = await (window as any).electronAPI.transcribe(float32.buffer as ArrayBuffer)
+        text = (text ?? '').trim()
+      } else {
+        const res = await fetch('/api/ai/transcribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: float32.buffer as ArrayBuffer,
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          setErrorMsg(data.error || 'Erreur de transcription.')
+          setState('error')
+          return
+        }
+        text = (data.transcript ?? '').trim()
       }
 
-      const text: string = (data.transcript ?? '').trim()
       if (!text) {
         setErrorMsg("Aucun texte détecté. Vérifiez que le micro capte bien votre voix.")
         setState('error')

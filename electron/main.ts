@@ -13,6 +13,32 @@ import { app, BrowserWindow, shell, dialog, Notification, ipcMain, session } fro
 import path from 'path'
 import { startCronJobs, stopCronJobs } from './cron'
 
+// ─── Whisper (local speech recognition) ──────────────────────────────────────
+// Loaded here in the main process so @huggingface/transformers is never seen
+// by the Next.js bundler (webpack/Turbopack). The package is loaded at runtime
+// via require() from this tsc-compiled file — no bundler involved.
+let whisperPipeline: any = null
+
+async function initWhisper(): Promise<void> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { pipeline, env } = require('@huggingface/transformers')
+    env.cacheDir = path.join(app.getPath('userData'), 'whisper-cache')
+    console.log('[Whisper] Chargement du modèle…')
+    whisperPipeline = await pipeline('automatic-speech-recognition', 'Xenova/whisper-base')
+    console.log('[Whisper] Modèle prêt.')
+  } catch (err) {
+    console.error('[Whisper] Erreur de chargement:', err)
+  }
+}
+
+ipcMain.handle('whisper:transcribe', async (_event, buffer: ArrayBuffer) => {
+  if (!whisperPipeline) throw new Error('Modèle Whisper non disponible')
+  const float32 = new Float32Array(buffer)
+  const result = await whisperPipeline(float32, { language: 'french', task: 'transcribe' })
+  return (result?.text ?? '').trim()
+})
+
 // Polyfill diagnostics_channel.tracingChannel for Node.js 18 (Electron 28).
 // nodemailer v7+ requires this API which was added in Node.js 20.
 // Without this polyfill, any email-related API call crashes with:
@@ -433,15 +459,9 @@ app.whenReady().then(async () => {
   startCronJobs(PORT)
   setupAutoUpdater()
 
-  // Déclenche le téléchargement et le chargement du modèle Whisper en arrière-plan.
-  // Comme pipelineReady démarre dès l'import du module, cet appel suffit à
-  // initialiser le module — le modèle sera prêt avant la première dictée.
-  setTimeout(() => {
-    const http = require('http')
-    http.get(`http://localhost:${PORT}/api/ai/transcribe`, () => {
-      console.log('[Electron] Warmup Whisper déclenché')
-    }).on('error', () => {})
-  }, 3000)
+  // Démarre le chargement de Whisper en arrière-plan dès le démarrage de l'app.
+  // Le modèle (~77 Mo) sera prêt bien avant la première dictée.
+  initWhisper()
 
   console.log('[Electron] MyOsteoFlow ready!')
 
