@@ -95,6 +95,7 @@ export async function POST(req: Request) {
         { status: 504 }
       )
     }
-    return NextResponse.json({ error: 'Erreur lors de la transcription.' }, { status: 500 })
+    const detail = err instanceof Error ? err.message : String(err)
+    return NextResponse.json({ error: `Erreur lors de la transcription : ${detail}` }, { status: 500 })
   }
 }

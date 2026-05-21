@@ -305,6 +305,14 @@ function createWindow(): void {
     mainWindow.webContents.openDevTools()
   }
 
+  // Cmd+Option+I (macOS) / Ctrl+Shift+I (Windows) pour ouvrir les DevTools en production
+  mainWindow.webContents.on('before-input-event', (_event, input) => {
+    const toggle =
+      (process.platform === 'darwin' && input.meta && input.alt && input.key === 'i') ||
+      (process.platform !== 'darwin' && input.control && input.shift && input.key === 'I')
+    if (toggle) mainWindow?.webContents.toggleDevTools()
+  })
+
   mainWindow.on('closed', () => {
     mainWindow = null
   })
