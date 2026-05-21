@@ -19,7 +19,10 @@ const PROXY_SECRET_DEFAULT = 'a8c0fcc6aa558582564131768fd6aa6b0628b84ac0abe49494
 
 async function transcribeViaProxy(arrayBuffer: ArrayBuffer, secret: string): Promise<string> {
   const formData = new FormData()
-  formData.append('file', new File([arrayBuffer], 'audio.webm', { type: 'audio/webm' }))
+  // File n'est pas disponible globalement en Node.js 18 (Electron).
+  // Blob + 3ème arg de FormData.append = équivalent portable.
+  const blob = new Blob([arrayBuffer], { type: 'audio/webm' })
+  formData.append('file', blob, 'audio.webm')
 
   const res = await fetch(`${PROXY_BASE}/api/osteoflow/transcribe`, {
     method: 'POST',
@@ -45,7 +48,7 @@ async function transcribeViaGroq(arrayBuffer: ArrayBuffer, apiKey: string): Prom
   const groq = new Groq({ apiKey })
 
   const transcription = await groq.audio.transcriptions.create({
-    file: new File([arrayBuffer], 'audio.webm', { type: 'audio/webm' }),
+    file: Object.assign(new Blob([arrayBuffer], { type: 'audio/webm' }), { name: 'audio.webm' }) as any,
     model: 'whisper-large-v3-turbo',
     language: 'fr',
     response_format: 'text',
