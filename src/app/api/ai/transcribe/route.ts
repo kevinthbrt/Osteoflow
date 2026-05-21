@@ -1,14 +1,18 @@
 import { NextResponse } from 'next/server'
 import path from 'path'
 import os from 'os'
+import { createRequire } from 'module'
 
 export const dynamic = 'force-dynamic'
 
+// createRequire bypasses Turbopack's static import analysis — Turbopack
+// cannot resolve @huggingface/transformers via ESM exports, but the package
+// ships a proper CJS build that Node.js require() handles natively.
+const _require = createRequire(import.meta.url)
+
 // Démarre le chargement du pipeline dès l'import du module (pas dans le handler)
-// → le téléchargement (~77 Mo) ne bloque pas les requêtes en cours.
-// Le handler POST attend simplement que la promesse se résolve.
 const pipelineReady: Promise<any> = (async () => {
-  const { pipeline, env } = await import('@huggingface/transformers')
+  const { pipeline, env } = _require('@huggingface/transformers')
 
   env.cacheDir = process.env.ELECTRON_USER_DATA_PATH
     ? path.join(process.env.ELECTRON_USER_DATA_PATH, 'whisper-cache')
