@@ -63,16 +63,12 @@ function isElectron(): boolean {
 
 async function decodeAudioTo16kHz(blob: Blob): Promise<Float32Array> {
   const arrayBuffer = await blob.arrayBuffer()
-  // Décode avec le sample rate natif
   const ctx = new AudioContext()
-  let decoded: AudioBuffer
-  try {
-    decoded = await ctx.decodeAudioData(arrayBuffer)
-  } finally {
-    ctx.close()
-  }
+  // Décode le WebM/Opus avec le sample rate natif du device
+  const decoded = await ctx.decodeAudioData(arrayBuffer)
+  ctx.close()
 
-  // Rééchantillonne à 16 kHz (Whisper attend 16 000 Hz)
+  // Rééchantillonne à 16 kHz (taux attendu par Whisper)
   const targetRate = 16000
   const offlineCtx = new OfflineAudioContext(
     1,
@@ -210,7 +206,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       const float32 = await decodeAudioTo16kHz(blob)
 
       // 2. Envoie les données PCM brutes à l'API route (Whisper tourne côté serveur)
-      setStatusMsg('Transcription en cours… (premier lancement : chargement du modèle ~77 Mo)')
+      setStatusMsg('Transcription en cours…')
       const res = await fetch('/api/ai/transcribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/octet-stream' },

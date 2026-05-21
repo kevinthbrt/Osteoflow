@@ -433,6 +433,16 @@ app.whenReady().then(async () => {
   startCronJobs(PORT)
   setupAutoUpdater()
 
+  // Déclenche le téléchargement et le chargement du modèle Whisper en arrière-plan.
+  // Comme pipelineReady démarre dès l'import du module, cet appel suffit à
+  // initialiser le module — le modèle sera prêt avant la première dictée.
+  setTimeout(() => {
+    const http = require('http')
+    http.get(`http://localhost:${PORT}/api/ai/transcribe`, () => {
+      console.log('[Electron] Warmup Whisper déclenché')
+    }).on('error', () => {})
+  }, 3000)
+
   console.log('[Electron] MyOsteoFlow ready!')
 
   app.on('activate', () => {
