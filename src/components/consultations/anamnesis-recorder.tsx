@@ -199,11 +199,23 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   // ════════════════════════════════════════════════════════════════════════════
 
   const transcribeBlob = useCallback(async (blob: Blob) => {
+    if (!blob || blob.size === 0) {
+      setErrorMsg("Aucun audio enregistré.")
+      setState('error')
+      return
+    }
+
     setState('transcribing')
     setStatusMsg('Décodage audio…')
+
     try {
       // 1. Décode WebM → Float32Array 16 kHz dans le navigateur
       const float32 = await decodeAudioTo16kHz(blob)
+      if (float32.length === 0) {
+        setErrorMsg("Aucun audio détecté.")
+        setState('error')
+        return
+      }
 
       setStatusMsg('Transcription en cours…')
 
@@ -211,7 +223,9 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       //    hors du bundler Next.js). En navigateur : API route fetch.
       let text: string
       if (isElectron()) {
-        text = await (window as any).electronAPI.transcribe(float32.buffer as ArrayBuffer)
+        // Copie le buffer — les ArrayBuffers transférés via IPC sont détachés
+        const copy = float32.buffer.slice(0)
+        text = await (window as any).electronAPI.transcribe(copy)
         text = (text ?? '').trim()
       } else {
         const res = await fetch('/api/ai/transcribe', {
@@ -238,9 +252,14 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       setFinalText(text)
       setStatusMsg('')
       setState('idle')
-    } catch (err) {
+    } catch (err: any) {
       console.error('[Whisper]', err)
-      setErrorMsg("Erreur de transcription. Connexion internet requise au premier lancement pour télécharger le modèle (~77 Mo).")
+      const msg = typeof err?.message === 'string' ? err.message : ''
+      if (msg.includes('non disponible')) {
+        setErrorMsg("Modèle Whisper non chargé. Relancez l'application et patientez quelques secondes.")
+      } else {
+        setErrorMsg("Erreur de transcription. Connexion internet requise au premier lancement pour télécharger le modèle (~77 Mo).")
+      }
       setState('error')
     }
   }, [])

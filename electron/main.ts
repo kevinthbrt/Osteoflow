@@ -17,25 +17,33 @@ import { startCronJobs, stopCronJobs } from './cron'
 // Loaded here in the main process so @huggingface/transformers is never seen
 // by the Next.js bundler (webpack/Turbopack). The package is loaded at runtime
 // via require() from this tsc-compiled file — no bundler involved.
-let whisperPipeline: any = null
+//
+// whisperReady holds the in-flight promise so that IPC calls arriving while the
+// model is still downloading simply await it instead of throwing immediately.
+let whisperReady: Promise<any> | null = null
 
-async function initWhisper(): Promise<void> {
-  try {
+function initWhisper(): void {
+  whisperReady = (async () => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { pipeline, env } = require('@huggingface/transformers')
     env.cacheDir = path.join(app.getPath('userData'), 'whisper-cache')
     console.log('[Whisper] Chargement du modèle…')
-    whisperPipeline = await pipeline('automatic-speech-recognition', 'Xenova/whisper-base')
+    const pipe = await pipeline('automatic-speech-recognition', 'Xenova/whisper-base')
     console.log('[Whisper] Modèle prêt.')
-  } catch (err) {
+    return pipe
+  })()
+
+  whisperReady.catch((err) => {
     console.error('[Whisper] Erreur de chargement:', err)
-  }
+    whisperReady = null
+  })
 }
 
 ipcMain.handle('whisper:transcribe', async (_event, buffer: ArrayBuffer) => {
-  if (!whisperPipeline) throw new Error('Modèle Whisper non disponible')
+  if (!whisperReady) throw new Error('Modèle Whisper non disponible — relancez l\'application.')
+  const pipe = await whisperReady
   const float32 = new Float32Array(buffer)
-  const result = await whisperPipeline(float32, { language: 'french', task: 'transcribe' })
+  const result = await pipe(float32, { language: 'french', task: 'transcribe' })
   return (result?.text ?? '').trim()
 })
 
