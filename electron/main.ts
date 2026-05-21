@@ -14,37 +14,56 @@ import path from 'path'
 import { startCronJobs, stopCronJobs } from './cron'
 
 // ─── Whisper (local speech recognition) ──────────────────────────────────────
-// Loaded here in the main process so @huggingface/transformers is never seen
-// by the Next.js bundler (webpack/Turbopack). The package is loaded at runtime
-// via require() from this tsc-compiled file — no bundler involved.
-//
-// whisperReady holds the in-flight promise so that IPC calls arriving while the
-// model is still downloading simply await it instead of throwing immediately.
-let whisperReady: Promise<any> | null = null
+// @huggingface/transformers runs in a Worker Thread so ONNX Runtime inference
+// never blocks the main process event loop (which would freeze the Electron
+// window). The main thread only routes IPC ↔ worker messages.
+
+let whisperWorker: any = null
+let whisperWorkerReady: Promise<void> | null = null
+const whisperPending = new Map<number, { resolve: (t: string) => void; reject: (e: Error) => void }>()
+let whisperCallId = 0
 
 function initWhisper(): void {
-  whisperReady = (async () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { pipeline, env } = require('@huggingface/transformers')
-    env.cacheDir = path.join(app.getPath('userData'), 'whisper-cache')
-    console.log('[Whisper] Chargement du modèle…')
-    const pipe = await pipeline('automatic-speech-recognition', 'Xenova/whisper-base')
-    console.log('[Whisper] Modèle prêt.')
-    return pipe
-  })()
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { Worker } = require('worker_threads')
+  const workerPath = path.join(__dirname, 'whisper-worker.js')
+  const cacheDir = path.join(app.getPath('userData'), 'whisper-cache')
 
-  whisperReady.catch((err) => {
-    console.error('[Whisper] Erreur de chargement:', err)
-    whisperReady = null
+  whisperWorker = new Worker(workerPath, { workerData: { cacheDir } })
+
+  whisperWorkerReady = new Promise<void>((resolve, reject) => {
+    whisperWorker.once('message', (msg: any) => {
+      if (msg.type === 'ready') resolve()
+      else reject(new Error(msg.error ?? 'Whisper worker init failed'))
+    })
+  })
+
+  whisperWorker.on('message', (msg: any) => {
+    if (msg.type === 'ready' || msg.type === 'error') return // handled above
+    const cb = whisperPending.get(msg.id)
+    if (!cb) return
+    whisperPending.delete(msg.id)
+    if (msg.error) cb.reject(new Error(msg.error))
+    else cb.resolve(msg.text)
+  })
+
+  whisperWorker.on('error', (err: Error) => {
+    console.error('[Whisper Worker] Crash:', err)
+    whisperWorkerReady = null
+    for (const cb of whisperPending.values()) cb.reject(err)
+    whisperPending.clear()
   })
 }
 
 ipcMain.handle('whisper:transcribe', async (_event, buffer: ArrayBuffer) => {
-  if (!whisperReady) throw new Error('Modèle Whisper non disponible — relancez l\'application.')
-  const pipe = await whisperReady
-  const float32 = new Float32Array(buffer)
-  const result = await pipe(float32, { language: 'french', task: 'transcribe' })
-  return (result?.text ?? '').trim()
+  if (!whisperWorkerReady) throw new Error('Modèle Whisper non disponible — relancez l\'application.')
+  await whisperWorkerReady
+  const id = ++whisperCallId
+  return new Promise<string>((resolve, reject) => {
+    whisperPending.set(id, { resolve, reject })
+    // Transfer the ArrayBuffer zero-copy to the worker thread
+    whisperWorker.postMessage({ id, buffer }, [buffer])
+  })
 })
 
 // Polyfill diagnostics_channel.tracingChannel for Node.js 18 (Electron 28).
