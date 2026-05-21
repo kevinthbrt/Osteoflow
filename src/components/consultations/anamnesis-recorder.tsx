@@ -87,8 +87,35 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   // au lieu de le remplacer (utilisé pour la continuation après arrêt automatique).
   const isContinuingRef = useRef(false)
 
+  // ── Persistance localStorage (survie à la veille/rechargement) ────────────
+  const DRAFT_KEY = 'osteoflow-anamnesis-draft'
+  const DRAFT_TTL_MS = 24 * 60 * 60 * 1000 // 24h
+
+  const saveDraft = useCallback((text: string, structuredData: typeof structured) => {
+    if (!text && !structuredData) { localStorage.removeItem(DRAFT_KEY); return }
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ text, structured: structuredData, savedAt: Date.now() }))
+  }, [])
+
+  const clearDraft = useCallback(() => { localStorage.removeItem(DRAFT_KEY) }, [])
+
+  // Restaure le brouillon au montage si < 24h
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY)
+      if (!raw) return
+      const { text, structured: s, savedAt } = JSON.parse(raw)
+      if (Date.now() - savedAt > DRAFT_TTL_MS) { clearDraft(); return }
+      if (text) { finalTextRef.current = text; setFinalText(text) }
+      if (s) setStructured(s)
+      if (s) setState('done')
+    } catch { clearDraft() }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => { finalTextRef.current = finalText }, [finalText])
   useEffect(() => { stateRef.current = state }, [state])
+  // Sauvegarde dès que le texte ou le résultat structuré change
+  useEffect(() => { saveDraft(finalText, structured) }, [finalText, structured, saveDraft])
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
@@ -144,6 +171,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     mediaStreamRef.current?.getTracks().forEach((t) => t.stop())
     mediaStreamRef.current = null
     stopTimer()
+    clearDraft()
     setState('idle')
     setFinalText('')
     setInterimText('')
@@ -154,7 +182,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     restartCountRef.current = 0
     finalTextRef.current = ''
     audioChunksRef.current = []
-  }, [stopTimer, stopReconnectTimer])
+  }, [stopTimer, stopReconnectTimer, clearDraft])
 
   useEffect(() => {
     return () => {
@@ -417,6 +445,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   const handleApply = useCallback(() => {
     if (!structured) return
     onApply(structured)
+    clearDraft()
     setTimeout(() => {
       setState('idle')
       setFinalText('')
@@ -427,7 +456,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       setElapsed(0)
       finalTextRef.current = ''
     }, 300)
-  }, [structured, onApply])
+  }, [structured, onApply, clearDraft])
 
   // ─── Rendu ────────────────────────────────────────────────────────────────
 
