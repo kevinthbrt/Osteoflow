@@ -1,6 +1,6 @@
 {
   "name": "myosteoflow",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
+    "@huggingface/transformers": "^4.2.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
     "@radix-ui/react-avatar": "^1.1.0",
@@ -114,8 +115,20 @@
     "mac": {
       "icon": "assets/icon.png",
       "target": [
-        { "target": "dmg", "arch": ["arm64", "x64"] },
-        { "target": "zip", "arch": ["arm64", "x64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ],
       "category": "public.app-category.medical",
       "minimumSystemVersion": "10.15.0",
@@ -130,10 +143,20 @@
     },
     "dmg": {
       "contents": [
-        { "x": 130, "y": 220 },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" },
         {
-          "x": 270, "y": 380, "type": "file",
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 270,
+          "y": 380,
+          "type": "file",
           "path": "installer/Ouvrir Osteoflow.command",
           "name": "⚠️ Si app bloquée — double-cliquez ici.command"
         }
