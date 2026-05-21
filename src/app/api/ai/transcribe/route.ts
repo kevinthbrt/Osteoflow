@@ -27,6 +27,9 @@ async function transcribeViaProxy(arrayBuffer: ArrayBuffer, secret: string): Pro
 
   if (!res.ok) {
     const err = await res.text()
+    if (res.status === 429) {
+      throw Object.assign(new Error(`Proxy error 429: ${err}`), { isRateLimit: true })
+    }
     throw new Error(`Proxy error ${res.status}: ${err}`)
   }
 
@@ -74,8 +77,14 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ transcript: text })
-  } catch (err) {
+  } catch (err: any) {
     console.error('[Transcribe]', err)
+    if (err?.isRateLimit || (err instanceof Error && err.message.includes('429'))) {
+      return NextResponse.json(
+        { error: 'Limite quotidienne de transcription atteinte. Réessayez demain ou contactez le support.' },
+        { status: 429 }
+      )
+    }
     return NextResponse.json({ error: 'Erreur lors de la transcription.' }, { status: 500 })
   }
 }

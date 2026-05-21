@@ -49,6 +49,8 @@ function getSpeechRecognition(): (new () => SpeechRecognitionInstance) | null {
 }
 
 const MAX_RESTARTS = 10
+const MAX_RECORD_SECONDS = 300  // 5 minutes — limite Groq + protection contre les oublis
+const WARN_RECORD_SECONDS = 240 // avertissement à 4 minutes
 
 function isElectron(): boolean {
   return typeof window !== 'undefined' && !!(window as any).electronAPI?.isDesktop
@@ -257,6 +259,13 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
   }, [stopTimer])
 
+  // Auto-stop à MAX_RECORD_SECONDS — doit être après stopMediaRecorder
+  useEffect(() => {
+    if (state === 'recording' && elapsed >= MAX_RECORD_SECONDS) {
+      stopMediaRecorder()
+    }
+  }, [elapsed, state, stopMediaRecorder])
+
   // ════════════════════════════════════════════════════════════════════════════
   // MODE B – Web Speech API (navigateur)
   // Transcription en temps réel via l'API speech intégrée au navigateur.
@@ -436,7 +445,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
               Dictée de l&apos;anamnèse
               {isElectron() && (
                 <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded px-1.5 py-0.5 font-normal">
-                  Whisper local
+                  Groq Whisper
                 </span>
               )}
             </span>
@@ -456,6 +465,14 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
           </Button>
         )}
       </div>
+
+      {/* Avertissement durée — à 4 min, arrêt automatique à 5 min */}
+      {state === 'recording' && elapsed >= WARN_RECORD_SECONDS && (
+        <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-1.5">
+          <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+          Arrêt automatique dans {formatTime(MAX_RECORD_SECONDS - elapsed)} — pensez à structurer l&apos;anamnèse.
+        </div>
+      )}
 
       {/* Transcript */}
       {(state === 'recording' ||
