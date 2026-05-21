@@ -83,6 +83,9 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<BlobPart[]>([])
   const mediaStreamRef = useRef<MediaStream | null>(null)
+  // Quand true, transcribeBlob ajoute le nouveau texte à la suite du texte existant
+  // au lieu de le remplacer (utilisé pour la continuation après arrêt automatique).
+  const isContinuingRef = useRef(false)
 
   useEffect(() => { finalTextRef.current = finalText }, [finalText])
   useEffect(() => { stateRef.current = state }, [state])
@@ -178,6 +181,10 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       return
     }
 
+    const continuing = isContinuingRef.current
+    isContinuingRef.current = false
+    const previousText = continuing ? finalTextRef.current : ''
+
     setState('transcribing')
     setStatusMsg('Transcription en cours…')
 
@@ -195,15 +202,16 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
         return
       }
 
-      const text = (data.transcript ?? '').trim()
-      if (!text) {
+      const newText = (data.transcript ?? '').trim()
+      if (!newText) {
         setErrorMsg("Aucun texte détecté. Vérifiez que le micro capte bien votre voix.")
         setState('error')
         return
       }
 
-      finalTextRef.current = text
-      setFinalText(text)
+      const combined = previousText ? previousText.trimEnd() + ' ' + newText : newText
+      finalTextRef.current = combined
+      setFinalText(combined)
       setStatusMsg('')
       setState('idle')
     } catch (err) {
@@ -258,6 +266,46 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     stopTimer()
     if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
   }, [stopTimer])
+
+  // Relance l'enregistrement en conservant le texte déjà transcrit.
+  const continueMediaRecorder = useCallback(async () => {
+    isContinuingRef.current = true
+    setInterimText('')
+    setStructured(null)
+    setErrorMsg('')
+    setStatusMsg('')
+    setElapsed(0)
+    audioChunksRef.current = []
+    intentionalStopRef.current = false
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaStreamRef.current = stream
+      const recorder = new MediaRecorder(stream)
+      audioChunksRef.current = []
+
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop())
+        mediaStreamRef.current = null
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        transcribeBlob(blob).catch((err) => {
+          console.error('[Recorder] transcribeBlob:', err)
+          setErrorMsg('Erreur inattendue lors de la transcription.')
+          setState('error')
+        })
+      }
+
+      recorder.start()
+      mediaRecorderRef.current = recorder
+      setState('recording')
+      timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000)
+    } catch {
+      isContinuingRef.current = false
+      setErrorMsg("Impossible d'accéder au microphone. Vérifiez les permissions.")
+      setState('error')
+    }
+  }, [transcribeBlob])
 
   // Auto-stop à MAX_RECORD_SECONDS — doit être après stopMediaRecorder
   useEffect(() => {
@@ -552,10 +600,18 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
         )}
 
         {(state === 'idle' || state === 'error') && hasTranscript && (
-          <Button type="button" size="sm" onClick={handleStructure} className="gap-1.5">
-            <Sparkles className="h-3.5 w-3.5" />
-            Structurer avec Claude
-          </Button>
+          <>
+            <Button type="button" size="sm" onClick={handleStructure} className="gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" />
+              Structurer avec Claude
+            </Button>
+            {isElectron() && state === 'idle' && (
+              <Button type="button" size="sm" variant="outline" onClick={continueMediaRecorder} className="gap-1.5">
+                <Mic className="h-3.5 w-3.5" />
+                Continuer la dictée
+              </Button>
+            )}
+          </>
         )}
 
         {state === 'done' && (
