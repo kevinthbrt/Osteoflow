@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     let text: string
 
     const groqKey = process.env.GROQ_API_KEY
-    const proxySecret = process.env.OSTEOFLOW_PROXY_SECRET
+    const proxySecret = process.env.OSTEOFLOW_PROXY_SECRET || PROXY_SECRET_DEFAULT
 
     if (proxySecret) {
       // Mode proxy — production commerciale (pas de clé Groq nécessaire côté client)
