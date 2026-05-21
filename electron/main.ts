@@ -400,6 +400,9 @@ app.on('second-instance', () => {
 app.whenReady().then(async () => {
   console.log('[Electron] Starting MyOsteoFlow...')
 
+  // Expose le chemin userData au serveur Next.js pour le cache Whisper
+  process.env.ELECTRON_USER_DATA_PATH = app.getPath('userData')
+
   // Allow microphone access for speech recognition (dictée IA).
   // setPermissionRequestHandler: called when the page explicitly requests permission.
   // setPermissionCheckHandler: called when the page checks whether permission is already granted.

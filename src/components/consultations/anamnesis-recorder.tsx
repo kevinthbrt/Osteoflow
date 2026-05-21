@@ -57,43 +57,9 @@ function isElectron(): boolean {
   return typeof window !== 'undefined' && !!(window as any).electronAPI?.isDesktop
 }
 
-// ─── Singleton Whisper (chargé une seule fois, en cache après le premier dl) ──
-
-let whisperPipeline: any = null
-let whisperLoading: Promise<any> | null = null
-
-async function getWhisperPipeline(
-  onProgress: (msg: string) => void
-): Promise<any> {
-  if (whisperPipeline) return whisperPipeline
-
-  // Évite de charger plusieurs fois en parallèle
-  if (!whisperLoading) {
-    whisperLoading = (async () => {
-      const { pipeline } = await import('@huggingface/transformers')
-
-      whisperPipeline = await pipeline(
-        'automatic-speech-recognition',
-        'Xenova/whisper-base',
-        {
-          progress_callback: (p: any) => {
-            if (p?.status === 'downloading') {
-              const pct = p.progress != null ? `${Math.round(p.progress)}%` : ''
-              onProgress(`Téléchargement du modèle Whisper… ${pct}`)
-            } else if (p?.status === 'loading') {
-              onProgress('Chargement du modèle…')
-            }
-          },
-        }
-      )
-      return whisperPipeline
-    })()
-  }
-
-  return whisperLoading
-}
-
 // ─── Décode un Blob WebM/Opus en Float32Array 16 kHz (entrée attendue par Whisper) ──
+// Fait côté navigateur via AudioContext — évite tout import de bibliothèque lourde
+// dans le bundle client.
 
 async function decodeAudioTo16kHz(blob: Blob): Promise<Float32Array> {
   const arrayBuffer = await blob.arrayBuffer()
@@ -238,16 +204,27 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
 
   const transcribeBlob = useCallback(async (blob: Blob) => {
     setState('transcribing')
-    setStatusMsg('Préparation…')
+    setStatusMsg('Décodage audio…')
     try {
+      // 1. Décode WebM → Float32Array 16 kHz dans le navigateur
       const float32 = await decodeAudioTo16kHz(blob)
 
-      const pipe = await getWhisperPipeline((msg) => setStatusMsg(msg))
-      setStatusMsg('Transcription en cours…')
+      // 2. Envoie les données PCM brutes à l'API route (Whisper tourne côté serveur)
+      setStatusMsg('Transcription en cours… (premier lancement : chargement du modèle ~77 Mo)')
+      const res = await fetch('/api/ai/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: float32.buffer as ArrayBuffer,
+      })
 
-      const result = await pipe(float32, { language: 'french', task: 'transcribe' })
-      const text: string = (result?.text ?? '').trim()
+      const data = await res.json()
+      if (!res.ok) {
+        setErrorMsg(data.error || 'Erreur de transcription.')
+        setState('error')
+        return
+      }
 
+      const text: string = (data.transcript ?? '').trim()
       if (!text) {
         setErrorMsg("Aucun texte détecté. Vérifiez que le micro capte bien votre voix.")
         setState('error')

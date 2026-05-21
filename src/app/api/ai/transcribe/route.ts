@@ -1,50 +1,55 @@
 import { NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/database/connection'
+import path from 'path'
+import os from 'os'
 
 export const dynamic = 'force-dynamic'
 
+// Singleton — le pipeline est chargé une seule fois puis gardé en mémoire
+let whisperPipeline: any = null
+let whisperLoading: Promise<any> | null = null
+
+async function getPipeline() {
+  if (whisperPipeline) return whisperPipeline
+  if (!whisperLoading) {
+    whisperLoading = (async () => {
+      const { pipeline, env } = await import('@huggingface/transformers')
+
+      // Cache du modèle dans un répertoire accessible en écriture
+      const cacheDir = process.env.ELECTRON_USER_DATA_PATH
+        ? path.join(process.env.ELECTRON_USER_DATA_PATH, 'whisper-cache')
+        : path.join(os.homedir(), '.cache', 'myosteoflow', 'whisper')
+
+      env.cacheDir = cacheDir
+
+      whisperPipeline = await pipeline(
+        'automatic-speech-recognition',
+        'Xenova/whisper-base'
+      )
+      return whisperPipeline
+    })()
+  }
+  return whisperLoading
+}
+
 export async function POST(req: Request) {
   try {
-    const db = getDatabase()
-    const keyRow = db
-      .prepare("SELECT value FROM app_config WHERE key = 'openai_api_key'")
-      .get() as { value: string } | undefined
-    const apiKey = keyRow?.value
-
-    if (!apiKey) {
-      return NextResponse.json({ error: 'NO_KEY' }, { status: 400 })
+    // Le client envoie un Float32Array (PCM 16 kHz, mono) en binaire brut.
+    // Le décodage WebM → Float32 est fait côté navigateur via AudioContext.
+    const arrayBuffer = await req.arrayBuffer()
+    if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+      return NextResponse.json({ error: 'Aucune donnée audio reçue' }, { status: 400 })
     }
 
-    const formData = await req.formData()
-    const audio = formData.get('audio') as File | null
+    const float32 = new Float32Array(arrayBuffer)
+    const pipe = await getPipeline()
 
-    if (!audio || audio.size === 0) {
-      return NextResponse.json({ error: 'Aucun fichier audio reçu' }, { status: 400 })
-    }
-
-    const whisperForm = new FormData()
-    whisperForm.append('file', audio, 'recording.webm')
-    whisperForm.append('model', 'whisper-1')
-    whisperForm.append('language', 'fr')
-
-    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: whisperForm,
-      signal: AbortSignal.timeout(60000),
+    const result = await pipe(float32, {
+      language: 'french',
+      task: 'transcribe',
     })
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      console.error('[Transcribe] Whisper error:', res.status, err)
-      return NextResponse.json(
-        { error: err?.error?.message || `Erreur Whisper (${res.status})` },
-        { status: 502 }
-      )
-    }
-
-    const data = await res.json()
-    return NextResponse.json({ transcript: data.text ?? '' })
+    const transcript: string = (result?.text ?? '').trim()
+    return NextResponse.json({ transcript })
   } catch (err) {
     console.error('[Transcribe]', err)
     return NextResponse.json({ error: 'Erreur lors de la transcription.' }, { status: 500 })
