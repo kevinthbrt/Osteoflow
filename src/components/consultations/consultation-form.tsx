@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -208,6 +208,17 @@ export function ConsultationForm({
   }, [])
 
   useEffect(() => { paymentsRef.current = payments }, [payments])
+
+  // Exposé via ref pour être appelé immédiatement depuis onApply (sans debounce)
+  const saveDraftNow = useCallback(() => {
+    if (mode !== 'create' || submittedRef.current) return
+    const values = getValues()
+    fetch('/api/consultation/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...values, payments: paymentsRef.current }),
+    }).catch(() => {})
+  }, [mode, getValues])
 
   // Auto-save draft every 30s + restore on unlock (create mode only)
   useEffect(() => {
@@ -673,6 +684,9 @@ export function ConsultationForm({
                 onApply={(data) => {
                   if (data.reason) setValue('reason', data.reason, { shouldDirty: true })
                   if (data.anamnesis) setValue('anamnesis', data.anamnesis, { shouldDirty: true })
+                  // Sauvegarde immédiate — sans attendre le debounce de 3s
+                  // car l'utilisateur peut mettre l'ordi en veille juste après.
+                  setTimeout(saveDraftNow, 0)
                 }}
                 disabled={isLoading}
               />
