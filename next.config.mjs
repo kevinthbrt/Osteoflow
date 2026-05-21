@@ -12,7 +12,7 @@ const nextConfig = {
     unoptimized: true,
   },
   // Exclude native modules from webpack bundling (they're loaded by Node.js directly)
-  serverExternalPackages: ['better-sqlite3', 'nodemailer', 'imapflow'],
+  serverExternalPackages: ['better-sqlite3', 'nodemailer', 'imapflow', '@huggingface/transformers'],
   // driver.js name contains a dot which confuses Turbopack resolution
   transpilePackages: ['driver.js'],
 }

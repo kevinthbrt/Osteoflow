@@ -49,76 +49,11 @@ function getSpeechRecognition(): (new () => SpeechRecognitionInstance) | null {
 }
 
 const MAX_RESTARTS = 10
+const MAX_RECORD_SECONDS = 300  // 5 minutes — limite Groq + protection contre les oublis
+const WARN_RECORD_SECONDS = 240 // avertissement à 4 minutes
 
-// Vrai quand on est dans l'app desktop Electron.
-// webkitSpeechRecognition nécessite les clés API Google (absentes d'Electron),
-// on bascule donc sur MediaRecorder + Whisper local via Transformers.js.
 function isElectron(): boolean {
   return typeof window !== 'undefined' && !!(window as any).electronAPI?.isDesktop
-}
-
-// ─── Singleton Whisper (chargé une seule fois, en cache après le premier dl) ──
-
-let whisperPipeline: any = null
-let whisperLoading: Promise<any> | null = null
-
-async function getWhisperPipeline(
-  onProgress: (msg: string) => void
-): Promise<any> {
-  if (whisperPipeline) return whisperPipeline
-
-  // Évite de charger plusieurs fois en parallèle
-  if (!whisperLoading) {
-    whisperLoading = (async () => {
-      const { pipeline } = await import('@huggingface/transformers')
-
-      whisperPipeline = await pipeline(
-        'automatic-speech-recognition',
-        'Xenova/whisper-base',
-        {
-          progress_callback: (p: any) => {
-            if (p?.status === 'downloading') {
-              const pct = p.progress != null ? `${Math.round(p.progress)}%` : ''
-              onProgress(`Téléchargement du modèle Whisper… ${pct}`)
-            } else if (p?.status === 'loading') {
-              onProgress('Chargement du modèle…')
-            }
-          },
-        }
-      )
-      return whisperPipeline
-    })()
-  }
-
-  return whisperLoading
-}
-
-// ─── Décode un Blob WebM/Opus en Float32Array 16 kHz (entrée attendue par Whisper) ──
-
-async function decodeAudioTo16kHz(blob: Blob): Promise<Float32Array> {
-  const arrayBuffer = await blob.arrayBuffer()
-  // Décode avec le sample rate natif
-  const ctx = new AudioContext()
-  let decoded: AudioBuffer
-  try {
-    decoded = await ctx.decodeAudioData(arrayBuffer)
-  } finally {
-    ctx.close()
-  }
-
-  // Rééchantillonne à 16 kHz (Whisper attend 16 000 Hz)
-  const targetRate = 16000
-  const offlineCtx = new OfflineAudioContext(
-    1,
-    Math.ceil(decoded.duration * targetRate),
-    targetRate
-  )
-  const src = offlineCtx.createBufferSource()
-  src.buffer = decoded
-  src.connect(offlineCtx.destination)
-  src.start(0)
-  const resampled = await offlineCtx.startRendering()
-  return resampled.getChannelData(0)
 }
 
 // ─── Composant ───────────────────────────────────────────────────────────────
@@ -148,9 +83,39 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<BlobPart[]>([])
   const mediaStreamRef = useRef<MediaStream | null>(null)
+  // Quand true, transcribeBlob ajoute le nouveau texte à la suite du texte existant
+  // au lieu de le remplacer (utilisé pour la continuation après arrêt automatique).
+  const isContinuingRef = useRef(false)
+
+  // ── Persistance localStorage (survie à la veille/rechargement) ────────────
+  const DRAFT_KEY = 'osteoflow-anamnesis-draft'
+  const DRAFT_TTL_MS = 24 * 60 * 60 * 1000 // 24h
+
+  const saveDraft = useCallback((text: string, structuredData: typeof structured) => {
+    if (!text && !structuredData) { localStorage.removeItem(DRAFT_KEY); return }
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ text, structured: structuredData, savedAt: Date.now() }))
+  }, [])
+
+  const clearDraft = useCallback(() => { localStorage.removeItem(DRAFT_KEY) }, [])
+
+  // Restaure le brouillon au montage si < 24h
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY)
+      if (!raw) return
+      const { text, structured: s, savedAt } = JSON.parse(raw)
+      if (Date.now() - savedAt > DRAFT_TTL_MS) { clearDraft(); return }
+      if (text) { finalTextRef.current = text; setFinalText(text) }
+      if (s) setStructured(s)
+      if (s) setState('done')
+    } catch { clearDraft() }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => { finalTextRef.current = finalText }, [finalText])
   useEffect(() => { stateRef.current = state }, [state])
+  // Sauvegarde dès que le texte ou le résultat structuré change
+  useEffect(() => { saveDraft(finalText, structured) }, [finalText, structured, saveDraft])
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
@@ -206,6 +171,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     mediaStreamRef.current?.getTracks().forEach((t) => t.stop())
     mediaStreamRef.current = null
     stopTimer()
+    clearDraft()
     setState('idle')
     setFinalText('')
     setInterimText('')
@@ -216,7 +182,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     restartCountRef.current = 0
     finalTextRef.current = ''
     audioChunksRef.current = []
-  }, [stopTimer, stopReconnectTimer])
+  }, [stopTimer, stopReconnectTimer, clearDraft])
 
   useEffect(() => {
     return () => {
@@ -230,37 +196,55 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   }, [stopTimer, stopReconnectTimer])
 
   // ════════════════════════════════════════════════════════════════════════════
-  // MODE A – MediaRecorder + Whisper local (Electron)
+  // MODE A – MediaRecorder + Groq Whisper API (Electron)
   // webkitSpeechRecognition nécessite les clés Google absentes d'Electron.
-  // On enregistre l'audio avec MediaRecorder, puis on transcrit localement
-  // via Transformers.js (modèle Xenova/whisper-base, ~77 Mo, mis en cache).
+  // On enregistre l'audio avec MediaRecorder, puis on envoie le blob WebM
+  // directement à notre API route qui appelle Groq (Whisper large-v3-turbo).
   // ════════════════════════════════════════════════════════════════════════════
 
   const transcribeBlob = useCallback(async (blob: Blob) => {
+    if (!blob || blob.size === 0) {
+      setErrorMsg("Aucun audio enregistré.")
+      setState('error')
+      return
+    }
+
+    const continuing = isContinuingRef.current
+    isContinuingRef.current = false
+    const previousText = continuing ? finalTextRef.current : ''
+
     setState('transcribing')
-    setStatusMsg('Préparation…')
+    setStatusMsg('Transcription en cours…')
+
     try {
-      const float32 = await decodeAudioTo16kHz(blob)
+      const res = await fetch('/api/ai/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'audio/webm' },
+        body: blob,
+      })
 
-      const pipe = await getWhisperPipeline((msg) => setStatusMsg(msg))
-      setStatusMsg('Transcription en cours…')
+      const data = await res.json()
+      if (!res.ok) {
+        setErrorMsg(data.error || 'Erreur de transcription.')
+        setState('error')
+        return
+      }
 
-      const result = await pipe(float32, { language: 'french', task: 'transcribe' })
-      const text: string = (result?.text ?? '').trim()
-
-      if (!text) {
+      const newText = (data.transcript ?? '').trim()
+      if (!newText) {
         setErrorMsg("Aucun texte détecté. Vérifiez que le micro capte bien votre voix.")
         setState('error')
         return
       }
 
-      finalTextRef.current = text
-      setFinalText(text)
+      const combined = previousText ? previousText.trimEnd() + ' ' + newText : newText
+      finalTextRef.current = combined
+      setFinalText(combined)
       setStatusMsg('')
       setState('idle')
     } catch (err) {
-      console.error('[Whisper]', err)
-      setErrorMsg("Erreur de transcription. Connexion internet requise au premier lancement pour télécharger le modèle (~77 Mo).")
+      console.error('[Groq transcribe]', err)
+      setErrorMsg("Erreur de transcription. Vérifiez votre connexion internet.")
       setState('error')
     }
   }, [])
@@ -287,7 +271,13 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
         stream.getTracks().forEach((t) => t.stop())
         mediaStreamRef.current = null
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-        transcribeBlob(blob)
+        // .catch() is mandatory — an unhandled async rejection triggers webpack
+        // HMR full reload which shows a white screen in dev mode.
+        transcribeBlob(blob).catch((err) => {
+          console.error('[Recorder] transcribeBlob:', err)
+          setErrorMsg('Erreur inattendue lors de la transcription.')
+          setState('error')
+        })
       }
 
       recorder.start()
@@ -304,6 +294,53 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     stopTimer()
     if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
   }, [stopTimer])
+
+  // Relance l'enregistrement en conservant le texte déjà transcrit.
+  const continueMediaRecorder = useCallback(async () => {
+    isContinuingRef.current = true
+    setInterimText('')
+    setStructured(null)
+    setErrorMsg('')
+    setStatusMsg('')
+    setElapsed(0)
+    audioChunksRef.current = []
+    intentionalStopRef.current = false
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaStreamRef.current = stream
+      const recorder = new MediaRecorder(stream)
+      audioChunksRef.current = []
+
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop())
+        mediaStreamRef.current = null
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        transcribeBlob(blob).catch((err) => {
+          console.error('[Recorder] transcribeBlob:', err)
+          setErrorMsg('Erreur inattendue lors de la transcription.')
+          setState('error')
+        })
+      }
+
+      recorder.start()
+      mediaRecorderRef.current = recorder
+      setState('recording')
+      timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000)
+    } catch {
+      isContinuingRef.current = false
+      setErrorMsg("Impossible d'accéder au microphone. Vérifiez les permissions.")
+      setState('error')
+    }
+  }, [transcribeBlob])
+
+  // Auto-stop à MAX_RECORD_SECONDS — doit être après stopMediaRecorder
+  useEffect(() => {
+    if (state === 'recording' && elapsed >= MAX_RECORD_SECONDS) {
+      stopMediaRecorder()
+    }
+  }, [elapsed, state, stopMediaRecorder])
 
   // ════════════════════════════════════════════════════════════════════════════
   // MODE B – Web Speech API (navigateur)
@@ -408,6 +445,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   const handleApply = useCallback(() => {
     if (!structured) return
     onApply(structured)
+    clearDraft()
     setTimeout(() => {
       setState('idle')
       setFinalText('')
@@ -418,7 +456,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       setElapsed(0)
       finalTextRef.current = ''
     }, 300)
-  }, [structured, onApply])
+  }, [structured, onApply, clearDraft])
 
   // ─── Rendu ────────────────────────────────────────────────────────────────
 
@@ -484,7 +522,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
               Dictée de l&apos;anamnèse
               {isElectron() && (
                 <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded px-1.5 py-0.5 font-normal">
-                  Whisper local
+                  Groq Whisper
                 </span>
               )}
             </span>
@@ -504,6 +542,14 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
           </Button>
         )}
       </div>
+
+      {/* Avertissement durée — à 4 min, arrêt automatique à 5 min */}
+      {state === 'recording' && elapsed >= WARN_RECORD_SECONDS && (
+        <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-1.5">
+          <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+          Arrêt automatique dans {formatTime(MAX_RECORD_SECONDS - elapsed)} — pensez à structurer l&apos;anamnèse.
+        </div>
+      )}
 
       {/* Transcript */}
       {(state === 'recording' ||
@@ -583,10 +629,18 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
         )}
 
         {(state === 'idle' || state === 'error') && hasTranscript && (
-          <Button type="button" size="sm" onClick={handleStructure} className="gap-1.5">
-            <Sparkles className="h-3.5 w-3.5" />
-            Structurer avec Claude
-          </Button>
+          <>
+            <Button type="button" size="sm" onClick={handleStructure} className="gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" />
+              Structurer avec Claude
+            </Button>
+            {isElectron() && state === 'idle' && (
+              <Button type="button" size="sm" variant="outline" onClick={continueMediaRecorder} className="gap-1.5">
+                <Mic className="h-3.5 w-3.5" />
+                Continuer la dictée
+              </Button>
+            )}
+          </>
         )}
 
         {state === 'done' && (

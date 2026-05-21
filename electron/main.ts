@@ -13,6 +13,7 @@ import { app, BrowserWindow, shell, dialog, Notification, ipcMain, session } fro
 import path from 'path'
 import { startCronJobs, stopCronJobs } from './cron'
 
+
 // Polyfill diagnostics_channel.tracingChannel for Node.js 18 (Electron 28).
 // nodemailer v7+ requires this API which was added in Node.js 20.
 // Without this polyfill, any email-related API call crashes with:
@@ -399,6 +400,9 @@ app.on('second-instance', () => {
 
 app.whenReady().then(async () => {
   console.log('[Electron] Starting MyOsteoFlow...')
+
+  // Expose le chemin userData au serveur Next.js pour le cache Whisper
+  process.env.ELECTRON_USER_DATA_PATH = app.getPath('userData')
 
   // Allow microphone access for speech recognition (dictée IA).
   // setPermissionRequestHandler: called when the page explicitly requests permission.
