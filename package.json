@@ -5,7 +5,7 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "next dev -p 3456",
-    "dev:electron": "npm run build:electron && concurrently \"npm run dev\" \"wait-on http://localhost:3456 && electron .\"",
+    "dev:electron": "npm run build:electron && concurrently \"next dev --webpack -p 3456\" \"wait-on http://localhost:3456 && electron .\"",
     "build": "next build",
     "build:electron": "tsc -p electron/tsconfig.json",
     "start": "next start -p 3456",
