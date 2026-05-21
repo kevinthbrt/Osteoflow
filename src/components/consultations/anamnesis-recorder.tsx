@@ -56,6 +56,60 @@ function isElectron(): boolean {
   return typeof window !== 'undefined' && !!(window as any).electronAPI?.isDesktop
 }
 
+// ─── IndexedDB — cache audio blob (survie à la veille / erreur réseau) ────────
+
+const IDB_NAME = 'osteoflow-audio'
+const IDB_STORE = 'drafts'
+const IDB_KEY = 'current'
+const IDB_TTL_MS = 24 * 60 * 60 * 1000
+
+function openAudioDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1)
+    req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE)
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
+}
+
+async function saveAudioBlob(blob: Blob): Promise<void> {
+  try {
+    const db = await openAudioDB()
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite')
+      tx.objectStore(IDB_STORE).put({ blob, savedAt: Date.now() }, IDB_KEY)
+      tx.oncomplete = () => { db.close(); resolve() }
+      tx.onerror = () => reject(tx.error)
+    })
+  } catch (e) { console.warn('[AudioCache] save failed', e) }
+}
+
+async function loadAudioBlob(): Promise<Blob | null> {
+  try {
+    const db = await openAudioDB()
+    return await new Promise<Blob | null>((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readonly')
+      const req = tx.objectStore(IDB_STORE).get(IDB_KEY)
+      req.onsuccess = () => {
+        db.close()
+        const record = req.result
+        if (!record || Date.now() - record.savedAt > IDB_TTL_MS) { resolve(null); return }
+        resolve(record.blob)
+      }
+      req.onerror = () => { db.close(); resolve(null) }
+    })
+  } catch { return null }
+}
+
+async function clearAudioBlob(): Promise<void> {
+  try {
+    const db = await openAudioDB()
+    const tx = db.transaction(IDB_STORE, 'readwrite')
+    tx.objectStore(IDB_STORE).delete(IDB_KEY)
+    tx.oncomplete = () => db.close()
+  } catch { /* silencieux */ }
+}
+
 // ─── Composant ───────────────────────────────────────────────────────────────
 
 export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps) {
@@ -66,6 +120,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   const [errorMsg, setErrorMsg] = useState('')
   const [statusMsg, setStatusMsg] = useState('')
   const [elapsed, setElapsed] = useState(0)
+  const [hasCachedAudio, setHasCachedAudio] = useState(false)
 
   // ── Refs communs ──────────────────────────────────────────────────────────
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -98,17 +153,21 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
 
   const clearDraft = useCallback(() => { localStorage.removeItem(DRAFT_KEY) }, [])
 
-  // Restaure le brouillon au montage si < 24h
+  // Restaure le brouillon texte et vérifie si un blob audio en attente existe
   useEffect(() => {
     try {
       const raw = localStorage.getItem(DRAFT_KEY)
-      if (!raw) return
-      const { text, structured: s, savedAt } = JSON.parse(raw)
-      if (Date.now() - savedAt > DRAFT_TTL_MS) { clearDraft(); return }
-      if (text) { finalTextRef.current = text; setFinalText(text) }
-      if (s) setStructured(s)
-      if (s) setState('done')
+      if (raw) {
+        const { text, structured: s, savedAt } = JSON.parse(raw)
+        if (Date.now() - savedAt > DRAFT_TTL_MS) { clearDraft() }
+        else {
+          if (text) { finalTextRef.current = text; setFinalText(text) }
+          if (s) { setStructured(s); setState('done') }
+        }
+      }
     } catch { clearDraft() }
+    // Vérifie si un blob audio est en cache (transcription échouée lors d'une session précédente)
+    loadAudioBlob().then((blob) => { if (blob) setHasCachedAudio(true) })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -172,6 +231,8 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     mediaStreamRef.current = null
     stopTimer()
     clearDraft()
+    clearAudioBlob()
+    setHasCachedAudio(false)
     setState('idle')
     setFinalText('')
     setInterimText('')
@@ -213,6 +274,10 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     isContinuingRef.current = false
     const previousText = continuing ? finalTextRef.current : ''
 
+    // Sauvegarde le blob avant l'envoi — permet de réessayer en cas d'échec
+    await saveAudioBlob(blob)
+    setHasCachedAudio(true)
+
     setState('transcribing')
     setStatusMsg('Transcription en cours…')
 
@@ -237,6 +302,10 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
         return
       }
 
+      // Transcription réussie — on peut effacer le cache audio
+      clearAudioBlob()
+      setHasCachedAudio(false)
+
       const combined = previousText ? previousText.trimEnd() + ' ' + newText : newText
       finalTextRef.current = combined
       setFinalText(combined)
@@ -248,6 +317,17 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       setState('error')
     }
   }, [])
+
+  const retryTranscription = useCallback(async () => {
+    const blob = await loadAudioBlob()
+    if (!blob) { setErrorMsg("Aucun enregistrement en cache."); return }
+    setErrorMsg('')
+    transcribeBlob(blob).catch((err) => {
+      console.error('[Retry] transcribeBlob:', err)
+      setErrorMsg('Erreur inattendue lors de la transcription.')
+      setState('error')
+    })
+  }, [transcribeBlob])
 
   const startMediaRecorder = useCallback(async () => {
     finalTextRef.current = ''
@@ -600,10 +680,18 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       {/* Actions */}
       <div className="flex items-center gap-2 flex-wrap">
         {state === 'idle' && !hasTranscript && (
-          <Button type="button" size="sm" onClick={startRecording} disabled={disabled} className="gap-1.5">
-            <Mic className="h-3.5 w-3.5" />
-            Démarrer l&apos;écoute
-          </Button>
+          <>
+            <Button type="button" size="sm" onClick={startRecording} disabled={disabled} className="gap-1.5">
+              <Mic className="h-3.5 w-3.5" />
+              Démarrer l&apos;écoute
+            </Button>
+            {hasCachedAudio && (
+              <Button type="button" size="sm" variant="outline" onClick={retryTranscription} className="gap-1.5 text-amber-700 border-amber-300 hover:bg-amber-50">
+                <RotateCcw className="h-3.5 w-3.5" />
+                Réessayer la transcription
+              </Button>
+            )}
+          </>
         )}
 
         {state === 'recording' && (
@@ -641,6 +729,13 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
               </Button>
             )}
           </>
+        )}
+
+        {state === 'error' && !hasTranscript && hasCachedAudio && (
+          <Button type="button" size="sm" variant="outline" onClick={retryTranscription} className="gap-1.5 text-amber-700 border-amber-300 hover:bg-amber-50">
+            <RotateCcw className="h-3.5 w-3.5" />
+            Réessayer la transcription
+          </Button>
         )}
 
         {state === 'done' && (

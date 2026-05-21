@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -209,6 +209,17 @@ export function ConsultationForm({
 
   useEffect(() => { paymentsRef.current = payments }, [payments])
 
+  // Exposé via ref pour être appelé immédiatement depuis onApply (sans debounce)
+  const saveDraftNow = useCallback(() => {
+    if (mode !== 'create' || submittedRef.current) return
+    const values = getValues()
+    fetch('/api/consultation/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...values, payments: paymentsRef.current }),
+    }).catch(() => {})
+  }, [mode, getValues])
+
   // Auto-save draft every 30s + restore on unlock (create mode only)
   useEffect(() => {
     if (mode !== 'create') return
@@ -225,22 +236,32 @@ export function ConsultationForm({
 
     window.addEventListener('myosteoflow:before-lock', saveDraft)
 
+    // Restauration — via clic "Reprendre" sur le banner OU automatiquement
+    // si un brouillon pour ce patient existe (ex: app rechargée après veille).
     const shouldRestore = sessionStorage.getItem('restore_consultation_draft')
-    if (shouldRestore) {
-      sessionStorage.removeItem('restore_consultation_draft')
+    const restoreFromDraft = (auto = false) => {
       fetch('/api/consultation/draft')
         .then((r) => r.json())
         .then(({ draft }) => {
           if (!draft) return
+          if (draft.patient_id !== currentPatient.id) return
           if (draft.reason) setValue('reason', draft.reason)
           if (draft.anamnesis) setValue('anamnesis', draft.anamnesis)
           if (draft.examination) setValue('examination', draft.examination)
           if (draft.advice) setValue('advice', draft.advice)
           if (draft.date_time) setValue('date_time', draft.date_time)
           if (draft.payments) setPayments(draft.payments)
-          toast({ title: 'Brouillon restauré', description: 'La consultation a été restaurée depuis votre dernière session.' })
+          if (!auto) toast({ title: 'Brouillon restauré', description: 'La consultation a été restaurée depuis votre dernière session.' })
         })
         .catch(() => {})
+    }
+
+    if (shouldRestore) {
+      sessionStorage.removeItem('restore_consultation_draft')
+      restoreFromDraft(false)
+    } else {
+      // Restauration automatique silencieuse si un brouillon existe pour ce patient
+      restoreFromDraft(true)
     }
 
     const interval = setInterval(saveDraft, 30 * 1000)
@@ -249,6 +270,25 @@ export function ConsultationForm({
       clearInterval(interval)
       window.removeEventListener('myosteoflow:before-lock', saveDraft)
     }
+  }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sauvegarde debouncée 3s après chaque modification du formulaire
+  useEffect(() => {
+    if (mode !== 'create') return
+    let timer: ReturnType<typeof setTimeout>
+    const subscription = watch(() => {
+      clearTimeout(timer)
+      if (submittedRef.current) return
+      timer = setTimeout(() => {
+        const values = getValues()
+        fetch('/api/consultation/draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...values, payments: paymentsRef.current }),
+        }).catch(() => {})
+      }, 3000)
+    })
+    return () => { subscription.unsubscribe(); clearTimeout(timer) }
   }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const autoResize = (e: React.FormEvent<HTMLTextAreaElement>) => {
@@ -644,6 +684,9 @@ export function ConsultationForm({
                 onApply={(data) => {
                   if (data.reason) setValue('reason', data.reason, { shouldDirty: true })
                   if (data.anamnesis) setValue('anamnesis', data.anamnesis, { shouldDirty: true })
+                  // Sauvegarde immédiate — sans attendre le debounce de 3s
+                  // car l'utilisateur peut mettre l'ordi en veille juste après.
+                  setTimeout(saveDraftNow, 0)
                 }}
                 disabled={isLoading}
               />
