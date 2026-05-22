@@ -1,5 +1,5 @@
-export const CGU_VERSION = '1.1'
-export const CGU_DATE = '20 mai 2026'
+export const CGU_VERSION = '1.2'
+export const CGU_DATE = '22 mai 2026'
 
 export interface LegalSection {
   type: 'h1' | 'h2' | 'h3' | 'p' | 'ul' | 'table' | 'hr'
@@ -52,16 +52,17 @@ export const CGU_SECTIONS: LegalSection[] = [
   { type: 'h3', content: '4.4 Contenu e-learning' },
   { type: 'p', content: "Le Logiciel accède à des contenus pédagogiques (topographies anatomiques) hébergés sur Supabase. Aucune donnée patient n'est transmise dans ce cadre." },
 
-  { type: 'h3', content: '4.5 Rapports comptables' },
-  { type: 'p', content: "Si l'Utilisateur active l'envoi de rapport comptable, un PDF contenant les données financières du cabinet est transmis à l'adresse email de l'expert-comptable renseignée par l'Utilisateur, via le service Resend. Aucune donnée patient identifiable n'est incluse." },
+  { type: 'h3', content: '4.5 Communications par email (Resend)' },
+  { type: 'p', content: "Le Logiciel peut envoyer des emails aux patients de l'Utilisateur dans les cas suivants : rapport comptable à l'expert-comptable, rappels automatiques de rendez-vous, conseils post-consultation et messages directs. Ces envois utilisent en priorité le serveur SMTP de l'Utilisateur (configuré dans les paramètres). En l'absence de configuration SMTP, le service **Resend** (hébergé en UE) est utilisé comme solution de repli. Dans ce cas, l'adresse email et le nom du destinataire transitent par Resend. Aucune donnée médicale identifiable n'est incluse dans ces envois." },
 
   { type: 'h3', content: '4.6 Dictée intelligente (fonctionnalité IA)' },
   { type: 'p', content: "Le Logiciel propose optionnellement une fonctionnalité de dictée vocale assistée par intelligence artificielle permettant de structurer automatiquement l'anamnèse d'une consultation. Lorsque l'Utilisateur active cette fonctionnalité :" },
   { type: 'ul', items: [
-    "la transcription vocale est réalisée localement par le navigateur (API Web Speech, service Google) et n'est pas conservée par l'Éditeur ;",
-    "le texte transcrit est transmis à Anthropic (États-Unis) via un proxy sécurisé exploité par l'Éditeur (Osteoupgrade), aux fins de structuration du contenu clinique ;",
+    "**En mode navigateur** : la transcription vocale est réalisée localement via l'API Web Speech intégrée au navigateur (service Google) ; aucun audio n'est transmis à l'Éditeur.",
+    "**En mode application de bureau** : l'audio enregistré est transmis à Groq (États-Unis) via un proxy sécurisé exploité par l'Éditeur (Osteoupgrade), aux fins de transcription par le modèle Whisper large-v3-turbo ; l'audio n'est pas conservé après traitement.",
+    "**Dans les deux modes** : le texte transcrit est transmis à Anthropic (États-Unis) via un proxy sécurisé exploité par l'Éditeur (Osteoupgrade), aux fins de structuration du contenu clinique.",
     "**aucune donnée identifiant le patient** (nom, prénom, date de naissance, numéro de sécurité sociale) ne doit figurer dans la dictée — l'Utilisateur en est seul responsable ;",
-    "Anthropic peut conserver les données transmises conformément à sa politique de confidentialité ; l'Éditeur recommande de consulter celle-ci sur anthropic.com ;",
+    "Groq et Anthropic peuvent conserver les données transmises conformément à leurs politiques de confidentialité respectives ;",
     "l'utilisation de cette fonctionnalité est entièrement facultative et n'affecte pas le fonctionnement du reste du Logiciel.",
   ]},
   { type: 'p', content: "La base juridique du traitement est le **consentement implicite** de l'Utilisateur au moment où il active la dictée. L'Utilisateur reste responsable d'informer ses patients si des données les concernant sont susceptibles d'être dictées." },
@@ -128,6 +129,14 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
   { type: 'h3', content: '2.3 Données des sondages de satisfaction' },
   { type: 'p', content: "Si l'Utilisateur active l'envoi de sondages, les réponses des patients transitent temporairement par un service Cloudflare Workers. Ces réponses sont synchronisées en local puis **supprimées du service intermédiaire** dans les 24 heures suivant la synchronisation." },
 
+  { type: 'h3', content: '2.4 Données de la dictée vocale intelligente (IA)' },
+  { type: 'p', content: "Lorsque l'Utilisateur utilise la fonctionnalité de dictée intelligente (optionnelle) :" },
+  { type: 'ul', items: [
+    "**En mode navigateur** : l'audio est traité localement par le navigateur (API Web Speech, Google). Aucune donnée audio n'est transmise à l'Éditeur.",
+    "**En mode application de bureau** : l'enregistrement audio est transmis à **Groq** (États-Unis) via un proxy sécurisé exploité par l'Éditeur, uniquement pour la durée de la transcription. L'audio n'est pas conservé après traitement.",
+    "**Dans les deux modes** : le texte transcrit est transmis à **Anthropic** (États-Unis) via un proxy sécurisé exploité par l'Éditeur, pour la structuration clinique. L'Utilisateur s'engage à ne pas inclure d'informations identifiantes dans la dictée.",
+  ]},
+
   { type: 'h2', content: '3. Avec qui partageons-nous vos données ?' },
   { type: 'table',
     headers: ['Sous-traitant', 'Pays', 'Données transmises', 'Finalité'],
@@ -135,16 +144,19 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
       ['osteo-upgrade.fr', 'France', 'Email, device_id, token', 'Vérification de licence'],
       ['Supabase', 'UE', 'Aucune donnée personnelle', 'Contenu e-learning (lecture seule)'],
       ['Cloudflare Workers', 'UE', 'Tokens + réponses sondages', 'Transit temporaire des sondages'],
-      ['Resend', 'UE', 'Données financières du cabinet (à la demande)', 'Envoi de rapport à l\'expert-comptable'],
+      ['Resend', 'UE', 'Email + nom du destinataire (si SMTP non configuré)', 'Envoi d\'emails : rapport comptable, rappels, messages patients (fallback SMTP)'],
+      ['Groq', 'États-Unis', 'Enregistrement audio (mode bureau, dictée IA uniquement)', 'Transcription vocale via Whisper large-v3-turbo'],
+      ['Anthropic', 'États-Unis', 'Texte transcrit (dictée IA uniquement)', 'Structuration automatique de l\'anamnèse'],
     ],
   },
-  { type: 'p', content: "Aucun de ces sous-traitants n'a accès aux données patients stockées localement." },
+  { type: 'p', content: "Aucun de ces sous-traitants n'a accès aux données patients stockées localement. Groq et Anthropic ne sont sollicités que lorsque l'Utilisateur utilise activement la fonctionnalité de dictée intelligente." },
 
   { type: 'h2', content: '4. Durée de conservation' },
   { type: 'ul', items: [
     "**Données de licence** : conservées pendant la durée de l'abonnement, puis supprimées dans un délai de 30 jours après résiliation.",
     "**Données patients** : stockées localement, sous la responsabilité de l'Utilisateur, conformément aux durées légales (articles L. 1142-28 et R. 1112-7 du Code de la santé publique).",
     "**Réponses aux sondages** : supprimées du service intermédiaire sous 24h après synchronisation.",
+    "**Données de dictée vocale** : l'audio (mode bureau) et le texte transcrit ne sont pas conservés par l'Éditeur après traitement. Les durées de conservation chez Groq et Anthropic sont régies par leurs politiques respectives.",
   ]},
 
   { type: 'h2', content: '5. Vos droits' },
