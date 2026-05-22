@@ -270,6 +270,13 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       return
     }
 
+    // Vercel functions cap at 4,5 Mo — reject early with a clear message
+    if (blob.size > 4 * 1024 * 1024) {
+      setErrorMsg(`L'enregistrement est trop long (${(blob.size / 1024 / 1024).toFixed(1)} Mo). Arrêtez la dictée plus tôt et utilisez « Continuer la dictée » pour enchaîner plusieurs segments.`)
+      setState('error')
+      return
+    }
+
     const continuing = isContinuingRef.current
     isContinuingRef.current = false
     const previousText = continuing ? finalTextRef.current : ''
@@ -343,14 +350,19 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       mediaStreamRef.current = stream
-      const recorder = new MediaRecorder(stream)
+      // 32 kbps Opus : qualité vocale largement suffisante (~16 min pour 4 Mo)
+      const recorderOptions: MediaRecorderOptions = { audioBitsPerSecond: 32000 }
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        recorderOptions.mimeType = 'audio/webm;codecs=opus'
+      }
+      const recorder = new MediaRecorder(stream, recorderOptions)
       audioChunksRef.current = []
 
       recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
       recorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop())
         mediaStreamRef.current = null
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
         // .catch() is mandatory — an unhandled async rejection triggers webpack
         // HMR full reload which shows a white screen in dev mode.
         transcribeBlob(blob).catch((err) => {
@@ -389,14 +401,18 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       mediaStreamRef.current = stream
-      const recorder = new MediaRecorder(stream)
+      const recorderOptions: MediaRecorderOptions = { audioBitsPerSecond: 32000 }
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        recorderOptions.mimeType = 'audio/webm;codecs=opus'
+      }
+      const recorder = new MediaRecorder(stream, recorderOptions)
       audioChunksRef.current = []
 
       recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
       recorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop())
         mediaStreamRef.current = null
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
         transcribeBlob(blob).catch((err) => {
           console.error('[Recorder] transcribeBlob:', err)
           setErrorMsg('Erreur inattendue lors de la transcription.')
