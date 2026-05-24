@@ -11,6 +11,7 @@
 
 import { app, BrowserWindow, shell, dialog, Notification, ipcMain, session } from 'electron'
 import path from 'path'
+import { exec } from 'child_process'
 import { startCronJobs, stopCronJobs } from './cron'
 
 
@@ -380,6 +381,22 @@ async function setupAutoUpdater(): Promise<void> {
     ipcMain.on('install-update', () => {
       console.log('[Updater] Install requested by user — quitting and installing...')
       autoUpdater.quitAndInstall()
+    })
+
+    // macOS ARM64 : retire la quarantaine de la nouvelle app déjà installée
+    // manuellement, puis la rouvre. L'ancienne instance (toujours en mémoire)
+    // a les droits pour exécuter xattr car sa propre quarantaine a déjà été levée.
+    ipcMain.on('apply-update-and-relaunch', () => {
+      // process.execPath = …/MyOsteoFlow.app/Contents/MacOS/MyOsteoFlow
+      const appBundlePath = process.execPath.replace(/\/Contents\/MacOS\/[^/]+$/, '')
+      console.log('[Updater] Removing quarantine and relaunching:', appBundlePath)
+      exec(`xattr -cr "${appBundlePath}"`, (xattrErr) => {
+        if (xattrErr) console.error('[Updater] xattr error (non-fatal):', xattrErr.message)
+        exec(`open "${appBundlePath}"`, (openErr) => {
+          if (openErr) console.error('[Updater] open error:', openErr.message)
+          app.quit()
+        })
+      })
     })
 
     // Check for updates 5s after launch, then every 4 hours

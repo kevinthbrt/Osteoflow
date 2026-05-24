@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Download, RefreshCw, X, CheckCircle, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react'
+import { Download, RefreshCw, X, CheckCircle, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface ElectronAPI {
@@ -12,6 +12,7 @@ interface ElectronAPI {
   onUpdateProgress: (callback: (percent: number) => void) => void
   onUpdateDownloaded: (callback: (version: string) => void) => void
   installUpdate: () => void
+  applyUpdateAndRelaunch: () => void
 }
 
 type UpdateState = 'idle' | 'downloading' | 'ready'
@@ -29,7 +30,7 @@ export function UpdateBanner() {
   const [version, setVersion] = useState<string>('')
   const [progress, setProgress] = useState<number>(0)
   const [dismissed, setDismissed] = useState(false)
-  const [showXattrHelp, setShowXattrHelp] = useState(false)
+  const [dmgDownloadClicked, setDmgDownloadClicked] = useState(false)
 
   useEffect(() => {
     const api = getElectronAPI()
@@ -57,7 +58,53 @@ export function UpdateBanner() {
   const api = getElectronAPI()
   const isMacArm64 = api?.platform === 'darwin' && api?.arch === 'arm64'
 
-  // Mac ARM64 : téléchargement manuel du DMG + instructions xattr
+  // Mac ARM64 — étape 2 : l'utilisateur a installé la nouvelle version,
+  // l'ancienne instance exécute xattr puis rouvre la nouvelle app.
+  if (state === 'ready' && isMacArm64 && dmgDownloadClicked) {
+    return (
+      <div className="relative z-50 border-b-2 border-emerald-400 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white px-4 py-4">
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2 text-base font-semibold">
+            <CheckCircle className="h-5 w-5" />
+            Installation de la mise à jour v{version}
+          </div>
+
+          <div className="flex flex-wrap justify-center items-center gap-2 text-sm text-emerald-100">
+            <span className="flex items-center gap-1.5 opacity-50 line-through">
+              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">1</span>
+              Téléchargé
+            </span>
+            <ArrowRight className="h-3 w-3 text-emerald-300" />
+            <span className="flex items-center gap-1.5 font-semibold">
+              <span className="w-5 h-5 rounded-full bg-white/30 flex items-center justify-center text-xs font-bold">2</span>
+              Ouvrez le DMG et glissez l&apos;app dans Applications
+            </span>
+            <ArrowRight className="h-3 w-3 text-emerald-300" />
+            <span className="flex items-center gap-1.5">
+              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">3</span>
+              Cliquez ci-dessous
+            </span>
+          </div>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-9 px-6 text-sm font-semibold shadow-lg"
+            onClick={() => api?.applyUpdateAndRelaunch()}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            J&apos;ai installé — relancer maintenant
+          </Button>
+
+          <p className="text-[10px] text-emerald-300">
+            L&apos;application va se fermer et rouvrir automatiquement en v{version}.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Mac ARM64 — étape 1 : proposer le téléchargement du bon DMG
   if (state === 'ready' && isMacArm64) {
     return (
       <div className="relative z-50 border-b-2 border-emerald-400 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white px-4 py-4">
@@ -80,7 +127,7 @@ export function UpdateBanner() {
             <ArrowRight className="h-3 w-3 text-emerald-300" />
             <span className="flex items-center gap-1.5">
               <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">3</span>
-              Relancez l&apos;application
+              Cliquez &quot;J&apos;ai installé&quot; ici
             </span>
           </div>
 
@@ -89,7 +136,10 @@ export function UpdateBanner() {
               size="sm"
               variant="secondary"
               className="h-9 px-6 text-sm font-semibold shadow-lg"
-              onClick={() => window.open(getMacArm64DmgUrl(version), '_blank')}
+              onClick={() => {
+                window.open(getMacArm64DmgUrl(version), '_blank')
+                setDmgDownloadClicked(true)
+              }}
             >
               <Download className="h-4 w-4 mr-2" />
               Télécharger v{version} (Apple Silicon)
@@ -102,42 +152,6 @@ export function UpdateBanner() {
               <X className="h-4 w-4" />
             </button>
           </div>
-
-          <button
-            onClick={() => setShowXattrHelp(!showXattrHelp)}
-            className="text-xs text-emerald-200 hover:text-white flex items-center gap-1 transition-colors"
-          >
-            {showXattrHelp ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            ⚠️ Si l&apos;app ne s&apos;ouvre pas après installation
-          </button>
-
-          {showXattrHelp && (
-            <div className="max-w-lg w-full bg-black/20 rounded-lg p-3 text-xs text-emerald-100 space-y-2">
-              <p className="font-semibold text-white">
-                macOS peut bloquer l&apos;app après une mise à jour manuelle. Voici comment débloquer en 3 étapes :
-              </p>
-              <p>
-                <span className="font-semibold text-white">1.</span> Ouvrez le <span className="font-semibold text-white">Terminal</span> :
-                appuyez sur <kbd className="bg-white/20 px-1 rounded">⌘ Espace</kbd>, tapez{' '}
-                <span className="font-semibold text-white">Terminal</span>, puis appuyez sur{' '}
-                <kbd className="bg-white/20 px-1 rounded">Entrée</kbd>.
-              </p>
-              <p>
-                <span className="font-semibold text-white">2.</span> Dans la fenêtre noire qui s&apos;ouvre,
-                copiez-collez la commande ci-dessous puis appuyez sur <kbd className="bg-white/20 px-1 rounded">Entrée</kbd> :
-              </p>
-              <div className="bg-black/40 rounded px-3 py-2 font-mono text-white text-xs select-all cursor-text">
-                xattr -cr /Applications/MyOsteoFlow.app
-              </div>
-              <p>
-                <span className="font-semibold text-white">3.</span> Fermez le Terminal et relancez MyOsteoFlow
-                normalement depuis le dossier Applications.
-              </p>
-              <p className="text-emerald-300 text-[10px]">
-                Cette manipulation est nécessaire à chaque mise à jour installée manuellement via DMG.
-              </p>
-            </div>
-          )}
         </div>
       </div>
     )
