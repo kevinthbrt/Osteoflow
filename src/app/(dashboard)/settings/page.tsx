@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield, Sparkles, Mic } from 'lucide-react'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield } from 'lucide-react'
 import { CGU_SECTIONS, PRIVACY_SECTIONS, CGU_VERSION, CGU_DATE, type LegalSection } from '@/lib/legal/documents'
 import type { Practitioner, SessionType } from '@/types/database'
 
@@ -885,10 +885,6 @@ function SettingsPageInner() {
           <TabsTrigger value="legal">
             <Shield className="mr-2 h-4 w-4" />
             Légal
-          </TabsTrigger>
-          <TabsTrigger value="ai">
-            <Sparkles className="mr-2 h-4 w-4" />
-            IA
           </TabsTrigger>
         </TabsList>
 
@@ -1847,11 +1843,6 @@ function SettingsPageInner() {
           <LegalSettingsTab />
         </TabsContent>
 
-        {/* AI Tab */}
-        <TabsContent value="ai">
-          <AiSettings />
-        </TabsContent>
-
       </Tabs>
 
       {/* Delete Confirmation Dialog */}
@@ -2542,57 +2533,6 @@ function AuditLogViewer() {
   )
 }
 
-
-/**
- * AI settings: OpenAI API key for Whisper transcription (Electron dictation).
- */
-function AiSettings() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Mic className="h-5 w-5 text-primary" />
-          Dictée vocale
-        </CardTitle>
-        <CardDescription>
-          Fonctionnement de la reconnaissance vocale selon l&apos;environnement.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="rounded-lg border p-4 space-y-3 text-sm">
-          <div className="flex items-start gap-3">
-            <span className="text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded px-1.5 py-0.5 mt-0.5 shrink-0">
-              App bureau
-            </span>
-            <div>
-              <p className="font-medium">Whisper local (gratuit, hors ligne)</p>
-              <p className="text-muted-foreground text-xs mt-0.5">
-                Le modèle Whisper Base (~77 Mo) tourne directement sur votre machine via WebAssembly.
-                Téléchargement automatique au premier lancement, puis 100 % local.
-                Aucune donnée n&apos;est envoyée à l&apos;extérieur.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <span className="text-[10px] font-semibold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded px-1.5 py-0.5 mt-0.5 shrink-0">
-              Navigateur
-            </span>
-            <div>
-              <p className="font-medium">Temps réel (Google Speech API)</p>
-              <p className="text-muted-foreground text-xs mt-0.5">
-                La reconnaissance vocale intégrée au navigateur retranscrit en direct pendant que vous parlez.
-              </p>
-            </div>
-          </div>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          La dictée dans l&apos;app bureau fonctionne sans clé API ni abonnement.
-          Connexion internet requise uniquement lors du premier téléchargement du modèle.
-        </p>
-      </CardContent>
-    </Card>
-  )
-}
 
 export default function SettingsPage() {
   return (

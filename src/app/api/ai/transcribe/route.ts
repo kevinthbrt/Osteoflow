@@ -57,11 +57,20 @@ async function transcribeViaGroq(arrayBuffer: ArrayBuffer, apiKey: string): Prom
   return (typeof transcription === 'string' ? transcription : (transcription as any).text ?? '').trim()
 }
 
+const MAX_AUDIO_BYTES = 4 * 1024 * 1024 // 4 MB — limite conservative avant le 4,5 Mo de Vercel
+
 export async function POST(req: Request) {
   try {
     const arrayBuffer = await req.arrayBuffer()
     if (!arrayBuffer || arrayBuffer.byteLength === 0) {
       return NextResponse.json({ error: 'Aucune donnée audio reçue.' }, { status: 400 })
+    }
+
+    if (arrayBuffer.byteLength > MAX_AUDIO_BYTES) {
+      return NextResponse.json(
+        { error: `L'enregistrement est trop long (${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)} Mo). Limitez-vous à environ 10 minutes par segment et relancez la dictée.` },
+        { status: 413 }
+      )
     }
 
     let text: string
@@ -89,6 +98,12 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: 'Limite quotidienne de transcription atteinte. Réessayez demain ou contactez le support.' },
         { status: 429 }
+      )
+    }
+    if (err instanceof Error && err.message.includes('413')) {
+      return NextResponse.json(
+        { error: 'L\'enregistrement est trop volumineux. Limitez-vous à environ 10 minutes par segment.' },
+        { status: 413 }
       )
     }
     const isTimeout = err?.name === 'TimeoutError' || err?.name === 'AbortError'
