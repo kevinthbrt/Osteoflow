@@ -153,13 +153,6 @@
           "y": 220,
           "type": "link",
           "path": "/Applications"
-        },
-        {
-          "x": 270,
-          "y": 380,
-          "type": "file",
-          "path": "installer/Ouvrir Osteoflow.command",
-          "name": "⚠️ Si app bloquée — double-cliquez ici.command"
         }
       ]
     },

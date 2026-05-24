@@ -11,6 +11,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 contextBridge.exposeInMainWorld('electronAPI', {
   isDesktop: true,
   platform: process.platform,
+  arch: process.arch,
 
   // Auto-update events
   onUpdateAvailable: (callback: (version: string) => void) => {
