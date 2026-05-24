@@ -1,16 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Download, RefreshCw, X, CheckCircle, ArrowRight, ExternalLink } from 'lucide-react'
+import { Download, RefreshCw, X, CheckCircle, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface ElectronAPI {
   isDesktop: boolean
   platform: string
+  arch: string
   onUpdateAvailable: (callback: (version: string) => void) => void
   onUpdateProgress: (callback: (percent: number) => void) => void
   onUpdateDownloaded: (callback: (version: string) => void) => void
   installUpdate: () => void
+  applyUpdateAndRelaunch: () => void
 }
 
 type UpdateState = 'idle' | 'downloading' | 'ready'
@@ -19,12 +21,8 @@ function getElectronAPI(): ElectronAPI | undefined {
   return (window as unknown as { electronAPI?: ElectronAPI }).electronAPI
 }
 
-function getMacDmgUrl(version: string): string {
-  const arch = navigator.userAgent.includes('arm') || navigator.platform === 'MacIntel' && 'maxTouchPoints' in navigator && navigator.maxTouchPoints > 1
-    ? 'arm64'
-    : 'x64'
-  const archSuffix = arch === 'arm64' ? '-arm64' : ''
-  return `https://github.com/kevinthbrt/Osteoflow/releases/download/v${version}/Myosteoflow-${version}${archSuffix}.dmg`
+function getMacArm64DmgUrl(version: string): string {
+  return `https://github.com/kevinthbrt/Osteoflow/releases/download/v${version}/Myosteoflow-${version}-arm64.dmg`
 }
 
 export function UpdateBanner() {
@@ -32,6 +30,7 @@ export function UpdateBanner() {
   const [version, setVersion] = useState<string>('')
   const [progress, setProgress] = useState<number>(0)
   const [dismissed, setDismissed] = useState(false)
+  const [dmgDownloadClicked, setDmgDownloadClicked] = useState(false)
 
   useEffect(() => {
     const api = getElectronAPI()
@@ -57,10 +56,56 @@ export function UpdateBanner() {
   if (state === 'idle' || (state === 'downloading' && dismissed)) return null
 
   const api = getElectronAPI()
-  const isMac = api?.platform === 'darwin'
+  const isMacArm64 = api?.platform === 'darwin' && api?.arch === 'arm64'
 
-  // When update is ready on macOS: show download link instead of restart
-  if (state === 'ready' && isMac) {
+  // Mac ARM64 — étape 2 : l'utilisateur a installé la nouvelle version,
+  // l'ancienne instance exécute xattr puis rouvre la nouvelle app.
+  if (state === 'ready' && isMacArm64 && dmgDownloadClicked) {
+    return (
+      <div className="relative z-50 border-b-2 border-emerald-400 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white px-4 py-4">
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2 text-base font-semibold">
+            <CheckCircle className="h-5 w-5" />
+            Installation de la mise à jour v{version}
+          </div>
+
+          <div className="flex flex-wrap justify-center items-center gap-2 text-sm text-emerald-100">
+            <span className="flex items-center gap-1.5 opacity-50 line-through">
+              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">1</span>
+              Téléchargé
+            </span>
+            <ArrowRight className="h-3 w-3 text-emerald-300" />
+            <span className="flex items-center gap-1.5 font-semibold">
+              <span className="w-5 h-5 rounded-full bg-white/30 flex items-center justify-center text-xs font-bold">2</span>
+              Ouvrez le DMG et glissez l&apos;app dans Applications
+            </span>
+            <ArrowRight className="h-3 w-3 text-emerald-300" />
+            <span className="flex items-center gap-1.5">
+              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">3</span>
+              Cliquez ci-dessous
+            </span>
+          </div>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-9 px-6 text-sm font-semibold shadow-lg"
+            onClick={() => api?.applyUpdateAndRelaunch()}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            J&apos;ai installé — relancer maintenant
+          </Button>
+
+          <p className="text-[10px] text-emerald-300">
+            L&apos;application va se fermer et rouvrir automatiquement en v{version}.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Mac ARM64 — étape 1 : proposer le téléchargement du bon DMG
+  if (state === 'ready' && isMacArm64) {
     return (
       <div className="relative z-50 border-b-2 border-emerald-400 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white px-4 py-4">
         <div className="flex flex-col items-center gap-3">
@@ -69,7 +114,7 @@ export function UpdateBanner() {
             Mise à jour v{version} disponible
           </div>
 
-          <div className="flex items-center gap-2 text-sm text-emerald-100">
+          <div className="flex flex-wrap justify-center items-center gap-2 text-sm text-emerald-100">
             <span className="flex items-center gap-1.5">
               <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">1</span>
               Téléchargez le nouveau DMG
@@ -82,7 +127,7 @@ export function UpdateBanner() {
             <ArrowRight className="h-3 w-3 text-emerald-300" />
             <span className="flex items-center gap-1.5">
               <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">3</span>
-              Relancez l&apos;application
+              Cliquez &quot;J&apos;ai installé&quot; ici
             </span>
           </div>
 
@@ -91,10 +136,13 @@ export function UpdateBanner() {
               size="sm"
               variant="secondary"
               className="h-9 px-6 text-sm font-semibold shadow-lg"
-              onClick={() => window.open(getMacDmgUrl(version), '_blank')}
+              onClick={() => {
+                window.open(getMacArm64DmgUrl(version), '_blank')
+                setDmgDownloadClicked(true)
+              }}
             >
               <Download className="h-4 w-4 mr-2" />
-              Télécharger v{version}
+              Télécharger v{version} (Apple Silicon)
             </Button>
             <button
               onClick={() => setDismissed(true)}
@@ -109,7 +157,7 @@ export function UpdateBanner() {
     )
   }
 
-  // When update is ready on Windows/Linux: restart button
+  // Windows / Linux / Mac Intel : mise à jour automatique via redémarrage
   if (state === 'ready') {
     return (
       <div className="relative z-50 border-b-2 border-emerald-400 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white px-4 py-4">
@@ -150,7 +198,7 @@ export function UpdateBanner() {
     )
   }
 
-  // Downloading state: can be dismissed
+  // Téléchargement en cours (Windows/Linux/Mac Intel)
   return (
     <div className="relative z-50 border-b bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-4 py-2.5">
       <div className="flex items-center justify-center gap-3 text-sm">
@@ -179,4 +227,3 @@ export function UpdateBanner() {
     </div>
   )
 }
-

@@ -1,6 +1,6 @@
 {
   "name": "myosteoflow",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -153,13 +153,6 @@
           "y": 220,
           "type": "link",
           "path": "/Applications"
-        },
-        {
-          "x": 270,
-          "y": 380,
-          "type": "file",
-          "path": "installer/Ouvrir Osteoflow.command",
-          "name": "⚠️ Si app bloquée — double-cliquez ici.command"
         }
       ]
     },
