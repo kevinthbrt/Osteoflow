@@ -565,6 +565,9 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
   const handleApply = useCallback(() => {
     if (!structured) return
     onApply(structured)
+    if (detectedFields && onPatientFieldsDetected) {
+      onPatientFieldsDetected(detectedFields)
+    }
     clearDraft()
     setTimeout(() => {
       setState('idle')
@@ -578,7 +581,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
       setElapsed(0)
       finalTextRef.current = ''
     }, 300)
-  }, [structured, onApply, clearDraft])
+  }, [structured, detectedFields, onApply, onPatientFieldsDetected, clearDraft])
 
   const acceptField = useCallback((key: keyof PatientFieldsDetected) => {
     if (!detectedFields || !onPatientFieldsDetected) return
