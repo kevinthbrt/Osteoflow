@@ -27,6 +27,20 @@ export interface ExercisePdfData {
   items: ExercisePrescriptionItem[]
 }
 
+// @react-pdf/pdfkit doesn't expose heightOfString — estimate manually.
+// Helvetica average char width ≈ fontSize × 0.55, line height ≈ fontSize × 1.4
+function estimateTextHeight(text: string, fontSize: number, width: number): number {
+  const charsPerLine = Math.max(1, Math.floor(width / (fontSize * 0.55)))
+  const lines = text.split('\n').reduce((total, line) => {
+    return total + Math.max(1, Math.ceil((line.length || 1) / charsPerLine))
+  }, 0)
+  return lines * fontSize * 1.4
+}
+
+function estimateTextWidth(text: string, fontSize: number): number {
+  return text.length * fontSize * 0.55
+}
+
 export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8Array> {
   const doc = new PDFDocument({ size: 'A4', margin: 50 })
   const stream = new PassThrough()
@@ -114,7 +128,7 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
     doc.font('Helvetica').fontSize(9).fillColor(colors.textLight).text(data.notes, margin, currentY, {
       width: contentWidth,
     })
-    currentY += doc.heightOfString(data.notes, { width: contentWidth }) + 12
+    currentY = doc.y + 12
   }
 
   // Pre-fetch all illustration images
@@ -122,30 +136,32 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
   for (const item of data.items) {
     if (item.illustration_url) {
       try {
-        const imgRes = await fetch(item.illustration_url)
+        const imgRes = await fetch(item.illustration_url, { signal: AbortSignal.timeout(5000) })
         if (imgRes.ok) {
           imageBuffers.set(item.illustration_url, Buffer.from(await imgRes.arrayBuffer()))
         }
       } catch {
-        // skip
+        // skip missing images
       }
     }
   }
 
   for (let i = 0; i < data.items.length; i++) {
     const item = data.items[i]
+    const imgSize = 60
 
-    // Estimate card height for page break
-    const hasIllustration = item.illustration_url && imageBuffers.has(item.illustration_url)
-    const descHeight = doc.heightOfString(item.exercise_description, { width: contentWidth - 80 })
-    let estimatedHeight = 30 + Math.max(hasIllustration ? 60 : 0, descHeight + 30)
+    // Estimate card height for page break detection
+    const hasIllustration = !!(item.illustration_url && imageBuffers.has(item.illustration_url))
+    const descWidth = contentWidth - imgSize - 50
+    const descHeight = estimateTextHeight(item.exercise_description, 9, descWidth)
+    let estimatedHeight = 40 + Math.max(hasIllustration ? imgSize : 0, descHeight + 30)
     if (item.sets || item.reps || item.hold_time || item.rest_time || item.frequency) {
-      estimatedHeight += 20
+      estimatedHeight += 18
     }
     if (item.notes) {
-      estimatedHeight += 20
+      estimatedHeight += estimateTextHeight(item.notes, 8, descWidth) + 6
     }
-    estimatedHeight += 20
+    estimatedHeight += 28 // separator + padding
 
     const footerReserve = 60
     if (currentY + estimatedHeight > pageHeight - footerReserve && i > 0) {
@@ -156,7 +172,7 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
 
     const cardStartY = currentY
 
-    // Number badge
+    // Number badge (circle)
     doc.circle(margin + 12, cardStartY + 12, 12).fill(colors.primary)
     doc
       .font('Helvetica-Bold')
@@ -171,65 +187,39 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
       .fillColor(colors.dark)
       .text(item.exercise_name, margin + 30, cardStartY + 5)
 
-    // Region badge
-    const regionText = item.exercise_region
-    const typeText = item.exercise_type
+    // Region + type badges
     const badgeY = cardStartY + 21
     let badgeX = margin + 30
 
-    const regionWidth = doc.font('Helvetica').fontSize(8).widthOfString(regionText) + 16
+    const regionText = item.exercise_region
+    const regionWidth = Math.ceil(estimateTextWidth(regionText, 8)) + 16
     doc.roundedRect(badgeX, badgeY, regionWidth, 14, 7).fill(colors.primaryBg)
     doc.rect(badgeX, badgeY, 3, 14).fill(colors.primary)
-    doc
-      .font('Helvetica')
-      .fontSize(8)
-      .fillColor(colors.primary)
-      .text(regionText, badgeX + 6, badgeY + 3, { width: regionWidth - 9 })
+    doc.font('Helvetica').fontSize(8).fillColor(colors.primary).text(regionText, badgeX + 6, badgeY + 3, { width: regionWidth - 9 })
     badgeX += regionWidth + 6
 
-    const typeWidth = doc.font('Helvetica').fontSize(8).widthOfString(typeText) + 16
+    const typeText = item.exercise_type
+    const typeWidth = Math.ceil(estimateTextWidth(typeText, 8)) + 16
     doc.roundedRect(badgeX, badgeY, typeWidth, 14, 7).fill(colors.borderLight)
-    doc
-      .font('Helvetica')
-      .fontSize(8)
-      .fillColor(colors.textLight)
-      .text(typeText, badgeX + 8, badgeY + 3, { width: typeWidth - 16 })
+    doc.font('Helvetica').fontSize(8).fillColor(colors.textLight).text(typeText, badgeX + 8, badgeY + 3, { width: typeWidth - 16 })
 
     // Illustration or letter placeholder
-    const imgAreaX = pageWidth - margin - 65
+    const imgAreaX = pageWidth - margin - imgSize
     const imgAreaY = cardStartY
-    const imgSize = 60
 
     const imgBuffer = item.illustration_url ? imageBuffers.get(item.illustration_url) : undefined
     if (imgBuffer) {
       try {
         doc.image(imgBuffer, imgAreaX, imgAreaY, { width: imgSize, height: imgSize })
       } catch {
-        doc.rect(imgAreaX, imgAreaY, imgSize, imgSize).fill(colors.primaryBg)
-        doc
-          .font('Helvetica-Bold')
-          .fontSize(20)
-          .fillColor(colors.primary)
-          .text(item.exercise_type.charAt(0).toUpperCase(), imgAreaX, imgAreaY + 18, {
-            width: imgSize,
-            align: 'center',
-          })
+        drawPlaceholder(doc, imgAreaX, imgAreaY, imgSize, item.exercise_type, colors)
       }
     } else {
-      doc.rect(imgAreaX, imgAreaY, imgSize, imgSize).fill(colors.primaryBg)
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(20)
-        .fillColor(colors.primary)
-        .text(item.exercise_type.charAt(0).toUpperCase(), imgAreaX, imgAreaY + 18, {
-          width: imgSize,
-          align: 'center',
-        })
+      drawPlaceholder(doc, imgAreaX, imgAreaY, imgSize, item.exercise_type, colors)
     }
 
     // Description
     const descX = margin + 30
-    const descWidth = imgAreaX - descX - 10
     const descY = badgeY + 20
     doc
       .font('Helvetica')
@@ -237,7 +227,8 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
       .fillColor(colors.text)
       .text(item.exercise_description, descX, descY, { width: descWidth })
 
-    currentY = descY + doc.heightOfString(item.exercise_description, { width: descWidth }) + 8
+    // Use doc.y after text draw to track position accurately
+    currentY = doc.y + 8
 
     // Parameters line
     const params: string[] = []
@@ -246,17 +237,11 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
     } else if (item.sets != null) {
       params.push(`${item.sets} séries`)
     } else if (item.reps) {
-      params.push(`${item.reps} répétitions`)
+      params.push(item.reps)
     }
-    if (item.hold_time != null) {
-      params.push(`Maintien : ${item.hold_time}s`)
-    }
-    if (item.rest_time != null) {
-      params.push(`Repos : ${item.rest_time}s`)
-    }
-    if (item.frequency) {
-      params.push(item.frequency)
-    }
+    if (item.hold_time != null) params.push(`Maintien : ${item.hold_time}s`)
+    if (item.rest_time != null) params.push(`Repos : ${item.rest_time}s`)
+    if (item.frequency) params.push(item.frequency)
 
     if (params.length > 0) {
       doc
@@ -264,7 +249,7 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
         .fontSize(9)
         .fillColor(colors.primary)
         .text(params.join('  •  '), descX, currentY, { width: descWidth })
-      currentY += 16
+      currentY = doc.y + 4
     }
 
     if (item.notes) {
@@ -273,9 +258,10 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
         .fontSize(8)
         .fillColor(colors.textMuted)
         .text(item.notes, descX, currentY, { width: descWidth })
-      currentY += doc.heightOfString(item.notes, { width: descWidth }) + 4
+      currentY = doc.y + 4
     }
 
+    // Ensure we're below the illustration area
     currentY = Math.max(currentY, cardStartY + imgSize + 4)
     currentY += 12
 
@@ -307,4 +293,20 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
   doc.end()
 
   return done
+}
+
+function drawPlaceholder(
+  doc: InstanceType<typeof PDFDocument>,
+  x: number,
+  y: number,
+  size: number,
+  type: string,
+  colors: Record<string, string>
+) {
+  doc.rect(x, y, size, size).fill(colors.primaryBg)
+  doc
+    .font('Helvetica-Bold')
+    .fontSize(22)
+    .fillColor(colors.primary)
+    .text(type.charAt(0).toUpperCase(), x, y + size / 2 - 13, { width: size, align: 'center' })
 }

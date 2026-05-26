@@ -51,3 +51,13 @@ export interface ExercisePrescriptionItemDraft {
   frequency: string
   notes: string
 }
+
+export interface ExercisePrescriptionTemplate {
+  id: string
+  practitioner_id: string
+  name: string
+  notes: string | null
+  created_at: string
+  updated_at: string
+  items?: ExercisePrescriptionItem[]
+}

@@ -28,8 +28,15 @@ import {
   ChevronDown,
   Loader2,
   Dumbbell,
+  BookMarked,
+  FolderOpen,
+  Trash2,
 } from 'lucide-react'
-import type { RehabExercise, ExercisePrescriptionItemDraft } from '@/types/exercise'
+import type {
+  RehabExercise,
+  ExercisePrescriptionItemDraft,
+  ExercisePrescriptionTemplate,
+} from '@/types/exercise'
 
 const TYPE_COLORS: Record<string, string> = {
   renfo: 'bg-blue-100 text-blue-800',
@@ -75,6 +82,14 @@ export function ExercisePrescriptionDialog({
   const [filterType, setFilterType] = useState('all')
   const [filterLevel, setFilterLevel] = useState('all')
   const [isSaving, setIsSaving] = useState(false)
+
+  // Template state
+  const [templates, setTemplates] = useState<ExercisePrescriptionTemplate[]>([])
+  const [showTemplatePanel, setShowTemplatePanel] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false)
+  const [savingTemplateMode, setSavingTemplateMode] = useState(false)
+
   const { toast } = useToast()
 
   useEffect(() => {
@@ -85,6 +100,11 @@ export function ExercisePrescriptionDialog({
       .then((data) => setExercises(data.exercises || []))
       .catch(() => toast({ title: 'Impossible de charger les exercices', variant: 'destructive' }))
       .finally(() => setIsLoadingExercises(false))
+
+    fetch('/api/exercise-templates')
+      .then((r) => r.json())
+      .then((data) => setTemplates(data.templates || []))
+      .catch(() => {})
   }, [open])
 
   const regions = useMemo(() => Array.from(new Set(exercises.map((e) => e.region))).sort(), [exercises])
@@ -145,6 +165,96 @@ export function ExercisePrescriptionDialog({
     )
   }
 
+  function loadTemplate(template: ExercisePrescriptionTemplate) {
+    if (!template.items || template.items.length === 0) {
+      toast({ title: 'Ce modèle est vide', variant: 'destructive' })
+      return
+    }
+    const drafts: ExercisePrescriptionItemDraft[] = template.items.map((item) => ({
+      exercise: {
+        id: item.exercise_id,
+        name: item.exercise_name,
+        description: item.exercise_description,
+        region: item.exercise_region,
+        type: item.exercise_type,
+        level: item.exercise_level as 1 | 2 | 3,
+        nerve_target: null,
+        progression_regression: null,
+        is_active: true,
+        illustration_url: item.illustration_url,
+      },
+      sets: item.sets,
+      reps: item.reps || '',
+      hold_time: item.hold_time,
+      rest_time: item.rest_time,
+      frequency: item.frequency || '1x/jour',
+      notes: item.notes || '',
+    }))
+    setSelectedItems(drafts)
+    setTitle(template.name)
+    setNotes(template.notes || '')
+    setShowTemplatePanel(false)
+    toast({ title: `Modèle "${template.name}" chargé` })
+  }
+
+  async function handleDeleteTemplate(id: string, name: string) {
+    if (!confirm(`Supprimer le modèle "${name}" ?`)) return
+    try {
+      await fetch(`/api/exercise-templates/${id}`, { method: 'DELETE' })
+      setTemplates((prev) => prev.filter((t) => t.id !== id))
+      toast({ title: 'Modèle supprimé' })
+    } catch {
+      toast({ title: 'Erreur lors de la suppression', variant: 'destructive' })
+    }
+  }
+
+  async function handleSaveTemplate() {
+    if (!templateName.trim()) {
+      toast({ title: 'Veuillez saisir un nom pour le modèle', variant: 'destructive' })
+      return
+    }
+    if (selectedItems.length === 0) {
+      toast({ title: 'Aucun exercice à enregistrer', variant: 'destructive' })
+      return
+    }
+    setIsSavingTemplate(true)
+    try {
+      const res = await fetch('/api/exercise-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: templateName, notes: notes || null, items: selectedItems }),
+      })
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setTemplates((prev) => [...prev, { ...data.template, items: selectedItems.map((item, i) => ({
+        id: '',
+        template_id: data.template.id,
+        exercise_id: item.exercise.id,
+        exercise_name: item.exercise.name,
+        exercise_description: item.exercise.description,
+        exercise_region: item.exercise.region,
+        exercise_type: item.exercise.type,
+        exercise_level: item.exercise.level,
+        illustration_url: item.exercise.illustration_url,
+        sets: item.sets,
+        reps: item.reps,
+        hold_time: item.hold_time,
+        rest_time: item.rest_time,
+        frequency: item.frequency,
+        notes: item.notes,
+        position: i,
+        created_at: '',
+      })) }].sort((a, b) => a.name.localeCompare(b.name)))
+      toast({ title: `Modèle "${templateName}" enregistré` })
+      setTemplateName('')
+      setSavingTemplateMode(false)
+    } catch {
+      toast({ title: "Erreur lors de l'enregistrement du modèle", variant: 'destructive' })
+    } finally {
+      setIsSavingTemplate(false)
+    }
+  }
+
   async function handleSave(exportPdf = false) {
     if (!title.trim()) {
       toast({ title: 'Veuillez saisir un titre', variant: 'destructive' })
@@ -190,6 +300,9 @@ export function ExercisePrescriptionDialog({
     setFilterRegion('all')
     setFilterType('all')
     setFilterLevel('all')
+    setShowTemplatePanel(false)
+    setSavingTemplateMode(false)
+    setTemplateName('')
     onClose()
   }
 
@@ -197,11 +310,106 @@ export function ExercisePrescriptionDialog({
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="max-w-[92vw] w-full h-[88vh] flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
-          <DialogTitle className="text-xl flex items-center gap-2">
-            <Dumbbell className="h-5 w-5 text-primary" />
-            Programme d&apos;exercices — {patientName}
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Dumbbell className="h-5 w-5 text-primary" />
+              Programme d&apos;exercices — {patientName}
+            </DialogTitle>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => { setShowTemplatePanel((v) => !v); setSavingTemplateMode(false) }}
+              >
+                <FolderOpen className="h-4 w-4" />
+                Modèles
+                {templates.length > 0 && (
+                  <span className="ml-1 text-xs bg-primary text-primary-foreground rounded-full px-1.5">
+                    {templates.length}
+                  </span>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => { setSavingTemplateMode((v) => !v); setShowTemplatePanel(false) }}
+              >
+                <BookMarked className="h-4 w-4" />
+                Enregistrer comme modèle
+              </Button>
+            </div>
+          </div>
         </DialogHeader>
+
+        {/* Save as template inline form */}
+        {savingTemplateMode && (
+          <div className="px-6 py-3 border-b flex-shrink-0 bg-muted/30 flex items-end gap-3">
+            <div className="flex-1 space-y-1">
+              <Label className="text-xs">Nom du modèle</Label>
+              <Input
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="Ex: Protocole lombalgie, Épaule post-op..."
+                onKeyDown={(e) => e.key === 'Enter' && handleSaveTemplate()}
+              />
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSaveTemplate}
+              disabled={isSavingTemplate || !templateName.trim() || selectedItems.length === 0}
+            >
+              {isSavingTemplate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              <span className="ml-1">Enregistrer</span>
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setSavingTemplateMode(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
+        {/* Template panel */}
+        {showTemplatePanel && (
+          <div className="px-6 py-3 border-b flex-shrink-0 bg-muted/30">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Charger un modèle existant</p>
+            {templates.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucun modèle enregistré</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {templates.map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex items-center gap-1 rounded-full border bg-background px-3 py-1 text-sm"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => loadTemplate(t)}
+                      className="hover:text-primary transition-colors"
+                    >
+                      {t.name}
+                      {t.items && t.items.length > 0 && (
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          ({t.items.length})
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTemplate(t.id, t.name)}
+                      className="ml-1 text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Title + Notes */}
         <div className="px-6 py-3 border-b flex-shrink-0 grid grid-cols-2 gap-4">
@@ -355,6 +563,9 @@ export function ExercisePrescriptionDialog({
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
                   <Dumbbell className="h-10 w-10 opacity-20" />
                   <p className="text-sm">Ajoutez des exercices depuis la bibliothèque</p>
+                  {templates.length > 0 && (
+                    <p className="text-xs">ou chargez un modèle existant</p>
+                  )}
                 </div>
               ) : (
                 selectedItems.map((item, index) => (
@@ -397,7 +608,7 @@ export function ExercisePrescriptionDialog({
                           className="h-6 w-6 text-destructive hover:text-destructive"
                           onClick={() => removeExercise(item.exercise.id)}
                         >
-                          <X className="h-3 w-3" />
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
                     </div>

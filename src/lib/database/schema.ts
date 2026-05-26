@@ -260,6 +260,37 @@ CREATE TABLE IF NOT EXISTS consultation_attachments (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+-- Exercise prescription templates (reusable programmes)
+CREATE TABLE IF NOT EXISTS exercise_prescription_templates (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  practitioner_id TEXT NOT NULL REFERENCES practitioners(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Exercise prescription template items
+CREATE TABLE IF NOT EXISTS exercise_prescription_template_items (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  template_id TEXT NOT NULL REFERENCES exercise_prescription_templates(id) ON DELETE CASCADE,
+  exercise_id TEXT NOT NULL,
+  exercise_name TEXT NOT NULL,
+  exercise_description TEXT NOT NULL,
+  exercise_region TEXT NOT NULL,
+  exercise_type TEXT NOT NULL,
+  exercise_level INTEGER NOT NULL DEFAULT 1,
+  illustration_url TEXT,
+  sets INTEGER,
+  reps TEXT,
+  hold_time INTEGER,
+  rest_time INTEGER,
+  frequency TEXT,
+  notes TEXT,
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Exercise prescriptions
 CREATE TABLE IF NOT EXISTS exercise_prescriptions (
   id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
@@ -291,6 +322,9 @@ CREATE TABLE IF NOT EXISTS exercise_prescription_items (
   position INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE INDEX IF NOT EXISTS idx_exercise_prescription_templates_practitioner ON exercise_prescription_templates(practitioner_id);
+CREATE INDEX IF NOT EXISTS idx_exercise_prescription_template_items_template ON exercise_prescription_template_items(template_id);
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_patients_practitioner ON patients(practitioner_id);
@@ -498,6 +532,41 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   `)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_exercise_prescriptions_patient ON exercise_prescriptions(patient_id);`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_exercise_prescription_items_prescription ON exercise_prescription_items(prescription_id);`)
+
+  // Exercise prescription templates (idempotent via IF NOT EXISTS)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS exercise_prescription_templates (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      practitioner_id TEXT NOT NULL REFERENCES practitioners(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS exercise_prescription_template_items (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      template_id TEXT NOT NULL REFERENCES exercise_prescription_templates(id) ON DELETE CASCADE,
+      exercise_id TEXT NOT NULL,
+      exercise_name TEXT NOT NULL,
+      exercise_description TEXT NOT NULL,
+      exercise_region TEXT NOT NULL,
+      exercise_type TEXT NOT NULL,
+      exercise_level INTEGER NOT NULL DEFAULT 1,
+      illustration_url TEXT,
+      sets INTEGER,
+      reps TEXT,
+      hold_time INTEGER,
+      rest_time INTEGER,
+      frequency TEXT,
+      notes TEXT,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_exercise_prescription_templates_practitioner ON exercise_prescription_templates(practitioner_id);`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_exercise_prescription_template_items_template ON exercise_prescription_template_items(template_id);`)
 }
 
 /**
