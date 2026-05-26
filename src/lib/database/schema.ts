@@ -592,14 +592,8 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     db.exec('ALTER TABLE exercise_prescription_template_items ADD COLUMN progression_regression TEXT;')
   }
 
-  // Clear legacy flat history fields (never displayed in UI — superseded by medical_history_entries)
-  const historyCleared = db.pragma("SELECT value FROM app_config WHERE key = 'history_flat_fields_cleared'") as Array<{ value: string }>
-  if (historyCleared.length === 0) {
-    db.exec(`
-      UPDATE patients SET surgical_history = NULL, trauma_history = NULL, medical_history = NULL, family_history = NULL;
-      INSERT INTO app_config (key, value) VALUES ('history_flat_fields_cleared', '1');
-    `)
-  }
+  // Clear legacy flat history fields — idempotent, superseded by medical_history_entries
+  db.exec('UPDATE patients SET surgical_history = NULL, trauma_history = NULL, medical_history = NULL, family_history = NULL;')
 }
 
 /**
