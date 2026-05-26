@@ -3,8 +3,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Dumbbell, Download, Trash2, Plus, Mail } from 'lucide-react'
+import { Dumbbell, Download, Trash2, Plus, Mail, Eye } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
 import type { ExercisePrescription } from '@/types/exercise'
@@ -21,6 +27,7 @@ export function ExercisePrescriptionSection({
   const [prescriptions, setPrescriptions] = useState<ExercisePrescription[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
+  const [viewingId, setViewingId] = useState<string | null>(null)
   const { toast } = useToast()
 
   const load = useCallback(async () => {
@@ -104,7 +111,8 @@ export function ExercisePrescriptionSection({
               {prescriptions.map((p) => (
                 <div
                   key={p.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
+                  className="flex items-center justify-between rounded-lg border p-3 cursor-pointer hover:bg-muted/40 transition-colors"
+                  onClick={() => setViewingId(p.id)}
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{p.title}</p>
@@ -115,7 +123,17 @@ export function ExercisePrescriptionSection({
                         : ''}
                     </p>
                   </div>
-                  <div className="flex gap-1 flex-shrink-0 ml-2">
+                  <div className="flex gap-1 flex-shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      title="Consulter"
+                      onClick={() => setViewingId(p.id)}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"
@@ -161,6 +179,25 @@ export function ExercisePrescriptionSection({
         patientName={patientName}
         onSaved={load}
       />
+
+      {/* Inline PDF viewer */}
+      <Dialog open={!!viewingId} onOpenChange={(o) => !o && setViewingId(null)}>
+        <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-4 py-3 border-b flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <Dumbbell className="h-4 w-4 text-primary" />
+              {prescriptions.find((p) => p.id === viewingId)?.title ?? 'Programme d\'exercices'}
+            </DialogTitle>
+          </DialogHeader>
+          {viewingId && (
+            <iframe
+              src={`/api/exercise-prescriptions/${viewingId}/pdf`}
+              className="flex-1 w-full border-0"
+              title="Programme d'exercices"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

@@ -662,16 +662,6 @@ export function ConsultationForm({
                     variant="ghost"
                     size="sm"
                     className="gap-1.5 text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowDiagnosticSelector(true)}
-                  >
-                    <GitBranch className="h-4 w-4" />
-                    Aide au diagnostic
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1.5 text-muted-foreground hover:text-foreground"
                     onClick={() => setShowTopography(true)}
                   >
                     <MapPin className="h-4 w-4" />

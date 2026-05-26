@@ -31,6 +31,7 @@ import {
   BookMarked,
   FolderOpen,
   Trash2,
+  Mail,
 } from 'lucide-react'
 import type {
   RehabExercise,
@@ -255,7 +256,7 @@ export function ExercisePrescriptionDialog({
     }
   }
 
-  async function handleSave(exportPdf = false) {
+  async function handleSave(mode: 'save' | 'pdf' | 'email' = 'save') {
     if (!title.trim()) {
       toast({ title: 'Veuillez saisir un titre', variant: 'destructive' })
       return
@@ -279,7 +280,8 @@ export function ExercisePrescriptionDialog({
       })
       if (!res.ok) throw new Error()
       const data = await res.json()
-      if (exportPdf && data.prescription?.id) {
+
+      if (mode === 'pdf' && data.prescription?.id) {
         try {
           const pdfRes = await fetch(`/api/exercise-prescriptions/${data.prescription.id}/pdf`)
           if (pdfRes.ok) {
@@ -295,6 +297,26 @@ export function ExercisePrescriptionDialog({
           }
         } catch { /* PDF failure non-blocking */ }
       }
+
+      if (mode === 'email' && data.prescription?.id) {
+        try {
+          const emailRes = await fetch(`/api/exercise-prescriptions/${data.prescription.id}/email`, {
+            method: 'POST',
+          })
+          const emailData = await emailRes.json()
+          if (!emailRes.ok) {
+            toast({ title: emailData.error || "Erreur lors de l'envoi email", variant: 'destructive' })
+          } else {
+            toast({ title: 'Programme enregistré et envoyé par email' })
+          }
+        } catch {
+          toast({ title: "Programme enregistré (erreur envoi email)", variant: 'destructive' })
+        }
+        onSaved?.()
+        handleClose()
+        return
+      }
+
       toast({ title: 'Programme enregistré' })
       onSaved?.()
       handleClose()
@@ -718,23 +740,24 @@ export function ExercisePrescriptionDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={() => handleSave(false)}
+            onClick={() => handleSave('save')}
             disabled={isSaving}
           >
-            {isSaving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Enregistrer
           </Button>
-          <Button type="button" onClick={() => handleSave(true)} disabled={isSaving}>
-            {isSaving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="mr-2 h-4 w-4" />
-            )}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleSave('pdf')}
+            disabled={isSaving}
+          >
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Enregistrer & PDF
+          </Button>
+          <Button type="button" onClick={() => handleSave('email')} disabled={isSaving}>
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+            Enregistrer & Envoyer
           </Button>
         </div>
       </DialogContent>
