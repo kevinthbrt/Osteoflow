@@ -446,6 +446,9 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   if (!patientCols.some((c) => c.name === 'referred_by_patient_id')) {
     db.exec('ALTER TABLE patients ADD COLUMN referred_by_patient_id TEXT REFERENCES patients(id);')
   }
+  if (!patientCols.some((c) => c.name === 'pregnancy_due_date')) {
+    db.exec('ALTER TABLE patients ADD COLUMN pregnancy_due_date TEXT;')
+  }
 
   // Add new survey fields (eva_score, pain_reduction, better_mobility, acknowledged_at)
   const surveyCols = db.pragma('table_info(survey_responses)') as Array<{ name: string }>

@@ -77,6 +77,7 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
       primary_physician: patient?.primary_physician || '',
       notes: patient?.notes || '',
       referred_by_patient_id: patient?.referred_by_patient_id || '',
+      pregnancy_due_date: patient?.pregnancy_due_date || '',
     },
   })
 
@@ -304,6 +305,7 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
         primary_physician: data.primary_physician || null,
         notes: data.notes || null,
         referred_by_patient_id: data.referred_by_patient_id || null,
+        pregnancy_due_date: data.pregnancy_due_date || null,
       }
 
       if (mode === 'create') {
@@ -526,6 +528,17 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
             {errors.primary_physician && (
               <p className="text-sm text-destructive">{errors.primary_physician.message}</p>
             )}
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="pregnancy_due_date">Grossesse — terme prévu</Label>
+            <Input
+              id="pregnancy_due_date"
+              type="date"
+              {...register('pregnancy_due_date')}
+              disabled={isLoading}
+            />
+            <p className="text-xs text-muted-foreground">Laisser vide si non applicable</p>
           </div>
 
           <div className="space-y-2 sm:col-span-2">

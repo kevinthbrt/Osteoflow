@@ -62,6 +62,10 @@ export const patientSchema = z.object({
     .optional()
     .or(z.literal(''))
     .transform((val) => val || undefined),
+  pregnancy_due_date: z
+    .string()
+    .optional()
+    .or(z.literal('')),
 })
 
 export type PatientFormData = z.infer<typeof patientSchema>

@@ -139,6 +139,12 @@ export default async function PatientPage({ params }: PatientPageProps) {
                   <span>{patient.primary_physician}</span>
                 </div>
               )}
+              {patient.pregnancy_due_date && (
+                <div className="flex items-center gap-2 text-sm text-pink-600">
+                  <span className="font-medium">Grossesse — terme prévu :</span>
+                  <span>{new Date(patient.pregnancy_due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
 
