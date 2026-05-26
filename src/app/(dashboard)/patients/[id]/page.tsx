@@ -10,6 +10,7 @@ import { formatDate, formatPhone, calculateAge } from '@/lib/utils'
 import { ConsultationTimeline } from '@/components/consultations/consultation-timeline'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 import { DraftResumeBanner } from '@/components/consultations/draft-resume-banner'
+import { ExercisePrescriptionSection } from '@/components/exercises/exercise-prescription-section'
 
 interface PatientPageProps {
   params: Promise<{ id: string }>
@@ -158,6 +159,12 @@ export default async function PatientPage({ params }: PatientPageProps) {
               </CardContent>
             </Card>
           )}
+
+          {/* Exercise prescriptions */}
+          <ExercisePrescriptionSection
+            patientId={id}
+            patientName={`${patient.first_name} ${patient.last_name}`}
+          />
 
           {/* Stats */}
           <Card>

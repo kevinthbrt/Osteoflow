@@ -32,7 +32,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin, GitBranch } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin, GitBranch, Dumbbell } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
@@ -44,6 +44,7 @@ import { NeckPainTree } from '@/components/consultations/neck-pain-tree'
 import { AnamnesisRecorder } from '@/components/consultations/anamnesis-recorder'
 import { MarkdownField } from '@/components/ui/markdown-field'
 import { MarkdownText } from '@/components/ui/markdown-text'
+import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -103,6 +104,7 @@ export function ConsultationForm({
   const [showDiagnosticSelector, setShowDiagnosticSelector] = useState(false)
   const [showDecisionTree, setShowDecisionTree] = useState(false)
   const [showNeckTree, setShowNeckTree] = useState(false)
+  const [showExercises, setShowExercises] = useState(false)
 
   const now = new Date()
   const toLocalDateTimeString = (d: Date) => {
@@ -675,6 +677,16 @@ export function ConsultationForm({
                     <MapPin className="h-4 w-4" />
                     Topographie
                   </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowExercises(true)}
+                  >
+                    <Dumbbell className="h-4 w-4" />
+                    Exercices
+                  </Button>
                 </div>
               </div>
               <CardDescription>Anamnèse, examen et conseils</CardDescription>
@@ -1197,6 +1209,13 @@ export function ConsultationForm({
             setValue('advice', currentAdvice + adviceSep + advice, { shouldDirty: true })
           }
         }}
+      />
+      <ExercisePrescriptionDialog
+        open={showExercises}
+        onClose={() => setShowExercises(false)}
+        patientId={currentPatient.id}
+        patientName={`${currentPatient.first_name} ${currentPatient.last_name}`}
+        consultationId={consultation?.id}
       />
     </>
   )
