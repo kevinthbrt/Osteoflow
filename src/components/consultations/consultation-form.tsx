@@ -45,7 +45,7 @@ import { AnamnesisRecorder } from '@/components/consultations/anamnesis-recorder
 import { MarkdownField } from '@/components/ui/markdown-field'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
-import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment } from '@/types/database'
+import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment, MedicalHistoryType } from '@/types/database'
 
 interface ConsultationFormProps {
   patient: Patient
@@ -696,39 +696,50 @@ export function ConsultationForm({
                   sport_activity: currentPatient.sport_activity,
                   primary_physician: currentPatient.primary_physician,
                   pregnancy_due_date: currentPatient.pregnancy_due_date,
-                  surgical_history: currentPatient.surgical_history,
-                  trauma_history: currentPatient.trauma_history,
-                  medical_history: currentPatient.medical_history,
-                  family_history: currentPatient.family_history,
                 }}
                 onPatientFieldsDetected={async (fields) => {
                   try {
-                    const updates: Pick<Patient, 'profession' | 'sport_activity' | 'primary_physician' | 'pregnancy_due_date' | 'surgical_history' | 'trauma_history' | 'medical_history' | 'family_history'> = {
+                    // Flat patient fields (replace)
+                    const patientUpdates: Pick<Patient, 'profession' | 'sport_activity' | 'primary_physician' | 'pregnancy_due_date'> = {
                       profession: currentPatient.profession,
                       sport_activity: currentPatient.sport_activity,
                       primary_physician: currentPatient.primary_physician,
                       pregnancy_due_date: currentPatient.pregnancy_due_date,
-                      surgical_history: currentPatient.surgical_history,
-                      trauma_history: currentPatient.trauma_history,
-                      medical_history: currentPatient.medical_history,
-                      family_history: currentPatient.family_history,
                     }
-                    if (fields.profession !== undefined) updates.profession = fields.profession
-                    if (fields.sport_activity !== undefined) updates.sport_activity = fields.sport_activity
-                    if (fields.primary_physician !== undefined) updates.primary_physician = fields.primary_physician
-                    if (fields.pregnancy_due_date !== undefined) updates.pregnancy_due_date = fields.pregnancy_due_date
-                    const appendHistory = (existing: string | null, added: string) =>
-                      existing ? `${existing}\n${added}` : added
-                    if (fields.surgical_history !== undefined)
-                      updates.surgical_history = appendHistory(currentPatient.surgical_history, fields.surgical_history)
-                    if (fields.trauma_history !== undefined)
-                      updates.trauma_history = appendHistory(currentPatient.trauma_history, fields.trauma_history)
-                    if (fields.medical_history !== undefined)
-                      updates.medical_history = appendHistory(currentPatient.medical_history, fields.medical_history)
-                    if (fields.family_history !== undefined)
-                      updates.family_history = appendHistory(currentPatient.family_history, fields.family_history)
-                    await db.from('patients').update(updates).eq('id', currentPatient.id)
-                    setCurrentPatient((prev) => ({ ...prev, ...updates }))
+                    let hasPatientUpdate = false
+                    if (fields.profession !== undefined) { patientUpdates.profession = fields.profession; hasPatientUpdate = true }
+                    if (fields.sport_activity !== undefined) { patientUpdates.sport_activity = fields.sport_activity; hasPatientUpdate = true }
+                    if (fields.primary_physician !== undefined) { patientUpdates.primary_physician = fields.primary_physician; hasPatientUpdate = true }
+                    if (fields.pregnancy_due_date !== undefined) { patientUpdates.pregnancy_due_date = fields.pregnancy_due_date; hasPatientUpdate = true }
+                    if (hasPatientUpdate) {
+                      await db.from('patients').update(patientUpdates).eq('id', currentPatient.id)
+                      setCurrentPatient((prev) => ({ ...prev, ...patientUpdates }))
+                    }
+
+                    // History fields → insert into medical_history_entries
+                    const historyMap: { field: keyof typeof fields; type: MedicalHistoryType }[] = [
+                      { field: 'surgical_history', type: 'surgical' },
+                      { field: 'trauma_history', type: 'traumatic' },
+                      { field: 'medical_history', type: 'medical' },
+                      { field: 'family_history', type: 'family' },
+                    ]
+                    for (const { field, type } of historyMap) {
+                      const value = fields[field]
+                      if (value !== undefined) {
+                        await db.from('medical_history_entries').insert({
+                          patient_id: currentPatient.id,
+                          history_type: type,
+                          description: value,
+                          onset_date: null,
+                          onset_age: null,
+                          onset_duration_value: null,
+                          onset_duration_unit: null,
+                          is_vigilance: false,
+                          note: null,
+                        })
+                      }
+                    }
+
                     toast({ title: 'Dossier patient mis à jour', variant: 'success' })
                   } catch {
                     toast({ title: 'Erreur lors de la mise à jour', variant: 'destructive' })
