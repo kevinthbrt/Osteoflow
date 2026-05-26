@@ -2,12 +2,24 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Mic, MicOff, Sparkles, Loader2, RotateCcw, Check, AlertCircle, WifiOff, Download } from 'lucide-react'
+import { Mic, MicOff, Sparkles, Loader2, RotateCcw, Check, AlertCircle, WifiOff, Download, UserPen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { PatientFieldsDetected } from '@/types/ai'
+
+export type { PatientFieldsDetected }
+
+interface PatientContext {
+  profession?: string | null
+  sport_activity?: string | null
+  primary_physician?: string | null
+  pregnancy_due_date?: string | null
+}
 
 interface AnamnesisRecorderProps {
   onApply: (data: { reason: string; anamnesis: string }) => void
   disabled?: boolean
+  patientContext?: PatientContext
+  onPatientFieldsDetected?: (fields: PatientFieldsDetected) => void
 }
 
 type RecorderState =
@@ -112,11 +124,12 @@ async function clearAudioBlob(): Promise<void> {
 
 // ─── Composant ───────────────────────────────────────────────────────────────
 
-export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps) {
+export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatientFieldsDetected }: AnamnesisRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle')
   const [finalText, setFinalText] = useState('')
   const [interimText, setInterimText] = useState('')
   const [structured, setStructured] = useState<{ reason: string; anamnesis: string } | null>(null)
+  const [detectedFields, setDetectedFields] = useState<PatientFieldsDetected | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
   const [statusMsg, setStatusMsg] = useState('')
   const [elapsed, setElapsed] = useState(0)
@@ -207,11 +220,14 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       const res = await fetch('/api/ai/structure-anamnesis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: text }),
+        body: JSON.stringify({ transcript: text, currentPatient: patientContext }),
       })
       const data = await res.json()
       if (!res.ok) { setErrorMsg(data.error || 'Erreur lors de la structuration.'); setState('error'); return }
-      setStructured(data)
+      setStructured({ reason: data.reason, anamnesis: data.anamnesis })
+      if (data.patient_fields && Object.keys(data.patient_fields).length > 0) {
+        setDetectedFields(data.patient_fields)
+      }
       setState('done')
     } catch {
       setErrorMsg('Impossible de contacter le serveur.')
@@ -237,6 +253,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     setFinalText('')
     setInterimText('')
     setStructured(null)
+    setDetectedFields(null)
     setErrorMsg('')
     setStatusMsg('')
     setElapsed(0)
@@ -547,12 +564,19 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       setFinalText('')
       setInterimText('')
       setStructured(null)
+      setDetectedFields(null)
       setErrorMsg('')
       setStatusMsg('')
       setElapsed(0)
       finalTextRef.current = ''
     }, 300)
   }, [structured, onApply, clearDraft])
+
+  const handleApplyPatientFields = useCallback(() => {
+    if (!detectedFields || !onPatientFieldsDetected) return
+    onPatientFieldsDetected(detectedFields)
+    setDetectedFields(null)
+  }, [detectedFields, onPatientFieldsDetected])
 
   // ─── Rendu ────────────────────────────────────────────────────────────────
 
@@ -689,6 +713,50 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
                 </p>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Detected patient fields */}
+      {state === 'done' && detectedFields && onPatientFieldsDetected && (
+        <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 dark:border-indigo-800 dark:bg-indigo-950/30 px-3 py-2.5 space-y-2">
+          <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+            <UserPen className="h-3.5 w-3.5" />
+            Informations patient détectées
+          </p>
+          <div className="space-y-1 text-xs text-indigo-900 dark:text-indigo-200">
+            {detectedFields.profession && (
+              <p><span className="font-medium">Profession :</span> {detectedFields.profession}</p>
+            )}
+            {detectedFields.sport_activity && (
+              <p><span className="font-medium">Activité sportive :</span> {detectedFields.sport_activity}</p>
+            )}
+            {detectedFields.primary_physician && (
+              <p><span className="font-medium">Médecin traitant :</span> {detectedFields.primary_physician}</p>
+            )}
+            {detectedFields.pregnancy_due_date && (
+              <p><span className="font-medium">Terme grossesse :</span> {new Date(detectedFields.pregnancy_due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="h-7 px-3 text-xs bg-indigo-600 hover:bg-indigo-700"
+              onClick={handleApplyPatientFields}
+            >
+              <Check className="h-3 w-3 mr-1" />
+              Mettre à jour le dossier
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs text-indigo-600"
+              onClick={() => setDetectedFields(null)}
+            >
+              Ignorer
+            </Button>
           </div>
         </div>
       )}
