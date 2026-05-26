@@ -132,6 +132,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
   const [state, setState] = useState<RecorderState>('idle')
   const [finalText, setFinalText] = useState('')
   const [interimText, setInterimText] = useState('')
+  const [isElectronApp, setIsElectronApp] = useState(false)
   const [structured, setStructured] = useState<{ reason: string; anamnesis: string } | null>(null)
   const [detectedFields, setDetectedFields] = useState<PatientFieldsDetected | null>(null)
   const [detectionSkipped, setDetectionSkipped] = useState(false)
@@ -186,6 +187,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
     } catch { clearDraft() }
     // Vérifie si un blob audio est en cache (transcription échouée lors d'une session précédente)
     loadAudioBlob().then((blob) => { if (blob) setHasCachedAudio(true) })
+    setIsElectronApp(isElectron())
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -672,7 +674,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
             <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <Mic className="h-3.5 w-3.5" />
               Dictée de l&apos;anamnèse
-              {isElectron() && (
+              {isElectronApp && (
                 <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded px-1.5 py-0.5 font-normal">
                   Groq Whisper
                 </span>
