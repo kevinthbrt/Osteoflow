@@ -19,6 +19,22 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.3.0',
+    date: '2026-05-26',
+    title: 'Détection IA des antécédents et module exercices',
+    changes: [
+      { type: 'feature', text: 'La dictée de l\'anamnèse détecte automatiquement les antécédents chirurgicaux, traumatiques, médicaux (traitements inclus) et familiaux, en plus des champs patient (métier, sport, médecin traitant, grossesse).' },
+      { type: 'feature', text: 'Chaque information détectée par l\'IA s\'affiche avec un bouton ✓ (accepter) et ✕ (ignorer) individuel, plus "Valider tout" et "Tout ignorer" quand plusieurs champs sont en attente.' },
+      { type: 'feature', text: 'Le bouton d\'injection applique désormais aussi les antécédents et champs patient détectés, pas uniquement l\'anamnèse structurée.' },
+      { type: 'feature', text: 'Les antécédents acceptés s\'affichent immédiatement dans la colonne gauche de la consultation, sans recharger la page.' },
+      { type: 'feature', text: 'Les cartes d\'antécédents utilisent un code couleur par type (chirurgical, traumatique, médical, familial), identique aux boutons de création.' },
+      { type: 'feature', text: 'Module exercices : ajout des champs cible nerveuse et progression/régression dans la prescription ; envoi par email PDF et téléchargement direct.' },
+      { type: 'improvement', text: 'Limite d\'enregistrement de la dictée portée à 10 minutes (alerte à 9 min).' },
+      { type: 'improvement', text: 'Viewer PDF affiché en ligne dans l\'application (plus de téléchargement forcé).' },
+      { type: 'fix', text: 'Correction de l\'erreur dans la prescription d\'exercices lors de l\'ouverture du sélecteur de fréquence.' },
+    ],
+  },
+  {
     version: '1.1.7',
     date: '2026-05-20',
     title: 'Dictée vocale gratuite via Whisper local',

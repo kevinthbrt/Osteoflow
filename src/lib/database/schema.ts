@@ -260,6 +260,76 @@ CREATE TABLE IF NOT EXISTS consultation_attachments (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+-- Exercise prescription templates (reusable programmes)
+CREATE TABLE IF NOT EXISTS exercise_prescription_templates (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  practitioner_id TEXT NOT NULL REFERENCES practitioners(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Exercise prescription template items
+CREATE TABLE IF NOT EXISTS exercise_prescription_template_items (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  template_id TEXT NOT NULL REFERENCES exercise_prescription_templates(id) ON DELETE CASCADE,
+  exercise_id TEXT NOT NULL,
+  exercise_name TEXT NOT NULL,
+  exercise_description TEXT NOT NULL,
+  exercise_region TEXT NOT NULL,
+  exercise_type TEXT NOT NULL,
+  exercise_level INTEGER NOT NULL DEFAULT 1,
+  illustration_url TEXT,
+  nerve_target TEXT,
+  progression_regression TEXT,
+  sets INTEGER,
+  reps TEXT,
+  hold_time INTEGER,
+  rest_time INTEGER,
+  frequency TEXT,
+  notes TEXT,
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Exercise prescriptions
+CREATE TABLE IF NOT EXISTS exercise_prescriptions (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+  consultation_id TEXT REFERENCES consultations(id),
+  title TEXT NOT NULL DEFAULT 'Programme de rééducation',
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Exercise prescription items
+CREATE TABLE IF NOT EXISTS exercise_prescription_items (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  prescription_id TEXT NOT NULL REFERENCES exercise_prescriptions(id) ON DELETE CASCADE,
+  exercise_id TEXT NOT NULL,
+  exercise_name TEXT NOT NULL,
+  exercise_description TEXT NOT NULL,
+  exercise_region TEXT NOT NULL,
+  exercise_type TEXT NOT NULL,
+  exercise_level INTEGER NOT NULL DEFAULT 1,
+  illustration_url TEXT,
+  nerve_target TEXT,
+  progression_regression TEXT,
+  sets INTEGER,
+  reps TEXT,
+  hold_time INTEGER,
+  rest_time INTEGER,
+  frequency TEXT,
+  notes TEXT,
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_exercise_prescription_templates_practitioner ON exercise_prescription_templates(practitioner_id);
+CREATE INDEX IF NOT EXISTS idx_exercise_prescription_template_items_template ON exercise_prescription_template_items(template_id);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_patients_practitioner ON patients(practitioner_id);
 CREATE INDEX IF NOT EXISTS idx_patients_archived ON patients(archived_at);
@@ -278,6 +348,8 @@ CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id
 CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status ON scheduled_tasks(status, scheduled_for);
 CREATE INDEX IF NOT EXISTS idx_medical_history_patient ON medical_history_entries(patient_id);
 CREATE INDEX IF NOT EXISTS idx_consultation_attachments_consultation ON consultation_attachments(consultation_id);
+CREATE INDEX IF NOT EXISTS idx_exercise_prescriptions_patient ON exercise_prescriptions(patient_id);
+CREATE INDEX IF NOT EXISTS idx_exercise_prescription_items_prescription ON exercise_prescription_items(prescription_id);
 
 -- Survey responses (J+7 patient satisfaction surveys)
 CREATE TABLE IF NOT EXISTS survey_responses (
@@ -378,6 +450,9 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   if (!patientCols.some((c) => c.name === 'referred_by_patient_id')) {
     db.exec('ALTER TABLE patients ADD COLUMN referred_by_patient_id TEXT REFERENCES patients(id);')
   }
+  if (!patientCols.some((c) => c.name === 'pregnancy_due_date')) {
+    db.exec('ALTER TABLE patients ADD COLUMN pregnancy_due_date TEXT;')
+  }
 
   // Add new survey fields (eva_score, pain_reduction, better_mobility, acknowledged_at)
   const surveyCols = db.pragma('table_info(survey_responses)') as Array<{ name: string }>
@@ -428,6 +503,97 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     );
   `)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_message_attachments_message ON message_attachments(message_id);`)
+
+  // Exercise prescriptions tables (idempotent via IF NOT EXISTS)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS exercise_prescriptions (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+      consultation_id TEXT REFERENCES consultations(id),
+      title TEXT NOT NULL DEFAULT 'Programme de rééducation',
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS exercise_prescription_items (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      prescription_id TEXT NOT NULL REFERENCES exercise_prescriptions(id) ON DELETE CASCADE,
+      exercise_id TEXT NOT NULL,
+      exercise_name TEXT NOT NULL,
+      exercise_description TEXT NOT NULL,
+      exercise_region TEXT NOT NULL,
+      exercise_type TEXT NOT NULL,
+      exercise_level INTEGER NOT NULL DEFAULT 1,
+      illustration_url TEXT,
+      sets INTEGER,
+      reps TEXT,
+      hold_time INTEGER,
+      rest_time INTEGER,
+      frequency TEXT,
+      notes TEXT,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_exercise_prescriptions_patient ON exercise_prescriptions(patient_id);`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_exercise_prescription_items_prescription ON exercise_prescription_items(prescription_id);`)
+
+  // Exercise prescription templates (idempotent via IF NOT EXISTS)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS exercise_prescription_templates (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      practitioner_id TEXT NOT NULL REFERENCES practitioners(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS exercise_prescription_template_items (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      template_id TEXT NOT NULL REFERENCES exercise_prescription_templates(id) ON DELETE CASCADE,
+      exercise_id TEXT NOT NULL,
+      exercise_name TEXT NOT NULL,
+      exercise_description TEXT NOT NULL,
+      exercise_region TEXT NOT NULL,
+      exercise_type TEXT NOT NULL,
+      exercise_level INTEGER NOT NULL DEFAULT 1,
+      illustration_url TEXT,
+      sets INTEGER,
+      reps TEXT,
+      hold_time INTEGER,
+      rest_time INTEGER,
+      frequency TEXT,
+      notes TEXT,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_exercise_prescription_templates_practitioner ON exercise_prescription_templates(practitioner_id);`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_exercise_prescription_template_items_template ON exercise_prescription_template_items(template_id);`)
+
+  // Add nerve_target and progression_regression to exercise prescription items
+  const prescItemCols = db.pragma('table_info(exercise_prescription_items)') as Array<{ name: string }>
+  if (!prescItemCols.some((c) => c.name === 'nerve_target')) {
+    db.exec('ALTER TABLE exercise_prescription_items ADD COLUMN nerve_target TEXT;')
+  }
+  if (!prescItemCols.some((c) => c.name === 'progression_regression')) {
+    db.exec('ALTER TABLE exercise_prescription_items ADD COLUMN progression_regression TEXT;')
+  }
+
+  const tmplItemCols = db.pragma('table_info(exercise_prescription_template_items)') as Array<{ name: string }>
+  if (!tmplItemCols.some((c) => c.name === 'nerve_target')) {
+    db.exec('ALTER TABLE exercise_prescription_template_items ADD COLUMN nerve_target TEXT;')
+  }
+  if (!tmplItemCols.some((c) => c.name === 'progression_regression')) {
+    db.exec('ALTER TABLE exercise_prescription_template_items ADD COLUMN progression_regression TEXT;')
+  }
+
+  // Clear legacy flat history fields — idempotent, superseded by medical_history_entries
+  db.exec('UPDATE patients SET surgical_history = NULL, trauma_history = NULL, medical_history = NULL, family_history = NULL;')
 }
 
 /**

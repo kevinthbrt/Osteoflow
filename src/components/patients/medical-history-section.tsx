@@ -513,7 +513,9 @@ export function MedicalHistorySection({ patientId, entries, onEntriesChange }: M
                       key={entry.id}
                       className={cn(
                         'group relative rounded-lg border p-3 text-sm',
-                        entry.is_vigilance && 'border-amber-300 bg-amber-50'
+                        entry.is_vigilance
+                          ? 'border-amber-300 bg-amber-50'
+                          : historyTypeColors[type]
                       )}
                     >
                       <div className="flex items-start justify-between gap-2">

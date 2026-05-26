@@ -1,4 +1,103 @@
 // Default email templates
+export interface ExerciseProgramEmailData {
+  patientFirstName: string
+  prescriptionTitle: string
+  exerciseNames: Array<{ name: string; region: string }>
+  practitionerName: string
+  practiceName?: string | null
+  specialty?: string | null
+  primaryColor?: string
+}
+
+export function createExerciseProgramHtmlEmail({
+  patientFirstName,
+  prescriptionTitle,
+  exerciseNames,
+  practitionerName,
+  practiceName,
+  specialty,
+  primaryColor = '#0F766E',
+}: ExerciseProgramEmailData): string {
+  const exerciseList = exerciseNames
+    .map(
+      (e) =>
+        `<li style="margin-bottom: 8px; color: #334155;">
+          <strong>${e.name}</strong>
+          <span style="color: #64748b; font-size: 13px;"> — ${e.region}</span>
+        </li>`
+    )
+    .join('')
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Programme d'exercices - ${practiceName || practitionerName}</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f1f5f9;">
+        <div style="max-width: 640px; margin: 0 auto; padding: 32px 16px;">
+          <div style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);">
+
+            <!-- Header -->
+            <div style="padding: 28px 32px; background: linear-gradient(135deg, ${primaryColor} 0%, #0f172a 100%); color: #ffffff; text-align: center;">
+              <div style="width: 56px; height: 56px; margin: 0 auto 16px; background-color: rgba(255,255,255,0.15); border-radius: 50%; line-height: 56px; font-size: 28px;">
+                &#127947;
+              </div>
+              <h1 style="margin: 0; font-size: 22px; font-weight: 700;">Votre programme d'exercices</h1>
+              <p style="margin: 8px 0 0; font-size: 15px; opacity: 0.85;">
+                ${practiceName || practitionerName}
+              </p>
+            </div>
+
+            <!-- Body -->
+            <div style="padding: 32px;">
+              <p style="margin: 0 0 16px 0; font-size: 15px; color: #334155; line-height: 1.7;">
+                Bonjour ${patientFirstName},
+              </p>
+              <p style="margin: 0 0 20px 0; font-size: 15px; color: #334155; line-height: 1.7;">
+                Veuillez trouver ci-joint votre programme d'exercices personnalisé : <strong>${prescriptionTitle}</strong>.
+              </p>
+
+              <!-- Exercise list -->
+              <div style="background-color: #f0fdfa; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px;">
+                <p style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600; color: ${primaryColor}; text-transform: uppercase; letter-spacing: 0.05em;">
+                  Programme — ${exerciseNames.length} exercice${exerciseNames.length > 1 ? 's' : ''}
+                </p>
+                <ul style="margin: 0; padding: 0 0 0 20px; font-size: 14px; line-height: 1.6;">
+                  ${exerciseList}
+                </ul>
+              </div>
+
+              <!-- Info box -->
+              <div style="padding: 16px 20px; border-radius: 12px; background-color: #f8fafc; border-left: 4px solid ${primaryColor}; margin-bottom: 20px;">
+                <p style="margin: 0; font-size: 14px; color: #475569; line-height: 1.6;">
+                  Le PDF détaillant chaque exercice (description, paramètres) est joint à cet email. N'hésitez pas à me contacter si vous avez des questions.
+                </p>
+              </div>
+
+              <p style="margin: 0; font-size: 14px; color: #64748b; line-height: 1.7;">
+                Prenez soin de vous.
+              </p>
+            </div>
+
+            <!-- Footer -->
+            <div style="padding: 20px 32px; background-color: #f8fafc; border-top: 1px solid #e2e8f0;">
+              <p style="margin: 0; font-size: 14px; color: #64748b; font-weight: 600;">${practitionerName}</p>
+              ${specialty ? `<p style="margin: 4px 0 0; font-size: 13px; color: #94a3b8;">${specialty}</p>` : ''}
+              ${practiceName ? `<p style="margin: 2px 0 0; font-size: 13px; color: #94a3b8;">${practiceName}</p>` : ''}
+            </div>
+          </div>
+          <p style="text-align: center; margin-top: 16px; color: #94a3b8; font-size: 12px;">
+            Envoyé via Osteoflow
+          </p>
+        </div>
+      </body>
+    </html>
+  `
+}
+
 export const defaultEmailTemplates = {
   invoice: {
     subject: 'Votre facture {{invoice_number}} - {{practice_name}}',

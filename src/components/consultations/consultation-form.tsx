@@ -32,7 +32,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin, GitBranch } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin, GitBranch, Dumbbell } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
@@ -44,7 +44,8 @@ import { NeckPainTree } from '@/components/consultations/neck-pain-tree'
 import { AnamnesisRecorder } from '@/components/consultations/anamnesis-recorder'
 import { MarkdownField } from '@/components/ui/markdown-field'
 import { MarkdownText } from '@/components/ui/markdown-text'
-import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment } from '@/types/database'
+import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
+import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment, MedicalHistoryType } from '@/types/database'
 
 interface ConsultationFormProps {
   patient: Patient
@@ -90,6 +91,7 @@ export function ConsultationForm({
   const [sendPostSessionAdvice, setSendPostSessionAdvice] = useState(false)
   const [followUpDays, setFollowUpDays] = useState<number>((practitioner as any).follow_up_delay_days ?? 7)
   const [contactEmail, setContactEmail] = useState(currentPatient.email || '')
+  const [medicalHistoryRefreshKey, setMedicalHistoryRefreshKey] = useState(0)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [existingAttachments, setExistingAttachments] = useState<ConsultationAttachment[]>([])
   const [isDragging, setIsDragging] = useState(false)
@@ -103,6 +105,7 @@ export function ConsultationForm({
   const [showDiagnosticSelector, setShowDiagnosticSelector] = useState(false)
   const [showDecisionTree, setShowDecisionTree] = useState(false)
   const [showNeckTree, setShowNeckTree] = useState(false)
+  const [showExercises, setShowExercises] = useState(false)
 
   const now = new Date()
   const toLocalDateTimeString = (d: Date) => {
@@ -660,20 +663,20 @@ export function ConsultationForm({
                     variant="ghost"
                     size="sm"
                     className="gap-1.5 text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowDiagnosticSelector(true)}
+                    onClick={() => setShowTopography(true)}
                   >
-                    <GitBranch className="h-4 w-4" />
-                    Aide au diagnostic
+                    <MapPin className="h-4 w-4" />
+                    Topographie
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     className="gap-1.5 text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowTopography(true)}
+                    onClick={() => setShowExercises(true)}
                   >
-                    <MapPin className="h-4 w-4" />
-                    Topographie
+                    <Dumbbell className="h-4 w-4" />
+                    Exercices
                   </Button>
                 </div>
               </div>
@@ -689,6 +692,64 @@ export function ConsultationForm({
                   setTimeout(saveDraftNow, 0)
                 }}
                 disabled={isLoading}
+                patientContext={{
+                  profession: currentPatient.profession,
+                  sport_activity: currentPatient.sport_activity,
+                  primary_physician: currentPatient.primary_physician,
+                  pregnancy_due_date: currentPatient.pregnancy_due_date,
+                }}
+                onPatientFieldsDetected={async (fields) => {
+                  try {
+                    // Flat patient fields (replace)
+                    const patientUpdates: Pick<Patient, 'profession' | 'sport_activity' | 'primary_physician' | 'pregnancy_due_date'> = {
+                      profession: currentPatient.profession,
+                      sport_activity: currentPatient.sport_activity,
+                      primary_physician: currentPatient.primary_physician,
+                      pregnancy_due_date: currentPatient.pregnancy_due_date,
+                    }
+                    let hasPatientUpdate = false
+                    if (fields.profession !== undefined) { patientUpdates.profession = fields.profession; hasPatientUpdate = true }
+                    if (fields.sport_activity !== undefined) { patientUpdates.sport_activity = fields.sport_activity; hasPatientUpdate = true }
+                    if (fields.primary_physician !== undefined) { patientUpdates.primary_physician = fields.primary_physician; hasPatientUpdate = true }
+                    if (fields.pregnancy_due_date !== undefined) { patientUpdates.pregnancy_due_date = fields.pregnancy_due_date; hasPatientUpdate = true }
+                    if (hasPatientUpdate) {
+                      await db.from('patients').update(patientUpdates).eq('id', currentPatient.id)
+                      setCurrentPatient((prev) => ({ ...prev, ...patientUpdates }))
+                    }
+
+                    // History fields → insert into medical_history_entries
+                    const historyMap: { field: keyof typeof fields; type: MedicalHistoryType }[] = [
+                      { field: 'surgical_history', type: 'surgical' },
+                      { field: 'trauma_history', type: 'traumatic' },
+                      { field: 'medical_history', type: 'medical' },
+                      { field: 'family_history', type: 'family' },
+                    ]
+                    let historyInserted = false
+                    for (const { field, type } of historyMap) {
+                      const value = fields[field]
+                      if (value !== undefined) {
+                        const { error } = await db.from('medical_history_entries').insert({
+                          patient_id: currentPatient.id,
+                          history_type: type,
+                          description: value,
+                          onset_date: null,
+                          onset_age: null,
+                          onset_duration_value: null,
+                          onset_duration_unit: null,
+                          is_vigilance: false,
+                          note: null,
+                        })
+                        if (error) throw new Error(error.message)
+                        historyInserted = true
+                      }
+                    }
+                    if (historyInserted) setMedicalHistoryRefreshKey((k) => k + 1)
+
+                    toast({ title: 'Dossier patient mis à jour', variant: 'success' })
+                  } catch {
+                    toast({ title: 'Erreur lors de la mise à jour', variant: 'destructive' })
+                  }
+                }}
               />
               <div className="space-y-2">
                 <Label htmlFor="anamnesis">Anamnèse</Label>
@@ -1198,6 +1259,13 @@ export function ConsultationForm({
           }
         }}
       />
+      <ExercisePrescriptionDialog
+        open={showExercises}
+        onClose={() => setShowExercises(false)}
+        patientId={currentPatient.id}
+        patientName={`${currentPatient.first_name} ${currentPatient.last_name}`}
+        consultationId={consultation?.id}
+      />
     </>
   )
 
@@ -1231,6 +1299,11 @@ export function ConsultationForm({
               {currentPatient.phone && <p className="text-muted-foreground">{currentPatient.phone}</p>}
               {currentPatient.email && <p className="text-muted-foreground">{currentPatient.email}</p>}
               {currentPatient.profession && <p className="text-muted-foreground">{currentPatient.profession}</p>}
+              {currentPatient.pregnancy_due_date && (
+                <p className="text-pink-600 font-medium">
+                  Grossesse — terme : {new Date(currentPatient.pregnancy_due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </p>
+              )}
               {currentPatient.notes && (
                 <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md">
                   <p className="text-xs font-medium text-amber-800 mb-1">Notes</p>
@@ -1243,6 +1316,7 @@ export function ConsultationForm({
           <MedicalHistorySectionWrapper
             patientId={currentPatient.id}
             initialEntries={medicalHistoryEntries}
+            refreshTrigger={medicalHistoryRefreshKey}
           />
 
           {pastConsultations && pastConsultations.length > 0 && (

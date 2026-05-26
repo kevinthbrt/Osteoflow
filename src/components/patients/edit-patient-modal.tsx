@@ -63,6 +63,7 @@ export function EditPatientModal({
       sport_activity: patient.sport_activity || '',
       primary_physician: patient.primary_physician || '',
       notes: patient.notes || '',
+      pregnancy_due_date: patient.pregnancy_due_date || '',
     },
   })
 
@@ -78,6 +79,7 @@ export function EditPatientModal({
         sport_activity: data.sport_activity || null,
         primary_physician: data.primary_physician || null,
         notes: data.notes || null,
+        pregnancy_due_date: data.pregnancy_due_date || null,
       }
 
       const { error } = await db
@@ -238,6 +240,16 @@ export function EditPatientModal({
             {errors.primary_physician && (
               <p className="text-sm text-destructive">{errors.primary_physician.message}</p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-pregnancy_due_date">Grossesse — terme prévu</Label>
+            <Input
+              id="edit-pregnancy_due_date"
+              type="date"
+              {...register('pregnancy_due_date')}
+              disabled={isLoading}
+            />
           </div>
 
           <div className="space-y-2">

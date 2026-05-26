@@ -2,12 +2,28 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Mic, MicOff, Sparkles, Loader2, RotateCcw, Check, AlertCircle, WifiOff, Download } from 'lucide-react'
+import { Mic, MicOff, Sparkles, Loader2, RotateCcw, Check, AlertCircle, WifiOff, Download, UserPen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { PatientFieldsDetected } from '@/types/ai'
+
+export type { PatientFieldsDetected }
+
+interface PatientContext {
+  profession?: string | null
+  sport_activity?: string | null
+  primary_physician?: string | null
+  pregnancy_due_date?: string | null
+  surgical_history?: string | null
+  trauma_history?: string | null
+  medical_history?: string | null
+  family_history?: string | null
+}
 
 interface AnamnesisRecorderProps {
   onApply: (data: { reason: string; anamnesis: string }) => void
   disabled?: boolean
+  patientContext?: PatientContext
+  onPatientFieldsDetected?: (fields: PatientFieldsDetected) => void
 }
 
 type RecorderState =
@@ -49,8 +65,8 @@ function getSpeechRecognition(): (new () => SpeechRecognitionInstance) | null {
 }
 
 const MAX_RESTARTS = 10
-const MAX_RECORD_SECONDS = 300  // 5 minutes — limite Groq + protection contre les oublis
-const WARN_RECORD_SECONDS = 240 // avertissement à 4 minutes
+const MAX_RECORD_SECONDS = 600  // 10 minutes
+const WARN_RECORD_SECONDS = 540 // avertissement à 9 minutes
 
 function isElectron(): boolean {
   return typeof window !== 'undefined' && !!(window as any).electronAPI?.isDesktop
@@ -112,11 +128,14 @@ async function clearAudioBlob(): Promise<void> {
 
 // ─── Composant ───────────────────────────────────────────────────────────────
 
-export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps) {
+export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatientFieldsDetected }: AnamnesisRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle')
   const [finalText, setFinalText] = useState('')
   const [interimText, setInterimText] = useState('')
+  const [isElectronApp, setIsElectronApp] = useState(false)
   const [structured, setStructured] = useState<{ reason: string; anamnesis: string } | null>(null)
+  const [detectedFields, setDetectedFields] = useState<PatientFieldsDetected | null>(null)
+  const [detectionSkipped, setDetectionSkipped] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [statusMsg, setStatusMsg] = useState('')
   const [elapsed, setElapsed] = useState(0)
@@ -168,6 +187,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     } catch { clearDraft() }
     // Vérifie si un blob audio est en cache (transcription échouée lors d'une session précédente)
     loadAudioBlob().then((blob) => { if (blob) setHasCachedAudio(true) })
+    setIsElectronApp(isElectron())
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -207,11 +227,15 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
       const res = await fetch('/api/ai/structure-anamnesis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: text }),
+        body: JSON.stringify({ transcript: text, currentPatient: patientContext }),
       })
       const data = await res.json()
       if (!res.ok) { setErrorMsg(data.error || 'Erreur lors de la structuration.'); setState('error'); return }
-      setStructured(data)
+      setStructured({ reason: data.reason, anamnesis: data.anamnesis })
+      if (data.patient_fields && Object.keys(data.patient_fields).length > 0) {
+        setDetectedFields(data.patient_fields)
+      }
+      setDetectionSkipped(!!data.detection_skipped)
       setState('done')
     } catch {
       setErrorMsg('Impossible de contacter le serveur.')
@@ -237,6 +261,8 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
     setFinalText('')
     setInterimText('')
     setStructured(null)
+    setDetectedFields(null)
+    setDetectionSkipped(false)
     setErrorMsg('')
     setStatusMsg('')
     setElapsed(0)
@@ -541,18 +567,50 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
   const handleApply = useCallback(() => {
     if (!structured) return
     onApply(structured)
+    if (detectedFields && onPatientFieldsDetected) {
+      onPatientFieldsDetected(detectedFields)
+    }
     clearDraft()
     setTimeout(() => {
       setState('idle')
       setFinalText('')
       setInterimText('')
       setStructured(null)
+      setDetectedFields(null)
+      setDetectionSkipped(false)
       setErrorMsg('')
       setStatusMsg('')
       setElapsed(0)
       finalTextRef.current = ''
     }, 300)
-  }, [structured, onApply, clearDraft])
+  }, [structured, detectedFields, onApply, onPatientFieldsDetected, clearDraft])
+
+  const acceptField = useCallback((key: keyof PatientFieldsDetected) => {
+    if (!detectedFields || !onPatientFieldsDetected) return
+    const value = detectedFields[key]
+    if (value !== undefined) onPatientFieldsDetected({ [key]: value } as PatientFieldsDetected)
+    setDetectedFields((prev) => {
+      if (!prev) return null
+      const next = { ...prev }
+      delete next[key]
+      return Object.keys(next).length > 0 ? next : null
+    })
+  }, [detectedFields, onPatientFieldsDetected])
+
+  const rejectField = useCallback((key: keyof PatientFieldsDetected) => {
+    setDetectedFields((prev) => {
+      if (!prev) return null
+      const next = { ...prev }
+      delete next[key]
+      return Object.keys(next).length > 0 ? next : null
+    })
+  }, [])
+
+  const acceptAllFields = useCallback(() => {
+    if (!detectedFields || !onPatientFieldsDetected) return
+    onPatientFieldsDetected(detectedFields)
+    setDetectedFields(null)
+  }, [detectedFields, onPatientFieldsDetected])
 
   // ─── Rendu ────────────────────────────────────────────────────────────────
 
@@ -616,7 +674,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
             <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <Mic className="h-3.5 w-3.5" />
               Dictée de l&apos;anamnèse
-              {isElectron() && (
+              {isElectronApp && (
                 <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded px-1.5 py-0.5 font-normal">
                   Groq Whisper
                 </span>
@@ -639,7 +697,7 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
         )}
       </div>
 
-      {/* Avertissement durée — à 4 min, arrêt automatique à 5 min */}
+      {/* Avertissement durée — à 9 min, arrêt automatique à 10 min */}
       {state === 'recording' && elapsed >= WARN_RECORD_SECONDS && (
         <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-1.5">
           <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
@@ -691,6 +749,96 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
             })}
           </div>
         </div>
+      )}
+
+      {/* Detected patient fields */}
+      {state === 'done' && detectedFields && onPatientFieldsDetected && (() => {
+        const FIELDS: { key: keyof PatientFieldsDetected; label: string; color?: string; format?: (v: string) => string }[] = [
+          { key: 'profession', label: 'Profession' },
+          { key: 'sport_activity', label: 'Activité sportive' },
+          { key: 'primary_physician', label: 'Médecin traitant' },
+          { key: 'pregnancy_due_date', label: 'Terme grossesse', format: (v) => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) },
+          { key: 'surgical_history', label: 'Chirurgical', color: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700' },
+          { key: 'trauma_history', label: 'Traumatique', color: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700' },
+          { key: 'medical_history', label: 'Médical', color: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700' },
+          { key: 'family_history', label: 'Familial', color: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' },
+        ]
+        const active = FIELDS.filter(({ key }) => detectedFields[key] !== undefined)
+        return (
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 dark:border-indigo-800 dark:bg-indigo-950/30 px-3 py-2.5 space-y-2">
+            <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+              <UserPen className="h-3.5 w-3.5" />
+              Informations patient détectées
+            </p>
+            <div className="space-y-1.5">
+              {active.map(({ key, label, color, format }) => {
+                const value = detectedFields[key] as string
+                return (
+                  <div key={key} className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-1.5 min-w-0">
+                      {color && (
+                        <span className={`shrink-0 mt-0.5 inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-medium ${color}`}>
+                          {label}
+                        </span>
+                      )}
+                      <p className="text-xs text-indigo-900 dark:text-indigo-200 leading-relaxed">
+                        {!color && <span className="font-medium">{label} :{' '}</span>}
+                        {format ? format(value) : value}
+                      </p>
+                    </div>
+                    <div className="flex gap-1 shrink-0 mt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => acceptField(key)}
+                        className="h-5 w-5 rounded flex items-center justify-center text-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+                        title="Accepter"
+                      >
+                        <Check className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => rejectField(key)}
+                        className="h-5 w-5 rounded flex items-center justify-center text-indigo-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
+                        title="Ignorer"
+                      >
+                        <span className="text-[10px] font-bold leading-none">✕</span>
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            {active.length > 1 && (
+              <div className="flex items-center gap-2 pt-0.5 border-t border-indigo-100 dark:border-indigo-800">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 px-3 text-xs bg-indigo-600 hover:bg-indigo-700"
+                  onClick={acceptAllFields}
+                >
+                  <Check className="h-3 w-3 mr-1" />
+                  Valider tout
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs text-indigo-500"
+                  onClick={() => setDetectedFields(null)}
+                >
+                  Tout ignorer
+                </Button>
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* Detection skipped hint */}
+      {state === 'done' && detectionSkipped && onPatientFieldsDetected && (
+        <p className="text-xs text-muted-foreground">
+          💡 La détection automatique des informations patient sera disponible après mise à jour du serveur IA.
+        </p>
       )}
 
       {/* Actions */}
@@ -757,7 +905,9 @@ export function AnamnesisRecorder({ onApply, disabled }: AnamnesisRecorderProps)
         {state === 'done' && (
           <Button type="button" size="sm" onClick={handleApply} className="gap-1.5 bg-green-600 hover:bg-green-700">
             <Check className="h-3.5 w-3.5" />
-            Injecter dans la consultation
+            {detectedFields && onPatientFieldsDetected
+              ? 'Injecter et accepter tous les changements'
+              : 'Injecter dans la consultation'}
           </Button>
         )}
       </div>
