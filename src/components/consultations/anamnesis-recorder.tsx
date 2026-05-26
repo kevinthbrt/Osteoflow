@@ -130,6 +130,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
   const [interimText, setInterimText] = useState('')
   const [structured, setStructured] = useState<{ reason: string; anamnesis: string } | null>(null)
   const [detectedFields, setDetectedFields] = useState<PatientFieldsDetected | null>(null)
+  const [detectionSkipped, setDetectionSkipped] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [statusMsg, setStatusMsg] = useState('')
   const [elapsed, setElapsed] = useState(0)
@@ -228,6 +229,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
       if (data.patient_fields && Object.keys(data.patient_fields).length > 0) {
         setDetectedFields(data.patient_fields)
       }
+      setDetectionSkipped(!!data.detection_skipped)
       setState('done')
     } catch {
       setErrorMsg('Impossible de contacter le serveur.')
@@ -254,6 +256,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
     setInterimText('')
     setStructured(null)
     setDetectedFields(null)
+    setDetectionSkipped(false)
     setErrorMsg('')
     setStatusMsg('')
     setElapsed(0)
@@ -565,6 +568,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
       setInterimText('')
       setStructured(null)
       setDetectedFields(null)
+      setDetectionSkipped(false)
       setErrorMsg('')
       setStatusMsg('')
       setElapsed(0)
@@ -759,6 +763,13 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Detection skipped hint */}
+      {state === 'done' && detectionSkipped && onPatientFieldsDetected && (
+        <p className="text-xs text-muted-foreground">
+          💡 La détection automatique des infos patient nécessite une clé API Anthropic (<code>ANTHROPIC_API_KEY</code>).
+        </p>
       )}
 
       {/* Actions */}

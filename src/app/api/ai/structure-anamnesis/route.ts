@@ -84,14 +84,14 @@ export async function POST(req: Request) {
 
     const secret = process.env.OSTEOFLOW_PROXY_SECRET || PROXY_SECRET
 
-    // Get API key from DB for field detection (optional feature)
-    let apiKey: string | null = null
+    // API key: env var takes precedence, then DB-stored key
+    let apiKey: string | null = process.env.ANTHROPIC_API_KEY || null
     try {
       const { getDatabase } = await import('@/lib/database/connection')
       const db = getDatabase()
       const row = db.prepare("SELECT value FROM app_config WHERE key = 'anthropic_api_key'").get() as { value: string } | undefined
-      apiKey = row?.value ?? null
-    } catch { /* no key available, skip detection */ }
+      if (row?.value) apiKey = row.value
+    } catch { /* DB not available, use env var */ }
 
     // Run proxy call + detection in parallel
     const [proxyResult, detectedFields] = await Promise.allSettled([
@@ -121,8 +121,9 @@ export async function POST(req: Request) {
 
     const data = await proxyRes.json()
     const patient_fields = detectedFields.status === 'fulfilled' ? detectedFields.value : null
+    const detection_skipped = !apiKey
 
-    return NextResponse.json({ ...data, patient_fields })
+    return NextResponse.json({ ...data, patient_fields, detection_skipped })
   } catch (err) {
     console.error('[AI proxy]', err)
     return NextResponse.json({ error: 'Erreur lors de la structuration.' }, { status: 500 })
