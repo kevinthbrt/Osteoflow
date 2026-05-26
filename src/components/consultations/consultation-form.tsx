@@ -1240,6 +1240,11 @@ export function ConsultationForm({
               {currentPatient.phone && <p className="text-muted-foreground">{currentPatient.phone}</p>}
               {currentPatient.email && <p className="text-muted-foreground">{currentPatient.email}</p>}
               {currentPatient.profession && <p className="text-muted-foreground">{currentPatient.profession}</p>}
+              {currentPatient.pregnancy_due_date && (
+                <p className="text-pink-600 font-medium">
+                  Grossesse — terme : {new Date(currentPatient.pregnancy_due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </p>
+              )}
               {currentPatient.notes && (
                 <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md">
                   <p className="text-xs font-medium text-amber-800 mb-1">Notes</p>

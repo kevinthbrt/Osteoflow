@@ -101,6 +101,8 @@ export async function POST(request: NextRequest) {
       exercise_type: draft.exercise.type,
       exercise_level: draft.exercise.level,
       illustration_url: draft.exercise.illustration_url || null,
+      nerve_target: draft.nerve_target || null,
+      progression_regression: draft.progression_regression || null,
       sets: draft.sets,
       reps: draft.reps || null,
       hold_time: draft.hold_time,

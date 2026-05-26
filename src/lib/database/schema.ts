@@ -281,6 +281,8 @@ CREATE TABLE IF NOT EXISTS exercise_prescription_template_items (
   exercise_type TEXT NOT NULL,
   exercise_level INTEGER NOT NULL DEFAULT 1,
   illustration_url TEXT,
+  nerve_target TEXT,
+  progression_regression TEXT,
   sets INTEGER,
   reps TEXT,
   hold_time INTEGER,
@@ -313,6 +315,8 @@ CREATE TABLE IF NOT EXISTS exercise_prescription_items (
   exercise_type TEXT NOT NULL,
   exercise_level INTEGER NOT NULL DEFAULT 1,
   illustration_url TEXT,
+  nerve_target TEXT,
+  progression_regression TEXT,
   sets INTEGER,
   reps TEXT,
   hold_time INTEGER,
@@ -570,6 +574,23 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   `)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_exercise_prescription_templates_practitioner ON exercise_prescription_templates(practitioner_id);`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_exercise_prescription_template_items_template ON exercise_prescription_template_items(template_id);`)
+
+  // Add nerve_target and progression_regression to exercise prescription items
+  const prescItemCols = db.pragma('table_info(exercise_prescription_items)') as Array<{ name: string }>
+  if (!prescItemCols.some((c) => c.name === 'nerve_target')) {
+    db.exec('ALTER TABLE exercise_prescription_items ADD COLUMN nerve_target TEXT;')
+  }
+  if (!prescItemCols.some((c) => c.name === 'progression_regression')) {
+    db.exec('ALTER TABLE exercise_prescription_items ADD COLUMN progression_regression TEXT;')
+  }
+
+  const tmplItemCols = db.pragma('table_info(exercise_prescription_template_items)') as Array<{ name: string }>
+  if (!tmplItemCols.some((c) => c.name === 'nerve_target')) {
+    db.exec('ALTER TABLE exercise_prescription_template_items ADD COLUMN nerve_target TEXT;')
+  }
+  if (!tmplItemCols.some((c) => c.name === 'progression_regression')) {
+    db.exec('ALTER TABLE exercise_prescription_template_items ADD COLUMN progression_regression TEXT;')
+  }
 }
 
 /**

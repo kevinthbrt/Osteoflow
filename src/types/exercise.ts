@@ -21,6 +21,8 @@ export interface ExercisePrescriptionItem {
   exercise_type: string
   exercise_level: number
   illustration_url: string | null
+  nerve_target: string | null
+  progression_regression: string | null
   sets: number | null
   reps: string | null
   hold_time: number | null
@@ -50,6 +52,8 @@ export interface ExercisePrescriptionItemDraft {
   rest_time: number | null
   frequency: string
   notes: string
+  nerve_target: string
+  progression_regression: string
 }
 
 export interface ExercisePrescriptionTemplate {

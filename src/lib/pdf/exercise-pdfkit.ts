@@ -230,6 +230,25 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
       .text(item.exercise_description, CONTENT_X, descY, { width: CONTENT_W, lineGap: 3 })
     curY = doc.y + SP.m
 
+    // ── Nerve target & Progression/Regression ────────────────────────────
+    if (item.nerve_target) {
+      doc.font('Helvetica-Bold').fontSize(8).fillColor('#4F46E5')
+        .text('Cible nerveuse : ', CONTENT_X, curY, { continued: true, lineBreak: false })
+      doc.font('Helvetica').fillColor(C.text)
+        .text(item.nerve_target, { width: CONTENT_W, lineBreak: false })
+      curY = doc.y + SP.xs
+    }
+    if (item.progression_regression) {
+      doc.font('Helvetica-Bold').fontSize(8).fillColor(C.textLight)
+        .text('Progression/Régression : ', CONTENT_X, curY, { continued: true, lineBreak: false })
+      doc.font('Helvetica').fillColor(C.text)
+        .text(item.progression_regression, { width: CONTENT_W, lineBreak: false })
+      curY = doc.y + SP.xs
+    }
+    if (item.nerve_target || item.progression_regression) {
+      curY += SP.xs
+    }
+
     // ── Params box ───────────────────────────────────────────────────────
     const params: string[] = []
     if (item.sets != null && item.reps)  params.push(`${item.sets} × ${item.reps}`)

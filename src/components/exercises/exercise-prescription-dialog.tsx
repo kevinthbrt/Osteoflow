@@ -130,7 +130,17 @@ export function ExercisePrescriptionDialog({
     if (isSelected(exercise.id)) return
     setSelectedItems((prev) => [
       ...prev,
-      { exercise, sets: 3, reps: '10', hold_time: null, rest_time: 30, frequency: '1x/jour', notes: '' },
+      {
+        exercise,
+        sets: 3,
+        reps: '10',
+        hold_time: null,
+        rest_time: 30,
+        frequency: '1x/jour',
+        notes: '',
+        nerve_target: exercise.nerve_target || '',
+        progression_regression: exercise.progression_regression || '',
+      },
     ])
   }
 
@@ -179,8 +189,8 @@ export function ExercisePrescriptionDialog({
         region: item.exercise_region,
         type: item.exercise_type,
         level: item.exercise_level as 1 | 2 | 3,
-        nerve_target: null,
-        progression_regression: null,
+        nerve_target: item.nerve_target || null,
+        progression_regression: item.progression_regression || null,
         is_active: true,
         illustration_url: item.illustration_url,
       },
@@ -190,6 +200,8 @@ export function ExercisePrescriptionDialog({
       rest_time: item.rest_time,
       frequency: item.frequency || '1x/jour',
       notes: item.notes || '',
+      nerve_target: item.nerve_target || '',
+      progression_regression: item.progression_regression || '',
     }))
     setSelectedItems(drafts)
     setTitle(template.name)
@@ -237,6 +249,8 @@ export function ExercisePrescriptionDialog({
         exercise_type: item.exercise.type,
         exercise_level: item.exercise.level,
         illustration_url: item.exercise.illustration_url,
+        nerve_target: item.nerve_target,
+        progression_regression: item.progression_regression,
         sets: item.sets,
         reps: item.reps,
         hold_time: item.hold_time,
@@ -567,6 +581,9 @@ export function ExercisePrescriptionDialog({
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                         {ex.description}
                       </p>
+                      {ex.nerve_target && (
+                        <p className="text-xs text-indigo-600 mt-0.5">⚡ {ex.nerve_target}</p>
+                      )}
                     </div>
                     <Button
                       type="button"
@@ -714,6 +731,26 @@ export function ExercisePrescriptionDialog({
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs">Cible nerveuse</Label>
+                      <Input
+                        className="h-7 text-xs"
+                        value={item.nerve_target}
+                        onChange={(e) => updateItem(item.exercise.id, 'nerve_target', e.target.value)}
+                        placeholder="ex: nerf sciatique..."
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs">Progression / Régression</Label>
+                      <Input
+                        className="h-7 text-xs"
+                        value={item.progression_regression}
+                        onChange={(e) => updateItem(item.exercise.id, 'progression_regression', e.target.value)}
+                        placeholder="ex: ajouter poids, réduire amplitude..."
+                      />
                     </div>
 
                     <div className="space-y-1">
