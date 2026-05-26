@@ -728,7 +728,7 @@ export function ConsultationForm({
                     for (const { field, type } of historyMap) {
                       const value = fields[field]
                       if (value !== undefined) {
-                        await db.from('medical_history_entries').insert({
+                        const { error } = await db.from('medical_history_entries').insert({
                           patient_id: currentPatient.id,
                           history_type: type,
                           description: value,
@@ -739,6 +739,7 @@ export function ConsultationForm({
                           is_vigilance: false,
                           note: null,
                         })
+                        if (error) throw new Error(error.message)
                         historyInserted = true
                       }
                     }
