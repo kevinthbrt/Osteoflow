@@ -772,7 +772,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
       {/* Detection skipped hint */}
       {state === 'done' && detectionSkipped && onPatientFieldsDetected && (
         <p className="text-xs text-muted-foreground">
-          💡 La détection automatique des infos patient nécessite une clé API Anthropic (<code>ANTHROPIC_API_KEY</code>).
+          💡 La détection automatique des informations patient sera disponible après mise à jour du serveur IA.
         </p>
       )}
 
