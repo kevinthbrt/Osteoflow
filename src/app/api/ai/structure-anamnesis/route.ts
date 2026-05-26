@@ -14,6 +14,9 @@ interface CurrentPatientContext {
   primary_physician?: string | null
   pregnancy_due_date?: string | null
   surgical_history?: string | null
+  trauma_history?: string | null
+  medical_history?: string | null
+  family_history?: string | null
 }
 
 export async function POST(req: Request) {

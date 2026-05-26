@@ -697,25 +697,36 @@ export function ConsultationForm({
                   primary_physician: currentPatient.primary_physician,
                   pregnancy_due_date: currentPatient.pregnancy_due_date,
                   surgical_history: currentPatient.surgical_history,
+                  trauma_history: currentPatient.trauma_history,
+                  medical_history: currentPatient.medical_history,
+                  family_history: currentPatient.family_history,
                 }}
                 onPatientFieldsDetected={async (fields) => {
                   try {
-                    const updates: Pick<Patient, 'profession' | 'sport_activity' | 'primary_physician' | 'pregnancy_due_date' | 'surgical_history'> = {
+                    const updates: Pick<Patient, 'profession' | 'sport_activity' | 'primary_physician' | 'pregnancy_due_date' | 'surgical_history' | 'trauma_history' | 'medical_history' | 'family_history'> = {
                       profession: currentPatient.profession,
                       sport_activity: currentPatient.sport_activity,
                       primary_physician: currentPatient.primary_physician,
                       pregnancy_due_date: currentPatient.pregnancy_due_date,
                       surgical_history: currentPatient.surgical_history,
+                      trauma_history: currentPatient.trauma_history,
+                      medical_history: currentPatient.medical_history,
+                      family_history: currentPatient.family_history,
                     }
                     if (fields.profession !== undefined) updates.profession = fields.profession
                     if (fields.sport_activity !== undefined) updates.sport_activity = fields.sport_activity
                     if (fields.primary_physician !== undefined) updates.primary_physician = fields.primary_physician
                     if (fields.pregnancy_due_date !== undefined) updates.pregnancy_due_date = fields.pregnancy_due_date
-                    if (fields.surgical_history !== undefined) {
-                      updates.surgical_history = currentPatient.surgical_history
-                        ? `${currentPatient.surgical_history}\n${fields.surgical_history}`
-                        : fields.surgical_history
-                    }
+                    const appendHistory = (existing: string | null, added: string) =>
+                      existing ? `${existing}\n${added}` : added
+                    if (fields.surgical_history !== undefined)
+                      updates.surgical_history = appendHistory(currentPatient.surgical_history, fields.surgical_history)
+                    if (fields.trauma_history !== undefined)
+                      updates.trauma_history = appendHistory(currentPatient.trauma_history, fields.trauma_history)
+                    if (fields.medical_history !== undefined)
+                      updates.medical_history = appendHistory(currentPatient.medical_history, fields.medical_history)
+                    if (fields.family_history !== undefined)
+                      updates.family_history = appendHistory(currentPatient.family_history, fields.family_history)
                     await db.from('patients').update(updates).eq('id', currentPatient.id)
                     setCurrentPatient((prev) => ({ ...prev, ...updates }))
                     toast({ title: 'Dossier patient mis à jour', variant: 'success' })

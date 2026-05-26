@@ -14,6 +14,9 @@ interface PatientContext {
   primary_physician?: string | null
   pregnancy_due_date?: string | null
   surgical_history?: string | null
+  trauma_history?: string | null
+  medical_history?: string | null
+  family_history?: string | null
 }
 
 interface AnamnesisRecorderProps {
@@ -744,6 +747,15 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
             )}
             {detectedFields.surgical_history && (
               <p><span className="font-medium">Antécédent chirurgical :</span> {detectedFields.surgical_history}</p>
+            )}
+            {detectedFields.trauma_history && (
+              <p><span className="font-medium">Antécédent traumatique :</span> {detectedFields.trauma_history}</p>
+            )}
+            {detectedFields.medical_history && (
+              <p><span className="font-medium">Antécédent médical :</span> {detectedFields.medical_history}</p>
+            )}
+            {detectedFields.family_history && (
+              <p><span className="font-medium">Antécédent familial :</span> {detectedFields.family_history}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
