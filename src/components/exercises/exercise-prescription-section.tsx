@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
-import { Dumbbell, Download, Trash2, Plus } from 'lucide-react'
+import { Dumbbell, Download, Trash2, Plus, Mail } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
 import type { ExercisePrescription } from '@/types/exercise'
@@ -37,6 +37,38 @@ export function ExercisePrescriptionSection({
   }, [patientId])
 
   useEffect(() => { load() }, [load])
+
+  async function handleDownloadPdf(id: string) {
+    try {
+      const res = await fetch(`/api/exercise-prescriptions/${id}/pdf`)
+      if (!res.ok) return
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'programme-exercices.pdf'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      toast({ title: 'Erreur lors du téléchargement', variant: 'destructive' })
+    }
+  }
+
+  async function handleSendEmail(id: string) {
+    try {
+      const res = await fetch(`/api/exercise-prescriptions/${id}/email`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) {
+        toast({ title: data.error || "Erreur lors de l'envoi", variant: 'destructive' })
+      } else {
+        toast({ title: 'Programme envoyé par email' })
+      }
+    } catch {
+      toast({ title: "Erreur lors de l'envoi", variant: 'destructive' })
+    }
+  }
 
   async function handleDelete(id: string) {
     if (!confirm('Supprimer ce programme ?')) return
@@ -90,11 +122,19 @@ export function ExercisePrescriptionSection({
                       size="icon"
                       className="h-8 w-8"
                       title="Télécharger le PDF"
-                      onClick={() =>
-                        window.open(`/api/exercise-prescriptions/${p.id}/pdf`, '_blank')
-                      }
+                      onClick={() => handleDownloadPdf(p.id)}
                     >
                       <Download className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      title="Envoyer par email"
+                      onClick={() => handleSendEmail(p.id)}
+                    >
+                      <Mail className="h-4 w-4" />
                     </Button>
                     <Button
                       type="button"

@@ -162,13 +162,20 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
     const imgY = cardY
     const circleCenterY = cardY + CIRCLE_R  // vertical center of the circle
 
-    // ── Image — clipped to prevent overflow when cover scales beyond bounds ──
+    // ── Image — fit mode shows the complete image without cropping ──────────
     const imgBuffer = item.illustration_url ? imageBuffers.get(item.illustration_url) : undefined
     if (imgBuffer) {
       try {
+        // Light background for the image box (visible when image has whitespace with fit)
+        doc.roundedRect(imgX, imgY, IMG_SIZE, IMG_SIZE, 5).fill('#F8FAFC')
+        // Clip to prevent any overflow, then draw with fit to show full image
         doc.save()
         doc.roundedRect(imgX, imgY, IMG_SIZE, IMG_SIZE, 5).clip()
-        doc.image(imgBuffer, imgX, imgY, { cover: [IMG_SIZE, IMG_SIZE] })
+        doc.image(imgBuffer, imgX, imgY, {
+          fit: [IMG_SIZE, IMG_SIZE],
+          align: 'center',
+          valign: 'center',
+        })
         doc.restore()
         doc.roundedRect(imgX, imgY, IMG_SIZE, IMG_SIZE, 5).stroke(C.borderLight)
       } catch {
@@ -220,8 +227,8 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
     // ── Description ──────────────────────────────────────────────────────
     const descY = bY + 14 + SP.m
     doc.font('Helvetica').fontSize(9.5).fillColor(C.text)
-      .text(item.exercise_description, CONTENT_X, descY, { width: CONTENT_W, lineGap: 2 })
-    curY = doc.y + SP.s
+      .text(item.exercise_description, CONTENT_X, descY, { width: CONTENT_W, lineGap: 3 })
+    curY = doc.y + SP.m
 
     // ── Params box ───────────────────────────────────────────────────────
     const params: string[] = []

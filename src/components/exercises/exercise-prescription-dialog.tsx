@@ -280,7 +280,20 @@ export function ExercisePrescriptionDialog({
       if (!res.ok) throw new Error()
       const data = await res.json()
       if (exportPdf && data.prescription?.id) {
-        window.open(`/api/exercise-prescriptions/${data.prescription.id}/pdf`, '_blank')
+        try {
+          const pdfRes = await fetch(`/api/exercise-prescriptions/${data.prescription.id}/pdf`)
+          if (pdfRes.ok) {
+            const blob = await pdfRes.blob()
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `programme-exercices.pdf`
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            URL.revokeObjectURL(url)
+          }
+        } catch { /* PDF failure non-blocking */ }
       }
       toast({ title: 'Programme enregistré' })
       onSaved?.()
