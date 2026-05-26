@@ -719,7 +719,7 @@ export function ExercisePrescriptionDialog({
                     <div className="space-y-1">
                       <Label className="text-xs">Fréquence</Label>
                       <Select
-                        value={item.frequency}
+                        value={item.frequency || undefined}
                         onValueChange={(v) => updateItem(item.exercise.id, 'frequency', v)}
                       >
                         <SelectTrigger className="h-7 text-xs">
