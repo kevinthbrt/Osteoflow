@@ -19,6 +19,14 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.3.1',
+    date: '2026-05-26',
+    title: 'Correctif programme d\'exercices',
+    changes: [
+      { type: 'fix', text: 'Correction de l\'erreur au clic sur "Nouveau programme d\'exercices" quand des exercices n\'ont pas de région ou de type défini.' },
+    ],
+  },
+  {
     version: '1.3.0',
     date: '2026-05-26',
     title: 'Détection IA des antécédents et module exercices',
