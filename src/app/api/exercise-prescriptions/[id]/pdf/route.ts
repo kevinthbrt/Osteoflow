@@ -83,7 +83,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="programme-exercices-${dateStr}.pdf"`,
+        'Content-Disposition': `inline; filename="programme-exercices-${dateStr}.pdf"`,
         'Cache-Control': 'no-store',
       },
     })
