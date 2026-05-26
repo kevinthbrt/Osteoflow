@@ -903,7 +903,9 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
         {state === 'done' && (
           <Button type="button" size="sm" onClick={handleApply} className="gap-1.5 bg-green-600 hover:bg-green-700">
             <Check className="h-3.5 w-3.5" />
-            Injecter dans la consultation
+            {detectedFields && onPatientFieldsDetected
+              ? 'Injecter et accepter tous les changements'
+              : 'Injecter dans la consultation'}
           </Button>
         )}
       </div>
