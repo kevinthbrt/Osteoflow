@@ -3,4 +3,5 @@ export interface PatientFieldsDetected {
   sport_activity?: string
   primary_physician?: string
   pregnancy_due_date?: string
+  surgical_history?: string
 }

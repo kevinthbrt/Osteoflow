@@ -13,6 +13,7 @@ interface CurrentPatientContext {
   sport_activity?: string | null
   primary_physician?: string | null
   pregnancy_due_date?: string | null
+  surgical_history?: string | null
 }
 
 async function detectPatientFields(
@@ -27,13 +28,15 @@ Retourne UNIQUEMENT un objet JSON valide (sans texte autour, sans markdown) avec
 - "sport_activity" : l'activité sportive pratiquée si mentionnée
 - "primary_physician" : le nom du médecin traitant ou du médecin référent si mentionné
 - "pregnancy_due_date" : la date de terme d'une grossesse au format YYYY-MM-DD (si grossesse mentionnée avec un terme prévu)
+- "surgical_history" : une opération chirurgicale ou un antécédent chirurgical mentionné (uniquement la nouvelle procédure, formulée brièvement ex: "appendicectomie 2018")
 
 Règles strictes :
 - N'inclure un champ QUE s'il est explicitement mentionné dans le texte
 - Ne pas inclure un champ dont la valeur est déjà connue (identique au contexte actuel)
 - Si aucun champ n'est détecté, retourner {}
 - Ne jamais inventer d'informations non mentionnées
-- Pour pregnancy_due_date, approximer au 1er du mois si seul le mois est précisé`
+- Pour pregnancy_due_date, approximer au 1er du mois si seul le mois est précisé
+- Pour surgical_history, ne retourner que la nouvelle procédure mentionnée (pas tout l'historique existant)`
 
   const lines: string[] = ['Contexte actuel du patient :']
   lines.push(currentPatient?.profession ? `- Profession : ${currentPatient.profession}` : '- Profession : inconnue')
@@ -41,6 +44,9 @@ Règles strictes :
   lines.push(currentPatient?.primary_physician ? `- Médecin traitant : ${currentPatient.primary_physician}` : '- Médecin traitant : inconnu')
   if (currentPatient?.pregnancy_due_date) {
     lines.push(`- Grossesse en cours, terme : ${new Date(currentPatient.pregnancy_due_date).toLocaleDateString('fr-FR')}`)
+  }
+  if (currentPatient?.surgical_history) {
+    lines.push(`- Antécédents chirurgicaux connus : ${currentPatient.surgical_history}`)
   }
   lines.push('', 'Texte de la dictée :', transcript)
 

@@ -696,19 +696,26 @@ export function ConsultationForm({
                   sport_activity: currentPatient.sport_activity,
                   primary_physician: currentPatient.primary_physician,
                   pregnancy_due_date: currentPatient.pregnancy_due_date,
+                  surgical_history: currentPatient.surgical_history,
                 }}
                 onPatientFieldsDetected={async (fields) => {
                   try {
-                    const updates: Pick<Patient, 'profession' | 'sport_activity' | 'primary_physician' | 'pregnancy_due_date'> = {
+                    const updates: Pick<Patient, 'profession' | 'sport_activity' | 'primary_physician' | 'pregnancy_due_date' | 'surgical_history'> = {
                       profession: currentPatient.profession,
                       sport_activity: currentPatient.sport_activity,
                       primary_physician: currentPatient.primary_physician,
                       pregnancy_due_date: currentPatient.pregnancy_due_date,
+                      surgical_history: currentPatient.surgical_history,
                     }
                     if (fields.profession !== undefined) updates.profession = fields.profession
                     if (fields.sport_activity !== undefined) updates.sport_activity = fields.sport_activity
                     if (fields.primary_physician !== undefined) updates.primary_physician = fields.primary_physician
                     if (fields.pregnancy_due_date !== undefined) updates.pregnancy_due_date = fields.pregnancy_due_date
+                    if (fields.surgical_history !== undefined) {
+                      updates.surgical_history = currentPatient.surgical_history
+                        ? `${currentPatient.surgical_history}\n${fields.surgical_history}`
+                        : fields.surgical_history
+                    }
                     await db.from('patients').update(updates).eq('id', currentPatient.id)
                     setCurrentPatient((prev) => ({ ...prev, ...updates }))
                     toast({ title: 'Dossier patient mis à jour', variant: 'success' })

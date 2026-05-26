@@ -13,6 +13,7 @@ interface PatientContext {
   sport_activity?: string | null
   primary_physician?: string | null
   pregnancy_due_date?: string | null
+  surgical_history?: string | null
 }
 
 interface AnamnesisRecorderProps {
@@ -740,6 +741,9 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
             )}
             {detectedFields.pregnancy_due_date && (
               <p><span className="font-medium">Terme grossesse :</span> {new Date(detectedFields.pregnancy_due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+            )}
+            {detectedFields.surgical_history && (
+              <p><span className="font-medium">Antécédent chirurgical :</span> {detectedFields.surgical_history}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
