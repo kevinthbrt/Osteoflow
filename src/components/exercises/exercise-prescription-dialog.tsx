@@ -108,8 +108,8 @@ export function ExercisePrescriptionDialog({
       .catch(() => {})
   }, [open])
 
-  const regions = useMemo(() => Array.from(new Set(exercises.map((e) => e.region))).sort(), [exercises])
-  const types = useMemo(() => Array.from(new Set(exercises.map((e) => e.type))).sort(), [exercises])
+  const regions = useMemo(() => Array.from(new Set(exercises.map((e) => e.region).filter(Boolean))).sort(), [exercises])
+  const types = useMemo(() => Array.from(new Set(exercises.map((e) => e.type).filter(Boolean))).sort(), [exercises])
 
   const filteredExercises = useMemo(() => {
     return exercises.filter((e) => {
