@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { MedicalHistorySection } from './medical-history-section'
@@ -9,11 +9,13 @@ import type { MedicalHistoryEntry } from '@/types/database'
 interface MedicalHistorySectionWrapperProps {
   patientId: string
   initialEntries: MedicalHistoryEntry[]
+  refreshTrigger?: number
 }
 
 export function MedicalHistorySectionWrapper({
   patientId,
   initialEntries,
+  refreshTrigger,
 }: MedicalHistorySectionWrapperProps) {
   const [entries, setEntries] = useState<MedicalHistoryEntry[]>(initialEntries)
   const router = useRouter()
@@ -31,6 +33,11 @@ export function MedicalHistorySectionWrapper({
     }
     router.refresh()
   }, [patientId, db, router])
+
+  useEffect(() => {
+    if (refreshTrigger) refreshEntries()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger])
 
   return (
     <MedicalHistorySection

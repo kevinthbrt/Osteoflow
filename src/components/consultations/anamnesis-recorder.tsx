@@ -748,15 +748,15 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
 
       {/* Detected patient fields */}
       {state === 'done' && detectedFields && onPatientFieldsDetected && (() => {
-        const FIELDS: { key: keyof PatientFieldsDetected; label: string; format?: (v: string) => string }[] = [
+        const FIELDS: { key: keyof PatientFieldsDetected; label: string; color?: string; format?: (v: string) => string }[] = [
           { key: 'profession', label: 'Profession' },
           { key: 'sport_activity', label: 'Activité sportive' },
           { key: 'primary_physician', label: 'Médecin traitant' },
           { key: 'pregnancy_due_date', label: 'Terme grossesse', format: (v) => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) },
-          { key: 'surgical_history', label: 'Antécédent chirurgical' },
-          { key: 'trauma_history', label: 'Antécédent traumatique' },
-          { key: 'medical_history', label: 'Antécédent médical' },
-          { key: 'family_history', label: 'Antécédent familial' },
+          { key: 'surgical_history', label: 'Chirurgical', color: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700' },
+          { key: 'trauma_history', label: 'Traumatique', color: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700' },
+          { key: 'medical_history', label: 'Médical', color: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700' },
+          { key: 'family_history', label: 'Familial', color: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' },
         ]
         const active = FIELDS.filter(({ key }) => detectedFields[key] !== undefined)
         return (
@@ -766,14 +766,21 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
               Informations patient détectées
             </p>
             <div className="space-y-1.5">
-              {active.map(({ key, label, format }) => {
+              {active.map(({ key, label, color, format }) => {
                 const value = detectedFields[key] as string
                 return (
                   <div key={key} className="flex items-start justify-between gap-2">
-                    <p className="text-xs text-indigo-900 dark:text-indigo-200 leading-relaxed">
-                      <span className="font-medium">{label} :</span>{' '}
-                      {format ? format(value) : value}
-                    </p>
+                    <div className="flex items-start gap-1.5 min-w-0">
+                      {color && (
+                        <span className={`shrink-0 mt-0.5 inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-medium ${color}`}>
+                          {label}
+                        </span>
+                      )}
+                      <p className="text-xs text-indigo-900 dark:text-indigo-200 leading-relaxed">
+                        {!color && <span className="font-medium">{label} :{' '}</span>}
+                        {format ? format(value) : value}
+                      </p>
+                    </div>
                     <div className="flex gap-1 shrink-0 mt-0.5">
                       <button
                         type="button"

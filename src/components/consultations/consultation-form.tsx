@@ -91,6 +91,7 @@ export function ConsultationForm({
   const [sendPostSessionAdvice, setSendPostSessionAdvice] = useState(false)
   const [followUpDays, setFollowUpDays] = useState<number>((practitioner as any).follow_up_delay_days ?? 7)
   const [contactEmail, setContactEmail] = useState(currentPatient.email || '')
+  const [medicalHistoryRefreshKey, setMedicalHistoryRefreshKey] = useState(0)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [existingAttachments, setExistingAttachments] = useState<ConsultationAttachment[]>([])
   const [isDragging, setIsDragging] = useState(false)
@@ -723,6 +724,7 @@ export function ConsultationForm({
                       { field: 'medical_history', type: 'medical' },
                       { field: 'family_history', type: 'family' },
                     ]
+                    let historyInserted = false
                     for (const { field, type } of historyMap) {
                       const value = fields[field]
                       if (value !== undefined) {
@@ -737,8 +739,10 @@ export function ConsultationForm({
                           is_vigilance: false,
                           note: null,
                         })
+                        historyInserted = true
                       }
                     }
+                    if (historyInserted) setMedicalHistoryRefreshKey((k) => k + 1)
 
                     toast({ title: 'Dossier patient mis à jour', variant: 'success' })
                   } catch {
@@ -1311,6 +1315,7 @@ export function ConsultationForm({
           <MedicalHistorySectionWrapper
             patientId={currentPatient.id}
             initialEntries={medicalHistoryEntries}
+            refreshTrigger={medicalHistoryRefreshKey}
           />
 
           {pastConsultations && pastConsultations.length > 0 && (
