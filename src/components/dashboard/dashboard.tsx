@@ -12,15 +12,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Plus, Sparkles, Users, MessageCircle, FileText, BarChart3 } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Plus, Sparkles } from 'lucide-react'
 
 import { VideoWidget } from './widgets/video-widget'
-import { WeatherWidget } from './widgets/weather-widget'
 import { ProgressWidget } from './widgets/progress-widget'
 import { BirthdayWidget } from './widgets/birthday-widget'
-import { QuoteWidget } from './widgets/quote-widget'
 import { StatusWidget } from './widgets/status-widget'
 
 import type { Practitioner } from '@/types/database'
@@ -52,33 +48,6 @@ interface DashboardProps {
     email?: string | null
   }>
 }
-
-const QUICK_ACTIONS = [
-  {
-    label: 'Nouveau patient',
-    href: '/patients/new',
-    icon: Users,
-    color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
-  },
-  {
-    label: 'Messagerie',
-    href: '/messages',
-    icon: MessageCircle,
-    color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  },
-  {
-    label: 'Factures',
-    href: '/invoices',
-    icon: FileText,
-    color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-  },
-  {
-    label: 'Comptabilité',
-    href: '/accounting',
-    icon: BarChart3,
-    color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  },
-]
 
 function greeting() {
   const h = new Date().getHours()
@@ -133,54 +102,20 @@ export function Dashboard({
         </div>
       </div>
 
-      {/* ── Row 1 : Vidéo + Météo ── */}
+      {/* ── Row 1 : Vidéo + Progression ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <VideoWidget />
         </div>
         <div className="lg:col-span-1">
-          <WeatherWidget />
+          <ProgressWidget />
         </div>
       </div>
 
-      {/* ── Row 2 : Progression + Anniversaires + Statut ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <ProgressWidget />
+      {/* ── Row 2 : Anniversaires + Accès rapides ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <BirthdayWidget patients={birthdaysThisWeek} />
-        <StatusWidget
-          todayConsultations={stats.todayConsultations}
-          unreadMessages={stats.unreadMessages}
-          totalPatients={stats.totalPatients}
-        />
-      </div>
-
-      {/* ── Row 3 : Quick actions + Citation ── */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="md:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {QUICK_ACTIONS.map((action) => {
-            const isBadged = action.href === '/messages' && stats.unreadMessages > 0
-            return (
-              <Link key={action.href} href={action.href}>
-                <Card className="card-hover cursor-pointer h-full border-border/30 hover:border-primary/20">
-                  <CardContent className="p-4 flex flex-col items-center text-center gap-2.5">
-                    <div className={`relative w-11 h-11 rounded-2xl flex items-center justify-center ${action.color}`}>
-                      <action.icon className="h-5 w-5" />
-                      {isBadged && (
-                        <Badge className="absolute -top-1 -right-1 h-4 min-w-4 flex items-center justify-center text-[10px] px-1">
-                          •
-                        </Badge>
-                      )}
-                    </div>
-                    <span className="font-medium text-xs">{action.label}</span>
-                  </CardContent>
-                </Card>
-              </Link>
-            )
-          })}
-        </div>
-        <div className="md:col-span-2 flex flex-col justify-center">
-          <QuoteWidget />
-        </div>
+        <StatusWidget unreadMessages={stats.unreadMessages} />
       </div>
 
       {/* ── New consultation dialog ── */}

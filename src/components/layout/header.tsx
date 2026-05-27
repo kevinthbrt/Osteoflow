@@ -19,6 +19,7 @@ import { buildSearchOrFilters } from '@/lib/utils/search'
 import type { Practitioner } from '@/types/database'
 import { Input } from '@/components/ui/input'
 import { NotificationBell } from '@/components/layout/notification-bell'
+import { HeaderWeather } from '@/components/layout/header-weather'
 import { useTour } from '@/contexts/tour-context'
 
 interface LocalUser {
@@ -230,6 +231,9 @@ export function Header({ user, practitioner }: HeaderProps) {
             </div>
           )}
         </div>
+
+        {/* Weather chip */}
+        <HeaderWeather />
 
         {/* Actions */}
         <div className="flex items-center gap-1">
