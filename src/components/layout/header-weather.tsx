@@ -3,10 +3,26 @@
 import { useEffect, useState, useRef } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { MapPin, Search, Wind, Droplets, Thermometer } from 'lucide-react'
+import { Wind, Droplets, Thermometer, MapPin, Check } from 'lucide-react'
 
-const STORAGE_KEY = 'osteoflow_weather_city'
+const STORAGE_KEY = 'osteoflow_weather_location'
+
+type StoredLocation = {
+  cityName: string
+  lat: number
+  lon: number
+}
+
+type GeoSuggestion = {
+  id: number
+  name: string
+  lat: number
+  lon: number
+  admin1?: string
+  admin2?: string
+  country?: string
+  postcodes?: string[]
+}
 
 type WeatherData = {
   cityName: string
@@ -16,7 +32,6 @@ type WeatherData = {
   windSpeed: number
   humidity: number
   isDay: boolean
-  savedQuery: string
 }
 
 const WMO_ICONS: Record<number, { emoji: string; label: string }> = {
@@ -26,7 +41,7 @@ const WMO_ICONS: Record<number, { emoji: string; label: string }> = {
   3: { emoji: '☁️', label: 'Nuageux' },
   45: { emoji: '🌫️', label: 'Brouillard' },
   48: { emoji: '🌫️', label: 'Brouillard givrant' },
-  51: { emoji: '🌦️', label: 'Bruine légère' },
+  51: { emoji: '🌦️', label: 'Bruine' },
   53: { emoji: '🌦️', label: 'Bruine' },
   55: { emoji: '🌦️', label: 'Bruine dense' },
   61: { emoji: '🌧️', label: 'Pluie légère' },
@@ -47,35 +62,31 @@ function getWeatherInfo(code: number, isDay: boolean) {
   return WMO_ICONS[code] || { emoji: isDay ? '🌤️' : '🌙', label: 'Variable' }
 }
 
-async function geocodeQuery(query: string): Promise<{ lat: number; lon: number; name: string } | null> {
-  // Parse input: "Paris 75001" → try postal code first, then city name
-  const parts = query.trim().split(/\s+/)
-  const lastPart = parts[parts.length - 1]
-  const isPostalCode = /^\d{4,5}$/.test(lastPart)
-
-  const candidates = isPostalCode
-    ? [lastPart, parts.slice(0, -1).join(' '), query].filter(Boolean)
-    : [query]
-
-  for (const candidate of candidates) {
-    if (!candidate.trim()) continue
-    try {
-      const res = await fetch(
-        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(candidate)}&count=3&language=fr&format=json`,
-        { signal: AbortSignal.timeout(5000) }
-      )
-      if (!res.ok) continue
-      const data = await res.json()
-      const result = data.results?.[0]
-      if (result) return { lat: result.latitude, lon: result.longitude, name: result.name }
-    } catch {
-      continue
-    }
+async function searchCities(query: string): Promise<GeoSuggestion[]> {
+  if (query.trim().length < 2) return []
+  try {
+    const res = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query.trim())}&count=6&language=fr&format=json`,
+      { signal: AbortSignal.timeout(5000) }
+    )
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.results || []).map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      lat: r.latitude,
+      lon: r.longitude,
+      admin1: r.admin1,
+      admin2: r.admin2,
+      country: r.country,
+      postcodes: r.postcodes,
+    }))
+  } catch {
+    return []
   }
-  return null
 }
 
-async function fetchWeatherData(lat: number, lon: number): Promise<Omit<WeatherData, 'cityName' | 'savedQuery'> | null> {
+async function fetchWeatherFromCoords(lat: number, lon: number): Promise<Omit<WeatherData, 'cityName'> | null> {
   try {
     const res = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,is_day&timezone=auto`,
@@ -97,62 +108,95 @@ async function fetchWeatherData(lat: number, lon: number): Promise<Omit<WeatherD
   }
 }
 
+function formatPostcodes(postcodes?: string[]): string {
+  if (!postcodes?.length) return ''
+  if (postcodes.length <= 3) return postcodes.join(', ')
+  return `${postcodes.slice(0, 2).join(', ')}…`
+}
+
+function loadStoredLocation(): StoredLocation | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as StoredLocation
+  } catch {
+    return null
+  }
+}
+
 export function HeaderWeather() {
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [open, setOpen] = useState(false)
-  const [cityInput, setCityInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [suggestions, setSuggestions] = useState<GeoSuggestion[]>([])
+  const [suggestLoading, setSuggestLoading] = useState(false)
+  const [weatherLoading, setWeatherLoading] = useState(false)
+  const [hasLocation, setHasLocation] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const suggestTimer = useRef<ReturnType<typeof setTimeout>>()
 
-  const loadWeather = async (query: string) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const geo = await geocodeQuery(query)
-      if (!geo) { setError('Ville introuvable'); setLoading(false); return }
-      const w = await fetchWeatherData(geo.lat, geo.lon)
-      if (!w) { setError('Météo indisponible'); setLoading(false); return }
-      const result: WeatherData = { ...w, cityName: geo.name, savedQuery: query }
-      setWeather(result)
-      localStorage.setItem(STORAGE_KEY, query)
-    } catch {
-      setError('Erreur de chargement')
-    } finally {
-      setLoading(false)
-    }
+  const loadWeather = async (location: StoredLocation) => {
+    setWeatherLoading(true)
+    const w = await fetchWeatherFromCoords(location.lat, location.lon)
+    if (w) setWeather({ ...w, cityName: location.cityName })
+    setWeatherLoading(false)
   }
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      setCityInput(saved)
-      loadWeather(saved)
+    const loc = loadStoredLocation()
+    if (loc) {
+      setHasLocation(true)
+      loadWeather(loc)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Refresh every 30 minutes
+  useEffect(() => {
+    if (!weather) return
+    const interval = setInterval(() => {
+      const loc = loadStoredLocation()
+      if (loc) loadWeather(loc)
+    }, 30 * 60 * 1000)
+    return () => clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weather?.cityName])
+
+  // Debounced suggestions
+  useEffect(() => {
+    clearTimeout(suggestTimer.current)
+    if (query.trim().length < 2) { setSuggestions([]); return }
+    suggestTimer.current = setTimeout(async () => {
+      setSuggestLoading(true)
+      const results = await searchCities(query)
+      setSuggestions(results)
+      setSuggestLoading(false)
+    }, 300)
+    return () => clearTimeout(suggestTimer.current)
+  }, [query])
+
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 50)
+    else { setQuery(''); setSuggestions([]) }
   }, [open])
 
-  const handleSearch = async () => {
-    if (!cityInput.trim()) return
-    await loadWeather(cityInput.trim())
-    if (!error) setOpen(false)
+  const handleSelect = async (suggestion: GeoSuggestion) => {
+    const location: StoredLocation = {
+      cityName: suggestion.name,
+      lat: suggestion.lat,
+      lon: suggestion.lon,
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(location))
+    setHasLocation(true)
+    setOpen(false)
+    setQuery('')
+    setSuggestions([])
+    await loadWeather(location)
   }
 
   const weatherInfo = weather ? getWeatherInfo(weather.weatherCode, weather.isDay) : null
 
-  // Refresh every 30 minutes
-  useEffect(() => {
-    if (!weather) return
-    const interval = setInterval(() => loadWeather(weather.savedQuery), 30 * 60 * 1000)
-    return () => clearInterval(interval)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weather?.savedQuery])
-
-  if (!weather && !localStorage.getItem(STORAGE_KEY)) {
+  if (!hasLocation) {
     return (
       <button
         onClick={() => setOpen(true)}
@@ -160,6 +204,17 @@ export function HeaderWeather() {
       >
         <MapPin className="h-3.5 w-3.5" />
         Météo
+        {open && (
+          <WeatherPopoverBody
+            query={query}
+            setQuery={setQuery}
+            suggestions={suggestions}
+            suggestLoading={suggestLoading}
+            onSelect={handleSelect}
+            inputRef={inputRef}
+            onClose={() => setOpen(false)}
+          />
+        )}
       </button>
     )
   }
@@ -168,15 +223,15 @@ export function HeaderWeather() {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm hover:bg-accent/50 transition-colors select-none cursor-pointer">
-          {loading ? (
-            <span className="text-xs text-muted-foreground animate-pulse">Chargement...</span>
+          {weatherLoading ? (
+            <span className="text-xs text-muted-foreground animate-pulse">…</span>
           ) : weather && weatherInfo ? (
             <>
               <span className="text-base leading-none" role="img" aria-label={weatherInfo.label}>
                 {weatherInfo.emoji}
               </span>
               <span className="font-medium tabular-nums">{weather.temperature}°</span>
-              <span className="text-muted-foreground text-xs hidden lg:block truncate max-w-[100px]">
+              <span className="text-muted-foreground text-xs hidden lg:block truncate max-w-[90px]">
                 {weather.cityName}
               </span>
             </>
@@ -187,29 +242,65 @@ export function HeaderWeather() {
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-4" align="end">
+      <PopoverContent className="w-80 p-4" align="end">
         <div className="space-y-4">
-          {/* City search */}
+          {/* Search */}
           <div className="space-y-2">
-            <p className="text-sm font-medium">Localisation météo</p>
-            <p className="text-xs text-muted-foreground">Entrez une ville, ou une ville avec son code postal.</p>
-            <div className="flex gap-2">
+            <p className="text-sm font-medium">Changer de ville</p>
+            <div className="relative">
               <Input
                 ref={inputRef}
-                value={cityInput}
-                onChange={(e) => { setCityInput(e.target.value); setError(null) }}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSearch() }}
-                placeholder="Ex: Lyon 69001, Paris 75..."
-                className="text-sm h-8"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Tapez une ville…"
+                className="text-sm h-9 pr-8"
               />
-              <Button size="sm" onClick={handleSearch} disabled={loading} className="h-8 w-8 p-0 shrink-0">
-                <Search className="h-3.5 w-3.5" />
-              </Button>
+              {suggestLoading && (
+                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              )}
             </div>
-            {error && <p className="text-xs text-destructive">{error}</p>}
+
+            {/* Suggestions dropdown */}
+            {suggestions.length > 0 && (
+              <div className="border border-border/50 rounded-xl overflow-hidden bg-background shadow-sm">
+                {suggestions.map((s) => {
+                  const postcodeStr = formatPostcodes(s.postcodes)
+                  const isSelected = weather?.cityName === s.name
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => handleSelect(s)}
+                      className="w-full text-left px-3 py-2.5 hover:bg-accent/60 transition-colors flex items-center gap-2 border-b border-border/30 last:border-0"
+                    >
+                      <MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {s.name}
+                          {postcodeStr && (
+                            <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                              ({postcodeStr})
+                            </span>
+                          )}
+                        </p>
+                        {s.admin1 && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {s.admin1}{s.country && s.country !== 'France' ? ` · ${s.country}` : ''}
+                          </p>
+                        )}
+                      </div>
+                      {isSelected && <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {query.trim().length >= 2 && !suggestLoading && suggestions.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-2">Aucune ville trouvée</p>
+            )}
           </div>
 
-          {/* Weather details */}
+          {/* Current weather details */}
           {weather && weatherInfo && (
             <div className="border-t pt-3 space-y-3">
               <div className="flex items-center justify-between">
@@ -244,5 +335,65 @@ export function HeaderWeather() {
         </div>
       </PopoverContent>
     </Popover>
+  )
+}
+
+// Sub-component used when no location is set yet (no Popover wrapper)
+function WeatherPopoverBody({
+  query, setQuery, suggestions, suggestLoading, onSelect, inputRef, onClose,
+}: {
+  query: string
+  setQuery: (v: string) => void
+  suggestions: GeoSuggestion[]
+  suggestLoading: boolean
+  onSelect: (s: GeoSuggestion) => void
+  inputRef: React.RefObject<HTMLInputElement>
+  onClose: () => void
+}) {
+  return (
+    <div className="absolute top-full right-0 mt-2 w-80 bg-background border border-border rounded-2xl shadow-xl p-4 z-50 space-y-2"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <p className="text-sm font-medium">Choisir une ville</p>
+      <div className="relative">
+        <Input
+          ref={inputRef}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Tapez une ville…"
+          className="text-sm h-9 pr-8"
+          autoFocus
+        />
+        {suggestLoading && (
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+        )}
+      </div>
+      {suggestions.length > 0 && (
+        <div className="border border-border/50 rounded-xl overflow-hidden bg-background">
+          {suggestions.map((s) => {
+            const postcodeStr = formatPostcodes(s.postcodes)
+            return (
+              <button
+                key={s.id}
+                onClick={() => onSelect(s)}
+                className="w-full text-left px-3 py-2.5 hover:bg-accent/60 transition-colors flex items-center gap-2 border-b border-border/30 last:border-0"
+              >
+                <MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {s.name}
+                    {postcodeStr && <span className="ml-1.5 text-xs font-normal text-muted-foreground">({postcodeStr})</span>}
+                  </p>
+                  {s.admin1 && <p className="text-xs text-muted-foreground truncate">{s.admin1}{s.country && s.country !== 'France' ? ` · ${s.country}` : ''}</p>}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+      {query.trim().length >= 2 && !suggestLoading && suggestions.length === 0 && (
+        <p className="text-xs text-muted-foreground text-center py-1">Aucune ville trouvée</p>
+      )}
+    </div>
   )
 }
