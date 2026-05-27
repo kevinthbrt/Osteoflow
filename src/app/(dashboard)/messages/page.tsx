@@ -117,7 +117,7 @@ export default function MessagesPage() {
   const [showNewModal, setShowNewModal] = useState(false)
   const [isMobileView, setIsMobileView] = useState(false)
   const { toast } = useToast()
-  const db = createClient()
+  const dbRef = useRef(createClient())
   const hasLoadedRef = useRef(false)
 
   // Check for mobile view
@@ -135,7 +135,7 @@ export default function MessagesPage() {
       setIsLoading(true)
     }
     try {
-      const { data, error } = await db
+      const { data, error } = await dbRef.current
         .from('conversations')
         .select(`
           id,
@@ -179,7 +179,7 @@ export default function MessagesPage() {
   // Fetch messages for selected conversation
   const fetchMessages = useCallback(async (conversationId: string) => {
     try {
-      const { data, error } = await db
+      const { data, error } = await dbRef.current
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
@@ -189,14 +189,15 @@ export default function MessagesPage() {
       setMessages(data as Message[])
 
       // Mark as read
-      await db
+      await dbRef.current
         .from('conversations')
         .update({ unread_count: 0 })
         .eq('id', conversationId)
     } catch (error) {
       console.error('Error fetching messages:', error)
     }
-  }, [db])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (selectedConversation) {
@@ -264,14 +265,14 @@ export default function MessagesPage() {
 
     setIsDeleting(true)
     try {
-      const { error: messagesError } = await db
+      const { error: messagesError } = await dbRef.current
         .from('messages')
         .delete()
         .eq('conversation_id', selectedConversation.id)
 
       if (messagesError) throw messagesError
 
-      const { error: conversationError } = await db
+      const { error: conversationError } = await dbRef.current
         .from('conversations')
         .delete()
         .eq('id', selectedConversation.id)
