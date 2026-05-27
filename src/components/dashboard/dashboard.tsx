@@ -82,20 +82,19 @@ export function Dashboard({
       <div className="relative overflow-hidden rounded-2xl px-6 py-5 text-white gradient-primary">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-xl" />
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/3 blur-lg" />
-        <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="h-4 w-4 text-white/70" />
-              <span className="text-sm text-white/70">
-                {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-              </span>
+        <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex flex-col gap-3">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles className="h-4 w-4 text-white/70" />
+                <span className="text-sm text-white/70">
+                  {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </span>
+              </div>
+              <h1 className="text-2xl font-bold">{greeting()}, {practitioner.first_name} !</h1>
             </div>
-            <h1 className="text-2xl font-bold">{greeting()}, {practitioner.first_name} !</h1>
-          </div>
-          <div className="flex flex-col items-start md:items-end gap-3">
-            <BannerWeather />
             <Button
-              className="gap-2 bg-white/15 text-white border border-white/20 hover:bg-white/25 backdrop-blur-sm"
+              className="self-start gap-2 bg-white/15 text-white border border-white/20 hover:bg-white/25 backdrop-blur-sm"
               onClick={() => setIsNewConsultationOpen(true)}
               data-tour="dashboard-new-consult"
             >
@@ -103,6 +102,7 @@ export function Dashboard({
               Nouvelle consultation
             </Button>
           </div>
+          <BannerWeather />
         </div>
       </div>
 
