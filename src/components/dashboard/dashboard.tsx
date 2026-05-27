@@ -150,7 +150,7 @@ export function Dashboard({
                       setPatientSearch('')
                       router.push(`/patients/${patient.id}/consultation/new`)
                     }}
-                    className="w-full rounded-xl border border-border/60 px-4 py-3 text-left transition-all duration-200 hover:border-primary/40 hover:bg-accent/50"
+                    className="w-full rounded-xl border border-border/60 px-4 py-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/50"
                   >
                     <p className="font-medium">{patient.first_name} {patient.last_name}</p>
                     <p className="text-sm text-muted-foreground">{patient.email || 'Email non renseigné'}</p>

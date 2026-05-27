@@ -118,6 +118,9 @@ export async function POST(request: Request) {
         from: `${practitioner.first_name} ${practitioner.last_name} <${process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'}>`,
         to: patientEmail,
         subject,
+        attachments: attachmentBuffers.length > 0
+          ? attachmentBuffers.map((a) => ({ filename: a.filename, content: a.content }))
+          : undefined,
         html: `
           <!DOCTYPE html>
           <html>
