@@ -98,6 +98,18 @@ export async function searchCities(query: string): Promise<GeoSuggestion[]> {
   }
 }
 
+export type ForecastDay = {
+  date: string
+  weatherCode: number
+  tempMax: number
+  tempMin: number
+}
+
+export type WeatherWithForecast = {
+  current: Omit<WeatherData, 'cityName'>
+  forecast: ForecastDay[]
+}
+
 export async function fetchWeatherFromCoords(
   lat: number,
   lon: number
@@ -117,6 +129,43 @@ export async function fetchWeatherFromCoords(
       windSpeed: Math.round(c.wind_speed_10m),
       humidity: c.relative_humidity_2m,
       isDay: c.is_day === 1,
+    }
+  } catch {
+    return null
+  }
+}
+
+export async function fetchWeatherWithForecast(
+  lat: number,
+  lon: number
+): Promise<WeatherWithForecast | null> {
+  try {
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+      `&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,is_day` +
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min` +
+      `&forecast_days=6&timezone=auto`,
+      { signal: AbortSignal.timeout(5000) }
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    const c = data.current
+    const d = data.daily
+    return {
+      current: {
+        temperature: Math.round(c.temperature_2m),
+        feelsLike: Math.round(c.apparent_temperature),
+        weatherCode: c.weather_code,
+        windSpeed: Math.round(c.wind_speed_10m),
+        humidity: c.relative_humidity_2m,
+        isDay: c.is_day === 1,
+      },
+      forecast: (d.time as string[]).map((date: string, i: number) => ({
+        date,
+        weatherCode: d.weather_code[i],
+        tempMax: Math.round(d.temperature_2m_max[i]),
+        tempMin: Math.round(d.temperature_2m_min[i]),
+      })),
     }
   } catch {
     return null
