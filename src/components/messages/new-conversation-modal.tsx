@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/db/client'
 import {
   Dialog,
@@ -56,7 +56,7 @@ export function NewConversationModal({
   const [showQuickReplies, setShowQuickReplies] = useState(false)
 
   const { toast } = useToast()
-  const db = createClient()
+  const dbRef = useRef(createClient())
 
   // Reset form when modal closes
   useEffect(() => {
@@ -81,7 +81,7 @@ export function NewConversationModal({
 
     setIsLoading(true)
     try {
-      let builder = db
+      let builder = dbRef.current
         .from('patients')
         .select('id, first_name, last_name, email, phone')
         .is('archived_at', null)
@@ -111,10 +111,10 @@ export function NewConversationModal({
     setIsCreating(true)
     try {
       // Get practitioner
-      const { data: { user } } = await db.auth.getUser()
+      const { data: { user } } = await dbRef.current.auth.getUser()
       if (!user) throw new Error('Non authentifié')
 
-      const { data: practitioner } = await db
+      const { data: practitioner } = await dbRef.current
         .from('practitioners')
         .select('id')
         .eq('user_id', user.id)
@@ -123,7 +123,7 @@ export function NewConversationModal({
       if (!practitioner) throw new Error('Praticien non trouvé')
 
       // Check if conversation already exists
-      const { data: existingConv } = await db
+      const { data: existingConv } = await dbRef.current
         .from('conversations')
         .select('*')
         .eq('practitioner_id', practitioner.id)
@@ -137,7 +137,7 @@ export function NewConversationModal({
       }
 
       // Create new conversation
-      const { data: newConv, error } = await db
+      const { data: newConv, error } = await dbRef.current
         .from('conversations')
         .insert({
           practitioner_id: practitioner.id,
@@ -191,10 +191,10 @@ export function NewConversationModal({
     setIsSendingManual(true)
     try {
       // Get practitioner
-      const { data: { user } } = await db.auth.getUser()
+      const { data: { user } } = await dbRef.current.auth.getUser()
       if (!user) throw new Error('Non authentifié')
 
-      const { data: practitioner } = await db
+      const { data: practitioner } = await dbRef.current
         .from('practitioners')
         .select('id')
         .eq('user_id', user.id)
@@ -203,7 +203,7 @@ export function NewConversationModal({
       if (!practitioner) throw new Error('Praticien non trouvé')
 
       // Check if a patient exists with this email
-      const { data: existingPatient } = await db
+      const { data: existingPatient } = await dbRef.current
         .from('patients')
         .select('id, first_name, last_name')
         .eq('practitioner_id', practitioner.id)
@@ -218,7 +218,7 @@ export function NewConversationModal({
         patientData = { ...existingPatient, email: manualEmail }
 
         // Check/create conversation
-        const { data: existingConv } = await db
+        const { data: existingConv } = await dbRef.current
           .from('conversations')
           .select('id')
           .eq('practitioner_id', practitioner.id)
@@ -228,7 +228,7 @@ export function NewConversationModal({
         if (existingConv) {
           conversationId = existingConv.id
         } else {
-          const { data: newConv, error } = await db
+          const { data: newConv, error } = await dbRef.current
             .from('conversations')
             .insert({
               practitioner_id: practitioner.id,
@@ -243,7 +243,7 @@ export function NewConversationModal({
         }
       } else {
         // No patient found - check for existing external conversation or create one
-        const { data: existingExtConv } = await db
+        const { data: existingExtConv } = await dbRef.current
           .from('conversations')
           .select('id')
           .eq('practitioner_id', practitioner.id)
@@ -255,7 +255,7 @@ export function NewConversationModal({
           conversationId = existingExtConv.id
         } else {
           // Create external conversation
-          const { data: newExtConv, error: extError } = await db
+          const { data: newExtConv, error: extError } = await dbRef.current
             .from('conversations')
             .insert({
               practitioner_id: practitioner.id,
@@ -302,7 +302,7 @@ export function NewConversationModal({
       })
 
       // Fetch the full conversation and return it
-      const { data: fullConv } = await db
+      const { data: fullConv } = await dbRef.current
         .from('conversations')
         .select('*, external_email, external_name, patient:patients(*)')
         .eq('id', conversationId)

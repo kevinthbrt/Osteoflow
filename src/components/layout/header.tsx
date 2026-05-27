@@ -19,6 +19,7 @@ import { buildSearchOrFilters } from '@/lib/utils/search'
 import type { Practitioner } from '@/types/database'
 import { Input } from '@/components/ui/input'
 import { NotificationBell } from '@/components/layout/notification-bell'
+import { HeaderWeather } from '@/components/layout/header-weather'
 import { useTour } from '@/contexts/tour-context'
 
 interface LocalUser {
@@ -54,7 +55,11 @@ const pageTitles: Record<string, { title: string; description: string }> = {
 export function Header({ user, practitioner }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const db = createClient()
+  // useRef so createClient() is called once — not on every render.
+  // Calling it on every render produces a new object reference, which
+  // causes searchPatients (useCallback with [db] dep) to be recreated
+  // each render, triggering the search useEffect in an infinite loop.
+  const dbRef = useRef(createClient())
   const { startTour } = useTour()
 
   // Patient search state
@@ -66,7 +71,7 @@ export function Header({ user, practitioner }: HeaderProps) {
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleSignOut = async () => {
-    await db.auth.signOut()
+    await dbRef.current.auth.signOut()
     router.push('/login')
     router.refresh()
   }
@@ -94,6 +99,7 @@ export function Header({ user, practitioner }: HeaderProps) {
 
     setIsSearching(true)
     try {
+      const db = dbRef.current
       let builder = db
         .from('patients')
         .select('id, first_name, last_name, phone, email')
@@ -117,7 +123,9 @@ export function Header({ user, practitioner }: HeaderProps) {
     } finally {
       setIsSearching(false)
     }
-  }, [db])
+  // dbRef is a ref — stable by definition, no need in deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Debounced search
   useEffect(() => {
@@ -230,6 +238,9 @@ export function Header({ user, practitioner }: HeaderProps) {
             </div>
           )}
         </div>
+
+        {/* Weather chip */}
+        <HeaderWeather />
 
         {/* Actions */}
         <div className="flex items-center gap-1">
