@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
-import { Wind, Droplets, Thermometer, MapPin, Check } from 'lucide-react'
+import { MapPin, Check, Wind, Droplets, Thermometer } from 'lucide-react'
 import {
   type WeatherData,
   type GeoSuggestion,
@@ -16,22 +16,19 @@ import {
   fetchWeatherFromCoords,
 } from '@/lib/utils/weather'
 
-export function HeaderWeather() {
+export function BannerWeather() {
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState<GeoSuggestion[]>([])
   const [suggestLoading, setSuggestLoading] = useState(false)
-  const [weatherLoading, setWeatherLoading] = useState(false)
   const [mounted, setMounted] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const suggestTimer = useRef<ReturnType<typeof setTimeout>>()
 
   const loadWeather = async (location: StoredLocation) => {
-    setWeatherLoading(true)
     const w = await fetchWeatherFromCoords(location.lat, location.lon)
     if (w) setWeather({ ...w, cityName: location.cityName })
-    setWeatherLoading(false)
   }
 
   useEffect(() => {
@@ -40,17 +37,6 @@ export function HeaderWeather() {
     if (loc) loadWeather(loc)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // Refresh every 30 min
-  useEffect(() => {
-    if (!weather) return
-    const interval = setInterval(() => {
-      const loc = loadStoredLocation()
-      if (loc) loadWeather(loc)
-    }, 30 * 60 * 1000)
-    return () => clearInterval(interval)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weather?.cityName])
 
   // Debounced suggestions
   useEffect(() => {
@@ -77,39 +63,42 @@ export function HeaderWeather() {
     await loadWeather(location)
   }
 
-  const weatherInfo = weather ? getWeatherInfo(weather.weatherCode, weather.isDay) : null
-
-  // Avoid SSR mismatch — only render after mount
   if (!mounted) return null
 
+  const weatherInfo = weather ? getWeatherInfo(weather.weatherCode, weather.isDay) : null
   const hasLocation = !!loadStoredLocation()
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm hover:bg-accent/50 transition-colors cursor-pointer select-none">
-          {weatherLoading ? (
-            <span className="text-xs text-muted-foreground animate-pulse">…</span>
-          ) : weather && weatherInfo ? (
+        <button
+          type="button"
+          className="flex items-center gap-2 rounded-2xl bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 px-4 py-2.5 transition-colors cursor-pointer text-left"
+        >
+          {weather && weatherInfo ? (
             <>
-              <span className="text-base leading-none" role="img" aria-label={weatherInfo.label}>
+              <span className="text-3xl leading-none" role="img" aria-label={weatherInfo.label}>
                 {weatherInfo.emoji}
               </span>
-              <span className="font-medium tabular-nums">{weather.temperature}°</span>
-              <span className="text-muted-foreground text-xs hidden lg:block truncate max-w-[90px]">
-                {weather.cityName}
-              </span>
+              <div>
+                <p className="text-white text-xl font-light tabular-nums leading-tight">
+                  {weather.temperature}°C
+                </p>
+                <p className="text-white/70 text-xs leading-tight">
+                  {weather.cityName} · {weatherInfo.label}
+                </p>
+              </div>
             </>
           ) : (
-            <span className="text-xs text-muted-foreground flex items-center gap-1.5 border border-dashed border-border/60 rounded-lg px-2 py-0.5">
-              <MapPin className="h-3 w-3" />
-              {hasLocation ? 'Météo…' : 'Météo'}
-            </span>
+            <div className="flex items-center gap-2 text-white/60 text-sm">
+              <MapPin className="h-4 w-4" />
+              <span>{hasLocation ? 'Chargement…' : 'Ajouter la météo'}</span>
+            </div>
           )}
         </button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-80 p-4" align="end">
+      <PopoverContent className="w-80 p-4" align="start">
         <div className="space-y-4">
           <div className="space-y-2">
             <p className="text-sm font-medium">
@@ -170,19 +159,7 @@ export function HeaderWeather() {
           </div>
 
           {weather && weatherInfo && (
-            <div className="border-t pt-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-light tabular-nums">{weather.temperature}°C</p>
-                  <p className="text-xs text-muted-foreground">{weatherInfo.label}</p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                    <MapPin className="h-3 w-3" />{weather.cityName}
-                  </p>
-                </div>
-                <span className="text-4xl" role="img" aria-label={weatherInfo.label}>
-                  {weatherInfo.emoji}
-                </span>
-              </div>
+            <div className="border-t pt-3 space-y-2">
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { icon: Thermometer, value: `${weather.feelsLike}°`, label: 'Ressenti' },
