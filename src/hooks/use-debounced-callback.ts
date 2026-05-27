@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useEffect } from 'react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useDebouncedCallback<T extends (...args: any[]) => void>(
@@ -6,6 +6,9 @@ export function useDebouncedCallback<T extends (...args: any[]) => void>(
   delay: number
 ): (...args: Parameters<T>) => void {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // Keep a ref to the latest callback so the returned function never changes
+  const callbackRef = useRef(callback)
+  useEffect(() => { callbackRef.current = callback })
 
   return useCallback(
     (...args: Parameters<T>) => {
@@ -13,9 +16,11 @@ export function useDebouncedCallback<T extends (...args: any[]) => void>(
         clearTimeout(timeoutRef.current)
       }
       timeoutRef.current = setTimeout(() => {
-        callback(...args)
+        callbackRef.current(...args)
       }, delay)
     },
-    [callback, delay]
+    // delay is the only real dep — callbackRef is always current via the effect above
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [delay]
   )
 }
