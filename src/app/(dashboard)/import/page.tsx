@@ -28,6 +28,8 @@ type PatientField =
   | 'birth_date'
   | 'gender'
   | 'profession'
+  | 'notes'
+  | 'sport_activity'
   | 'trauma_history'
   | 'medical_history'
   | 'surgical_history'
@@ -56,6 +58,8 @@ const PATIENT_FIELDS: FieldDefinition[] = [
   { key: 'birth_date', label: 'Date de naissance' },
   { key: 'gender', label: 'Sexe (M/F)' },
   { key: 'profession', label: 'Profession' },
+  { key: 'sport_activity', label: 'Activite sportive' },
+  { key: 'notes', label: 'Notes' },
   { key: 'trauma_history', label: 'Antecedents traumatiques' },
   { key: 'medical_history', label: 'Antecedents medicaux' },
   { key: 'surgical_history', label: 'Antecedents chirurgicaux' },
@@ -120,6 +124,21 @@ const COLUMN_ALIASES: Record<string, MappableField> = {
   profession: 'profession',
   metier: 'profession',
   'métier': 'profession',
+  // sport_activity
+  sport: 'sport_activity',
+  'activite sportive': 'sport_activity',
+  'activité sportive': 'sport_activity',
+  sport_activity: 'sport_activity',
+  'activite physique': 'sport_activity',
+  'activité physique': 'sport_activity',
+  // notes
+  notes: 'notes',
+  note: 'notes',
+  remarques: 'notes',
+  remarque: 'notes',
+  commentaires: 'notes',
+  commentaire: 'notes',
+  observations: 'notes',
   // consultation_date
   'date consultation': 'consultation_date',
   'date de consultation': 'consultation_date',
@@ -657,6 +676,12 @@ export default function ImportPage() {
 
         const professionVal = getValue('profession')
         if (professionVal) patient.profession = professionVal
+
+        const sportVal = getValue('sport_activity')
+        if (sportVal) patient.sport_activity = sportVal
+
+        const notesVal = getValue('notes')
+        if (notesVal) patient.notes = notesVal
 
         const traumaVal = getValue('trauma_history')
         if (traumaVal) patient.trauma_history = traumaVal
