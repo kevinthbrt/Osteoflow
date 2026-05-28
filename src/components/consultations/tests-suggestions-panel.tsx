@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Sparkles,
   Loader2,
@@ -35,6 +35,7 @@ interface SuggestTestsResult {
 interface TestsSuggestionsPanelProps {
   anamnesis: string
   reason?: string
+  autoAnalyze?: boolean
 }
 
 const PRIORITY_CONFIG = {
@@ -43,13 +44,13 @@ const PRIORITY_CONFIG = {
   low: { label: 'Différentiel', color: 'text-blue-700 bg-blue-50 border-blue-200' },
 } as const
 
-export function TestsSuggestionsPanel({ anamnesis, reason }: TestsSuggestionsPanelProps) {
+export function TestsSuggestionsPanel({ anamnesis, reason, autoAnalyze }: TestsSuggestionsPanelProps) {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<SuggestTestsResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(true)
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = useCallback(async () => {
     if (!anamnesis?.trim()) return
     setLoading(true)
     setError(null)
@@ -74,7 +75,13 @@ export function TestsSuggestionsPanel({ anamnesis, reason }: TestsSuggestionsPan
     } finally {
       setLoading(false)
     }
-  }
+  }, [anamnesis, reason])
+
+  useEffect(() => {
+    if (autoAnalyze && anamnesis?.trim()) {
+      handleAnalyze()
+    }
+  }, [autoAnalyze]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!anamnesis?.trim()) return null
 
