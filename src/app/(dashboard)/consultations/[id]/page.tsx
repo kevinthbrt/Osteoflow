@@ -10,7 +10,6 @@ import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels } from '@/lib/validations/invoice'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { ConsultationPaymentEditor } from '@/components/consultations/consultation-payment-editor'
-import { TestsSuggestionsPanel } from '@/components/consultations/tests-suggestions-panel'
 
 interface ConsultationPageProps {
   params: Promise<{ id: string }>
@@ -174,14 +173,6 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
               )}
             </CardContent>
           </Card>
-
-          {/* AI Test Suggestions */}
-          {consultation.anamnesis && (
-            <TestsSuggestionsPanel
-              anamnesis={consultation.anamnesis}
-              reason={consultation.reason}
-            />
-          )}
 
           {/* Attachments */}
           {attachments && attachments.length > 0 && (
