@@ -673,6 +673,16 @@ export function ConsultationForm({
                     variant="ghost"
                     size="sm"
                     className="gap-1.5 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowDiagnosticSelector(true)}
+                  >
+                    <Stethoscope className="h-4 w-4" />
+                    Tests orthos
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-muted-foreground hover:text-foreground"
                     onClick={() => setShowExercises(true)}
                   >
                     <Dumbbell className="h-4 w-4" />
