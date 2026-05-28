@@ -1,12 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   FileText,
   Loader2,
   Printer,
   Save,
-  X,
   Edit3,
   ChevronDown,
   ChevronUp,
@@ -32,10 +31,8 @@ import {
 } from '@/components/ui/select'
 
 const TEMPLATES = [
-  { id: 'referral', name: "Courrier d'adressage", icon: '📧' },
-  { id: 'compte_rendu', name: 'Compte-rendu de consultation', icon: '📋' },
-  { id: 'certificat_suivi', name: 'Attestation de suivi', icon: '🏆' },
-  { id: 'recommandation_repos', name: 'Recommandation de repos sportif', icon: '⚡' },
+  { id: 'referral', name: "Courrier d'adressage" },
+  { id: 'attestation_consultation', name: 'Attestation de consultation' },
 ] as const
 
 type TemplateId = (typeof TEMPLATES)[number]['id']
@@ -78,6 +75,19 @@ export interface GenerateLetterModalProps {
   defaultTemplateId?: TemplateId
 }
 
+function computeAgeRange(dateOfBirth?: string | null): string {
+  if (!dateOfBirth) return ''
+  const birth = new Date(dateOfBirth)
+  const age = new Date().getFullYear() - birth.getFullYear()
+  const decade = Math.floor(age / 10) * 10
+  return `${decade}-${decade + 9} ans`
+}
+
+function patientDisplayName(patient: Patient): string {
+  const title = patient.gender === 'M' ? 'M.' : 'Mme'
+  return `${title} ${patient.last_name.toUpperCase()} ${patient.first_name}`
+}
+
 export function GenerateLetterModal({
   open,
   onClose,
@@ -97,18 +107,26 @@ export function GenerateLetterModal({
   const [saved, setSaved] = useState(false)
   const [showOptions, setShowOptions] = useState(true)
 
+  const patientLabel = useMemo(() => patientDisplayName(patient), [patient])
+
   const handleGenerate = async () => {
     setLoading(true)
     setError(null)
     setSaved(false)
     try {
+      // Pseudonymisation : seuls genre + tranche d'âge transitent par l'API — aucun PII
+      const ageRange = computeAgeRange(patient.date_of_birth)
+
       const res = await fetch('/api/communication/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           template_id: templateId,
           practitioner,
-          patient,
+          patient: {
+            gender: patient.gender,
+            age_range: ageRange || undefined,
+          },
           consultation: consultation
             ? {
                 date: consultation.date_time,
@@ -131,7 +149,9 @@ export function GenerateLetterModal({
 
       const data = await res.json()
       setHeader(data.header)
-      setBody(data.body)
+      // [NOM_PATIENT] est remplacé localement — le vrai nom ne quitte jamais l'app
+      const resolvedBody = (data.body as string).replace(/\[NOM_PATIENT\]/g, patientLabel)
+      setBody(resolvedBody)
       setShowOptions(false)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue')
@@ -198,16 +218,16 @@ export function GenerateLetterModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Générer un courrier
+            Générer un courrier — {patientLabel}
           </DialogTitle>
           <DialogDescription>
-            L\'IA rédige le courrier à partir des données de la consultation.
-            Vous pouvez modifier le texte avant d\'imprimer ou d\'exporter en PDF.
+            Le courrier est rédigé à partir des données de la consultation.
+            Vous pouvez modifier le texte avant d'imprimer ou d'exporter en PDF.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Options toggle */}
+          {/* Toggle options */}
           {header && (
             <button
               onClick={() => setShowOptions(!showOptions)}
@@ -218,7 +238,7 @@ export function GenerateLetterModal({
             </button>
           )}
 
-          {/* Options panel */}
+          {/* Options */}
           {showOptions && (
             <div className="space-y-3 p-4 bg-muted/30 rounded-lg border">
               <div className="space-y-1.5">
@@ -233,7 +253,7 @@ export function GenerateLetterModal({
                   <SelectContent>
                     {TEMPLATES.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
-                        {t.icon} {t.name}
+                        {t.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -270,11 +290,7 @@ export function GenerateLetterModal({
                 />
               </div>
 
-              <Button
-                onClick={handleGenerate}
-                disabled={loading}
-                className="w-full"
-              >
+              <Button onClick={handleGenerate} disabled={loading} className="w-full">
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -288,13 +304,11 @@ export function GenerateLetterModal({
                 )}
               </Button>
 
-              {error && (
-                <p className="text-sm text-red-600">{error}</p>
-              )}
+              {error && <p className="text-sm text-red-600">{error}</p>}
             </div>
           )}
 
-          {/* Letter editor */}
+          {/* Éditeur */}
           {header && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -303,12 +317,7 @@ export function GenerateLetterModal({
                   {templateName}
                 </h3>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSave}
-                    disabled={saved}
-                  >
+                  <Button variant="outline" size="sm" onClick={handleSave} disabled={saved}>
                     {saved ? (
                       <>
                         <CheckCircle className="mr-1.5 h-3.5 w-3.5 text-green-600" />
