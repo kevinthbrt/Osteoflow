@@ -23,6 +23,7 @@ import {
   Target,
   ClipboardList,
   AlertTriangle,
+  FileText,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -45,7 +46,7 @@ const navigation = [
   { name: 'Objectifs', href: '/objectives', icon: Target, description: 'Suivi des objectifs' },
   { name: 'Emails', href: '/scheduled-emails', icon: Mail, description: 'Emails programmés' },
   { name: 'Sondages', href: '/surveys', icon: ClipboardList, description: 'Retours patients' },
-
+  { name: 'Communication', href: '/communication', icon: FileText, description: 'Courriers & documents' },
   { name: 'Importer CSV', href: '/import', icon: Upload, description: 'Importer des données' },
   { name: 'Paramètres', href: '/settings', icon: Settings, description: 'Configuration' },
 ]

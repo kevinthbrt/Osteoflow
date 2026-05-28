@@ -10,6 +10,7 @@ import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels } from '@/lib/validations/invoice'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { ConsultationPaymentEditor } from '@/components/consultations/consultation-payment-editor'
+import { TestsSuggestionsPanel } from '@/components/consultations/tests-suggestions-panel'
 
 interface ConsultationPageProps {
   params: Promise<{ id: string }>
@@ -56,7 +57,7 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
   const survey = surveyResponses?.[0] || null
 
   const ratingEmojis = ['', '\u{1F622}', '\u{1F615}', '\u{1F610}', '\u{1F642}', '\u{1F601}']
-  const ratingLabels = ['', 'Tr\u00e8s mal', 'Mal', 'Moyen', 'Bien', 'Tr\u00e8s bien']
+  const ratingLabels = ['', 'Très mal', 'Mal', 'Moyen', 'Bien', 'Très bien']
 
   return (
     <div className="space-y-6">
@@ -86,6 +87,12 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/communication?consultationId=${id}`}>
+              <FileText className="mr-2 h-4 w-4" />
+              Générer un courrier
+            </Link>
+          </Button>
           <Button variant="outline" asChild>
             <Link href={`/consultations/${id}/edit`}>
               <Edit className="mr-2 h-4 w-4" />
@@ -167,6 +174,14 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
               )}
             </CardContent>
           </Card>
+
+          {/* AI Test Suggestions */}
+          {consultation.anamnesis && (
+            <TestsSuggestionsPanel
+              anamnesis={consultation.anamnesis}
+              reason={consultation.reason}
+            />
+          )}
 
           {/* Attachments */}
           {attachments && attachments.length > 0 && (
@@ -256,14 +271,14 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <ClipboardList className="h-5 w-5" />
-                  R{'\u00e9'}ponse questionnaire J+7
+                  R{'é'}ponse questionnaire J+7
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {/* Overall rating */}
                 {survey.overall_rating && (
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">{'\u00c9'}tat g{'\u00e9'}n{'\u00e9'}ral</span>
+                    <span className="text-sm text-muted-foreground">{"É"}tat g{"é"}n{"é"}ral</span>
                     <span className="font-medium">
                       {ratingEmojis[survey.overall_rating]} {ratingLabels[survey.overall_rating]} ({survey.overall_rating}/5)
                     </span>
@@ -303,7 +318,7 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
                 {survey.better_mobility !== null && survey.better_mobility !== undefined && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Activity className="h-3.5 w-3.5" /> Meilleure mobilit{'\u00e9'}
+                      <Activity className="h-3.5 w-3.5" /> Meilleure mobilit{'é'}
                     </span>
                     <Badge
                       variant="outline"
@@ -333,7 +348,7 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
                 {/* Response date */}
                 {survey.responded_at && (
                   <p className="text-xs text-muted-foreground">
-                    R{'\u00e9'}pondu le {new Date(survey.responded_at).toLocaleDateString('fr-FR', {
+                    R{'é'}pondu le {new Date(survey.responded_at).toLocaleDateString('fr-FR', {
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric',
@@ -356,7 +371,7 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
               <CardContent>
                 <div className="flex items-center gap-2">
                   <AlertCircle className="h-5 w-5 text-amber-500" />
-                  <p className="text-sm text-muted-foreground">En attente de r{'\u00e9'}ponse du patient</p>
+                  <p className="text-sm text-muted-foreground">En attente de r{'é'}ponse du patient</p>
                 </div>
               </CardContent>
             </Card>
