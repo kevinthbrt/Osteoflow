@@ -126,7 +126,7 @@ export function TestsSuggestionsPanel({ anamnesis, reason, autoAnalyze }: TestsS
         {!result && !loading && (
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              L\'IA analyse l\'anamnèse et suggère les tests les plus pertinents
+              L&apos;IA analyse l&apos;anamnèse et suggère les tests les plus pertinents
               depuis la base OsteoUpgrade (116 tests).
             </p>
             <Button
@@ -144,7 +144,7 @@ export function TestsSuggestionsPanel({ anamnesis, reason, autoAnalyze }: TestsS
         {loading && (
           <div className="flex items-center gap-3 py-2">
             <Loader2 className="h-4 w-4 animate-spin text-violet-500" />
-            <span className="text-sm text-muted-foreground">Analyse de l\'anamnèse en cours…</span>
+            <span className="text-sm text-muted-foreground">Analyse de l&apos;anamnèse en cours…</span>
           </div>
         )}
 
@@ -228,7 +228,7 @@ export function TestsSuggestionsPanel({ anamnesis, reason, autoAnalyze }: TestsS
               className="text-violet-600 hover:text-violet-700 hover:bg-violet-50 text-xs h-7"
             >
               <Sparkles className="mr-1.5 h-3 w-3" />
-              Relancer l\'analyse
+              Relancer l&apos;analyse
             </Button>
           </div>
         )}
