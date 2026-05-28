@@ -4,14 +4,20 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req: Request) {
   try {
-    const { header, body, template_name } = await req.json()
+    const { header, recipient_block, body, closing, template_name } = await req.json()
 
-    if (!header || !body) {
-      return NextResponse.json({ error: 'header et body requis' }, { status: 400 })
+    if (!body) {
+      return NextResponse.json({ error: 'body requis' }, { status: 400 })
     }
 
     const { generateLetterPdf } = await import('@/lib/pdf/letter-pdfkit')
-    const pdfBuffer = await generateLetterPdf({ header, body, template_name })
+    const pdfBuffer = await generateLetterPdf({
+      practitioner_lines: (header as string || '').split('\n'),
+      recipient_block: recipient_block || null,
+      body: body || '',
+      closing: closing || null,
+      template_name,
+    })
     const safeName = ((template_name as string) ?? 'courrier').replace(/[^a-z0-9]/gi, '-').toLowerCase()
 
     return new NextResponse(new Uint8Array(pdfBuffer), {
