@@ -4,20 +4,19 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
   FileText,
-  Plus,
   Printer,
   Trash2,
   Send,
-  Award,
-  Activity,
   Clock,
   User,
   ChevronRight,
+  Search,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Input } from '@/components/ui/input'
 import { createClient } from '@/lib/db/client'
 import { GenerateLetterModal } from '@/components/communication/generate-letter-modal'
 import type { GenerateLetterModalProps } from '@/components/communication/generate-letter-modal'
@@ -33,30 +32,12 @@ const TEMPLATE_CARDS = [
     category: 'Consultation',
   },
   {
-    id: 'compte_rendu' as const,
-    name: 'Compte-rendu',
-    description: 'CR structuré pour le médecin traitant ou le dossier patient',
+    id: 'attestation_consultation' as const,
+    name: 'Attestation de consultation',
+    description: 'Attester la présence du patient, sans contenu médical',
     icon: FileText,
     color: 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100',
     iconColor: 'text-emerald-600 bg-emerald-100',
-    category: 'Consultation',
-  },
-  {
-    id: 'certificat_suivi' as const,
-    name: 'Attestation de suivi',
-    description: 'Certifier le suivi ostéopathique du patient',
-    icon: Award,
-    color: 'bg-violet-50 border-violet-200 hover:bg-violet-100',
-    iconColor: 'text-violet-600 bg-violet-100',
-    category: 'Attestation',
-  },
-  {
-    id: 'recommandation_repos' as const,
-    name: 'Repos sportif',
-    description: 'Recommander une limitation ou arrêt temporaire d\'activité',
-    icon: Activity,
-    color: 'bg-orange-50 border-orange-200 hover:bg-orange-100',
-    iconColor: 'text-orange-600 bg-orange-100',
     category: 'Attestation',
   },
 ]
@@ -97,6 +78,15 @@ interface Practitioner {
   rpps: string | null
 }
 
+interface Consultation {
+  id: string
+  date_time: string
+  reason: string
+  anamnesis: string | null
+  examination: string | null
+  advice: string | null
+}
+
 export default function CommunicationPage() {
   const [letters, setLetters] = useState<SavedLetter[]>([])
   const [patients, setPatients] = useState<Patient[]>([])
@@ -105,6 +95,10 @@ export default function CommunicationPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState<TemplateId>('referral')
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
+  const [patientSearch, setPatientSearch] = useState('')
+  const [consultations, setConsultations] = useState<Consultation[]>([])
+  const [selectedConsultationId, setSelectedConsultationId] = useState<string>('')
+  const [loadingConsultations, setLoadingConsultations] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const db = createClient()
@@ -115,7 +109,8 @@ export default function CommunicationPage() {
       const [lettersRes, practRes, patientsRes] = await Promise.all([
         fetch('/api/communication/letters'),
         db.from('practitioners').select('*').single(),
-        db.from('patients').select('id, first_name, last_name, gender, date_of_birth')
+        db.from('patients')
+          .select('id, first_name, last_name, gender, date_of_birth')
           .is('archived_at', null)
           .order('last_name', { ascending: true }),
       ])
@@ -133,11 +128,42 @@ export default function CommunicationPage() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  // Charge les consultations quand le patient change
+  useEffect(() => {
+    if (!selectedPatient) {
+      setConsultations([])
+      setSelectedConsultationId('')
+      return
+    }
+    setLoadingConsultations(true)
+    db.from('consultations')
+      .select('id, date_time, reason, anamnesis, examination, advice')
+      .eq('patient_id', selectedPatient.id)
+      .is('archived_at', null)
+      .order('date_time', { ascending: false })
+      .limit(10)
+      .then(({ data }) => {
+        const list = (data as Consultation[]) ?? []
+        setConsultations(list)
+        setSelectedConsultationId(list[0]?.id ?? '')
+        setLoadingConsultations(false)
+      })
+  }, [selectedPatient]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filteredPatients = patientSearch.trim()
+    ? patients.filter((p) => {
+        const s = patientSearch.toLowerCase()
+        return p.last_name.toLowerCase().includes(s) || p.first_name.toLowerCase().includes(s)
+      })
+    : patients
+
   const handleOpenModal = (templateId: TemplateId) => {
     setSelectedTemplateId(templateId)
-    setSelectedPatient(patients[0] ?? null)
+    // Ne pas réinitialiser selectedPatient — conserver la sélection de l'utilisateur
     setModalOpen(true)
   }
+
+  const selectedConsultation = consultations.find((c) => c.id === selectedConsultationId) ?? null
 
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer ce courrier ?')) return
@@ -170,6 +196,16 @@ pre{font-family:inherit;white-space:pre-wrap;word-wrap:break-word;margin:0}@page
           onClose: () => { setModalOpen(false); loadData() },
           patient: selectedPatient,
           practitioner,
+          consultation: selectedConsultation
+            ? {
+                id: selectedConsultation.id,
+                date_time: selectedConsultation.date_time,
+                reason: selectedConsultation.reason,
+                anamnesis: selectedConsultation.anamnesis,
+                examination: selectedConsultation.examination,
+                advice: selectedConsultation.advice,
+              }
+            : undefined,
           defaultTemplateId: selectedTemplateId,
         }
       : null
@@ -177,46 +213,84 @@ pre{font-family:inherit;white-space:pre-wrap;word-wrap:break-word;margin:0}@page
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-            <FileText className="h-8 w-8" />
-            Communication
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Générez des courriers professionnels grâce à l\'IA à partir de vos consultations.
-          </p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+          <FileText className="h-8 w-8" />
+          Communication
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          Générez des courriers professionnels à partir de vos consultations.
+        </p>
       </div>
 
       {/* Template cards */}
       <section>
         <h2 className="text-lg font-semibold mb-4">Nouveau courrier</h2>
 
-        {/* Patient selector */}
-        {patients.length > 0 && (
-          <div className="mb-4 flex items-center gap-3">
-            <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <label className="text-sm text-muted-foreground">Patient :</label>
-            <select
-              className="text-sm border rounded-md px-3 py-1.5 bg-background"
-              value={selectedPatient?.id ?? ''}
-              onChange={(e) => {
-                const p = patients.find((pt) => pt.id === e.target.value) ?? null
-                setSelectedPatient(p)
-              }}
-            >
-              <option value="" disabled>Sélectionner un patient</option>
-              {patients.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.last_name} {p.first_name}
-                </option>
-              ))}
-            </select>
+        {/* Recherche + sélection patient */}
+        <div className="mb-5 space-y-2">
+          <div className="flex items-center gap-2 max-w-xs">
+            <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <Input
+              placeholder="Rechercher un patient..."
+              value={patientSearch}
+              onChange={(e) => setPatientSearch(e.target.value)}
+              className="h-8 text-sm"
+            />
           </div>
-        )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {patients.length > 0 && (
+            <div className="flex items-center gap-3">
+              <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <label className="text-sm text-muted-foreground whitespace-nowrap">Patient :</label>
+              <select
+                className="text-sm border rounded-md px-3 py-1.5 bg-background flex-1 max-w-xs"
+                value={selectedPatient?.id ?? ''}
+                onChange={(e) => {
+                  const p = patients.find((pt) => pt.id === e.target.value) ?? null
+                  setSelectedPatient(p)
+                }}
+              >
+                <option value="" disabled>Sélectionner un patient</option>
+                {filteredPatients.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.last_name} {p.first_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Sélection consultation */}
+          {selectedPatient && (
+            <div className="flex items-center gap-3">
+              <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <label className="text-sm text-muted-foreground whitespace-nowrap">Consultation :</label>
+              {loadingConsultations ? (
+                <span className="text-sm text-muted-foreground">Chargement…</span>
+              ) : consultations.length === 0 ? (
+                <span className="text-sm text-muted-foreground italic">Aucune consultation</span>
+              ) : (
+                <select
+                  className="text-sm border rounded-md px-3 py-1.5 bg-background flex-1 max-w-sm"
+                  value={selectedConsultationId}
+                  onChange={(e) => setSelectedConsultationId(e.target.value)}
+                >
+                  <option value="">Sans consultation (attestation simple)</option>
+                  {consultations.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {new Date(c.date_time).toLocaleDateString('fr-FR', {
+                        day: 'numeric', month: 'long', year: 'numeric',
+                      })} — {c.reason}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
           {TEMPLATE_CARDS.map((tpl) => (
             <button
               key={tpl.id}
@@ -246,7 +320,7 @@ pre{font-family:inherit;white-space:pre-wrap;word-wrap:break-word;margin:0}@page
 
       <Separator />
 
-      {/* Saved letters */}
+      {/* Courriers sauvegardés */}
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Courriers sauvegardés</h2>
@@ -276,7 +350,7 @@ pre{font-family:inherit;white-space:pre-wrap;word-wrap:break-word;margin:0}@page
                         <span className="flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5" />
                           {new Date(letter.created_at).toLocaleDateString('fr-FR', {
-                            day: 'numeric', month: 'long', year: 'numeric'
+                            day: 'numeric', month: 'long', year: 'numeric',
                           })}
                         </span>
                         {(letter.recipient_title || letter.recipient_name) && (
@@ -296,11 +370,7 @@ pre{font-family:inherit;white-space:pre-wrap;word-wrap:break-word;margin:0}@page
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePrint(letter)}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => handlePrint(letter)}>
                         <Printer className="h-3.5 w-3.5 mr-1.5" />
                         Imprimer
                       </Button>
