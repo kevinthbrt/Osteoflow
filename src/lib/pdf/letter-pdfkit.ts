@@ -8,14 +8,34 @@ export interface LetterPDFData {
 }
 
 const FONT_SIZE = 10
-const LINE_HEIGHT = 14.5  // 10pt * 1.2 leading + 2.5 gap
-const CHARS_PER_LINE = 85 // approx. at 10pt Helvetica on 465pt content width
+const LINE_H = 14       // pt per visual line (10pt * 1.2 leading + ~2pt gap)
+const MAX_CHARS = 82    // chars per line at Helvetica 10pt on 465pt content width
+
+// Word-wrap a paragraph into visual lines of at most MAX_CHARS characters.
+// We do this ourselves because @react-pdf/pdfkit ignores \n and lineBreak options.
+function wrapParagraph(text: string): string[] {
+  if (!text.trim()) return ['']
+  const words = text.split(' ')
+  const lines: string[] = []
+  let current = ''
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word
+    if (candidate.length <= MAX_CHARS) {
+      current = candidate
+    } else {
+      if (current) lines.push(current)
+      // A single word longer than MAX_CHARS gets its own line
+      current = word
+    }
+  }
+  if (current) lines.push(current)
+  return lines.length ? lines : ['']
+}
 
 export async function generateLetterPdf(data: LetterPDFData): Promise<Uint8Array> {
   const pageWidth = 595.28
   const pageHeight = 841.89
   const margin = 65
-  const contentWidth = pageWidth - margin * 2
 
   const doc = new PDFDocument({ size: 'A4', margin })
   const stream = new PassThrough()
@@ -31,36 +51,34 @@ export async function generateLetterPdf(data: LetterPDFData): Promise<Uint8Array
 
   let y = margin
 
-  // Render one "paragraph" at explicit (margin, y).
-  // wrap=false for header lines (always short, lineBreak off).
-  // wrap=true for body paragraphs (may span multiple visual lines).
-  const renderLine = (text: string, wrap: boolean) => {
-    if (y > pageHeight - margin) return
+  // Render a single visual line at explicit (margin, y) — no PDFKit layout magic.
+  const renderLine = (text: string) => {
+    if (y + LINE_H > pageHeight - margin / 2) return // safety guard
     doc
       .font('Helvetica')
       .fontSize(FONT_SIZE)
       .fillColor('#1a1a1a')
-      .text(text.length > 0 ? text : ' ', margin, y, {
-        width: contentWidth,
-        lineBreak: wrap,
-      })
-    // Advance Y: for wrapped text estimate visual line count from char length.
-    const visualLines = wrap && text.length > 0
-      ? Math.max(1, Math.ceil(text.length / CHARS_PER_LINE))
-      : 1
-    y += LINE_HEIGHT * visualLines
+      .text(text || ' ', margin, y, { lineBreak: false })
+    y += LINE_H
   }
 
-  // Header — short lines, no wrapping needed
+  // Header: already short lines (address block, date…), no wrapping needed
   for (const line of data.header.split('\n')) {
-    renderLine(line, false)
+    renderLine(line)
   }
 
-  y += LINE_HEIGHT * 2 // blank space between header and body
+  // Blank space between header and body
+  y += LINE_H * 1.5
 
-  // Body — paragraphs can be long
-  for (const line of data.body.split('\n')) {
-    renderLine(line, true)
+  // Body: wrap long paragraphs ourselves, blank lines become a single empty line
+  for (const paragraph of data.body.split('\n')) {
+    if (!paragraph.trim()) {
+      renderLine('') // blank line between paragraphs
+    } else {
+      for (const visualLine of wrapParagraph(paragraph)) {
+        renderLine(visualLine)
+      }
+    }
   }
 
   doc.end()
