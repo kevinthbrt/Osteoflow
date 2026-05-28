@@ -409,6 +409,7 @@ CREATE TABLE IF NOT EXISTS generated_letters (
   body TEXT NOT NULL,
   recipient_name TEXT,
   recipient_title TEXT,
+  closing TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -629,12 +630,19 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
       body TEXT NOT NULL,
       recipient_name TEXT,
       recipient_title TEXT,
+      closing TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
   `)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_generated_letters_practitioner ON generated_letters(practitioner_id);`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_generated_letters_consultation ON generated_letters(consultation_id);`)
+
+  // Add closing column to generated_letters (existing installs)
+  const lettersCols = db.pragma('table_info(generated_letters)') as Array<{ name: string }>
+  if (!lettersCols.some((c) => c.name === 'closing')) {
+    db.exec('ALTER TABLE generated_letters ADD COLUMN closing TEXT;')
+  }
 
   // Clear legacy flat history fields — idempotent, superseded by medical_history_entries
   db.exec('UPDATE patients SET surgical_history = NULL, trauma_history = NULL, medical_history = NULL, family_history = NULL;')

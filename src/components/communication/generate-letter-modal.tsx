@@ -105,6 +105,8 @@ export function GenerateLetterModal({
   const [error, setError] = useState<string | null>(null)
   const [header, setHeader] = useState('')
   const [body, setBody] = useState('')
+  const [letterClosing, setLetterClosing] = useState('')
+  const [recipientBlockText, setRecipientBlockText] = useState('')
   const [saved, setSaved] = useState(false)
   const [showOptions, setShowOptions] = useState(true)
 
@@ -116,6 +118,8 @@ export function GenerateLetterModal({
       setTemplateId(defaultTemplateId)
       setHeader('')
       setBody('')
+      setLetterClosing('')
+      setRecipientBlockText('')
       setSaved(false)
       setShowOptions(true)
       setError(null)
@@ -166,6 +170,8 @@ export function GenerateLetterModal({
       setHeader(data.header)
       const resolvedBody = (data.body as string).replace(/\[NOM_PATIENT\]/g, patientLabel)
       setBody(resolvedBody)
+      setLetterClosing(data.closing ?? '')
+      setRecipientBlockText(data.recipient_block ?? '')
       setShowOptions(false)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue')
@@ -189,6 +195,7 @@ export function GenerateLetterModal({
           body,
           recipient_name: recipientName || null,
           recipient_title: recipientTitle || null,
+          closing: letterClosing || null,
         }),
       })
       if (res.ok) setSaved(true)
@@ -207,7 +214,13 @@ export function GenerateLetterModal({
       const res = await fetch('/api/communication/letters/preview/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ header, body, template_name: templateName }),
+        body: JSON.stringify({
+          header,
+          recipient_block: recipientBlockText,
+          body,
+          closing: letterClosing,
+          template_name: templateName,
+        }),
       })
       if (!res.ok) throw new Error('Erreur génération PDF')
       const blob = await res.blob()
@@ -233,7 +246,7 @@ export function GenerateLetterModal({
           </DialogTitle>
           <DialogDescription>
             Le courrier est rédigé à partir des données de la consultation.
-            Vous pouvez modifier le texte avant d'imprimer ou d'exporter en PDF.
+            Vous pouvez modifier le texte avant d&apos;imprimer ou d&apos;exporter en PDF.
           </DialogDescription>
         </DialogHeader>
 
@@ -371,6 +384,18 @@ export function GenerateLetterModal({
                   className="font-mono text-sm"
                 />
               </div>
+
+              {letterClosing && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">Clôture</Label>
+                  <Textarea
+                    value={letterClosing}
+                    onChange={(e) => setLetterClosing(e.target.value)}
+                    rows={4}
+                    className="font-mono text-sm resize-none"
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
