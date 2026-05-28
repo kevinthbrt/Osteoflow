@@ -45,6 +45,7 @@ export async function POST(req: Request) {
         body: body.body,
         recipient_name: body.recipient_name ?? null,
         recipient_title: body.recipient_title ?? null,
+        closing: body.closing ?? null,
       })
       .select()
       .single()
