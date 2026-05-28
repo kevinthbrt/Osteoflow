@@ -150,7 +150,7 @@ export function NotificationBell() {
       const newSurveys = notifs.filter(n => !prevIds.has(n.id))
       if (newSurveys.length > 0) {
         const first = newSurveys[0]
-        showEphemeral(`${first.patient_name} a répondu au sondage J+7 ${first.overall_rating ? ratingEmojis[first.overall_rating] : ''}`)
+        showEphemeral(`${first.patient_name} a répondu au sondage de suivi ${first.overall_rating ? ratingEmojis[first.overall_rating] : ''}`)
       }
     }
 
@@ -384,7 +384,7 @@ export function NotificationBell() {
                         {survey.patient_name}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        A répondu au sondage J+7
+                        A répondu au sondage de suivi
                         {survey.overall_rating && (
                           <span> — Note : {survey.overall_rating}/5</span>
                         )}

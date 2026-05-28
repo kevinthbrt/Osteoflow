@@ -489,6 +489,12 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   if (!practFollowUpCols.some((c) => c.name === 'follow_up_delay_days')) {
     db.exec('ALTER TABLE practitioners ADD COLUMN follow_up_delay_days INTEGER NOT NULL DEFAULT 7;')
   }
+  if (!practFollowUpCols.some((c) => c.name === 'profession')) {
+    db.exec("ALTER TABLE practitioners ADD COLUMN profession TEXT DEFAULT 'osteopathe';")
+  }
+  if (!practFollowUpCols.some((c) => c.name === 'vat_regime')) {
+    db.exec("ALTER TABLE practitioners ADD COLUMN vat_regime TEXT DEFAULT 'exempt_261';")
+  }
 
   // Message attachments — files attached to sent/received messages
   db.exec(`

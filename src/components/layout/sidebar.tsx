@@ -44,7 +44,7 @@ const navigation = [
   { name: 'Comptabilité', href: '/accounting', icon: BarChart3, description: 'Rapports' },
   { name: 'Objectifs', href: '/objectives', icon: Target, description: 'Suivi des objectifs' },
   { name: 'Emails', href: '/scheduled-emails', icon: Mail, description: 'Emails programmés' },
-  { name: 'Sondages', href: '/surveys', icon: ClipboardList, description: 'Retours patients J+7' },
+  { name: 'Sondages', href: '/surveys', icon: ClipboardList, description: 'Retours patients' },
 
   { name: 'Importer CSV', href: '/import', icon: Upload, description: 'Importer des données' },
   { name: 'Paramètres', href: '/settings', icon: Settings, description: 'Configuration' },

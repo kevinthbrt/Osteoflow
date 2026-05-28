@@ -98,30 +98,37 @@ export async function generateInvoicePdf(data: InvoicePDFData): Promise<Uint8Arr
   }
 
   // TITRE "REÇU" à droite
-  const titleX = pageWidth - margin - 120
+  const titleWidth = 170
+  const titleX = pageWidth - margin - titleWidth
   doc
     .font('Helvetica-Bold')
     .fontSize(28)
     .fillColor(colors.primary)
-    .text('RECU', titleX, headerY, { width: 120, align: 'right' })
+    .text('RECU', titleX, headerY, { width: titleWidth, align: 'right' })
 
   // Numéro de facture
   doc
     .font('Helvetica')
     .fontSize(9)
     .fillColor(colors.textMuted)
-    .text('N', titleX, headerY + 36, { width: 85, align: 'right', continued: true })
+    .text('N', titleX, headerY + 36, { width: titleWidth - 20, align: 'right', continued: true })
     .font('Helvetica-Bold')
     .fontSize(12)
     .fillColor(colors.dark)
     .text('  ' + data.invoiceNumber, { continued: false })
 
-  // Date et lieu
+  // Date et lieu — split city / date to avoid overflow on long city names
+  const locationParts = data.locationLine.split(', le ')
+  const locationCity = locationParts[0] || data.locationLine
+  const locationDate = locationParts[1] ? `le ${locationParts[1]}` : ''
   doc
     .font('Helvetica')
-    .fontSize(10)
+    .fontSize(9)
     .fillColor(colors.textLight)
-    .text(data.locationLine, titleX, headerY + 54, { width: 120, align: 'right' })
+    .text(locationCity, titleX, headerY + 54, { width: titleWidth, align: 'right' })
+  if (locationDate) {
+    doc.text(locationDate, titleX, headerY + 66, { width: titleWidth, align: 'right' })
+  }
 
   // ============================================
   // SECTION PATIENT - Carte moderne avec bordure accent
@@ -187,14 +194,7 @@ export async function generateInvoicePdf(data: InvoicePDFData): Promise<Uint8Arr
     .font('Helvetica-Bold')
     .fontSize(11)
     .fillColor(colors.dark)
-    .text(data.sessionTypeLabel, margin + 16, rowY + 12)
-
-  // Sous-titre
-  doc
-    .font('Helvetica')
-    .fontSize(9)
-    .fillColor(colors.textLight)
-    .text('Consultation osteopathique', margin + 16, rowY + 28)
+    .text(data.sessionTypeLabel, margin + 16, rowY + 18)
 
   // Quantité
   doc
@@ -225,15 +225,15 @@ export async function generateInvoicePdf(data: InvoicePDFData): Promise<Uint8Arr
     .text('Sous-total HT', totalsX + 16, totalsY)
   doc
     .fillColor(colors.text)
-    .text(data.amount, totalsX + totalsBoxWidth - 16 - 80, totalsY, { width: 80, align: 'right' })
+    .text(data.vatRate > 0 ? data.amountHT : data.amount, totalsX + totalsBoxWidth - 16 - 80, totalsY, { width: 80, align: 'right' })
 
   // TVA
   doc
     .fillColor(colors.textLight)
-    .text('TVA (0%)', totalsX + 16, totalsY + 22)
+    .text(`TVA (${data.vatRate}%)`, totalsX + 16, totalsY + 22)
   doc
     .fillColor(colors.text)
-    .text('0.00 EUR', totalsX + totalsBoxWidth - 16 - 80, totalsY + 22, { width: 80, align: 'right' })
+    .text(data.vatRate > 0 ? data.vatAmount : '0.00 EUR', totalsX + totalsBoxWidth - 16 - 80, totalsY + 22, { width: 80, align: 'right' })
 
   // Total TTC - encadré coloré
   const grandTotalY = totalsY + 48
@@ -326,9 +326,13 @@ export async function generateInvoicePdf(data: InvoicePDFData): Promise<Uint8Arr
 
   // Textes légaux à gauche
   doc.font('Helvetica').fontSize(7).fillColor(colors.textMuted)
-  doc.text('TVA non applicable selon article 261, 4-1 du CGI', margin, footerY + 12)
-  doc.text('Absence d escompte pour paiement anticipe - En cas de retard, penalites suivant le taux minimum legal en vigueur', margin, footerY + 22)
-  doc.text('Indemnite forfaitaire pour frais de recouvrement: 40 euros', margin, footerY + 32)
+  let footerTextY = footerY + 12
+  if (data.vatMention) {
+    doc.text(data.vatMention, margin, footerTextY)
+    footerTextY += 10
+  }
+  doc.text('Absence d escompte pour paiement anticipe - En cas de retard, penalites suivant le taux minimum legal en vigueur', margin, footerTextY)
+  doc.text('Indemnite forfaitaire pour frais de recouvrement: 40 euros', margin, footerTextY + 10)
 
   // Marque à droite
   doc

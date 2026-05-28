@@ -177,6 +177,8 @@ function SettingsPageInner() {
   const [isSavingObjectives, setIsSavingObjectives] = useState(false)
   const [followUpDelay, setFollowUpDelay] = useState('7')
   const [isSavingFollowUpDelay, setIsSavingFollowUpDelay] = useState(false)
+  const [profession, setProfession] = useState('osteopathe')
+  const [vatRegime, setVatRegime] = useState('exempt_261')
 
   // Email connection states
   const [selectedProvider, setSelectedProvider] = useState<string>('')
@@ -339,6 +341,8 @@ function SettingsPageInner() {
           setSettingsValue('primary_color', practitionerData.primary_color)
           setStampUrl(practitionerData.stamp_url)
           setFollowUpDelay(String((practitionerData as any).follow_up_delay_days ?? 7))
+          setProfession((practitionerData as any).profession ?? 'osteopathe')
+          setVatRegime((practitionerData as any).vat_regime ?? 'exempt_261')
 
           // Get patients for export
           const { data: patientsData } = await db
@@ -428,6 +432,8 @@ function SettingsPageInner() {
           siret: data.siret || null,
           rpps: data.rpps || null,
           status: data.status || null,
+          profession: profession,
+          vat_regime: vatRegime,
           default_rate: data.default_rate,
           invoice_prefix: data.invoice_prefix,
           primary_color: data.primary_color,
@@ -1055,6 +1061,45 @@ function SettingsPageInner() {
                       {...registerSettings('status')}
                       placeholder="EI"
                     />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Profession</Label>
+                    <Select value={profession} onValueChange={(v) => {
+                      setProfession(v)
+                      if (v === 'osteopathe' || v === 'chiropracteur') setVatRegime('exempt_261')
+                      else if (vatRegime === 'exempt_261') setVatRegime('franchise_293b')
+                    }}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="osteopathe">Ostéopathe</SelectItem>
+                        <SelectItem value="chiropracteur">Chiropracteur</SelectItem>
+                        <SelectItem value="etiopathe">Étiopathe</SelectItem>
+                        <SelectItem value="autre">Autre</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Régime TVA (factures)</Label>
+                    {profession === 'osteopathe' || profession === 'chiropracteur' ? (
+                      <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground">
+                        Exonéré TVA — art. 261-4-1° CGI
+                      </div>
+                    ) : (
+                      <Select value={vatRegime} onValueChange={setVatRegime}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="franchise_293b">Franchise en base — art. 293 B CGI</SelectItem>
+                          <SelectItem value="vat_20">Assujetti TVA 20%</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 </div>
 

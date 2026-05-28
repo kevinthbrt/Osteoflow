@@ -83,6 +83,7 @@ export default function SurveysPage() {
   const [stats, setStats] = useState<SurveyStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [followUpDays, setFollowUpDays] = useState(7)
   const { toast } = useToast()
   const db = createClient()
 
@@ -134,7 +135,7 @@ export default function SurveysPage() {
           .insert({
             practitioner_id: emailTarget.practitioner_id,
             patient_id: emailTarget.patient.id,
-            subject: `Suite sondage J+7`,
+            subject: `Suite sondage J+${followUpDays}`,
             last_message_at: new Date().toISOString(),
             unread_count: 0,
           })
@@ -267,6 +268,23 @@ export default function SurveysPage() {
     fetchSurveys()
   }, [fetchSurveys])
 
+  useEffect(() => {
+    const client = createClient()
+    async function fetchFollowUpDays() {
+      try {
+        const { data: { user } } = await client.auth.getUser()
+        if (!user) return
+        const { data } = await client.from('practitioners').select('follow_up_delay_days').eq('user_id', user.id).single()
+        if (data && (data as Record<string, unknown>).follow_up_delay_days) {
+          setFollowUpDays(Number((data as Record<string, unknown>).follow_up_delay_days))
+        }
+      } catch {
+        // keep default 7
+      }
+    }
+    fetchFollowUpDays()
+  }, [])
+
   const completedSurveys = surveys.filter(s => s.status === 'completed')
   const newSurveys = completedSurveys.filter(s => !s.acknowledged_at)
   const acknowledgedSurveys = completedSurveys.filter(s => !!s.acknowledged_at)
@@ -292,9 +310,9 @@ export default function SurveysPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Sondages J+7</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Sondages J+{followUpDays}</h1>
           <p className="text-muted-foreground">
-            Retours de vos patients 7 jours après leur consultation
+            Retours de vos patients {followUpDays} jours après leur consultation
           </p>
         </div>
         <Button
@@ -417,8 +435,8 @@ export default function SurveysPage() {
             <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
             <h3 className="text-lg font-semibold mb-2">Aucun sondage pour le moment</h3>
             <p className="text-muted-foreground max-w-md mx-auto">
-              Les sondages sont envoyés automatiquement avec les emails de suivi J+7.
-              Activez le suivi J+7 lors de vos consultations pour commencer à recevoir des retours.
+              Les sondages sont envoyés automatiquement avec les emails de suivi J+{followUpDays}.
+              Activez le suivi J+{followUpDays} lors de vos consultations pour commencer à recevoir des retours.
             </p>
           </CardContent>
         </Card>
@@ -668,7 +686,7 @@ export default function SurveysPage() {
                   {emailTarget.patient.email && (
                     <span className="text-muted-foreground"> ({emailTarget.patient.email})</span>
                   )}
-                  {' '}suite à sa réponse au sondage J+7
+                  {' '}suite à sa réponse au sondage J+{followUpDays}
                   {emailTarget.overall_rating && (
                     <span> (note : {emailTarget.overall_rating}/5 {ratingEmojis[emailTarget.overall_rating]})</span>
                   )}
