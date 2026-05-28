@@ -25,19 +25,12 @@ export async function generateLetterPdf(data: LetterPDFData): Promise<Uint8Array
 
   doc.pipe(stream)
 
+  // En-tête + espacement + corps en un seul flux de texte
   doc
     .font('Helvetica')
     .fontSize(10)
     .fillColor('#1a1a1a')
-    .text(data.header, { width: contentWidth, lineGap: 1.5 })
-
-  doc.moveDown(2)
-
-  doc
-    .font('Helvetica')
-    .fontSize(10)
-    .fillColor('#1a1a1a')
-    .text(data.body, { width: contentWidth, lineGap: 1.5 })
+    .text(data.header + '\n\n' + data.body, { width: contentWidth, lineGap: 1.5 })
 
   doc.end()
 
