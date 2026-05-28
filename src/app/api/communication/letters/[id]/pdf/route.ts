@@ -19,9 +19,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Courrier non trouvé' }, { status: 404 })
     }
 
+    const recipientParts = [letter.recipient_title, letter.recipient_name].filter(Boolean)
+
     const pdfBuffer = await generateLetterPdf({
-      header: letter.header,
+      practitioner_lines: (letter.header as string).split('\n'),
+      recipient_block: recipientParts.length ? recipientParts.join(' ') : null,
       body: letter.body,
+      closing: letter.closing ?? null,
       template_name: letter.template_name,
     })
     const safeName = (letter.template_name ?? 'courrier').replace(/[^a-z0-9]/gi, '-').toLowerCase()
