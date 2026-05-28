@@ -178,19 +178,6 @@ export default function CommunicationPage() {
     }
   }
 
-  const handlePrint = (letter: SavedLetter) => {
-    const printContent = `<!DOCTYPE html>
-<html lang="fr"><head><meta charset="utf-8"><title>Courrier</title>
-<style>body{font-family:'Times New Roman',serif;font-size:12pt;line-height:1.6;margin:2.5cm;color:#000}
-pre{font-family:inherit;white-space:pre-wrap;word-wrap:break-word;margin:0}@page{margin:2cm}</style>
-</head><body>
-<pre>${letter.header.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre><br/>
-<pre>${letter.body.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-</body></html>`
-    const w = window.open('', '_blank')
-    if (w) { w.document.write(printContent); w.document.close(); w.focus(); w.print() }
-  }
-
   const modalProps: GenerateLetterModalProps | null =
     practitioner && selectedPatient
       ? {
@@ -405,7 +392,11 @@ pre{font-family:inherit;white-space:pre-wrap;word-wrap:break-word;margin:0}@page
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button variant="outline" size="sm" onClick={() => handlePrint(letter)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(`/api/communication/letters/${letter.id}/pdf`, '_blank')}
+                      >
                         <Printer className="h-3.5 w-3.5 mr-1.5" />
                         Imprimer
                       </Button>
