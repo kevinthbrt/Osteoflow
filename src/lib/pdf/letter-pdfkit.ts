@@ -2,17 +2,17 @@ import PDFDocument from '@react-pdf/pdfkit'
 import { PassThrough } from 'stream'
 
 export interface LetterPDFData {
-  header: string
-  body: string
+  practitioner_lines: string[]   // practitioner block split by \n
+  recipient_block?: string | null // "Dr. Dupont" or null
+  body: string                   // letter body (may start with "Objet : …")
+  closing?: string | null        // "Fait à City, le Date\n\nNom\nSpécialité"
   template_name?: string
 }
 
 const FONT_SIZE = 10
-const LINE_H = 14       // pt per visual line (10pt * 1.2 leading + ~2pt gap)
-const MAX_CHARS = 82    // chars per line at Helvetica 10pt on 465pt content width
+const LINE_H = 14     // pt per visual line
+const MAX_CHARS = 82  // chars/line at Helvetica 10pt on 465pt
 
-// Word-wrap a paragraph into visual lines of at most MAX_CHARS characters.
-// We do this ourselves because @react-pdf/pdfkit ignores \n and lineBreak options.
 function wrapParagraph(text: string): string[] {
   if (!text.trim()) return ['']
   const words = text.split(' ')
@@ -24,7 +24,6 @@ function wrapParagraph(text: string): string[] {
       current = candidate
     } else {
       if (current) lines.push(current)
-      // A single word longer than MAX_CHARS gets its own line
       current = word
     }
   }
@@ -36,6 +35,7 @@ export async function generateLetterPdf(data: LetterPDFData): Promise<Uint8Array
   const pageWidth = 595.28
   const pageHeight = 841.89
   const margin = 65
+  const contentWidth = pageWidth - margin * 2
 
   const doc = new PDFDocument({ size: 'A4', margin })
   const stream = new PassThrough()
@@ -51,32 +51,68 @@ export async function generateLetterPdf(data: LetterPDFData): Promise<Uint8Array
 
   let y = margin
 
-  // Render a single visual line at explicit (margin, y) — no PDFKit layout magic.
-  const renderLine = (text: string) => {
-    if (y + LINE_H > pageHeight - margin / 2) return // safety guard
+  const drawLine = (
+    text: string,
+    bold = false,
+    opts: Record<string, unknown> = {},
+  ) => {
+    if (y + LINE_H > pageHeight - margin / 2) return
     doc
-      .font('Helvetica')
+      .font(bold ? 'Helvetica-Bold' : 'Helvetica')
       .fontSize(FONT_SIZE)
       .fillColor('#1a1a1a')
-      .text(text || ' ', margin, y, { lineBreak: false })
+      .text(text || ' ', margin, y, { width: contentWidth, lineBreak: false, ...opts })
     y += LINE_H
   }
 
-  // Header: already short lines (address block, date…), no wrapping needed
-  for (const line of data.header.split('\n')) {
-    renderLine(line)
+  const gap = (n = 1) => { y += LINE_H * n }
+
+  // ── 1. EXPEDITEUR (haut gauche) ──────────────────────────────────────────
+  data.practitioner_lines.forEach((line, i) => {
+    drawLine(line, i === 0) // nom en gras
+  })
+
+  gap(2)
+
+  // ── 2. DESTINATAIRE (aligné à droite) ────────────────────────────────────
+  if (data.recipient_block?.trim()) {
+    for (const line of data.recipient_block.split('\n')) {
+      if (!line.trim()) { gap(); continue }
+      drawLine(line, true, { align: 'right' })
+    }
+    gap(2)
   }
 
-  // Blank space between header and body
-  y += LINE_H * 1.5
+  // ── 3. OBJET + CORPS ─────────────────────────────────────────────────────
+  let bodyText = data.body
+  const objectMatch = bodyText.match(/^(Objet\s*:.*?)(\n|$)/i)
+  if (objectMatch) {
+    drawLine(objectMatch[1].trim(), true) // "Objet : …" en gras
+    bodyText = bodyText.slice(objectMatch[0].length).replace(/^\n+/, '')
+    gap()
+  }
 
-  // Body: wrap long paragraphs ourselves, blank lines become a single empty line
-  for (const paragraph of data.body.split('\n')) {
+  for (const paragraph of bodyText.split('\n')) {
     if (!paragraph.trim()) {
-      renderLine('') // blank line between paragraphs
+      gap()
     } else {
       for (const visualLine of wrapParagraph(paragraph)) {
-        renderLine(visualLine)
+        drawLine(visualLine)
+      }
+    }
+  }
+
+  // ── 4. CLOSING (Fait à…, puis nom/spécialité) ────────────────────────────
+  if (data.closing?.trim()) {
+    gap(2)
+    let prevBlank = false
+    for (const line of data.closing.split('\n')) {
+      if (!line.trim()) {
+        gap()
+        prevBlank = true
+      } else {
+        drawLine(line, prevBlank) // ligne après saut = nom → gras
+        prevBlank = false
       }
     }
   }
