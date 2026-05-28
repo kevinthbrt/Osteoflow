@@ -18,6 +18,7 @@ import { VideoWidget } from './widgets/video-widget'
 import { ProgressWidget } from './widgets/progress-widget'
 import { BirthdayWidget } from './widgets/birthday-widget'
 import { StatusWidget } from './widgets/status-widget'
+import { OsteoupgradeWidgets } from './widgets/osteoupgrade-widgets'
 import { BannerWeather } from './banner-weather'
 
 import type { Practitioner } from '@/types/database'
@@ -106,8 +107,11 @@ export function Dashboard({
         </div>
       </div>
 
-      {/* ── Row 1 : Vidéo + Progression ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* ── Row 1 : OsteoUpgrade + Vidéo + Progression ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="lg:col-span-1">
+          <OsteoupgradeWidgets />
+        </div>
         <div className="lg:col-span-2">
           <VideoWidget />
         </div>

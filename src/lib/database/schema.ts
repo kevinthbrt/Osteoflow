@@ -397,6 +397,25 @@ CREATE TABLE IF NOT EXISTS manual_revenue_entries (
 
 CREATE INDEX IF NOT EXISTS idx_manual_revenue_practitioner ON manual_revenue_entries(practitioner_id, year);
 
+-- Generated letters (AI-drafted communication documents)
+CREATE TABLE IF NOT EXISTS generated_letters (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+  consultation_id TEXT REFERENCES consultations(id),
+  patient_id TEXT REFERENCES patients(id),
+  template_id TEXT NOT NULL,
+  template_name TEXT NOT NULL,
+  header TEXT NOT NULL,
+  body TEXT NOT NULL,
+  recipient_name TEXT,
+  recipient_title TEXT,
+  closing TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_generated_letters_practitioner ON generated_letters(practitioner_id);
+CREATE INDEX IF NOT EXISTS idx_generated_letters_consultation ON generated_letters(consultation_id);
+
 `
 
 /**
@@ -596,6 +615,33 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   }
   if (!tmplItemCols.some((c) => c.name === 'progression_regression')) {
     db.exec('ALTER TABLE exercise_prescription_template_items ADD COLUMN progression_regression TEXT;')
+  }
+
+  // Generated letters table (AI communication module)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS generated_letters (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+      consultation_id TEXT REFERENCES consultations(id),
+      patient_id TEXT REFERENCES patients(id),
+      template_id TEXT NOT NULL,
+      template_name TEXT NOT NULL,
+      header TEXT NOT NULL,
+      body TEXT NOT NULL,
+      recipient_name TEXT,
+      recipient_title TEXT,
+      closing TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_generated_letters_practitioner ON generated_letters(practitioner_id);`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_generated_letters_consultation ON generated_letters(consultation_id);`)
+
+  // Add closing column to generated_letters (existing installs)
+  const lettersCols = db.pragma('table_info(generated_letters)') as Array<{ name: string }>
+  if (!lettersCols.some((c) => c.name === 'closing')) {
+    db.exec('ALTER TABLE generated_letters ADD COLUMN closing TEXT;')
   }
 
   // Clear legacy flat history fields — idempotent, superseded by medical_history_entries

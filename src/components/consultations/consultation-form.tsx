@@ -45,6 +45,7 @@ import { AnamnesisRecorder } from '@/components/consultations/anamnesis-recorder
 import { MarkdownField } from '@/components/ui/markdown-field'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
+import { TestsSuggestionsPanel } from '@/components/consultations/tests-suggestions-panel'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment, MedicalHistoryType } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -106,6 +107,7 @@ export function ConsultationForm({
   const [showDecisionTree, setShowDecisionTree] = useState(false)
   const [showNeckTree, setShowNeckTree] = useState(false)
   const [showExercises, setShowExercises] = useState(false)
+  const [showTestsSuggestions, setShowTestsSuggestions] = useState(false)
 
   const now = new Date()
   const toLocalDateTimeString = (d: Date) => {
@@ -673,6 +675,16 @@ export function ConsultationForm({
                     variant="ghost"
                     size="sm"
                     className="gap-1.5 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowTestsSuggestions(true)}
+                  >
+                    <Stethoscope className="h-4 w-4" />
+                    Tests orthos
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-muted-foreground hover:text-foreground"
                     onClick={() => setShowExercises(true)}
                   >
                     <Dumbbell className="h-4 w-4" />
@@ -1196,6 +1208,23 @@ export function ConsultationForm({
         />
       )}
       <TopographyPanel open={showTopography} onClose={() => setShowTopography(false)} />
+      <Dialog open={showTestsSuggestions} onOpenChange={setShowTestsSuggestions}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Tests orthopédiques suggérés</DialogTitle>
+            <DialogDescription>
+              Analyse de l&apos;anamnèse par IA — tests issus de la base OsteoUpgrade (clusters inclus)
+            </DialogDescription>
+          </DialogHeader>
+          {anamnesis?.trim() ? (
+            <TestsSuggestionsPanel anamnesis={anamnesis} reason={reason} autoAnalyze />
+          ) : (
+            <p className="text-sm text-muted-foreground py-4">
+              Renseignez l&apos;anamnèse pour obtenir des suggestions de tests.
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
       <Dialog open={showDiagnosticSelector} onOpenChange={setShowDiagnosticSelector}>
         <DialogContent className="sm:max-w-xs">
           <DialogHeader>
