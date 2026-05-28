@@ -19,6 +19,38 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.3.4',
+    date: '2026-05-28',
+    title: 'Factures multi-professions & corrections',
+    changes: [
+      { type: 'feature', text: 'Nouveau champ Profession dans les paramètres (Ostéopathe, Chiropracteur, Étiopathe, Autre) avec sélection du régime TVA — la mention légale en pied de facture s\'adapte automatiquement (art. 261-4-1° CGI, art. 293 B CGI ou TVA 20% avec détail HT/TVA/TTC).' },
+      { type: 'fix', text: 'Suppression du libellé "Consultation ostéopathique" codé en dur dans les factures PDF et la page détail — le type de séance défini par le praticien s\'affiche à la place.' },
+      { type: 'fix', text: 'Correction du débordement du nom de ville dans l\'en-tête du PDF lorsque la ville est longue (ex. Saint-Germain-en-Laye).' },
+      { type: 'fix', text: 'Onglet Sondages : le délai affiché (J+7, J+14…) reflète désormais le paramètre configuré par le praticien au lieu d\'être fixé à J+7.' },
+    ],
+  },
+  {
+    version: '1.3.3',
+    date: '2026-05-27',
+    title: 'Import CSV enrichi',
+    changes: [
+      { type: 'feature', text: 'Import CSV : support des colonnes Notes et Activité sportive lors de l\'import de patients.' },
+    ],
+  },
+  {
+    version: '1.3.2',
+    date: '2026-05-26',
+    title: 'Refonte dashboard & météo',
+    changes: [
+      { type: 'feature', text: 'Refonte complète du tableau de bord avec widgets personnalisables (chiffre d\'affaires, prochain rendez-vous, statistiques clés).' },
+      { type: 'feature', text: 'Météo dans l\'en-tête avec prévisions 6 jours et recherche de ville par code postal.' },
+      { type: 'improvement', text: 'Bouton "Nouvelle consultation" repositionné sous le message d\'accueil du dashboard.' },
+      { type: 'fix', text: 'Correction de boucles infinies de re-render dans le Header et le module de messagerie.' },
+      { type: 'fix', text: 'Correction de l\'affichage des pièces jointes Resend et du clignotement de la liste patients.' },
+      { type: 'fix', text: 'Correction du hook useDebounceCallback qui générait une nouvelle référence à chaque render.' },
+    ],
+  },
+  {
     version: '1.3.1',
     date: '2026-05-26',
     title: 'Correctif programme d\'exercices',

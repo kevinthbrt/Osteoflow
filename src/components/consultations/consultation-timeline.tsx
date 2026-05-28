@@ -120,7 +120,7 @@ export function ConsultationTimeline({
                         ) : (
                           <>
                             <AlertCircle className="mr-1 h-3 w-3" />
-                            Suivi J+7
+                            Suivi programmé
                           </>
                         )}
                       </Badge>

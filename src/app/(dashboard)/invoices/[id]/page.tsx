@@ -43,7 +43,7 @@ import { invoiceStatusLabels, paymentMethodLabels } from '@/lib/validations/invo
 import type { Invoice, Payment, Consultation, Patient, Practitioner } from '@/types/database'
 
 interface InvoiceWithDetails extends Invoice {
-  consultation: Consultation & { patient: Patient }
+  consultation: Consultation & { patient: Patient; session_type?: { name: string } | null }
   payments: Payment[]
 }
 
@@ -77,7 +77,8 @@ export default function InvoicePage() {
           *,
           consultation:consultations (
             *,
-            patient:patients (*)
+            patient:patients (*),
+            session_type:session_types (*)
           ),
           payments (*)
         `)
@@ -302,7 +303,7 @@ export default function InvoicePage() {
                   <tbody>
                     <tr>
                       <td className="py-3">
-                        <p className="font-medium">Consultation ostéopathique</p>
+                        <p className="font-medium">{invoice.consultation.session_type?.name ?? 'Type de séance'}</p>
                         <p className="text-sm text-muted-foreground">
                           {formatDateTime(invoice.consultation.date_time)}
                         </p>

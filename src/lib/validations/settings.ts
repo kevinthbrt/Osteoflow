@@ -67,6 +67,12 @@ export const practitionerSettingsSchema = z.object({
     .max(50, 'Le statut ne peut pas dépasser 50 caractères')
     .optional()
     .or(z.literal('')),
+  profession: z
+    .enum(['osteopathe', 'etiopathe', 'chiropracteur', 'autre'])
+    .default('osteopathe'),
+  vat_regime: z
+    .enum(['exempt_261', 'franchise_293b', 'vat_20'])
+    .default('exempt_261'),
   default_rate: z
     .number()
     .positive('Le tarif doit être positif')

@@ -24,6 +24,10 @@ export interface InvoicePDFData {
   invoiceNumber: string
   sessionTypeLabel: string
   amount: string
+  amountHT: string
+  vatRate: number
+  vatAmount: string
+  vatMention: string
   paymentMethod: string
   paymentType: string
   paymentDate: string
@@ -114,6 +118,25 @@ export function buildInvoicePDFData({
   const practitionerCityLine = `${practPostalCode} ${practCity}`.trim()
   const locationLine = `${location}, le ${formatDatePDF(invoiceDateStr)}`.trim()
 
+  const vatRegime = normalizeText((practitioner as Record<string, unknown>)?.vat_regime) || 'exempt_261'
+  const rawAmount = typeof invoice?.amount === 'number' ? invoice.amount : Number(invoice?.amount) || 0
+
+  let vatRate = 0
+  let vatMention = ''
+  let amountHT = rawAmount
+  let vatAmount = 0
+
+  if (vatRegime === 'vat_20') {
+    vatRate = 20
+    amountHT = rawAmount / 1.2
+    vatAmount = rawAmount - amountHT
+    vatMention = ''
+  } else if (vatRegime === 'franchise_293b') {
+    vatMention = 'TVA non applicable, art. 293 B du CGI'
+  } else {
+    vatMention = 'TVA non applicable, art. 261-4-1° du CGI'
+  }
+
   return {
     practitionerName: normalizeText(practitionerName),
     practitionerStatus: normalizeText(practStatus),
@@ -128,6 +151,10 @@ export function buildInvoicePDFData({
     invoiceNumber: normalizeText(invoiceNumber),
     sessionTypeLabel: normalizeText(sessionTypeLabel),
     amount: normalizeText(formatAmountPDF(invoice?.amount)),
+    amountHT: normalizeText(formatAmountPDF(amountHT)),
+    vatRate,
+    vatAmount: normalizeText(formatAmountPDF(vatAmount)),
+    vatMention,
     paymentMethod: normalizeText(method),
     paymentType: 'Comptant',
     paymentDate: normalizeText(payment ? formatDatePDF(payment.payment_date) : formatDatePDF(invoiceDateStr)),
