@@ -17,8 +17,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { createClient } from '@/lib/db/client'
 import { GenerateLetterModal } from '@/components/communication/generate-letter-modal'
 import type { GenerateLetterModalProps } from '@/components/communication/generate-letter-modal'
@@ -98,6 +98,7 @@ export default function CommunicationPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<TemplateId>('referral')
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [patientDropdownOpen, setPatientDropdownOpen] = useState(false)
+  const [patientSearch, setPatientSearch] = useState('')
   const [consultations, setConsultations] = useState<Consultation[]>([])
   const [selectedConsultationId, setSelectedConsultationId] = useState<string>('')
   const [loadingConsultations, setLoadingConsultations] = useState(false)
@@ -151,6 +152,13 @@ export default function CommunicationPage() {
         setLoadingConsultations(false)
       })
   }, [selectedPatient]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filteredPatients = patientSearch.trim()
+    ? patients.filter((p) => {
+        const s = patientSearch.toLowerCase()
+        return p.last_name.toLowerCase().includes(s) || p.first_name.toLowerCase().includes(s)
+      })
+    : patients
 
   const handleOpenModal = (templateId: TemplateId) => {
     setSelectedTemplateId(templateId)
@@ -221,13 +229,19 @@ pre{font-family:inherit;white-space:pre-wrap;word-wrap:break-word;margin:0}@page
       <section>
         <h2 className="text-lg font-semibold mb-4">Nouveau courrier</h2>
 
-        {/* Sélection patient (combobox avec recherche intégrée) */}
+        {/* Sélection patient — combobox avec recherche intégrée */}
         <div className="mb-5 space-y-2">
           {patients.length > 0 && (
             <div className="flex items-center gap-3">
               <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <label className="text-sm text-muted-foreground whitespace-nowrap">Patient :</label>
-              <Popover open={patientDropdownOpen} onOpenChange={setPatientDropdownOpen}>
+              <Popover
+                open={patientDropdownOpen}
+                onOpenChange={(open) => {
+                  setPatientDropdownOpen(open)
+                  if (!open) setPatientSearch('')
+                }}
+              >
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -242,29 +256,41 @@ pre{font-family:inherit;white-space:pre-wrap;word-wrap:break-word;margin:0}@page
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-64 p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Rechercher un patient…" />
-                    <CommandList>
-                      <CommandEmpty>Aucun patient trouvé.</CommandEmpty>
-                      <CommandGroup>
-                        {patients.map((p) => (
-                          <CommandItem
-                            key={p.id}
-                            value={`${p.last_name} ${p.first_name}`}
-                            onSelect={() => {
-                              setSelectedPatient(p)
-                              setPatientDropdownOpen(false)
-                            }}
-                          >
-                            <Check
-                              className={`mr-2 h-4 w-4 ${selectedPatient?.id === p.id ? 'opacity-100' : 'opacity-0'}`}
-                            />
-                            {p.last_name} {p.first_name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
+                  <div className="p-2 border-b">
+                    <Input
+                      placeholder="Rechercher…"
+                      value={patientSearch}
+                      onChange={(e) => setPatientSearch(e.target.value)}
+                      className="h-8 text-sm"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-60 overflow-y-auto py-1">
+                    {filteredPatients.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">Aucun patient trouvé.</p>
+                    ) : (
+                      filteredPatients.map((p) => (
+                        <button
+                          key={p.id}
+                          className={`w-full text-left px-3 py-1.5 text-sm hover:bg-accent flex items-center gap-2 ${
+                            selectedPatient?.id === p.id ? 'bg-accent/50' : ''
+                          }`}
+                          onClick={() => {
+                            setSelectedPatient(p)
+                            setPatientDropdownOpen(false)
+                            setPatientSearch('')
+                          }}
+                        >
+                          <Check
+                            className={`h-4 w-4 flex-shrink-0 ${
+                              selectedPatient?.id === p.id ? 'opacity-100' : 'opacity-0'
+                            }`}
+                          />
+                          {p.last_name} {p.first_name}
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </PopoverContent>
               </Popover>
             </div>
