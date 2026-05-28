@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   FileText,
   Loader2,
@@ -101,6 +101,7 @@ export function GenerateLetterModal({
   const [recipientTitle, setRecipientTitle] = useState('')
   const [customInstructions, setCustomInstructions] = useState('')
   const [loading, setLoading] = useState(false)
+  const [printing, setPrinting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [header, setHeader] = useState('')
   const [body, setBody] = useState('')
@@ -109,12 +110,26 @@ export function GenerateLetterModal({
 
   const patientLabel = useMemo(() => patientDisplayName(patient), [patient])
 
+  // Sync template and reset state each time the modal opens
+  useEffect(() => {
+    if (open) {
+      setTemplateId(defaultTemplateId)
+      setHeader('')
+      setBody('')
+      setSaved(false)
+      setShowOptions(true)
+      setError(null)
+      setRecipientName('')
+      setRecipientTitle('')
+      setCustomInstructions('')
+    }
+  }, [open, defaultTemplateId])
+
   const handleGenerate = async () => {
     setLoading(true)
     setError(null)
     setSaved(false)
     try {
-      // Pseudonymisation : seuls genre + tranche d'âge transitent par l'API — aucun PII
       const ageRange = computeAgeRange(patient.date_of_birth)
 
       const res = await fetch('/api/communication/generate', {
@@ -149,7 +164,6 @@ export function GenerateLetterModal({
 
       const data = await res.json()
       setHeader(data.header)
-      // [NOM_PATIENT] est remplacé localement — le vrai nom ne quitte jamais l'app
       const resolvedBody = (data.body as string).replace(/\[NOM_PATIENT\]/g, patientLabel)
       setBody(resolvedBody)
       setShowOptions(false)
@@ -183,30 +197,27 @@ export function GenerateLetterModal({
     }
   }
 
-  const handlePrint = () => {
-    const printContent = `<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8">
-  <title>Courrier</title>
-  <style>
-    body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.6; margin: 2.5cm; color: #000; }
-    pre { font-family: inherit; white-space: pre-wrap; word-wrap: break-word; margin: 0; }
-    @page { margin: 2cm; }
-  </style>
-</head>
-<body>
-  <pre>${header.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-  <br/>
-  <pre>${body.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-</body>
-</html>`
-    const w = window.open('', '_blank')
-    if (w) {
-      w.document.write(printContent)
-      w.document.close()
-      w.focus()
-      w.print()
+  // Génère le PDF côté serveur et l'ouvre via un blob URL local —
+  // évite window.open('', '_blank') qui déclenche shell.openExternal dans Electron.
+  const handlePrint = async () => {
+    if (printing) return
+    setPrinting(true)
+    try {
+      const templateName = TEMPLATES.find((t) => t.id === templateId)?.name ?? ''
+      const res = await fetch('/api/communication/letters/preview/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ header, body, template_name: templateName }),
+      })
+      if (!res.ok) throw new Error('Erreur génération PDF')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 15000)
+    } catch (err) {
+      console.error('[print letter]', err)
+    } finally {
+      setPrinting(false)
     }
   }
 
@@ -330,8 +341,12 @@ export function GenerateLetterModal({
                       </>
                     )}
                   </Button>
-                  <Button size="sm" onClick={handlePrint}>
-                    <Printer className="mr-1.5 h-3.5 w-3.5" />
+                  <Button size="sm" onClick={handlePrint} disabled={printing}>
+                    {printing ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Printer className="mr-1.5 h-3.5 w-3.5" />
+                    )}
                     Imprimer / PDF
                   </Button>
                 </div>
