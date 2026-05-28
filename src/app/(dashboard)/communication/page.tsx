@@ -10,13 +10,15 @@ import {
   Clock,
   User,
   ChevronRight,
-  Search,
+  ChevronsUpDown,
+  Check,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { createClient } from '@/lib/db/client'
 import { GenerateLetterModal } from '@/components/communication/generate-letter-modal'
 import type { GenerateLetterModalProps } from '@/components/communication/generate-letter-modal'
@@ -95,7 +97,7 @@ export default function CommunicationPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState<TemplateId>('referral')
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
-  const [patientSearch, setPatientSearch] = useState('')
+  const [patientDropdownOpen, setPatientDropdownOpen] = useState(false)
   const [consultations, setConsultations] = useState<Consultation[]>([])
   const [selectedConsultationId, setSelectedConsultationId] = useState<string>('')
   const [loadingConsultations, setLoadingConsultations] = useState(false)
@@ -150,16 +152,8 @@ export default function CommunicationPage() {
       })
   }, [selectedPatient]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const filteredPatients = patientSearch.trim()
-    ? patients.filter((p) => {
-        const s = patientSearch.toLowerCase()
-        return p.last_name.toLowerCase().includes(s) || p.first_name.toLowerCase().includes(s)
-      })
-    : patients
-
   const handleOpenModal = (templateId: TemplateId) => {
     setSelectedTemplateId(templateId)
-    // Ne pas réinitialiser selectedPatient — conserver la sélection de l'utilisateur
     setModalOpen(true)
   }
 
@@ -227,37 +221,52 @@ pre{font-family:inherit;white-space:pre-wrap;word-wrap:break-word;margin:0}@page
       <section>
         <h2 className="text-lg font-semibold mb-4">Nouveau courrier</h2>
 
-        {/* Recherche + sélection patient */}
+        {/* Sélection patient (combobox avec recherche intégrée) */}
         <div className="mb-5 space-y-2">
-          <div className="flex items-center gap-2 max-w-xs">
-            <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <Input
-              placeholder="Rechercher un patient..."
-              value={patientSearch}
-              onChange={(e) => setPatientSearch(e.target.value)}
-              className="h-8 text-sm"
-            />
-          </div>
-
           {patients.length > 0 && (
             <div className="flex items-center gap-3">
               <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <label className="text-sm text-muted-foreground whitespace-nowrap">Patient :</label>
-              <select
-                className="text-sm border rounded-md px-3 py-1.5 bg-background flex-1 max-w-xs"
-                value={selectedPatient?.id ?? ''}
-                onChange={(e) => {
-                  const p = patients.find((pt) => pt.id === e.target.value) ?? null
-                  setSelectedPatient(p)
-                }}
-              >
-                <option value="" disabled>Sélectionner un patient</option>
-                {filteredPatients.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.last_name} {p.first_name}
-                  </option>
-                ))}
-              </select>
+              <Popover open={patientDropdownOpen} onOpenChange={setPatientDropdownOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={patientDropdownOpen}
+                    className="w-64 justify-between font-normal"
+                  >
+                    {selectedPatient
+                      ? `${selectedPatient.last_name} ${selectedPatient.first_name}`
+                      : 'Sélectionner un patient…'}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Rechercher un patient…" />
+                    <CommandList>
+                      <CommandEmpty>Aucun patient trouvé.</CommandEmpty>
+                      <CommandGroup>
+                        {patients.map((p) => (
+                          <CommandItem
+                            key={p.id}
+                            value={`${p.last_name} ${p.first_name}`}
+                            onSelect={() => {
+                              setSelectedPatient(p)
+                              setPatientDropdownOpen(false)
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${selectedPatient?.id === p.id ? 'opacity-100' : 'opacity-0'}`}
+                            />
+                            {p.last_name} {p.first_name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           )}
 
