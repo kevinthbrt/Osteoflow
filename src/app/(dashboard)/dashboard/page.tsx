@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
+import { getOsteoUpgradeEmail } from '@/lib/osteoupgrade/email'
 import { Dashboard } from '@/components/dashboard/dashboard'
 
 export default async function DashboardPage() {
@@ -118,7 +119,7 @@ export default async function DashboardPage() {
     patient: Array.isArray(c.patient) ? c.patient[0] as { id: string; first_name: string; last_name: string } || null : c.patient as { id: string; first_name: string; last_name: string } | null,
   }))
 
-  const practitionerEmail = practitioner.email || user.email || ''
+  const practitionerEmail = getOsteoUpgradeEmail() || ''
 
   return (
     <Dashboard

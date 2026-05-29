@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
+import { getOsteoUpgradeEmail } from '@/lib/osteoupgrade/email'
 import { CoursePlayer } from './course-player'
 
 interface PageProps {
@@ -13,13 +14,7 @@ export default async function FormationPage({ params }: PageProps) {
 
   if (!user) redirect('/login')
 
-  const { data: practitioner } = await db
-    .from('practitioners')
-    .select('email')
-    .eq('user_id', user.id)
-    .single()
-
-  const practitionerEmail = practitioner?.email || user.email
+  const practitionerEmail = getOsteoUpgradeEmail()
   if (!practitionerEmail) redirect('/dashboard')
 
   return <CoursePlayer formationId={id} practitionerEmail={practitionerEmail} />
