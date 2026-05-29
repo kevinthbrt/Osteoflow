@@ -137,6 +137,7 @@ export function Dashboard({
           <FeaturedFormationWidget
             formation={widgets?.featured_formation ?? null}
             loading={widgetsLoading}
+            practitionerEmail={practitioner.email}
           />
         </div>
       </div>
