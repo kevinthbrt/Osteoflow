@@ -126,7 +126,10 @@ export function ConsultationPaymentEditor({
       <CardContent className="space-y-4">
         {invoiceId && (
           <div className="space-y-2 rounded-lg border p-3">
-            <Label>Montant de la consultation</Label>
+            <Label className="flex items-center gap-1.5">
+              <Pencil className="h-3 w-3 text-primary" />
+              Montant de la consultation
+            </Label>
             <div className="flex items-center gap-2">
               <Input
                 type="number"
@@ -158,7 +161,10 @@ export function ConsultationPaymentEditor({
             </div>
 
             <div className="space-y-2">
-              <Label>Mode de paiement</Label>
+              <Label className="flex items-center gap-1.5">
+                <Pencil className="h-3 w-3 text-primary" />
+                Mode de paiement
+              </Label>
               <Select
                 value={payment.method}
                 onValueChange={(value) => updateEntry(payment.id, 'method', value)}

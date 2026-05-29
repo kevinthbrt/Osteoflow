@@ -25,7 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels, paymentMethodLabels } from '@/lib/validations/invoice'
-import { Eye, FileText, Calendar, Download, Check, Loader2 } from 'lucide-react'
+import { Eye, FileText, Calendar, Download, Check, Loader2, Pencil } from 'lucide-react'
 
 type PaymentMethod = 'card' | 'cash' | 'check' | 'transfer' | 'other'
 
@@ -254,9 +254,10 @@ export function ConsultationsTab() {
                         ) : (
                           <button
                             onClick={() => { setEditingAmount(consultation.id); setEditAmountValue(String(invoice.amount)) }}
-                            className="font-medium hover:underline text-left"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-primary/20 bg-primary/5 text-sm font-medium hover:bg-primary/10 transition-colors"
                             title="Cliquer pour modifier"
                           >
+                            <Pencil className="h-3 w-3 text-primary/60" />
                             {formatCurrency(invoice.amount)}
                           </button>
                         )
@@ -288,6 +289,7 @@ export function ConsultationsTab() {
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-primary/20 bg-primary/5 text-sm font-medium hover:bg-primary/10 transition-colors"
                             title="Cliquer pour modifier"
                           >
+                            <Pencil className="h-3 w-3 text-primary/60" />
                             {paymentMethodLabels[payment.method] || payment.method}
                             {payment.method === 'check' && payment.check_number && (
                               <span className="text-muted-foreground text-xs">n°{payment.check_number}</span>
