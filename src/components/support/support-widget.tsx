@@ -110,12 +110,14 @@ export function SupportWidget({ userEmail }: SupportWidgetProps) {
 
   const panelStyle = (): React.CSSProperties => {
     const PANEL_W = 360
-    const PANEL_H = 540
     const GAP = 8
     const p = posRef.current ?? { x: window.innerWidth - BTN - 24, y: window.innerHeight - BTN - 24 }
     const left = Math.max(GAP, Math.min(window.innerWidth - PANEL_W - GAP, p.x + BTN - PANEL_W))
-    const top = p.y - PANEL_H - GAP >= GAP ? p.y - PANEL_H - GAP : p.y + BTN + GAP
-    return { position: 'fixed', left, top, width: PANEL_W, maxHeight: PANEL_H, zIndex: 50 }
+    const inBottomHalf = p.y > window.innerHeight / 2
+    const vertical: React.CSSProperties = inBottomHalf
+      ? { bottom: window.innerHeight - p.y + GAP, top: 'auto' }
+      : { top: p.y + BTN + GAP, bottom: 'auto' }
+    return { position: 'fixed', left, ...vertical, width: PANEL_W, maxHeight: 540, zIndex: 50 }
   }
 
   const handleSubmit = async () => {
