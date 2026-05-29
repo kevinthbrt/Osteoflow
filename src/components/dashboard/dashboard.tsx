@@ -25,6 +25,7 @@ import type { Practitioner } from '@/types/database'
 
 interface DashboardProps {
   practitioner: Practitioner
+  practitionerEmail: string
   stats: {
     totalPatients: number
     todayConsultations: number
@@ -60,6 +61,7 @@ function greeting() {
 
 export function Dashboard({
   practitioner,
+  practitionerEmail,
   stats,
   birthdaysThisWeek,
   patientsForConsultation,
@@ -137,7 +139,7 @@ export function Dashboard({
           <FeaturedFormationWidget
             formation={widgets?.featured_formation ?? null}
             loading={widgetsLoading}
-            practitionerEmail={practitioner.email}
+            practitionerEmail={practitionerEmail}
           />
         </div>
       </div>

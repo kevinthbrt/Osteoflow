@@ -14,7 +14,8 @@ export default async function ElearningPage() {
     .eq('user_id', user.id)
     .single()
 
-  if (!practitioner?.email) redirect('/dashboard')
+  const practitionerEmail = practitioner?.email || user.email
+  if (!practitionerEmail) redirect('/dashboard')
 
-  return <FormationsGrid practitionerEmail={practitioner.email} />
+  return <FormationsGrid practitionerEmail={practitionerEmail} />
 }

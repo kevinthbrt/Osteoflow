@@ -39,7 +39,6 @@ interface ElectronAPI {
 
 const navigation = [
   { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard, description: 'Vue d\'ensemble' },
-  { name: 'E-Learning', href: '/elearning', icon: GraduationCap, description: 'Formations OsteoUpgrade' },
   { name: 'Patients', href: '/patients', icon: Users, description: 'Gérer vos patients' },
   { name: 'Consultations', href: '/consultations', icon: Calendar, description: 'Historique' },
   { name: 'Messagerie', href: '/messages', icon: MessageCircle, description: 'Communications' },
@@ -49,6 +48,7 @@ const navigation = [
   { name: 'Emails', href: '/scheduled-emails', icon: Mail, description: 'Emails programmés' },
   { name: 'Sondages', href: '/surveys', icon: ClipboardList, description: 'Retours patients' },
   { name: 'Communication', href: '/communication', icon: FileText, description: 'Courriers & documents' },
+  { name: 'E-Learning', href: '/elearning', icon: GraduationCap, description: 'Formations OsteoUpgrade' },
   { name: 'Importer CSV', href: '/import', icon: Upload, description: 'Importer des données' },
   { name: 'Paramètres', href: '/settings', icon: Settings, description: 'Configuration' },
 ]

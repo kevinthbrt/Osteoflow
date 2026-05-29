@@ -19,7 +19,8 @@ export default async function FormationPage({ params }: PageProps) {
     .eq('user_id', user.id)
     .single()
 
-  if (!practitioner?.email) redirect('/dashboard')
+  const practitionerEmail = practitioner?.email || user.email
+  if (!practitionerEmail) redirect('/dashboard')
 
-  return <CoursePlayer formationId={id} practitionerEmail={practitioner.email} />
+  return <CoursePlayer formationId={id} practitionerEmail={practitionerEmail} />
 }
