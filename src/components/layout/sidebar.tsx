@@ -7,7 +7,6 @@ import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   Users,
-  Calendar,
   BarChart3,
   Settings,
   Menu,
@@ -18,8 +17,6 @@ import {
   TrendingUp,
   LogOut,
   Lock,
-  Mail,
-  Upload,
   Target,
   ClipboardList,
   AlertTriangle,
@@ -39,8 +36,7 @@ interface ElectronAPI {
 
 const navigation = [
   { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard, description: 'Vue d\'ensemble' },
-  { name: 'Patients', href: '/patients', icon: Users, description: 'Gérer vos patients' },
-  { name: 'Consultations', href: '/consultations', icon: Calendar, description: 'Historique' },
+  { name: 'Patients', href: '/patients', icon: Users, description: 'Patients & consultations' },
   { name: 'Messagerie', href: '/messages', icon: MessageCircle, description: 'Communications' },
   { name: 'Statistiques', href: '/statistics', icon: TrendingUp, description: 'Analyses & tendances' },
   { name: 'Comptabilité', href: '/accounting', icon: BarChart3, description: 'Rapports' },
