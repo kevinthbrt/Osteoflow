@@ -62,7 +62,44 @@ function VacationDots({ days }: { days: number }) {
   )
 }
 
-export function ProgressWidget() {
+type StatusInfo = ReturnType<typeof getStatusInfo>
+
+function PeriodBlock({
+  icon: Icon,
+  iconColor,
+  label,
+  status,
+  revPct,
+  datePct,
+  message,
+}: {
+  icon: typeof Sun
+  iconColor: string
+  label: string
+  status: StatusInfo
+  revPct: number
+  datePct: number
+  message: string
+}) {
+  const StatusIcon = status.icon
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-sm font-medium">
+          <Icon className={`h-4 w-4 ${iconColor}`} />
+          {label}
+        </div>
+        <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${status.badge}`}>
+          <StatusIcon className="h-3 w-3" /> {status.label}
+        </span>
+      </div>
+      <VisualBar pct={revPct} datePct={datePct} color={status.bg} />
+      <p className="text-xs text-muted-foreground">{message}</p>
+    </div>
+  )
+}
+
+export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 'horizontal' }) {
   const [data, setData] = useState<ObjectivesData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -165,9 +202,74 @@ export function ProgressWidget() {
   const vacationDaysAhead = (diff > 0 && dailyObj > 0) ? Math.floor(diff / dailyObj) : 0
   const isAhead = yearRevPct >= yearPct
 
-  const WeekIcon = weekStatus.icon
-  const MonthIcon = monthStatus.icon
-  const YearIcon = yearStatus.icon
+  const weekBlock = (
+    <PeriodBlock
+      icon={Sun}
+      iconColor="text-amber-500"
+      label="Cette semaine"
+      status={weekStatus}
+      revPct={weekRevPct}
+      datePct={weekPct}
+      message={
+        weekRevPct >= 100
+          ? 'Objectif hebdomadaire atteint !'
+          : weekRevPct >= weekPct
+          ? 'Vous êtes en avance sur votre semaine'
+          : 'Il reste quelques consultations pour la semaine'
+      }
+    />
+  )
+
+  const monthBlock = (
+    <PeriodBlock
+      icon={Calendar}
+      iconColor="text-indigo-500"
+      label="Ce mois-ci"
+      status={monthStatus}
+      revPct={monthRevPct}
+      datePct={monthPct}
+      message={
+        monthRevPct >= 100
+          ? 'Objectif mensuel atteint !'
+          : monthRevPct >= monthPct
+          ? 'Bon rythme, vous êtes en avance ce mois-ci'
+          : 'Quelques consultations supplémentaires pour atteindre l\'objectif'
+      }
+    />
+  )
+
+  const yearBlock = (
+    <PeriodBlock
+      icon={Target}
+      iconColor="text-violet-500"
+      label="Cette année"
+      status={yearStatus}
+      revPct={yearRevPct}
+      datePct={yearPct}
+      message={
+        yearRevPct >= 100
+          ? 'Objectif annuel atteint !'
+          : isAhead
+          ? 'Vous êtes en avance sur l\'objectif annuel'
+          : 'Continuez, vous progressez vers votre objectif annuel'
+      }
+    />
+  )
+
+  const vacationBlock = isAhead && vacationDaysAhead > 0 && (
+    <div className={layout === 'horizontal' ? '' : 'pt-1 border-t border-border/40'}>
+      <div className="flex items-center gap-2 mb-2">
+        <Umbrella className="h-4 w-4 text-emerald-500" />
+        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+          Jours de congés en avance
+        </p>
+      </div>
+      <VacationDots days={vacationDaysAhead} />
+      <p className="text-xs text-muted-foreground mt-1.5">
+        Votre avance représente environ {vacationDaysAhead} jour{vacationDaysAhead > 1 ? 's' : ''} de congés supplémentaires.
+      </p>
+    </div>
+  )
 
   return (
     <Card className="border-border/30 h-full">
@@ -184,88 +286,25 @@ export function ProgressWidget() {
           </Link>
         </Button>
       </CardHeader>
-      <CardContent className="space-y-5">
-
-        {/* This week */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-sm font-medium">
-              <Sun className="h-4 w-4 text-amber-500" />
-              Cette semaine
-            </div>
-            <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${weekStatus.badge}`}>
-              <WeekIcon className="h-3 w-3" /> {weekStatus.label}
-            </span>
+      {layout === 'horizontal' ? (
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {weekBlock}
+            {monthBlock}
+            {yearBlock}
           </div>
-          <VisualBar pct={weekRevPct} datePct={weekPct} color={weekStatus.bg} />
-          <p className="text-xs text-muted-foreground">
-            {weekRevPct >= 100
-              ? 'Objectif hebdomadaire atteint !'
-              : weekRevPct >= weekPct
-              ? 'Vous êtes en avance sur votre semaine'
-              : 'Il reste quelques consultations pour la semaine'}
-          </p>
-        </div>
-
-        {/* This month */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-sm font-medium">
-              <Calendar className="h-4 w-4 text-indigo-500" />
-              Ce mois-ci
-            </div>
-            <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${monthStatus.badge}`}>
-              <MonthIcon className="h-3 w-3" /> {monthStatus.label}
-            </span>
-          </div>
-          <VisualBar pct={monthRevPct} datePct={monthPct} color={monthStatus.bg} />
-          <p className="text-xs text-muted-foreground">
-            {monthRevPct >= 100
-              ? 'Objectif mensuel atteint !'
-              : monthRevPct >= monthPct
-              ? 'Bon rythme, vous êtes en avance ce mois-ci'
-              : 'Quelques consultations supplémentaires pour atteindre l\'objectif'}
-          </p>
-        </div>
-
-        {/* This year */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-sm font-medium">
-              <Target className="h-4 w-4 text-violet-500" />
-              Cette année
-            </div>
-            <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${yearStatus.badge}`}>
-              <YearIcon className="h-3 w-3" /> {yearStatus.label}
-            </span>
-          </div>
-          <VisualBar pct={yearRevPct} datePct={yearPct} color={yearStatus.bg} />
-          <p className="text-xs text-muted-foreground">
-            {yearRevPct >= 100
-              ? 'Objectif annuel atteint !'
-              : isAhead
-              ? 'Vous êtes en avance sur l\'objectif annuel'
-              : 'Continuez, vous progressez vers votre objectif annuel'}
-          </p>
-        </div>
-
-        {/* Vacation days ahead */}
-        {isAhead && vacationDaysAhead > 0 && (
-          <div className="pt-1 border-t border-border/40">
-            <div className="flex items-center gap-2 mb-2">
-              <Umbrella className="h-4 w-4 text-emerald-500" />
-              <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                Jours de congés en avance
-              </p>
-            </div>
-            <VacationDots days={vacationDaysAhead} />
-            <p className="text-xs text-muted-foreground mt-1.5">
-              Votre avance représente environ {vacationDaysAhead} jour{vacationDaysAhead > 1 ? 's' : ''} de congés supplémentaires.
-            </p>
-          </div>
-        )}
-
-      </CardContent>
+          {vacationBlock && (
+            <div className="pt-3 border-t border-border/40">{vacationBlock}</div>
+          )}
+        </CardContent>
+      ) : (
+        <CardContent className="space-y-5">
+          {weekBlock}
+          {monthBlock}
+          {yearBlock}
+          {vacationBlock}
+        </CardContent>
+      )}
     </Card>
   )
 }
