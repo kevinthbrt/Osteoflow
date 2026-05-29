@@ -24,6 +24,7 @@ import {
   ClipboardList,
   AlertTriangle,
   FileText,
+  GraduationCap,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -38,6 +39,7 @@ interface ElectronAPI {
 
 const navigation = [
   { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard, description: 'Vue d\'ensemble' },
+  { name: 'E-Learning', href: '/elearning', icon: GraduationCap, description: 'Formations OsteoUpgrade' },
   { name: 'Patients', href: '/patients', icon: Users, description: 'Gérer vos patients' },
   { name: 'Consultations', href: '/consultations', icon: Calendar, description: 'Historique' },
   { name: 'Messagerie', href: '/messages', icon: MessageCircle, description: 'Communications' },
@@ -166,7 +168,9 @@ export function Sidebar() {
               Menu
             </p>
             {navigation.map((item) => {
-              const isActive = pathname.startsWith(item.href)
+              const isActive = item.href === '/elearning'
+                ? (pathname.startsWith('/elearning') || pathname.startsWith('/formation'))
+                : pathname.startsWith(item.href)
               return (
                 <Link
                   key={item.name}
