@@ -118,9 +118,12 @@ export default async function DashboardPage() {
     patient: Array.isArray(c.patient) ? c.patient[0] as { id: string; first_name: string; last_name: string } || null : c.patient as { id: string; first_name: string; last_name: string } | null,
   }))
 
+  const practitionerEmail = practitioner.email || user.email || ''
+
   return (
     <Dashboard
       practitioner={practitioner}
+      practitionerEmail={practitionerEmail}
       stats={{
         totalPatients: totalPatients || 0,
         todayConsultations: todayConsultations || 0,

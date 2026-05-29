@@ -24,6 +24,7 @@ import {
   ClipboardList,
   AlertTriangle,
   FileText,
+  GraduationCap,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -47,6 +48,7 @@ const navigation = [
   { name: 'Emails', href: '/scheduled-emails', icon: Mail, description: 'Emails programmés' },
   { name: 'Sondages', href: '/surveys', icon: ClipboardList, description: 'Retours patients' },
   { name: 'Communication', href: '/communication', icon: FileText, description: 'Courriers & documents' },
+  { name: 'E-Learning', href: '/elearning', icon: GraduationCap, description: 'Formations OsteoUpgrade' },
   { name: 'Importer CSV', href: '/import', icon: Upload, description: 'Importer des données' },
   { name: 'Paramètres', href: '/settings', icon: Settings, description: 'Configuration' },
 ]
@@ -166,7 +168,9 @@ export function Sidebar() {
               Menu
             </p>
             {navigation.map((item) => {
-              const isActive = pathname.startsWith(item.href)
+              const isActive = item.href === '/elearning'
+                ? (pathname.startsWith('/elearning') || pathname.startsWith('/formation'))
+                : pathname.startsWith(item.href)
               return (
                 <Link
                   key={item.name}
