@@ -39,7 +39,7 @@ export function OsteoupgradeWidgets() {
 
   useEffect(() => {
     setLoading(true)
-    fetch('/api/osteoupgrade-widgets')
+    fetch('/api/osteoupgrade-widgets', { cache: 'no-store' })
       .then((r) => r.json())
       .then(setData)
       .catch(() => setData(null))

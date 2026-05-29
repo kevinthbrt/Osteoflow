@@ -9,23 +9,26 @@ export async function GET() {
   try {
     const secret = process.env.OSTEOFLOW_PROXY_SECRET || FALLBACK_SECRET
 
+    const noStore = { 'Cache-Control': 'no-store' }
+
     let proxyRes: Response
     try {
       proxyRes = await fetch(PROXY_URL, {
         headers: { 'x-osteoflow-secret': secret },
+        cache: 'no-store',
         signal: AbortSignal.timeout(10000),
       })
     } catch {
-      return NextResponse.json({ review: null, featured_formation: null })
+      return NextResponse.json({ review: null, featured_formation: null }, { headers: noStore })
     }
 
     if (!proxyRes.ok) {
-      return NextResponse.json({ review: null, featured_formation: null })
+      return NextResponse.json({ review: null, featured_formation: null }, { headers: noStore })
     }
 
     const data = await proxyRes.json()
-    return NextResponse.json(data)
+    return NextResponse.json(data, { headers: noStore })
   } catch {
-    return NextResponse.json({ review: null, featured_formation: null })
+    return NextResponse.json({ review: null, featured_formation: null }, { headers: { 'Cache-Control': 'no-store' } })
   }
 }
