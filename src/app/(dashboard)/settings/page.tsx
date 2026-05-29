@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useRef, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield } from 'lucide-react'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield, Upload, FileUp, Send, CheckCircle } from 'lucide-react'
 import { CGU_SECTIONS, PRIVACY_SECTIONS, CGU_VERSION, CGU_DATE, type LegalSection } from '@/lib/legal/documents'
 import type { Practitioner, SessionType } from '@/types/database'
 
@@ -891,6 +891,10 @@ function SettingsPageInner() {
           <TabsTrigger value="legal">
             <Shield className="mr-2 h-4 w-4" />
             Légal
+          </TabsTrigger>
+          <TabsTrigger value="import">
+            <Upload className="mr-2 h-4 w-4" />
+            Import
           </TabsTrigger>
         </TabsList>
 
@@ -1888,6 +1892,11 @@ function SettingsPageInner() {
           <LegalSettingsTab />
         </TabsContent>
 
+        {/* Import Tab */}
+        <TabsContent value="import">
+          <ImportTab />
+        </TabsContent>
+
       </Tabs>
 
       {/* Delete Confirmation Dialog */}
@@ -2578,6 +2587,185 @@ function AuditLogViewer() {
   )
 }
 
+
+function ImportTab() {
+  const [email, setEmail] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { toast } = useToast()
+
+  const acceptFile = useCallback((f: File) => {
+    setFile(f)
+    setDone(false)
+    setError(null)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const dropped = e.dataTransfer.files[0]
+    if (dropped) acceptFile(dropped)
+  }, [acceptFile])
+
+  const handleSubmit = async () => {
+    if (!email.trim() || !file) return
+    setLoading(true)
+    setError(null)
+    try {
+      const formData = new FormData()
+      formData.append('email', email.trim())
+      formData.append('file', file)
+      const res = await fetch('/api/osteoupgrade-import-csv', { method: 'POST', body: formData })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Erreur lors de l\'envoi')
+      }
+      setDone(true)
+      setFile(null)
+      toast({ variant: 'success', title: 'Fichier envoyé', description: 'Notre équipe va traiter votre fichier et vous le renvoyer par email.' })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erreur inconnue'
+      setError(msg)
+      toast({ variant: 'destructive', title: 'Erreur', description: msg })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileUp className="h-5 w-5 text-primary" />
+          Importer des données
+        </CardTitle>
+        <CardDescription>
+          Pour maximiser la compatibilité de votre fichier, merci d&apos;envoyer votre dossier au support.
+          Notre équipe le transformera au bon format et vous le renverra par email.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {done ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
+              <CheckCircle className="h-8 w-8 text-emerald-600" />
+            </div>
+            <div>
+              <p className="font-semibold text-lg">Fichier envoyé avec succès !</p>
+              <p className="text-muted-foreground text-sm mt-1">
+                Notre équipe va traiter votre fichier et vous le renvoyer à <strong>{email}</strong>.
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => { setDone(false); setEmail('') }}>
+              Envoyer un autre fichier
+            </Button>
+          </div>
+        ) : (
+          <>
+            {/* Email field */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Votre email <span className="text-destructive">*</span>
+              </label>
+              <Input
+                type="email"
+                placeholder="votre@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+              />
+              <p className="text-xs text-muted-foreground">
+                L&apos;adresse sur laquelle vous souhaitez recevoir le fichier transformé.
+              </p>
+            </div>
+
+            {/* Drop zone */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Votre fichier</label>
+              <div
+                role="button"
+                tabIndex={0}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+                className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-10 cursor-pointer transition-colors ${
+                  isDragging
+                    ? 'border-primary bg-primary/5'
+                    : file
+                    ? 'border-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/10'
+                    : 'border-border hover:border-primary/50 hover:bg-muted/30'
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="sr-only"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) acceptFile(f) }}
+                  disabled={loading}
+                />
+                {file ? (
+                  <>
+                    <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center">
+                      <FileText className="h-6 w-6 text-emerald-600" />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-medium text-sm">{file.name}</p>
+                      <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} Ko</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs"
+                      onClick={(e) => { e.stopPropagation(); setFile(null) }}
+                      disabled={loading}
+                    >
+                      <X className="h-3 w-3 mr-1" /> Changer de fichier
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+                      <Upload className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-medium text-sm">Glissez-déposez votre fichier ici</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">ou cliquez pour parcourir</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">CSV, Excel, ou tout autre format</p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {error && (
+              <p className="text-sm text-destructive flex items-center gap-1.5">
+                <AlertCircle className="h-4 w-4" /> {error}
+              </p>
+            )}
+
+            <Button
+              onClick={handleSubmit}
+              disabled={!email.trim() || !file || loading}
+              className="w-full gap-2"
+            >
+              {loading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" />Envoi en cours...</>
+              ) : (
+                <><Send className="h-4 w-4" />Envoyer au support</>
+              )}
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
 
 export default function SettingsPage() {
   return (

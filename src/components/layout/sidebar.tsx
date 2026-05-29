@@ -45,11 +45,9 @@ const navigation = [
   { name: 'Statistiques', href: '/statistics', icon: TrendingUp, description: 'Analyses & tendances' },
   { name: 'Comptabilité', href: '/accounting', icon: BarChart3, description: 'Rapports' },
   { name: 'Objectifs', href: '/objectives', icon: Target, description: 'Suivi des objectifs' },
-  { name: 'Emails', href: '/scheduled-emails', icon: Mail, description: 'Emails programmés' },
-  { name: 'Sondages', href: '/surveys', icon: ClipboardList, description: 'Retours patients' },
+  { name: 'Suivi patients', href: '/surveys', icon: ClipboardList, description: 'Sondages & emails' },
   { name: 'Communication', href: '/communication', icon: FileText, description: 'Courriers & documents' },
   { name: 'E-Learning', href: '/elearning', icon: GraduationCap, description: 'Formations OsteoUpgrade' },
-  { name: 'Importer CSV', href: '/import', icon: Upload, description: 'Importer des données' },
   { name: 'Paramètres', href: '/settings', icon: Settings, description: 'Configuration' },
 ]
 
