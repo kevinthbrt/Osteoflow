@@ -36,7 +36,7 @@ interface ElectronAPI {
 
 const navigation = [
   { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard, description: 'Vue d\'ensemble' },
-  { name: 'Patients', href: '/patients', icon: Users, description: 'Patients & consultations' },
+  { name: 'Patients et consultations', href: '/patients', icon: Users, description: 'Patients & consultations' },
   { name: 'Messagerie', href: '/messages', icon: MessageCircle, description: 'Communications' },
   { name: 'Suivi patients', href: '/surveys', icon: ClipboardList, description: 'Sondages & emails' },
   { name: 'Communication', href: '/communication', icon: FileText, description: 'Courriers & documents' },
