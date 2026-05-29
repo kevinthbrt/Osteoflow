@@ -28,6 +28,10 @@ type WidgetsData = {
 
 const OSTEOUPGRADE_URL = process.env.NEXT_PUBLIC_OSTEOUPGRADE_URL || 'https://osteo-upgrade.fr'
 
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
 export function OsteoupgradeWidgets() {
   const [data, setData] = useState<WidgetsData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -43,9 +47,9 @@ export function OsteoupgradeWidgets() {
   }, [refreshKey])
 
   return (
-    <div className="flex flex-col gap-3 h-full">
+    <div className="flex flex-col gap-3">
       {/* Random literature review */}
-      <Card className="border-border/30 flex-1">
+      <Card className="border-border/30">
         <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
             <div className="w-6 h-6 rounded-md bg-emerald-500 flex items-center justify-center flex-shrink-0">
@@ -66,6 +70,7 @@ export function OsteoupgradeWidgets() {
         <CardContent className="px-4 pb-4">
           {loading ? (
             <div className="space-y-2">
+              <div className="h-24 bg-muted/40 rounded animate-pulse mb-2" />
               <div className="h-4 bg-muted/50 rounded animate-pulse" />
               <div className="h-3 bg-muted/40 rounded animate-pulse w-3/4" />
               <div className="h-3 bg-muted/40 rounded animate-pulse w-1/2" />
@@ -77,6 +82,14 @@ export function OsteoupgradeWidgets() {
               rel="noopener noreferrer"
               className="group block space-y-1.5"
             >
+              {data.review.image_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={data.review.image_url}
+                  alt={data.review.title}
+                  className="w-full h-24 object-cover rounded-md mb-2"
+                />
+              )}
               <p className="text-sm font-medium leading-snug group-hover:text-primary transition-colors line-clamp-2">
                 {data.review.title}
               </p>
@@ -134,7 +147,7 @@ export function OsteoupgradeWidgets() {
               </p>
               {data.featured_formation.description && (
                 <p className="text-xs text-muted-foreground line-clamp-2">
-                  {data.featured_formation.description}
+                  {stripHtml(data.featured_formation.description)}
                 </p>
               )}
               <span className="text-xs text-violet-600 flex items-center gap-1">
