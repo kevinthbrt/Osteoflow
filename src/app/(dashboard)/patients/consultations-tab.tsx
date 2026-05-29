@@ -70,6 +70,9 @@ export function ConsultationsTab() {
   const [editMethod, setEditMethod] = useState<PaymentMethod>('card')
   const [editCheckNumber, setEditCheckNumber] = useState('')
   const [savingPayment, setSavingPayment] = useState<string | null>(null)
+  const [editingAmount, setEditingAmount] = useState<string | null>(null)
+  const [editAmountValue, setEditAmountValue] = useState('')
+  const [savingAmount, setSavingAmount] = useState<string | null>(null)
   const { toast } = useToast()
   const db = createClient()
 
@@ -137,6 +140,26 @@ export function ConsultationsTab() {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour le paiement.' })
     } finally {
       setSavingPayment(null)
+    }
+  }
+
+  const saveAmount = async (invoiceId: string, consultationId: string) => {
+    const parsed = parseFloat(editAmountValue.replace(',', '.'))
+    if (isNaN(parsed) || parsed < 0) {
+      toast({ variant: 'destructive', title: 'Montant invalide' })
+      return
+    }
+    setSavingAmount(consultationId)
+    try {
+      const { error } = await db.from('invoices').update({ amount: parsed }).eq('id', invoiceId)
+      if (error) throw error
+      toast({ variant: 'success', title: 'Montant mis à jour' })
+      setEditingAmount(null)
+      fetchConsultations()
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour le montant.' })
+    } finally {
+      setSavingAmount(null)
     }
   }
 
@@ -208,7 +231,37 @@ export function ConsultationsTab() {
                       ) : '-'}
                     </TableCell>
                     <TableCell className="max-w-[180px] truncate">{consultation.reason}</TableCell>
-                    <TableCell className="font-medium whitespace-nowrap">{invoice ? formatCurrency(invoice.amount) : '-'}</TableCell>
+                    <TableCell className="font-medium whitespace-nowrap">
+                      {invoice ? (
+                        editingAmount === consultation.id ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editAmountValue}
+                              onChange={e => setEditAmountValue(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') saveAmount(invoice.id, consultation.id); if (e.key === 'Escape') setEditingAmount(null) }}
+                              className="h-7 w-[80px] text-xs"
+                              autoFocus
+                            />
+                            <span className="text-xs text-muted-foreground">€</span>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => saveAmount(invoice.id, consultation.id)} disabled={savingAmount === consultation.id}>
+                              {savingAmount === consultation.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground" onClick={() => setEditingAmount(null)}>&times;</Button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setEditingAmount(consultation.id); setEditAmountValue(String(invoice.amount)) }}
+                            className="font-medium hover:underline text-left"
+                            title="Cliquer pour modifier"
+                          >
+                            {formatCurrency(invoice.amount)}
+                          </button>
+                        )
+                      ) : '-'}
+                    </TableCell>
                     <TableCell>
                       {payment ? (
                         editingPayment === payment.id ? (
@@ -230,9 +283,15 @@ export function ConsultationsTab() {
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground" onClick={() => setEditingPayment(null)}>&times;</Button>
                           </div>
                         ) : (
-                          <button onClick={() => startEditPayment(payment)} className="text-sm hover:underline text-left" title="Cliquer pour modifier">
+                          <button
+                            onClick={() => startEditPayment(payment)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-primary/20 bg-primary/5 text-sm font-medium hover:bg-primary/10 transition-colors"
+                            title="Cliquer pour modifier"
+                          >
                             {paymentMethodLabels[payment.method] || payment.method}
-                            {payment.method === 'check' && payment.check_number && <span className="text-muted-foreground text-xs ml-1">n°{payment.check_number}</span>}
+                            {payment.method === 'check' && payment.check_number && (
+                              <span className="text-muted-foreground text-xs">n°{payment.check_number}</span>
+                            )}
                           </button>
                         )
                       ) : <span className="text-muted-foreground">-</span>}
