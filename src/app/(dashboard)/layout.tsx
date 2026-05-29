@@ -9,6 +9,7 @@ import { InactivityTimer } from '@/components/InactivityTimer'
 import { BackupReminderDialog } from '@/components/layout/backup-reminder-dialog'
 import { CguModal } from '@/components/legal/cgu-modal'
 import { TourWrapper } from '@/components/layout/tour-wrapper'
+import { SupportWidget } from '@/components/support/support-widget'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +27,7 @@ export default async function DashboardLayout({
 
   // Check session lock and read configurable timeout
   let inactivityTimeoutMs = 30 * 60 * 1000 // default 30 min
+  let licenseEmail = ''
   try {
     const { getDatabase } = await import('@/lib/database/connection')
     const sqliteDb = getDatabase()
@@ -41,6 +43,10 @@ export default async function DashboardLayout({
     if (timeoutRow?.value) {
       inactivityTimeoutMs = parseInt(timeoutRow.value) * 60 * 1000
     }
+    const emailRow = sqliteDb
+      .prepare("SELECT value FROM app_config WHERE key = 'license_email'")
+      .get() as { value: string } | undefined
+    licenseEmail = emailRow?.value?.trim() || ''
   } catch {
     // ignore if db not available
   }
@@ -80,9 +86,9 @@ export default async function DashboardLayout({
         <WhatsNewDialog />
         <BackupReminderDialog />
         <CguModal />
-        {/* Listens for license-expired IPC events from the 30-min heartbeat */}
         <LicenseGuard />
         <InactivityTimer timeoutMs={inactivityTimeoutMs} />
+        <SupportWidget userEmail={licenseEmail} />
       </div>
     </TourWrapper>
   )
