@@ -10,6 +10,7 @@ export async function POST(
     const { createClient } = await import('@/lib/db/server')
     const { generateExercisePdf } = await import('@/lib/pdf/exercise-pdfkit')
     const { createExerciseProgramHtmlEmail } = await import('@/lib/email/templates')
+    const { getProfessionLabel } = await import('@/lib/practitioner/profession')
     const { sendEmail } = await import('@/lib/email/smtp-service')
 
     const { id } = await params
@@ -57,7 +58,7 @@ export async function POST(
     // Generate PDF
     const pdfBuffer = await generateExercisePdf({
       practitionerName: `${practitioner.first_name} ${practitioner.last_name}`,
-      practitionerSpecialty: practitioner.specialty || undefined,
+      practitionerSpecialty: getProfessionLabel(practitioner.profession, practitioner.specialty),
       practitionerAddress: practitioner.address || undefined,
       practitionerCityLine: cityLine || undefined,
       patientName: `${patient.first_name} ${patient.last_name}`,
@@ -78,7 +79,7 @@ export async function POST(
       })),
       practitionerName,
       practiceName: practitioner.practice_name,
-      specialty: practitioner.specialty,
+      specialty: getProfessionLabel(practitioner.profession, practitioner.specialty),
       primaryColor: practitioner.primary_color || '#0F766E',
     })
 

@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield, Upload, FileUp, Send, CheckCircle } from 'lucide-react'
 import { CGU_SECTIONS, PRIVACY_SECTIONS, CGU_VERSION, CGU_DATE, type LegalSection } from '@/lib/legal/documents'
 import { parseCSV, autoDetectMapping, importRows, type ImportResult } from '@/lib/import/csv'
+import { PROFESSION_OPTIONS } from '@/lib/practitioner/profession'
 import type { Practitioner, SessionType } from '@/types/database'
 
 interface PatientListItem {
@@ -336,6 +337,8 @@ function SettingsPageInner() {
           setSettingsValue('postal_code', practitionerData.postal_code || '')
           setSettingsValue('siret', practitionerData.siret || '')
           setSettingsValue('rpps', practitionerData.rpps || '')
+          setSettingsValue('rpe', (practitionerData as any).rpe || '')
+          setSettingsValue('rne', (practitionerData as any).rne || '')
           setSettingsValue('status', practitionerData.status || '')
           setSettingsValue('default_rate', practitionerData.default_rate)
           setSettingsValue('invoice_prefix', practitionerData.invoice_prefix)
@@ -432,6 +435,8 @@ function SettingsPageInner() {
           postal_code: data.postal_code || null,
           siret: data.siret || null,
           rpps: data.rpps || null,
+          rpe: data.rpe || null,
+          rne: data.rne || null,
           status: data.status || null,
           profession: profession,
           vat_regime: vatRegime,
@@ -987,12 +992,21 @@ function SettingsPageInner() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="specialty">Spécialité</Label>
-                    <Input
-                      id="specialty"
-                      {...registerSettings('specialty')}
-                      placeholder="Ostéopathe D.O."
-                    />
+                    <Label>Profession</Label>
+                    <Select value={profession} onValueChange={(v) => {
+                      setProfession(v)
+                      if (v === 'osteopathe' || v === 'chiropracteur') setVatRegime('exempt_261')
+                      else if (vatRegime === 'exempt_261') setVatRegime('franchise_293b')
+                    }}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PROFESSION_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -1042,21 +1056,13 @@ function SettingsPageInner() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="siret">N° SIREN/SIRET</Label>
                     <Input
                       id="siret"
                       {...registerSettings('siret')}
                       placeholder="12345678901234"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="rpps">N° RPPS</Label>
-                    <Input
-                      id="rpps"
-                      {...registerSettings('rpps')}
-                      placeholder="10123456789"
                     />
                   </div>
                   <div className="space-y-2">
@@ -1069,43 +1075,53 @@ function SettingsPageInner() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                {profession === 'etiopathe' ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="rpe">N° RPE</Label>
+                      <Input
+                        id="rpe"
+                        {...registerSettings('rpe')}
+                        placeholder="N° RPE"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="rne">N° RNE</Label>
+                      <Input
+                        id="rne"
+                        {...registerSettings('rne')}
+                        placeholder="N° RNE"
+                      />
+                    </div>
+                  </div>
+                ) : (
                   <div className="space-y-2">
-                    <Label>Profession</Label>
-                    <Select value={profession} onValueChange={(v) => {
-                      setProfession(v)
-                      if (v === 'osteopathe' || v === 'chiropracteur') setVatRegime('exempt_261')
-                      else if (vatRegime === 'exempt_261') setVatRegime('franchise_293b')
-                    }}>
+                    <Label htmlFor="rpps">N° RPPS</Label>
+                    <Input
+                      id="rpps"
+                      {...registerSettings('rpps')}
+                      placeholder="10123456789"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label>Régime TVA (factures)</Label>
+                  {profession === 'osteopathe' || profession === 'chiropracteur' ? (
+                    <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground">
+                      Exonéré TVA — art. 261-4-1° CGI
+                    </div>
+                  ) : (
+                    <Select value={vatRegime} onValueChange={setVatRegime}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="osteopathe">Ostéopathe</SelectItem>
-                        <SelectItem value="chiropracteur">Chiropracteur</SelectItem>
-                        <SelectItem value="etiopathe">Étiopathe</SelectItem>
-                        <SelectItem value="autre">Autre</SelectItem>
+                        <SelectItem value="franchise_293b">Franchise en base — art. 293 B CGI</SelectItem>
+                        <SelectItem value="vat_20">Assujetti TVA 20%</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Régime TVA (factures)</Label>
-                    {profession === 'osteopathe' || profession === 'chiropracteur' ? (
-                      <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground">
-                        Exonéré TVA — art. 261-4-1° CGI
-                      </div>
-                    ) : (
-                      <Select value={vatRegime} onValueChange={setVatRegime}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="franchise_293b">Franchise en base — art. 293 B CGI</SelectItem>
-                          <SelectItem value="vat_20">Assujetti TVA 20%</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end">

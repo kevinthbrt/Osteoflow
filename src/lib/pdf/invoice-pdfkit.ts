@@ -91,11 +91,15 @@ export async function generateInvoicePdf(data: InvoicePDFData): Promise<Uint8Arr
     doc.fontSize(9).fillColor(colors.textLight).text(data.practitionerSiret, margin, practY)
     practY += 14
   }
-  if (data.practitionerRpps) {
-    doc.fontSize(8).fillColor(colors.textMuted).text('RPPS', margin, practY)
+  const registrations = data.practitionerRegistrations && data.practitionerRegistrations.length > 0
+    ? data.practitionerRegistrations
+    : (data.practitionerRpps ? [{ label: 'RPPS', value: data.practitionerRpps }] : [])
+  registrations.forEach((reg, idx) => {
+    if (idx > 0) practY += 14
+    doc.fontSize(8).fillColor(colors.textMuted).text(reg.label, margin, practY)
     practY += 10
-    doc.fontSize(9).fillColor(colors.textLight).text(data.practitionerRpps, margin, practY)
-  }
+    doc.fontSize(9).fillColor(colors.textLight).text(reg.value, margin, practY)
+  })
 
   // TITRE "REÇU" à droite
   const titleWidth = 170

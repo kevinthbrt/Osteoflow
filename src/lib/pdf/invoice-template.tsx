@@ -1,6 +1,7 @@
 import { isValidElement } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import type { Invoice, Patient, Practitioner, Consultation, Payment } from '@/types/database'
+import { getProfessionLabel, getRegistrationLines, type RegistrationLine } from '@/lib/practitioner/profession'
 
 interface InvoicePDFProps {
   invoice: Invoice
@@ -18,6 +19,7 @@ export interface InvoicePDFData {
   practitionerCityLine: string
   practitionerSiret: string
   practitionerRpps: string
+  practitionerRegistrations: RegistrationLine[]
   patientName: string
   patientEmail: string
   locationLine: string
@@ -105,7 +107,14 @@ export function buildInvoicePDFData({
   const method = paymentMethodLabels[paymentMethod] || 'Comptant'
   const invoiceNumber = normalizeText(invoice?.invoice_number)
   const practStatus = normalizeText(practitioner?.status)
-  const practSpecialty = normalizeText(practitioner?.specialty)
+  const practProfession = (practitioner as Record<string, unknown>)?.profession as string | null | undefined
+  const practSpecialty = normalizeText(getProfessionLabel(practProfession, practitioner?.specialty))
+  const practRegistrations = getRegistrationLines({
+    profession: practProfession,
+    rpps: practitioner?.rpps,
+    rpe: (practitioner as Record<string, unknown>)?.rpe as string | null | undefined,
+    rne: (practitioner as Record<string, unknown>)?.rne as string | null | undefined,
+  }).map((line) => ({ label: line.label, value: normalizeText(line.value) }))
   const practAddress = normalizeText(practitioner?.address)
   const practPostalCode = normalizeText(practitioner?.postal_code)
   const practCity = normalizeText(practitioner?.city)
@@ -145,6 +154,7 @@ export function buildInvoicePDFData({
     practitionerCityLine: normalizeText(practitionerCityLine),
     practitionerSiret: normalizeText(practSiret),
     practitionerRpps: normalizeText(practRpps),
+    practitionerRegistrations: practRegistrations,
     patientName: normalizeText(patientName),
     patientEmail: normalizeText(patientEmail),
     locationLine: normalizeText(locationLine),

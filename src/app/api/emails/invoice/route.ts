@@ -8,6 +8,7 @@ export async function POST(request: NextRequest) {
     const { buildInvoicePDFData } = await import('@/lib/pdf/invoice-template')
     const { defaultEmailTemplates, createInvoiceHtmlEmail, replaceTemplateVariables } = await import('@/lib/email/templates')
     const { formatDate, formatCurrency } = await import('@/lib/utils')
+    const { getProfessionLabel } = await import('@/lib/practitioner/profession')
     const { sendEmail } = await import('@/lib/email/smtp-service')
     const getResend = () => new Resend(process.env.RESEND_API_KEY)
 
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
       practice_name:
         practitioner.practice_name ||
         `${practitioner.first_name} ${practitioner.last_name}`,
-      practitioner_specialty: practitioner.specialty || 'Ostéopathe D.O',
+      practitioner_specialty: getProfessionLabel(practitioner.profession, practitioner.specialty),
       google_review_url: practitioner.google_review_url || '',
     }
 
