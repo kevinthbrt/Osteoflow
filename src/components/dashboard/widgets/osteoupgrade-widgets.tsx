@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -84,15 +84,20 @@ function CourseProgressModal({
   const [loading, setLoading] = useState(false)
   const [openChapters, setOpenChapters] = useState<Record<string, boolean>>({})
 
-  // Fetch on open
-  const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen) { onClose(); return }
-    if (!practitionerEmail) return
+  // Fetch progress whenever the modal opens
+  useEffect(() => {
+    if (!open) return
+    if (!practitionerEmail) {
+      setProgress(null)
+      return
+    }
+    let cancelled = false
     setLoading(true)
     const params = new URLSearchParams({ formation_id: formation.id, email: practitionerEmail })
     fetch(`/api/osteoupgrade-course-progress?${params}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
+        if (cancelled) return
         setProgress(d)
         // open all chapters by default
         if (d.chapters) {
@@ -101,9 +106,14 @@ function CourseProgressModal({
           setOpenChapters(initial)
         }
       })
-      .catch(() => setProgress(null))
-      .finally(() => setLoading(false))
-  }
+      .catch(() => {
+        if (!cancelled) setProgress(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [open, practitionerEmail, formation.id])
 
   const pct = progress && progress.total > 0
     ? Math.round((progress.completed / progress.total) * 100)
@@ -113,7 +123,7 @@ function CourseProgressModal({
     setOpenChapters((prev) => ({ ...prev, [id]: !prev[id] }))
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
