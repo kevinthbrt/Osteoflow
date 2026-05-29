@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -18,7 +18,7 @@ import { VideoWidget } from './widgets/video-widget'
 import { ProgressWidget } from './widgets/progress-widget'
 import { BirthdayWidget } from './widgets/birthday-widget'
 import { StatusWidget } from './widgets/status-widget'
-import { OsteoupgradeWidgets } from './widgets/osteoupgrade-widgets'
+import { ReviewWidget, FeaturedFormationWidget, type WidgetsData } from './widgets/osteoupgrade-widgets'
 import { BannerWeather } from './banner-weather'
 
 import type { Practitioner } from '@/types/database'
@@ -68,6 +68,20 @@ export function Dashboard({
   const [patientSearch, setPatientSearch] = useState('')
   const router = useRouter()
 
+  // OsteoUpgrade widgets (revue + nouveauté) — single fetch shared by both cards
+  const [widgets, setWidgets] = useState<WidgetsData | null>(null)
+  const [widgetsLoading, setWidgetsLoading] = useState(true)
+  const [widgetsRefreshKey, setWidgetsRefreshKey] = useState(0)
+
+  useEffect(() => {
+    setWidgetsLoading(true)
+    fetch('/api/osteoupgrade-widgets', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then(setWidgets)
+      .catch(() => setWidgets(null))
+      .finally(() => setWidgetsLoading(false))
+  }, [widgetsRefreshKey])
+
   const filteredPatients = useMemo(() => {
     const q = patientSearch.trim().toLowerCase()
     if (!q) return []
@@ -107,20 +121,30 @@ export function Dashboard({
         </div>
       </div>
 
-      {/* ── Row 1 : OsteoUpgrade + Vidéo + Progression ── */}
+      {/* ── Row 1 : Revue (gauche) · Vidéo (centre) · Nouveauté (droite) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         <div className="lg:col-span-1">
-          <OsteoupgradeWidgets />
+          <ReviewWidget
+            review={widgets?.review ?? null}
+            loading={widgetsLoading}
+            onRefresh={() => setWidgetsRefreshKey((k) => k + 1)}
+          />
         </div>
         <div className="lg:col-span-2">
           <VideoWidget />
         </div>
         <div className="lg:col-span-1">
-          <ProgressWidget />
+          <FeaturedFormationWidget
+            formation={widgets?.featured_formation ?? null}
+            loading={widgetsLoading}
+          />
         </div>
       </div>
 
-      {/* ── Row 2 : Anniversaires + Accès rapides ── */}
+      {/* ── Row 2 : Progression (bandeau horizontal pleine largeur) ── */}
+      <ProgressWidget layout="horizontal" />
+
+      {/* ── Row 3 : Anniversaires + Accès rapides ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <BirthdayWidget patients={birthdaysThisWeek} />
         <StatusWidget unreadMessages={stats.unreadMessages} />
