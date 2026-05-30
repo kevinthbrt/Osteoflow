@@ -9,6 +9,7 @@ export async function GET(
   try {
     const { generateExercisePdf } = await import('@/lib/pdf/exercise-pdfkit')
     const { createClient } = await import('@/lib/db/server')
+    const { getProfessionLabel } = await import('@/lib/practitioner/profession')
 
     const { id } = await params
     const db = await createClient()
@@ -68,7 +69,7 @@ export async function GET(
 
     const pdfBuffer = await generateExercisePdf({
       practitionerName: `${practitioner.first_name} ${practitioner.last_name}`,
-      practitionerSpecialty: practitioner.specialty || undefined,
+      practitionerSpecialty: getProfessionLabel(practitioner.profession, practitioner.specialty),
       practitionerAddress: practitioner.address || undefined,
       practitionerCityLine: cityLine || undefined,
       patientName: `${patient.first_name} ${patient.last_name}`,

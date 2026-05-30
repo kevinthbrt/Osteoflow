@@ -38,6 +38,10 @@ export interface Database {
           postal_code: string | null
           siret: string | null
           rpps: string | null
+          rpe: string | null
+          rne: string | null
+          profession: string | null
+          vat_regime: string | null
           status: string | null
           default_rate: number
           invoice_prefix: string
@@ -68,6 +72,10 @@ export interface Database {
           postal_code?: string | null
           siret?: string | null
           rpps?: string | null
+          rpe?: string | null
+          rne?: string | null
+          profession?: string | null
+          vat_regime?: string | null
           status?: string | null
           default_rate?: number
           invoice_prefix?: string
@@ -98,6 +106,10 @@ export interface Database {
           postal_code?: string | null
           siret?: string | null
           rpps?: string | null
+          rpe?: string | null
+          rne?: string | null
+          profession?: string | null
+          vat_regime?: string | null
           status?: string | null
           default_rate?: number
           invoice_prefix?: string

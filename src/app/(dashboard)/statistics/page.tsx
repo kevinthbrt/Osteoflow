@@ -150,6 +150,22 @@ export default function StatisticsPage() {
     try {
       const gender = genderFilter === 'all' ? null : genderFilter
 
+      // Get current practitioner id (needed for manual revenue entries)
+      let practitionerId: string | null = null
+      try {
+        const { data: authData } = await db.auth.getUser()
+        if (authData.user) {
+          const { data: practRow } = await db
+            .from('practitioners')
+            .select('id')
+            .eq('user_id', authData.user.id)
+            .single()
+          if (practRow) practitionerId = practRow.id
+        }
+      } catch {
+        // non-blocking: manual entries simply won't be added
+      }
+
       // Fetch patients
       let patientsQuery = db
         .from('patients')
@@ -281,9 +297,9 @@ export default function StatisticsPage() {
           yearMap[year].consultations++
           yearMap[year].patients.add(c.patient_id)
 
-          // Reason
-          const reason = normalizeReason(c.reason || 'Non spécifié')
-          reasonsMap[reason] = (reasonsMap[reason] || 0) + 1
+          // Reason (multi-keyword extraction)
+          const keywords = extractKeywords(c.reason || 'Non spécifié')
+          keywords.forEach((kw) => { reasonsMap[kw] = (reasonsMap[kw] || 0) + 1 })
 
           // Revenue
           const invoices = c.invoices as Array<{ amount: number; status: string; paid_at: string; payments: Array<{ method: string; amount: number }> }> | null
@@ -328,6 +344,32 @@ export default function StatisticsPage() {
             }))
             .sort((a, b) => a.year - b.year),
         })
+
+        // Fetch manual revenue entries and add them to monthlyRevenue
+        if (practitionerId) {
+          const startYear = new Date(startDate).getFullYear()
+          const endYear = new Date(endDate).getFullYear()
+          for (let yr = startYear; yr <= endYear; yr++) {
+            const { data: manualRows } = await db
+              .from('manual_revenue_entries')
+              .select('month, amount')
+              .eq('practitioner_id', practitionerId)
+              .eq('year', yr)
+            if (manualRows) {
+              for (const row of manualRows) {
+                const entryDate = new Date(yr, row.month - 1, 15)
+                if (entryDate >= new Date(`${startDate}T00:00:00`) && entryDate <= new Date(`${endDate}T23:59:59`)) {
+                  const revenueKey = `${yr}-${row.month}`
+                  if (!monthlyRevenue[revenueKey]) {
+                    monthlyRevenue[revenueKey] = { year: yr, month: row.month, total: 0, count: 0 }
+                  }
+                  monthlyRevenue[revenueKey].total += row.amount
+                  totalRevenue += row.amount
+                }
+              }
+            }
+          }
+        }
 
         const invoiceCount = Object.values(monthlyRevenue).reduce((sum, m) => sum + m.count, 0)
         setRevenueStats({
@@ -718,6 +760,9 @@ export default function StatisticsPage() {
                       <Activity className="h-5 w-5 text-primary" />
                       Top motifs de consultation
                     </CardTitle>
+                    <CardDescription>
+                      Un motif peut compter dans plusieurs catégories (ex : Lombalgie + Cervicalgie).
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -825,30 +870,38 @@ export default function StatisticsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-48 flex items-end gap-1">
-                      {revenueStats?.by_month && revenueStats.by_month.length > 0 ? (
-                        revenueStats.by_month.map(({ year, month, total }) => {
-                          const maxTotal = Math.max(...revenueStats.by_month.map(m => m.total), 1)
-                          const height = (total / maxTotal) * 100
-                          return (
-                            <div key={`${year}-${month}`} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                              <span className="text-xs font-medium">
-                                {total > 0 ? `${Math.round(total)}€` : '-'}
-                              </span>
-                              <div
-                                className="w-full bg-gradient-to-t from-green-600 to-green-400 rounded-t transition-all hover:opacity-80"
-                                style={{ height: `${Math.max(height, total > 0 ? 4 : 0)}%` }}
-                              />
-                              <span className="text-[10px] text-muted-foreground truncate">
-                                {monthNames[month - 1]} {year.toString().slice(2)}
-                              </span>
-                            </div>
-                          )
-                        })
-                      ) : (
-                        <p className="w-full text-center text-muted-foreground py-8">Aucune donnée</p>
-                      )}
-                    </div>
+                    {revenueStats?.by_month && revenueStats.by_month.length > 0 ? (
+                      (() => {
+                        const maxTotal = Math.max(...revenueStats.by_month.map(m => m.total), 1)
+                        return (
+                          <div className="h-48 flex items-end gap-1">
+                            {revenueStats.by_month.map(({ year, month, total }) => {
+                              const height = (total / maxTotal) * 100
+                              return (
+                                <div key={`${year}-${month}`} className="flex-1 flex flex-col items-center min-w-0 h-full">
+                                  <span className="text-xs font-medium mb-1">
+                                    {total > 0 ? `${Math.round(total)}€` : '-'}
+                                  </span>
+                                  <div className="flex-1 w-full flex items-end">
+                                    <div
+                                      className="w-full bg-gradient-to-t from-green-600 to-green-400 rounded-t transition-all hover:opacity-80"
+                                      style={{ height: `${Math.max(height, total > 0 ? 2 : 0)}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-[10px] text-muted-foreground truncate mt-1">
+                                    {monthNames[month - 1]} {year.toString().slice(2)}
+                                  </span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      })()
+                    ) : (
+                      <div className="h-48 flex items-center justify-center">
+                        <p className="text-muted-foreground">Aucune donnée</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -980,35 +1033,59 @@ function MetricCard({
   )
 }
 
-function normalizeReason(reason: string): string {
+const KEYWORD_CATEGORIES: Array<{ keywords: string[]; label: string }> = [
+  { keywords: ['lombalgie', 'mal de dos', 'douleur lombaire', 'lumbago', 'lombaire'], label: 'Lombalgie' },
+  { keywords: ['cervicalgie', 'douleur cervicale', 'torticolis', 'cervical', 'nuque'], label: 'Cervicalgie' },
+  { keywords: ['céphalée', 'cephalee', 'migraine', 'maux de tête', 'tête'], label: 'Céphalées' },
+  { keywords: ['sciatique', 'sciatalgie', 'névralgie sciatique'], label: 'Sciatique' },
+  { keywords: ['dorsalgie', 'douleur dorsale', 'dos moyen', 'thoracique'], label: 'Dorsalgie' },
+  { keywords: ['entorse', 'foulure', 'ligament'], label: 'Entorse' },
+  { keywords: ['suivi', 'contrôle', 'controle', 'bilan de suivi', 'réévaluation'], label: 'Suivi' },
+  { keywords: ['bilan', 'première consultation', 'premiere consultation', 'première séance', 'bilan initial'], label: 'Bilan' },
+  { keywords: ['épaule', 'epaule', 'omarthrose', 'coiffe', 'rotateur'], label: 'Épaule' },
+  { keywords: ['genou', 'gonalgie', 'rotule', 'ménisque'], label: 'Genou' },
+  { keywords: ['hanche', 'coxalgie', 'cox', 'coxarthrose'], label: 'Hanche' },
+  { keywords: ['grossesse', 'prénatal', 'postnatal', 'périnatal', 'post-partum', 'maternité'], label: 'Grossesse / Périnatal' },
+  { keywords: ['nourrisson', 'bébé', 'bebe', 'plagiocéphalie', 'coliques', 'nouveau-né'], label: 'Nourrisson' },
+  { keywords: ['stress', 'anxiété', 'anxiete', 'tension nerveuse', 'surmenage', 'burnout'], label: 'Stress / Anxiété' },
+  { keywords: ['sport', 'sportif', 'traumatisme sportif', 'running', 'course', 'natation', 'cyclisme'], label: 'Traumatisme sportif' },
+  { keywords: ['scoliose', 'cyphose', 'lordose', 'déviation'], label: 'Déformation rachidienne' },
+  { keywords: ['cheville', 'malléole', 'tarse'], label: 'Cheville' },
+  { keywords: ['pied', 'fasciite', 'plantaire', 'hallux', 'orteil'], label: 'Pied' },
+  { keywords: ['tendinite', 'tendinopathie', 'épicondylite', 'epicondylite', 'tendon'], label: 'Tendinite' },
+  { keywords: ['vertige', 'vertiges', 'vppb', 'dizziness'], label: 'Vertiges' },
+  { keywords: ['poignet', 'carpe', 'canal carpien', 'tunnel carpien'], label: 'Poignet / Canal carpien' },
+  { keywords: ['digestif', 'digestion', 'transit', 'côlon', 'colon', 'intestin', 'reflux'], label: 'Digestif' },
+]
+
+function extractKeywords(reason: string): string[] {
+  if (!reason || reason.trim() === '') return ['Non spécifié']
   const normalized = reason.toLowerCase().trim()
+  const found = new Set<string>()
 
-  const mappings: Record<string, string> = {
-    'lombalgie': 'Lombalgie',
-    'mal de dos': 'Lombalgie',
-    'douleur lombaire': 'Lombalgie',
-    'cervicalgie': 'Cervicalgie',
-    'douleur cervicale': 'Cervicalgie',
-    'torticolis': 'Cervicalgie',
-    'céphalée': 'Céphalées',
-    'céphalées': 'Céphalées',
-    'migraine': 'Céphalées',
-    'maux de tête': 'Céphalées',
-    'sciatique': 'Sciatique',
-    'douleur sciatique': 'Sciatique',
-    'suivi': 'Suivi',
-    'contrôle': 'Suivi',
-    'bilan': 'Bilan',
-    'première consultation': 'Bilan',
-    'entorse': 'Entorse',
-    'dorsalgie': 'Dorsalgie',
-  }
-
-  for (const [key, value] of Object.entries(mappings)) {
-    if (normalized.includes(key)) {
-      return value
+  // Step 1: scan entire string for all keyword matches
+  for (const { keywords, label } of KEYWORD_CATEGORIES) {
+    if (keywords.some((k) => normalized.includes(k))) {
+      found.add(label)
     }
   }
 
-  return reason.charAt(0).toUpperCase() + reason.slice(1).toLowerCase()
+  // Step 2: also split on separators and scan each part
+  const parts = normalized.split(/\s*[+\/,;&]\s*|\s+et\s+|\s+ou\s+/i).map((p) => p.trim()).filter((p) => p.length > 2)
+  if (parts.length > 1) {
+    for (const part of parts) {
+      for (const { keywords, label } of KEYWORD_CATEGORIES) {
+        if (keywords.some((k) => part.includes(k))) {
+          found.add(label)
+        }
+      }
+    }
+  }
+
+  // Step 3: if no category matched, use capitalized raw reason
+  if (found.size === 0) {
+    return [reason.charAt(0).toUpperCase() + reason.slice(1)]
+  }
+
+  return Array.from(found)
 }

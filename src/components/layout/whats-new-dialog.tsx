@@ -45,8 +45,8 @@ export function WhatsNewDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      <DialogContent className="max-w-md flex flex-col max-h-[85vh]">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
               <Sparkles className="h-4 w-4 text-white" />
@@ -58,7 +58,7 @@ export function WhatsNewDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 py-2">
+        <div className="space-y-3 py-2 overflow-y-auto flex-1 pr-1">
           {entry.changes.map((change, i) => {
             const config = typeConfig[change.type]
             const Icon = config.icon
@@ -74,7 +74,7 @@ export function WhatsNewDialog() {
           })}
         </div>
 
-        <DialogFooter className="flex-row justify-between sm:justify-between">
+        <DialogFooter className="flex-row justify-between sm:justify-between shrink-0">
           <Button variant="ghost" size="sm" asChild>
             <Link href="/changelog" onClick={() => setOpen(false)}>
               Voir tout le changelog

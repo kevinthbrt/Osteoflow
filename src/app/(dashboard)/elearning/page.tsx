@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
+import { getOsteoUpgradeEmail } from '@/lib/osteoupgrade/email'
 import { FormationsGrid } from './formations-grid'
 
 export default async function ElearningPage() {
@@ -8,13 +9,7 @@ export default async function ElearningPage() {
 
   if (!user) redirect('/login')
 
-  const { data: practitioner } = await db
-    .from('practitioners')
-    .select('email')
-    .eq('user_id', user.id)
-    .single()
-
-  const practitionerEmail = practitioner?.email || user.email
+  const practitionerEmail = getOsteoUpgradeEmail()
   if (!practitionerEmail) redirect('/dashboard')
 
   return <FormationsGrid practitionerEmail={practitionerEmail} />

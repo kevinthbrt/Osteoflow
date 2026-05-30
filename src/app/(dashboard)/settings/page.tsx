@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useRef, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -20,8 +20,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield } from 'lucide-react'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield, Upload, FileUp, Send, CheckCircle } from 'lucide-react'
 import { CGU_SECTIONS, PRIVACY_SECTIONS, CGU_VERSION, CGU_DATE, type LegalSection } from '@/lib/legal/documents'
+import { parseCSV, autoDetectMapping, importRows, type ImportResult } from '@/lib/import/csv'
+import { PROFESSION_OPTIONS } from '@/lib/practitioner/profession'
 import type { Practitioner, SessionType } from '@/types/database'
 
 interface PatientListItem {
@@ -335,6 +337,8 @@ function SettingsPageInner() {
           setSettingsValue('postal_code', practitionerData.postal_code || '')
           setSettingsValue('siret', practitionerData.siret || '')
           setSettingsValue('rpps', practitionerData.rpps || '')
+          setSettingsValue('rpe', (practitionerData as any).rpe || '')
+          setSettingsValue('rne', (practitionerData as any).rne || '')
           setSettingsValue('status', practitionerData.status || '')
           setSettingsValue('default_rate', practitionerData.default_rate)
           setSettingsValue('invoice_prefix', practitionerData.invoice_prefix)
@@ -431,6 +435,8 @@ function SettingsPageInner() {
           postal_code: data.postal_code || null,
           siret: data.siret || null,
           rpps: data.rpps || null,
+          rpe: data.rpe || null,
+          rne: data.rne || null,
           status: data.status || null,
           profession: profession,
           vat_regime: vatRegime,
@@ -892,6 +898,10 @@ function SettingsPageInner() {
             <Shield className="mr-2 h-4 w-4" />
             Légal
           </TabsTrigger>
+          <TabsTrigger value="import">
+            <Upload className="mr-2 h-4 w-4" />
+            Import
+          </TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -982,12 +992,21 @@ function SettingsPageInner() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="specialty">Spécialité</Label>
-                    <Input
-                      id="specialty"
-                      {...registerSettings('specialty')}
-                      placeholder="Ostéopathe D.O."
-                    />
+                    <Label>Profession</Label>
+                    <Select value={profession} onValueChange={(v) => {
+                      setProfession(v)
+                      if (v === 'osteopathe' || v === 'chiropracteur') setVatRegime('exempt_261')
+                      else if (vatRegime === 'exempt_261') setVatRegime('franchise_293b')
+                    }}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PROFESSION_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -1037,21 +1056,13 @@ function SettingsPageInner() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="siret">N° SIREN/SIRET</Label>
                     <Input
                       id="siret"
                       {...registerSettings('siret')}
                       placeholder="12345678901234"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="rpps">N° RPPS</Label>
-                    <Input
-                      id="rpps"
-                      {...registerSettings('rpps')}
-                      placeholder="10123456789"
                     />
                   </div>
                   <div className="space-y-2">
@@ -1064,43 +1075,53 @@ function SettingsPageInner() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                {profession === 'etiopathe' ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="rpe">N° RPE</Label>
+                      <Input
+                        id="rpe"
+                        {...registerSettings('rpe')}
+                        placeholder="N° RPE"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="rne">N° RNE</Label>
+                      <Input
+                        id="rne"
+                        {...registerSettings('rne')}
+                        placeholder="N° RNE"
+                      />
+                    </div>
+                  </div>
+                ) : (
                   <div className="space-y-2">
-                    <Label>Profession</Label>
-                    <Select value={profession} onValueChange={(v) => {
-                      setProfession(v)
-                      if (v === 'osteopathe' || v === 'chiropracteur') setVatRegime('exempt_261')
-                      else if (vatRegime === 'exempt_261') setVatRegime('franchise_293b')
-                    }}>
+                    <Label htmlFor="rpps">N° RPPS</Label>
+                    <Input
+                      id="rpps"
+                      {...registerSettings('rpps')}
+                      placeholder="10123456789"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label>Régime TVA (factures)</Label>
+                  {profession === 'osteopathe' || profession === 'chiropracteur' ? (
+                    <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground">
+                      Exonéré TVA — art. 261-4-1° CGI
+                    </div>
+                  ) : (
+                    <Select value={vatRegime} onValueChange={setVatRegime}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="osteopathe">Ostéopathe</SelectItem>
-                        <SelectItem value="chiropracteur">Chiropracteur</SelectItem>
-                        <SelectItem value="etiopathe">Étiopathe</SelectItem>
-                        <SelectItem value="autre">Autre</SelectItem>
+                        <SelectItem value="franchise_293b">Franchise en base — art. 293 B CGI</SelectItem>
+                        <SelectItem value="vat_20">Assujetti TVA 20%</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Régime TVA (factures)</Label>
-                    {profession === 'osteopathe' || profession === 'chiropracteur' ? (
-                      <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground">
-                        Exonéré TVA — art. 261-4-1° CGI
-                      </div>
-                    ) : (
-                      <Select value={vatRegime} onValueChange={setVatRegime}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="franchise_293b">Franchise en base — art. 293 B CGI</SelectItem>
-                          <SelectItem value="vat_20">Assujetti TVA 20%</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end">
@@ -1888,6 +1909,11 @@ function SettingsPageInner() {
           <LegalSettingsTab />
         </TabsContent>
 
+        {/* Import Tab */}
+        <TabsContent value="import">
+          <ImportTab />
+        </TabsContent>
+
       </Tabs>
 
       {/* Delete Confirmation Dialog */}
@@ -2578,6 +2604,304 @@ function AuditLogViewer() {
   )
 }
 
+
+/* ── Step 1: send raw file to support ──────────────────────────────────── */
+function ImportStepSend() {
+  const [email, setEmail] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { toast } = useToast()
+
+  const acceptFile = useCallback((f: File) => { setFile(f); setDone(false); setError(null) }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const dropped = e.dataTransfer.files[0]
+    if (dropped) acceptFile(dropped)
+  }, [acceptFile])
+
+  const handleSubmit = async () => {
+    if (!email.trim() || !file) return
+    setLoading(true)
+    setError(null)
+    try {
+      const formData = new FormData()
+      formData.append('email', email.trim())
+      formData.append('file', file)
+      const res = await fetch('/api/osteoupgrade-import-csv', { method: 'POST', body: formData })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Erreur lors de l\'envoi')
+      }
+      setDone(true)
+      setFile(null)
+      toast({ variant: 'success', title: 'Fichier envoyé', description: 'Notre équipe va traiter votre fichier et vous le renvoyer par email.' })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erreur inconnue'
+      setError(msg)
+      toast({ variant: 'destructive', title: 'Erreur', description: msg })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (done) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
+        <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
+          <CheckCircle className="h-8 w-8 text-emerald-600" />
+        </div>
+        <div>
+          <p className="font-semibold text-lg">Fichier envoyé avec succès !</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            Notre équipe va transformer votre fichier et vous le renvoyer à <strong>{email}</strong>.
+            Une fois reçu, passez à l&apos;étape 2 ci-dessous pour l&apos;intégrer.
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => { setDone(false); setEmail('') }}>
+          Envoyer un autre fichier
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Votre email <span className="text-destructive">*</span></label>
+        <Input type="email" placeholder="votre@email.com" value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
+        <p className="text-xs text-muted-foreground">L&apos;adresse sur laquelle vous recevrez le fichier transformé.</p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Votre fichier</label>
+        <div
+          role="button"
+          tabIndex={0}
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+          className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-10 cursor-pointer transition-colors ${
+            isDragging ? 'border-primary bg-primary/5' : file ? 'border-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/10' : 'border-border hover:border-primary/50 hover:bg-muted/30'
+          }`}
+        >
+          <input ref={fileInputRef} type="file" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) acceptFile(f) }} disabled={loading} />
+          {file ? (
+            <>
+              <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center"><FileText className="h-6 w-6 text-emerald-600" /></div>
+              <div className="text-center"><p className="font-medium text-sm">{file.name}</p><p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} Ko</p></div>
+              <Button variant="ghost" size="sm" className="text-xs" onClick={(e) => { e.stopPropagation(); setFile(null) }} disabled={loading}><X className="h-3 w-3 mr-1" /> Changer de fichier</Button>
+            </>
+          ) : (
+            <>
+              <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center"><Upload className="h-6 w-6 text-muted-foreground" /></div>
+              <div className="text-center"><p className="font-medium text-sm">Glissez-déposez votre fichier ici</p><p className="text-xs text-muted-foreground mt-0.5">ou cliquez pour parcourir</p></div>
+              <p className="text-xs text-muted-foreground">CSV, Excel, ou tout autre format</p>
+            </>
+          )}
+        </div>
+      </div>
+
+      {error && <p className="text-sm text-destructive flex items-center gap-1.5"><AlertCircle className="h-4 w-4" /> {error}</p>}
+
+      <Button onClick={handleSubmit} disabled={!email.trim() || !file || loading} className="w-full gap-2">
+        {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Envoi en cours...</> : <><Send className="h-4 w-4" />Envoyer au support</>}
+      </Button>
+    </div>
+  )
+}
+
+/* ── Step 2: integrate the transformed file ────────────────────────────── */
+function ImportStepIntegrate() {
+  const [file, setFile] = useState<File | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [result, setResult] = useState<ImportResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { toast } = useToast()
+
+  const acceptFile = useCallback((f: File) => {
+    if (!f.name.toLowerCase().endsWith('.csv')) {
+      setError('Le fichier transformé doit être au format CSV.')
+      return
+    }
+    setFile(f)
+    setResult(null)
+    setError(null)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const dropped = e.dataTransfer.files[0]
+    if (dropped) acceptFile(dropped)
+  }, [acceptFile])
+
+  const handleIntegrate = async () => {
+    if (!file) return
+    setImporting(true)
+    setProgress(0)
+    setError(null)
+    try {
+      const text = await file.text()
+      const rows = parseCSV(text)
+      if (rows.length < 2) throw new Error('Le fichier ne contient aucune donnée à importer.')
+      const headers = rows[0]
+      const dataRows = rows.slice(1)
+      const mapping = autoDetectMapping(headers)
+      const mappedFields = new Set(Object.values(mapping).filter((v) => v !== '__ignore__'))
+      if (!mappedFields.has('last_name') && !mappedFields.has('full_name')) {
+        throw new Error('Aucune colonne "Nom" reconnue. Vérifiez que le fichier transformé est au bon format.')
+      }
+      const res = await importRows(headers, dataRows, mapping, setProgress)
+      setResult(res)
+      toast({
+        variant: res.errors.length === 0 ? 'success' : 'default',
+        title: 'Import terminé',
+        description: `${res.patientsImported} patient(s) et ${res.consultationsImported} consultation(s) importé(s).`,
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erreur inconnue'
+      setError(msg)
+      toast({ variant: 'destructive', title: 'Erreur', description: msg })
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const reset = () => { setFile(null); setResult(null); setProgress(0); setError(null) }
+
+  if (result) {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-col items-center gap-3 py-6 text-center">
+          {result.errors.length === 0 ? (
+            <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+          ) : (
+            <AlertCircle className="h-12 w-12 text-amber-500" />
+          )}
+          <p className="text-lg font-semibold">
+            {result.errors.length === 0 ? 'Import terminé avec succès !' : 'Import terminé avec des erreurs'}
+          </p>
+          <div className="flex gap-6">
+            <div className="text-center"><p className="text-2xl font-bold text-emerald-600">{result.patientsImported}</p><p className="text-xs text-muted-foreground">patient(s)</p></div>
+            {result.consultationsImported > 0 && <div className="text-center"><p className="text-2xl font-bold text-emerald-600">{result.consultationsImported}</p><p className="text-xs text-muted-foreground">consultation(s)</p></div>}
+            {result.errors.length > 0 && <div className="text-center"><p className="text-2xl font-bold text-red-600">{result.errors.length}</p><p className="text-xs text-muted-foreground">erreur(s)</p></div>}
+            <div className="text-center"><p className="text-2xl font-bold text-muted-foreground">{result.total}</p><p className="text-xs text-muted-foreground">ligne(s)</p></div>
+          </div>
+        </div>
+        {result.errors.length > 0 && (
+          <div className="max-h-48 overflow-y-auto space-y-2">
+            {result.errors.map((err, i) => (
+              <div key={i} className="flex items-start gap-3 text-sm p-2 rounded bg-red-50 dark:bg-red-950/20">
+                <Badge variant="destructive" className="text-xs shrink-0">Ligne {err.row}</Badge>
+                <span className="text-red-700 dark:text-red-300">{err.message}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-3">
+          <Button onClick={reset} variant="outline" className="gap-2"><Upload className="h-4 w-4" />Importer un autre fichier</Button>
+          <Button asChild><a href="/patients">Voir les patients</a></Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div
+        role="button"
+        tabIndex={0}
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+        onClick={() => !importing && fileInputRef.current?.click()}
+        onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+        className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-10 cursor-pointer transition-colors ${
+          isDragging ? 'border-primary bg-primary/5' : file ? 'border-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/10' : 'border-border hover:border-primary/50 hover:bg-muted/30'
+        }`}
+      >
+        <input ref={fileInputRef} type="file" accept=".csv,text/csv" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) acceptFile(f) }} disabled={importing} />
+        {file ? (
+          <>
+            <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center"><FileText className="h-6 w-6 text-emerald-600" /></div>
+            <div className="text-center"><p className="font-medium text-sm">{file.name}</p><p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} Ko</p></div>
+            {!importing && <Button variant="ghost" size="sm" className="text-xs" onClick={(e) => { e.stopPropagation(); setFile(null) }}><X className="h-3 w-3 mr-1" /> Changer de fichier</Button>}
+          </>
+        ) : (
+          <>
+            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center"><Upload className="h-6 w-6 text-muted-foreground" /></div>
+            <div className="text-center"><p className="font-medium text-sm">Glissez-déposez le fichier transformé (CSV)</p><p className="text-xs text-muted-foreground mt-0.5">celui renvoyé par le support</p></div>
+            <Badge variant="secondary">CSV</Badge>
+          </>
+        )}
+      </div>
+
+      {importing && (
+        <div className="w-full">
+          <div className="flex items-center justify-between text-sm mb-2"><span className="text-muted-foreground">Intégration en cours...</span><span className="font-medium">{progress}%</span></div>
+          <div className="h-3 w-full bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full transition-all duration-300 ease-out" style={{ width: `${progress}%` }} /></div>
+        </div>
+      )}
+
+      {error && <p className="text-sm text-destructive flex items-center gap-1.5"><AlertCircle className="h-4 w-4" /> {error}</p>}
+
+      <Button onClick={handleIntegrate} disabled={!file || importing} className="w-full gap-2">
+        {importing ? <><Loader2 className="h-4 w-4 animate-spin" />Intégration...</> : <><Download className="h-4 w-4" />Intégrer dans MyOsteoFlow</>}
+      </Button>
+    </div>
+  )
+}
+
+function ImportTab() {
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">1</span>
+            <FileUp className="h-5 w-5 text-primary" />
+            Envoyer votre fichier au support
+          </CardTitle>
+          <CardDescription>
+            Pour maximiser la compatibilité de votre fichier, merci d&apos;envoyer votre dossier au support.
+            Notre équipe le transformera au bon format et vous le renverra par email.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ImportStepSend />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">2</span>
+            <Download className="h-5 w-5 text-primary" />
+            Intégrer le fichier transformé
+          </CardTitle>
+          <CardDescription>
+            Une fois le fichier transformé reçu par email, déposez-le ici pour l&apos;intégrer
+            automatiquement à vos patients et consultations.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ImportStepIntegrate />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
 
 export default function SettingsPage() {
   return (

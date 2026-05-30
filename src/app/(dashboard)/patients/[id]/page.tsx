@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Edit, Calendar, FileText, Phone, Mail, Briefcase } from 'lucide-react'
+import { ArrowLeft, Edit, Calendar, FileText, Phone, Mail, Briefcase, Cake } from 'lucide-react'
 import { formatDate, formatPhone, calculateAge } from '@/lib/utils'
 import { ConsultationTimeline } from '@/components/consultations/consultation-timeline'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 import { DraftResumeBanner } from '@/components/consultations/draft-resume-banner'
 import { ExercisePrescriptionSection } from '@/components/exercises/exercise-prescription-section'
+import { UnarchiveButton } from '@/components/patients/unarchive-button'
 
 interface PatientPageProps {
   params: Promise<{ id: string }>
@@ -47,9 +48,23 @@ export default async function PatientPage({ params }: PatientPageProps) {
     .eq('patient_id', id)
     .order('display_order', { ascending: true })
 
+  const today = new Date()
+  const birthDate = new Date(patient.birth_date)
+  const isBirthday = today.getMonth() === birthDate.getMonth() && today.getDate() === birthDate.getDate()
+
   return (
     <div className="space-y-6">
       <DraftResumeBanner patientId={id} />
+      {isBirthday && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800/40">
+          <div className="w-8 h-8 rounded-lg bg-pink-100 dark:bg-pink-800/40 flex items-center justify-center shrink-0">
+            <Cake className="h-4 w-4 text-pink-600 dark:text-pink-400" />
+          </div>
+          <p className="text-sm font-medium text-pink-800 dark:text-pink-300">
+            🎂 C'est l'anniversaire de {patient.first_name} aujourd'hui ! {calculateAge(patient.birth_date)} ans.
+          </p>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -77,6 +92,12 @@ export default async function PatientPage({ params }: PatientPageProps) {
           </div>
         </div>
         <div className="flex gap-2">
+          {patient.archived_at && (
+            <UnarchiveButton
+              patientId={id}
+              patientName={`${patient.first_name} ${patient.last_name}`}
+            />
+          )}
           <Button variant="outline" asChild>
             <Link href={`/patients/${id}/edit`}>
               <Edit className="mr-2 h-4 w-4" />

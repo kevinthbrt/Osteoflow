@@ -72,12 +72,15 @@ interface Practitioner {
   first_name: string
   last_name: string
   profession: string | null
+  specialty: string | null
   address: string | null
   city: string | null
   postal_code: string | null
   phone: string | null
   email: string | null
   rpps: string | null
+  rpe: string | null
+  rne: string | null
 }
 
 interface Consultation {

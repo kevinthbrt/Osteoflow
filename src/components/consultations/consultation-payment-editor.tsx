@@ -29,14 +29,20 @@ interface PaymentRow {
 
 interface ConsultationPaymentEditorProps {
   payments: PaymentRow[]
+  invoiceId?: string
+  invoiceAmount?: number
 }
 
 export function ConsultationPaymentEditor({
   payments,
+  invoiceId,
+  invoiceAmount,
 }: ConsultationPaymentEditorProps) {
   const [entries, setEntries] = useState<PaymentRow[]>(() =>
     payments.map((payment) => ({ ...payment }))
   )
+  const [amountValue, setAmountValue] = useState(invoiceAmount !== undefined ? String(invoiceAmount) : '')
+  const [savingAmount, setSavingAmount] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
   const { toast } = useToast()
   const router = useRouter()
@@ -48,6 +54,26 @@ export function ConsultationPaymentEditor({
         entry.id === id ? { ...entry, [field]: value } : entry
       )
     )
+  }
+
+  const handleSaveAmount = async () => {
+    if (!invoiceId) return
+    const parsed = parseFloat(amountValue.replace(',', '.'))
+    if (isNaN(parsed) || parsed < 0) {
+      toast({ variant: 'destructive', title: 'Montant invalide' })
+      return
+    }
+    setSavingAmount(true)
+    try {
+      const { error } = await db.from('invoices').update({ amount: parsed }).eq('id', invoiceId)
+      if (error) throw error
+      toast({ variant: 'success', title: 'Montant mis à jour', description: 'Le montant de la consultation a été mis à jour.' })
+      router.refresh()
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour le montant.' })
+    } finally {
+      setSavingAmount(false)
+    }
   }
 
   const handleSave = async (paymentId: string) => {
@@ -85,7 +111,7 @@ export function ConsultationPaymentEditor({
     }
   }
 
-  if (entries.length === 0) {
+  if (entries.length === 0 && !invoiceId) {
     return null
   }
 
@@ -98,6 +124,35 @@ export function ConsultationPaymentEditor({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {invoiceId && (
+          <div className="space-y-2 rounded-lg border p-3">
+            <Label className="flex items-center gap-1.5">
+              <Pencil className="h-3 w-3 text-primary" />
+              Montant de la consultation
+            </Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={amountValue}
+                onChange={e => setAmountValue(e.target.value)}
+                placeholder="0.00"
+                className="flex-1"
+              />
+              <span className="text-sm text-muted-foreground">€</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleSaveAmount}
+                disabled={savingAmount}
+              >
+                {savingAmount ? 'Enregistrement...' : 'Sauvegarder'}
+              </Button>
+            </div>
+          </div>
+        )}
         {entries.map((payment) => (
           <div key={payment.id} className="space-y-3 rounded-lg border p-3">
             <div className="flex items-center justify-between">
@@ -106,7 +161,10 @@ export function ConsultationPaymentEditor({
             </div>
 
             <div className="space-y-2">
-              <Label>Mode de paiement</Label>
+              <Label className="flex items-center gap-1.5">
+                <Pencil className="h-3 w-3 text-primary" />
+                Mode de paiement
+              </Label>
               <Select
                 value={payment.method}
                 onValueChange={(value) => updateEntry(payment.id, 'method', value)}

@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin, GitBranch, Dumbbell } from 'lucide-react'
-import { generateInvoiceNumber, formatDateTime, formatDate } from '@/lib/utils'
+import { generateInvoiceNumber, formatDateTime, formatDate, calculateAge } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
@@ -1323,7 +1323,7 @@ export function ConsultationForm({
                 <p className="text-muted-foreground">{currentPatient.gender === 'M' ? 'Homme' : 'Femme'}</p>
               )}
               {currentPatient.birth_date && (
-                <p className="text-muted-foreground">{formatDate(currentPatient.birth_date)}</p>
+                <p className="text-muted-foreground">{formatDate(currentPatient.birth_date)} · {calculateAge(currentPatient.birth_date)} ans</p>
               )}
               {currentPatient.phone && <p className="text-muted-foreground">{currentPatient.phone}</p>}
               {currentPatient.email && <p className="text-muted-foreground">{currentPatient.email}</p>}

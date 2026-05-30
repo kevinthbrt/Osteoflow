@@ -30,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { MoreHorizontal, Edit, Trash2, Archive, Eye, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { MoreHorizontal, Edit, Trash2, Archive, ArchiveRestore, Eye, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatDate, formatPhone, calculateAge } from '@/lib/utils'
 import { createClient } from '@/lib/db/client'
 import { useToast } from '@/hooks/use-toast'
@@ -79,6 +79,28 @@ export function PatientsTable({ patients, currentPage, totalPages, totalCount }:
     toast({
       title: 'Patient archivé',
       description: `${patient.first_name} ${patient.last_name} a été archivé`,
+    })
+    router.refresh()
+  }
+
+  const handleUnarchive = async (patient: Patient) => {
+    const { error } = await db
+      .from('patients')
+      .update({ archived_at: null })
+      .eq('id', patient.id)
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de désarchiver le patient',
+      })
+      return
+    }
+
+    toast({
+      title: 'Patient désarchivé',
+      description: `${patient.first_name} ${patient.last_name} a été réactivé`,
     })
     router.refresh()
   }
@@ -184,7 +206,12 @@ export function PatientsTable({ patients, currentPage, totalPages, totalCount }:
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      {!patient.archived_at && (
+                      {patient.archived_at ? (
+                        <DropdownMenuItem onClick={() => handleUnarchive(patient)}>
+                          <ArchiveRestore className="mr-2 h-4 w-4" />
+                          Désarchiver
+                        </DropdownMenuItem>
+                      ) : (
                         <DropdownMenuItem onClick={() => handleArchive(patient)}>
                           <Archive className="mr-2 h-4 w-4" />
                           Archiver

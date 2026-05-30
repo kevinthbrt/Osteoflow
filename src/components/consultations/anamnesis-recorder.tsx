@@ -884,7 +884,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
           <>
             <Button type="button" size="sm" onClick={handleStructure} className="gap-1.5">
               <Sparkles className="h-3.5 w-3.5" />
-              Structurer avec Claude
+              Structurer l'anamnèse
             </Button>
             {isElectron() && state === 'idle' && (
               <Button type="button" size="sm" variant="outline" onClick={continueMediaRecorder} className="gap-1.5">

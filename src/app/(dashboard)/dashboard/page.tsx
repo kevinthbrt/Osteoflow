@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
+import { getOsteoUpgradeEmail } from '@/lib/osteoupgrade/email'
 import { Dashboard } from '@/components/dashboard/dashboard'
 
 export default async function DashboardPage() {
@@ -32,7 +33,6 @@ export default async function DashboardPage() {
     { count: totalPatients },
     { count: todayConsultations },
     { data: monthRevenue },
-    { data: upcomingBirthdays },
     { data: recentConsultations },
     { count: unreadMessages },
     { data: patientsForConsultation },
@@ -56,13 +56,6 @@ export default async function DashboardPage() {
       .select('amount')
       .eq('status', 'paid')
       .gte('paid_at', startOfMonth),
-
-    // Upcoming birthdays (next 7 days)
-    db
-      .from('patients')
-      .select('id, first_name, last_name, birth_date')
-      .is('archived_at', null)
-      .order('birth_date'),
 
     // Recent consultations
     db
@@ -96,20 +89,6 @@ export default async function DashboardPage() {
   // Calculate month revenue
   const monthlyRevenue = monthRevenue?.reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0) || 0
 
-  // Filter birthdays for next 7 days
-  const now = new Date()
-  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const nextWeek = new Date(todayMidnight.getTime() + 7 * 24 * 60 * 60 * 1000)
-  const birthdaysThisWeek = (upcomingBirthdays || []).filter((p: any) => {
-    if (!p.birth_date) return false
-    const bday = new Date(p.birth_date)
-    const thisYearBday = new Date(now.getFullYear(), bday.getMonth(), bday.getDate())
-    if (thisYearBday < todayMidnight) {
-      thisYearBday.setFullYear(now.getFullYear() + 1)
-    }
-    return thisYearBday <= nextWeek
-  }).slice(0, 3)
-
   // Transform recent consultations to fix patient type
   const formattedConsultations = (recentConsultations || []).map((c: any) => ({
     id: c.id as string,
@@ -118,7 +97,7 @@ export default async function DashboardPage() {
     patient: Array.isArray(c.patient) ? c.patient[0] as { id: string; first_name: string; last_name: string } || null : c.patient as { id: string; first_name: string; last_name: string } | null,
   }))
 
-  const practitionerEmail = practitioner.email || user.email || ''
+  const practitionerEmail = getOsteoUpgradeEmail() || ''
 
   return (
     <Dashboard
@@ -130,7 +109,6 @@ export default async function DashboardPage() {
         monthlyRevenue,
         unreadMessages: unreadMessages || 0,
       }}
-      birthdaysThisWeek={birthdaysThisWeek}
       recentConsultations={formattedConsultations}
       patientsForConsultation={patientsForConsultation || []}
     />

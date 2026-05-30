@@ -62,6 +62,16 @@ export const practitionerSettingsSchema = z.object({
     .max(11, 'Le RPPS ne peut pas dépasser 11 caractères')
     .optional()
     .or(z.literal('')),
+  rpe: z
+    .string()
+    .max(20, 'Le RPE ne peut pas dépasser 20 caractères')
+    .optional()
+    .or(z.literal('')),
+  rne: z
+    .string()
+    .max(20, 'Le RNE ne peut pas dépasser 20 caractères')
+    .optional()
+    .or(z.literal('')),
   status: z
     .string()
     .max(50, 'Le statut ne peut pas dépasser 50 caractères')
@@ -116,7 +126,7 @@ export const emailTemplateVariables = {
     { key: '{{invoice_amount}}', description: 'Montant de la facture' },
     { key: '{{invoice_date}}', description: 'Date de la facture' },
     { key: '{{practitioner_name}}', description: 'Nom du praticien' },
-    { key: '{{practitioner_specialty}}', description: 'Spécialité du praticien' },
+    { key: '{{practitioner_specialty}}', description: 'Profession du praticien' },
     { key: '{{practice_name}}', description: 'Nom du cabinet' },
     { key: '{{google_review_url}}', description: 'Lien d\'avis Google' },
   ],

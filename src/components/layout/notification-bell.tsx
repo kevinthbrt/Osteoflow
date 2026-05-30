@@ -14,7 +14,23 @@ import {
   RefreshCw,
   X,
   CheckCheck,
+  Sparkles,
+  Bug,
+  Zap,
+  Megaphone,
+  ChevronRight,
 } from 'lucide-react'
+import { changelog, type ChangelogEntry } from '@/data/changelog'
+
+interface Broadcast {
+  id: string
+  title: string
+  body: string
+  image_url: string | null
+  video_url: string | null
+  target: 'osteoflow' | 'osteoupgrade' | 'both'
+  created_at: string
+}
 
 interface ElectronAPI {
   isDesktop: boolean
@@ -53,6 +69,24 @@ interface UpdateNotification {
 
 const ratingEmojis = ['', '\u{1F622}', '\u{1F615}', '\u{1F610}', '\u{1F642}', '\u{1F601}']
 
+const changeTypeConfig = {
+  feature: { icon: Sparkles, className: 'text-emerald-600' },
+  fix: { icon: Bug, className: 'text-red-600' },
+  improvement: { icon: Zap, className: 'text-blue-600' },
+} as const
+
+// Compare semver-ish strings ("1.3.4"). Returns >0 if a>b, <0 if a<b, 0 if equal.
+function compareVersions(a: string, b: string): number {
+  const pa = a.split('.').map((n) => parseInt(n, 10) || 0)
+  const pb = b.split('.').map((n) => parseInt(n, 10) || 0)
+  const len = Math.max(pa.length, pb.length)
+  for (let i = 0; i < len; i++) {
+    const diff = (pa[i] || 0) - (pb[i] || 0)
+    if (diff !== 0) return diff
+  }
+  return 0
+}
+
 export function NotificationBell() {
   const router = useRouter()
   const db = createClient()
@@ -70,6 +104,14 @@ export function NotificationBell() {
     version: '',
     progress: 0,
   })
+
+  // Changelog / "Nouveautés" — entries newer than the last acknowledged version
+  const [unseenChangelog, setUnseenChangelog] = useState<ChangelogEntry[]>([])
+
+  // Broadcasts from OsteoUpgrade admin
+  const [broadcasts, setBroadcasts] = useState<Broadcast[]>([])
+  const [unseenBroadcastIds, setUnseenBroadcastIds] = useState<Set<string>>(new Set())
+  const [selectedBroadcast, setSelectedBroadcast] = useState<Broadcast | null>(null)
 
   // Ephemeral toast
   const [ephemeralMessage, setEphemeralMessage] = useState<string | null>(null)
@@ -175,6 +217,59 @@ export function NotificationBell() {
     }
   }, [surveyNotifs])
 
+  // Fetch unseen changelog entries (newer than the last acknowledged version)
+  const fetchChangelogNotifs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/changelog/seen')
+      const { lastSeenVersion } = await res.json()
+      const unseen = lastSeenVersion
+        ? changelog.filter((e) => compareVersions(e.version, lastSeenVersion) > 0)
+        : changelog.slice(0, 1) // first visit: surface only the latest release
+      setUnseenChangelog(unseen)
+    } catch {
+      setUnseenChangelog([])
+    }
+  }, [])
+
+  // Fetch broadcasts from OsteoUpgrade (via proxy) — seen state tracked locally in SQLite
+  const fetchBroadcasts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/osteoupgrade-broadcasts', { cache: 'no-store' })
+      if (!res.ok) return
+      const { broadcasts: all, unseen } = await res.json()
+      setBroadcasts(all ?? [])
+      setUnseenBroadcastIds(new Set((unseen ?? []).map((b: Broadcast) => b.id)))
+    } catch { /* silent — not critical */ }
+  }, [])
+
+  // Mark a broadcast as seen in local SQLite
+  const markBroadcastSeen = useCallback(async (id: string) => {
+    try {
+      await fetch('/api/osteoupgrade-broadcast-seen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [id] }),
+      })
+      setUnseenBroadcastIds(prev => { const next = new Set(prev); next.delete(id); return next })
+    } catch { /* silent */ }
+  }, [])
+
+  // Mark all changelog entries as seen (persist the latest version)
+  const acknowledgeChangelog = useCallback(async () => {
+    if (changelog.length === 0) return
+    const latest = changelog[0].version
+    try {
+      await fetch('/api/changelog/seen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version: latest }),
+      })
+      setUnseenChangelog([])
+    } catch (error) {
+      console.error('Error acknowledging changelog:', error)
+    }
+  }, [])
+
   // Listen for Electron events (updates + survey sync)
   useEffect(() => {
     const api = (window as unknown as { electronAPI?: ElectronAPI }).electronAPI
@@ -209,17 +304,20 @@ export function NotificationBell() {
   useEffect(() => {
     fetchMailNotifs()
     fetchSurveyNotifs()
+    fetchChangelogNotifs()
+    fetchBroadcasts()
 
     const interval = setInterval(() => {
       fetchMailNotifs()
       fetchSurveyNotifs()
-    }, 30000)
+      fetchBroadcasts()
+    }, 60000)
 
     return () => clearInterval(interval)
-  }, [fetchMailNotifs, fetchSurveyNotifs])
+  }, [fetchMailNotifs, fetchSurveyNotifs, fetchChangelogNotifs, fetchBroadcasts])
 
   const totalUnreadMails = mailNotifs.reduce((sum, n) => sum + n.unreadCount, 0)
-  const totalCount = totalUnreadMails + surveyNotifs.length + (updateNotif.state !== 'idle' ? 1 : 0)
+  const totalCount = totalUnreadMails + surveyNotifs.length + unseenChangelog.length + unseenBroadcastIds.size + (updateNotif.state !== 'idle' ? 1 : 0)
 
   const handleInstallUpdate = () => {
     const api = (window as unknown as { electronAPI?: ElectronAPI }).electronAPI
@@ -292,6 +390,48 @@ export function NotificationBell() {
           </div>
 
           <div className="max-h-96 overflow-y-auto">
+            {/* Broadcasts / Annonces admin */}
+            {broadcasts.length > 0 && (
+              <div className="border-b border-border/40">
+                <div className="px-4 py-2 bg-muted/30 flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Megaphone className="h-3 w-3" />
+                    Annonces
+                    {unseenBroadcastIds.size > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 rounded-full bg-blue-500 text-white text-[9px] font-bold leading-none">
+                        {unseenBroadcastIds.size}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                {broadcasts.slice(0, 3).map(b => {
+                  const isUnread = unseenBroadcastIds.has(b.id)
+                  return (
+                    <button
+                      key={b.id}
+                      onClick={() => {
+                        setSelectedBroadcast(b)
+                        if (isUnread) markBroadcastSeen(b.id)
+                      }}
+                      className={`w-full text-left px-4 py-2.5 hover:bg-accent/50 transition-colors flex items-start gap-3 border-b border-border/20 last:border-0 ${isUnread ? '' : 'opacity-60'}`}
+                    >
+                      <div className="mt-0.5 h-8 w-8 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center shrink-0">
+                        <Megaphone className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className={`text-sm font-medium truncate ${isUnread ? '' : 'text-muted-foreground'}`}>{b.title}</p>
+                          {isUnread && <span className="shrink-0 w-2 h-2 rounded-full bg-blue-500" />}
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{b.body}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0 mt-1" />
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
             {/* Update notification */}
             {updateNotif.state !== 'idle' && (
               <div className="border-b border-border/40">
@@ -340,6 +480,80 @@ export function NotificationBell() {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Changelog / Nouveautés */}
+            {unseenChangelog.length > 0 && (
+              <div className="border-b border-border/40">
+                <div className="px-4 py-2 bg-muted/30 flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3" />
+                    Nouveautés ({unseenChangelog.length})
+                  </p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      acknowledgeChangelog()
+                    }}
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                    title="Tout marquer comme lu"
+                  >
+                    <CheckCheck className="h-3 w-3" />
+                    Tout lu
+                  </button>
+                </div>
+                {unseenChangelog.slice(0, 3).map((entry) => (
+                  <button
+                    key={entry.version}
+                    onClick={() => {
+                      acknowledgeChangelog()
+                      setOpen(false)
+                      router.push('/changelog')
+                    }}
+                    className="w-full text-left px-4 py-2.5 hover:bg-accent/50 transition-colors flex items-start gap-3 border-b border-border/20 last:border-0"
+                  >
+                    <div className="mt-0.5 h-8 w-8 rounded-full bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center shrink-0">
+                      <Sparkles className="h-4 w-4 text-indigo-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">{entry.title}</p>
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5 shrink-0">
+                          v{entry.version}
+                        </Badge>
+                      </div>
+                      <ul className="mt-1 space-y-0.5">
+                        {entry.changes.slice(0, 3).map((change, i) => {
+                          const Icon = changeTypeConfig[change.type].icon
+                          return (
+                            <li key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                              <Icon className={`h-3 w-3 mt-0.5 shrink-0 ${changeTypeConfig[change.type].className}`} />
+                              <span className="line-clamp-2">{change.text}</span>
+                            </li>
+                          )
+                        })}
+                        {entry.changes.length > 3 && (
+                          <li className="text-xs text-muted-foreground/70 pl-[18px]">
+                            +{entry.changes.length - 3} autre{entry.changes.length - 3 > 1 ? 's' : ''}…
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  </button>
+                ))}
+                {unseenChangelog.length > 3 && (
+                  <button
+                    onClick={() => {
+                      acknowledgeChangelog()
+                      setOpen(false)
+                      router.push('/changelog')
+                    }}
+                    className="w-full text-center py-2 text-xs text-primary hover:underline"
+                  >
+                    Voir toutes les nouveautés
+                  </button>
+                )}
               </div>
             )}
 
@@ -503,6 +717,51 @@ export function NotificationBell() {
           )}
         </PopoverContent>
       </Popover>
+
+      {/* Broadcast detail modal */}
+      {selectedBroadcast && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedBroadcast(null)} />
+          <div className="relative z-10 w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            {selectedBroadcast.image_url && !selectedBroadcast.video_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={selectedBroadcast.image_url} alt={selectedBroadcast.title} className="w-full h-52 object-cover" />
+            )}
+            {selectedBroadcast.video_url && (
+              <video src={selectedBroadcast.video_url} controls className="w-full max-h-56 bg-black" />
+            )}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
+                    <Megaphone className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold text-blue-600 uppercase tracking-wide">Annonce</p>
+                    <h2 className="font-bold text-foreground text-lg leading-tight">{selectedBroadcast.title}</h2>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedBroadcast(null)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">{selectedBroadcast.body}</p>
+            </div>
+            <div className="border-t border-border/40 px-6 py-4 bg-muted/30 flex justify-end">
+              <Button
+                size="sm"
+                onClick={() => setSelectedBroadcast(null)}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:opacity-90"
+              >
+                Fermer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

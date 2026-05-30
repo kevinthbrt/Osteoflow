@@ -102,6 +102,12 @@ export function getDatabase(): BetterSqlite3.Database {
 
   db = new Database(dbPath)
 
+  // Custom function: strip accents + lowercase, used for accent-insensitive LIKE
+  db.function('unaccent', { deterministic: true }, (text: unknown) => {
+    if (text == null) return null
+    return String(text).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+  })
+
   // Enable WAL mode for better concurrent read performance
   db.pragma('journal_mode = WAL')
   // Enable foreign keys

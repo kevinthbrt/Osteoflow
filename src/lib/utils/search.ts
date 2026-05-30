@@ -4,6 +4,9 @@
  */
 export function splitSearchTokens(query: string): string[] {
   return query
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
     .split(/[\s,]+/)
     .map((t) => t.trim().replace(/[%_]/g, ''))
     .filter((t) => t.length > 0)

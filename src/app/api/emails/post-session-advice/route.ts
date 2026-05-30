@@ -6,6 +6,7 @@ export async function POST(request: NextRequest) {
     const { createPostSessionAdviceHtmlEmail } = await import('@/lib/email/templates')
     const { sendEmail } = await import('@/lib/email/smtp-service')
     const { formatDate } = await import('@/lib/utils')
+    const { getProfessionLabel } = await import('@/lib/practitioner/profession')
 
     const { consultationId } = await request.json()
 
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
       bodyText,
       practitionerName,
       practiceName: practitioner.practice_name,
-      specialty: practitioner.specialty,
+      specialty: getProfessionLabel(practitioner.profession, practitioner.specialty),
       primaryColor: practitioner.primary_color || '#2563eb',
       googleReviewUrl: practitioner.google_review_url,
     })

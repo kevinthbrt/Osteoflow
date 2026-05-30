@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
     const { formatDate } = await import('@/lib/utils')
     const { generateSurveyToken, getSurveyUrl } = await import('@/lib/survey/config')
     const { registerSurvey } = await import('@/lib/survey/service')
+    const { getProfessionLabel } = await import('@/lib/practitioner/profession')
     const getResend = () => new Resend(process.env.RESEND_API_KEY)
     // Verify cron secret or admin auth
     const authHeader = request.headers.get('authorization')
@@ -216,7 +217,7 @@ export async function POST(request: NextRequest) {
               practice_name: practitioner.practice_name || practitionerName,
               patient_first_name: patient.first_name,
               primary_color: practitioner.primary_color || '#2563eb',
-              specialty: practitioner.specialty || undefined,
+              specialty: getProfessionLabel(practitioner.profession, practitioner.specialty),
               consultation_id: consultation.id,
             })
 
@@ -245,7 +246,7 @@ export async function POST(request: NextRequest) {
           bodyText,
           practitionerName,
           practiceName: practitioner.practice_name,
-          specialty: practitioner.specialty,
+          specialty: getProfessionLabel(practitioner.profession, practitioner.specialty),
           primaryColor: practitioner.primary_color || '#2563eb',
           googleReviewUrl: practitioner.google_review_url,
           surveyUrl,
@@ -357,6 +358,7 @@ export async function PUT(request: NextRequest) {
     const { formatDate } = await import('@/lib/utils')
     const { generateSurveyToken, getSurveyUrl } = await import('@/lib/survey/config')
     const { registerSurvey } = await import('@/lib/survey/service')
+    const { getProfessionLabel } = await import('@/lib/practitioner/profession')
     const getResend = () => new Resend(process.env.RESEND_API_KEY)
 
     const { consultationId } = await request.json()
@@ -453,7 +455,7 @@ export async function PUT(request: NextRequest) {
         practice_name: practitioner.practice_name || practitionerFullName,
         patient_first_name: patient.first_name,
         primary_color: practitioner.primary_color || '#2563eb',
-        specialty: practitioner.specialty || undefined,
+        specialty: getProfessionLabel(practitioner.profession, practitioner.specialty),
         consultation_id: consultation.id,
       })
 
@@ -480,7 +482,7 @@ export async function PUT(request: NextRequest) {
       bodyText,
       practitionerName: practitionerFullName,
       practiceName: practitioner.practice_name,
-      specialty: practitioner.specialty,
+      specialty: getProfessionLabel(practitioner.profession, practitioner.specialty),
       primaryColor: practitioner.primary_color || '#2563eb',
       googleReviewUrl: practitioner.google_review_url,
       surveyUrl,

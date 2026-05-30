@@ -19,6 +19,43 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.5.0',
+    date: '2026-05-30',
+    title: 'E-Learning intégré, Communication IA, Tests orthos, Étiopathes & refonte interface',
+    changes: [
+      { type: 'feature', text: 'Module E-Learning : retrouvez toutes vos formations OsteoUpgrade directement dans MyOsteoFlow — liste complète des cours avec votre progression, lecteur intégré chapitre par chapitre et barre de progression synchronisée dans le widget du tableau de bord.' },
+      { type: 'feature', text: 'Module Communication — Génération de courriers par IA : rédigez des courriers patients en quelques secondes (compte-rendu, courrier médecin traitant…) grâce à un panel dédié. Sélecteur de patient et de consultation, templates prédéfinis, IA génère le contenu, mise en page structurée (expéditeur/destinataire/objet/formule de clôture) et export PDF.' },
+      { type: 'feature', text: 'Suggestions de tests orthopédiques par IA : nouveau bouton "Tests orthos" dans le formulaire de consultation — entrez le motif et l\'IA propose les tests cliniques les plus adaptés, avec leur interprétation et leur pertinence, directement insérables dans la consultation.' },
+      { type: 'feature', text: 'Support complet des Étiopathes : nouveaux champs RPE et RNE dans les paramètres (remplacent le numéro RPPS) ; le titre professionnel s\'adapte automatiquement à la profession sélectionnée ; les numéros RPE et RNE apparaissent sur toutes les factures, ordonnances d\'exercices, emails de suivi et courriers générés.' },
+      { type: 'feature', text: 'Tableau de bord OsteoUpgrade : widget "Revue de littérature" (dernier article) + widget "Nouveauté" (formation mise en avant avec progression) encadrent la vidéo de pratique du jour.' },
+      { type: 'feature', text: 'Alerte anniversaire : une bannière apparaît automatiquement sur la fiche patient et lors de la création d\'une consultation le jour de l\'anniversaire du patient.' },
+      { type: 'feature', text: 'Broadcasts en temps réel : les annonces publiées par l\'équipe OsteoUpgrade s\'affichent dans la cloche de notifications avec mise à jour automatique.' },
+      { type: 'feature', text: 'Widget support flottant : bouton d\'aide déplaçable accessible depuis toutes les pages pour envoyer un ticket directement depuis l\'application.' },
+      { type: 'feature', text: 'Widget « Complétez votre profil » sur le tableau de bord : barre de progression et liste des informations manquantes (profil, cabinet, facturation, email, objectifs) avec accès direct à chaque section. Disparaît automatiquement une fois le profil complet à 100%.' },
+      { type: 'improvement', text: 'Interface unifiée : Patients et Consultations regroupés sur une seule page avec onglets ; Sondages et Messagerie fusionnés en une section Communication.' },
+      { type: 'improvement', text: 'Import CSV : nouvelle étape 2 pour envoyer le fichier brut au support pour transformation et réimport propre.' },
+      { type: 'improvement', text: 'Montants et modes de paiement éditables inline dans la ligne de consultation (icône crayon + pill cliquable).' },
+      { type: 'improvement', text: 'Âge du patient affiché à côté de la date de naissance dans la fiche de consultation (ex : "12 mars 1990 · 35 ans").' },
+      { type: 'fix', text: 'Recherche patient insensible aux accents : "epaule" trouve désormais "épaule" et inversement.' },
+      { type: 'fix', text: 'Synchronisation de la progression OsteoUpgrade : utilise l\'email de licence en priorité pour un suivi correct même si l\'email praticien diffère.' },
+    ],
+  },
+  {
+    version: '1.4.0',
+    date: '2026-05-30',
+    title: 'Complétude du profil, motifs intelligents & nouveautés',
+    changes: [
+      { type: 'feature', text: 'Nouveau widget « Complétez votre profil » sur le tableau de bord : barre de progression et liste des informations manquantes (profil, cabinet, facturation, email, objectifs) avec accès direct à chaque section. Il disparaît une fois le profil complet à 100%.' },
+      { type: 'feature', text: 'Statistiques : détection des motifs de consultation par mots-clés. Un motif comme « Lombalgie + Cervicalgie » est désormais comptabilisé dans les deux catégories, avec 22 catégories cliniques reconnues automatiquement.' },
+      { type: 'feature', text: 'Comptabilité : nouvelle section « Corrections manuelles (CA corrigé) » pour ajouter un chiffre d\'affaires non facturé par mois. Les corrections se propagent au total de la comptabilité, aux objectifs et aux statistiques.' },
+      { type: 'feature', text: 'Cloche de notifications : nouvelle rubrique « Nouveautés » qui vous signale les dernières fonctionnalités dès leur sortie.' },
+      { type: 'feature', text: 'Patients archivés : possibilité de désarchiver un patient (réactivation) depuis la liste et la fiche patient.' },
+      { type: 'improvement', text: 'Visite guidée enrichie et mise à jour avec les nouveaux modules (Communication, E-Learning, widget de complétude, support).' },
+      { type: 'fix', text: 'Factures étiopathes : correction de l\'affichage des numéros RPE et RNE qui débordaient sous le bandeau de couleur.' },
+      { type: 'fix', text: 'Statistiques : correction de l\'affichage des barres du diagramme de chiffre d\'affaires mensuel.' },
+    ],
+  },
+  {
     version: '1.3.4',
     date: '2026-05-28',
     title: 'Factures multi-professions & corrections',

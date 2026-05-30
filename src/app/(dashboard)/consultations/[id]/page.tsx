@@ -409,7 +409,7 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
                   </Button>
                 </CardContent>
               </Card>
-              <ConsultationPaymentEditor payments={invoice.payments || []} />
+              <ConsultationPaymentEditor payments={invoice.payments || []} invoiceId={invoice.id} invoiceAmount={invoice.amount} />
             </>
           )}
 
