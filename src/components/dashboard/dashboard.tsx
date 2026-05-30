@@ -16,8 +16,6 @@ import { Plus, Sparkles } from 'lucide-react'
 
 import { VideoWidget } from './widgets/video-widget'
 import { ProgressWidget } from './widgets/progress-widget'
-import { BirthdayWidget } from './widgets/birthday-widget'
-import { StatusWidget } from './widgets/status-widget'
 import { ReviewWidget, FeaturedFormationWidget, type WidgetsData } from './widgets/osteoupgrade-widgets'
 import { BannerWeather } from './banner-weather'
 import { ProfileCompletionWidget } from './profile-completion-widget'
@@ -33,12 +31,6 @@ interface DashboardProps {
     monthlyRevenue: number
     unreadMessages: number
   }
-  birthdaysThisWeek: Array<{
-    id: string
-    first_name: string
-    last_name: string
-    birth_date: string
-  }>
   recentConsultations: Array<{
     id: string
     date_time: string
@@ -64,7 +56,6 @@ export function Dashboard({
   practitioner,
   practitionerEmail,
   stats,
-  birthdaysThisWeek,
   patientsForConsultation,
 }: DashboardProps) {
   const [isNewConsultationOpen, setIsNewConsultationOpen] = useState(false)
@@ -150,12 +141,6 @@ export function Dashboard({
 
       {/* ── Row 2 : Progression (bandeau horizontal pleine largeur) ── */}
       <ProgressWidget layout="horizontal" />
-
-      {/* ── Row 3 : Anniversaires + Accès rapides ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <BirthdayWidget patients={birthdaysThisWeek} />
-        <StatusWidget unreadMessages={stats.unreadMessages} />
-      </div>
 
       {/* ── New consultation dialog ── */}
       <Dialog open={isNewConsultationOpen} onOpenChange={setIsNewConsultationOpen}>

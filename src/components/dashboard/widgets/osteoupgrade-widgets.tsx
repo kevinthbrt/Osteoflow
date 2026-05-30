@@ -51,8 +51,8 @@ export function ReviewWidget({
   onRefresh: () => void
 }) {
   return (
-    <Card className="border-border/30 h-full">
-      <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+    <Card className="border-border/30 h-full flex flex-col">
+      <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between shrink-0">
         <CardTitle className="text-sm flex items-center gap-2">
           <div className="w-6 h-6 rounded-md bg-emerald-500 flex items-center justify-center flex-shrink-0">
             <BookOpen className="h-3.5 w-3.5 text-white" />
@@ -67,7 +67,7 @@ export function ReviewWidget({
           <RefreshCw className={`h-3 w-3 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
         </button>
       </CardHeader>
-      <CardContent className="px-4 pb-4">
+      <CardContent className="px-4 pb-4 flex-1 flex flex-col">
         {loading ? (
           <div className="space-y-2">
             <div className="h-24 bg-muted/40 rounded animate-pulse mb-2" />
@@ -80,21 +80,21 @@ export function ReviewWidget({
             href={`${OSTEOUPGRADE_URL}/elearning/revue-litterature`}
             target="_blank"
             rel="noopener noreferrer"
-            className="group block space-y-1.5"
+            className="group flex flex-col flex-1 gap-1.5"
           >
             {review.image_url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={review.image_url}
                 alt={review.title}
-                className="w-full h-24 object-cover rounded-md mb-2"
+                className="w-full h-24 object-cover rounded-md"
               />
             )}
             <p className="text-sm font-medium leading-snug group-hover:text-primary transition-colors line-clamp-2">
               {review.title}
             </p>
             {review.published_date && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs w-fit">
                 {new Date(review.published_date).toLocaleDateString('fr-FR', {
                   month: 'long',
                   year: 'numeric',
@@ -102,11 +102,11 @@ export function ReviewWidget({
               </Badge>
             )}
             {review.summary && (
-              <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+              <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed flex-1">
                 {review.summary}
               </p>
             )}
-            <span className="text-xs text-primary flex items-center gap-1 mt-1">
+            <span className="text-xs text-primary flex items-center gap-1 mt-auto pt-1">
               Lire sur OsteoUpgrade <ExternalLink className="h-2.5 w-2.5" />
             </span>
           </a>
@@ -145,8 +145,8 @@ export function FeaturedFormationWidget({
     : null
 
   return (
-    <Card className="border-violet-200 bg-violet-50/30 dark:border-violet-900/50 dark:bg-violet-950/10 h-full">
-      <CardHeader className="pb-2 pt-4 px-4">
+    <Card className="border-violet-200 bg-violet-50/30 dark:border-violet-900/50 dark:bg-violet-950/10 h-full flex flex-col">
+      <CardHeader className="pb-2 pt-4 px-4 shrink-0">
         <CardTitle className="text-sm flex items-center gap-2">
           <div className="w-6 h-6 rounded-md bg-violet-500 flex items-center justify-center flex-shrink-0">
             <GraduationCap className="h-3.5 w-3.5 text-white" />
@@ -154,7 +154,7 @@ export function FeaturedFormationWidget({
           Nouveauté OsteoUpgrade
         </CardTitle>
       </CardHeader>
-      <CardContent className="px-4 pb-4">
+      <CardContent className="px-4 pb-4 flex-1 flex flex-col">
         {loading ? (
           <div className="space-y-2">
             <div className="h-24 bg-muted/40 rounded animate-pulse mb-2" />
@@ -162,7 +162,7 @@ export function FeaturedFormationWidget({
             <div className="h-3 bg-muted/40 rounded animate-pulse w-2/3" />
           </div>
         ) : formation ? (
-          <div className="space-y-3">
+          <div className="flex flex-col flex-1 gap-3">
             {formation.photo_url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -171,7 +171,7 @@ export function FeaturedFormationWidget({
                 className="w-full h-24 object-cover rounded-md"
               />
             )}
-            <div>
+            <div className="flex-1">
               <p className="text-sm font-medium leading-snug line-clamp-2">{formation.title}</p>
               {formation.description && (
                 <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
