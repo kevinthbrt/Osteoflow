@@ -1025,35 +1025,59 @@ function MetricCard({
   )
 }
 
-function normalizeReason(reason: string): string {
+const KEYWORD_CATEGORIES: Array<{ keywords: string[]; label: string }> = [
+  { keywords: ['lombalgie', 'mal de dos', 'douleur lombaire', 'lumbago', 'lombaire'], label: 'Lombalgie' },
+  { keywords: ['cervicalgie', 'douleur cervicale', 'torticolis', 'cervical', 'nuque'], label: 'Cervicalgie' },
+  { keywords: ['céphalée', 'cephalee', 'migraine', 'maux de tête', 'tête'], label: 'Céphalées' },
+  { keywords: ['sciatique', 'sciatalgie', 'névralgie sciatique'], label: 'Sciatique' },
+  { keywords: ['dorsalgie', 'douleur dorsale', 'dos moyen', 'thoracique'], label: 'Dorsalgie' },
+  { keywords: ['entorse', 'foulure', 'ligament'], label: 'Entorse' },
+  { keywords: ['suivi', 'contrôle', 'controle', 'bilan de suivi', 'réévaluation'], label: 'Suivi' },
+  { keywords: ['bilan', 'première consultation', 'premiere consultation', 'première séance', 'bilan initial'], label: 'Bilan' },
+  { keywords: ['épaule', 'epaule', 'omarthrose', 'coiffe', 'rotateur'], label: 'Épaule' },
+  { keywords: ['genou', 'gonalgie', 'rotule', 'ménisque'], label: 'Genou' },
+  { keywords: ['hanche', 'coxalgie', 'cox', 'coxarthrose'], label: 'Hanche' },
+  { keywords: ['grossesse', 'prénatal', 'postnatal', 'périnatal', 'post-partum', 'maternité'], label: 'Grossesse / Périnatal' },
+  { keywords: ['nourrisson', 'bébé', 'bebe', 'plagiocéphalie', 'coliques', 'nouveau-né'], label: 'Nourrisson' },
+  { keywords: ['stress', 'anxiété', 'anxiete', 'tension nerveuse', 'surmenage', 'burnout'], label: 'Stress / Anxiété' },
+  { keywords: ['sport', 'sportif', 'traumatisme sportif', 'running', 'course', 'natation', 'cyclisme'], label: 'Traumatisme sportif' },
+  { keywords: ['scoliose', 'cyphose', 'lordose', 'déviation'], label: 'Déformation rachidienne' },
+  { keywords: ['cheville', 'malléole', 'tarse'], label: 'Cheville' },
+  { keywords: ['pied', 'fasciite', 'plantaire', 'hallux', 'orteil'], label: 'Pied' },
+  { keywords: ['tendinite', 'tendinopathie', 'épicondylite', 'epicondylite', 'tendon'], label: 'Tendinite' },
+  { keywords: ['vertige', 'vertiges', 'vppb', 'dizziness'], label: 'Vertiges' },
+  { keywords: ['poignet', 'carpe', 'canal carpien', 'tunnel carpien'], label: 'Poignet / Canal carpien' },
+  { keywords: ['digestif', 'digestion', 'transit', 'côlon', 'colon', 'intestin', 'reflux'], label: 'Digestif' },
+]
+
+function extractKeywords(reason: string): string[] {
+  if (!reason || reason.trim() === '') return ['Non spécifié']
   const normalized = reason.toLowerCase().trim()
+  const found = new Set<string>()
 
-  const mappings: Record<string, string> = {
-    'lombalgie': 'Lombalgie',
-    'mal de dos': 'Lombalgie',
-    'douleur lombaire': 'Lombalgie',
-    'cervicalgie': 'Cervicalgie',
-    'douleur cervicale': 'Cervicalgie',
-    'torticolis': 'Cervicalgie',
-    'céphalée': 'Céphalées',
-    'céphalées': 'Céphalées',
-    'migraine': 'Céphalées',
-    'maux de tête': 'Céphalées',
-    'sciatique': 'Sciatique',
-    'douleur sciatique': 'Sciatique',
-    'suivi': 'Suivi',
-    'contrôle': 'Suivi',
-    'bilan': 'Bilan',
-    'première consultation': 'Bilan',
-    'entorse': 'Entorse',
-    'dorsalgie': 'Dorsalgie',
-  }
-
-  for (const [key, value] of Object.entries(mappings)) {
-    if (normalized.includes(key)) {
-      return value
+  // Step 1: scan entire string for all keyword matches
+  for (const { keywords, label } of KEYWORD_CATEGORIES) {
+    if (keywords.some((k) => normalized.includes(k))) {
+      found.add(label)
     }
   }
 
-  return reason.charAt(0).toUpperCase() + reason.slice(1).toLowerCase()
+  // Step 2: also split on separators and scan each part
+  const parts = normalized.split(/\s*[+\/,;&]\s*|\s+et\s+|\s+ou\s+/i).map((p) => p.trim()).filter((p) => p.length > 2)
+  if (parts.length > 1) {
+    for (const part of parts) {
+      for (const { keywords, label } of KEYWORD_CATEGORIES) {
+        if (keywords.some((k) => part.includes(k))) {
+          found.add(label)
+        }
+      }
+    }
+  }
+
+  // Step 3: if no category matched, use capitalized raw reason
+  if (found.size === 0) {
+    return [reason.charAt(0).toUpperCase() + reason.slice(1)]
+  }
+
+  return Array.from(found)
 }

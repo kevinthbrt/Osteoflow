@@ -33,6 +33,9 @@ import {
   Banknote,
   Loader2,
   Mail,
+  Pencil,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
@@ -58,6 +61,85 @@ interface AccountingSummary {
   revenueByMethod: Record<string, number>
 }
 
+const monthNamesLong = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+
+function EditableMonthRow({
+  year,
+  month,
+  initialValue,
+  practitionerId,
+  onSaved,
+}: {
+  year: number
+  month: number
+  initialValue: number
+  practitionerId: string
+  onSaved: (key: string, value: number) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(initialValue.toString())
+  const [isSaving, setIsSaving] = useState(false)
+  const { toast } = useToast()
+
+  const handleSave = async () => {
+    const amount = parseFloat(value)
+    if (isNaN(amount)) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Montant invalide' })
+      return
+    }
+    setIsSaving(true)
+    try {
+      const res = await fetch('/api/objectives/manual-revenue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ year, month, amount }),
+      })
+      if (!res.ok) throw new Error('Erreur lors de la sauvegarde')
+      onSaved(`${year}-${month}`, amount)
+      setEditing(false)
+      toast({ variant: 'success', title: 'Enregistré', description: `Correction pour ${monthNamesLong[month - 1]} ${year} sauvegardée` })
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de sauvegarder la correction' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between py-2 border-b last:border-0">
+      <span className="text-sm font-medium">{monthNamesLong[month - 1]} {year}</span>
+      <div className="flex items-center gap-2">
+        {editing ? (
+          <>
+            <Input
+              type="number"
+              step="0.01"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              className="w-28 h-8 text-sm"
+            />
+            <Button size="sm" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'OK'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setValue(initialValue.toString()); setEditing(false) }}>
+              Annuler
+            </Button>
+          </>
+        ) : (
+          <>
+            <span className="text-sm text-muted-foreground w-24 text-right">
+              {initialValue !== 0 ? `${initialValue.toFixed(2)} €` : '—'}
+            </span>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+              <Pencil className="h-3 w-3" />
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function AccountingPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [invoices, setInvoices] = useState<InvoiceWithDetails[]>([])
@@ -65,6 +147,9 @@ export default function AccountingPage() {
   const [isExporting, setIsExporting] = useState(false)
   const [showSendDialog, setShowSendDialog] = useState(false)
   const [isSendingReport, setIsSendingReport] = useState(false)
+  const [manualEntries, setManualEntries] = useState<Record<string, number>>({})
+  const [practitionerId, setPractitionerId] = useState<string | null>(null)
+  const [showManualCorrections, setShowManualCorrections] = useState(false)
   const { toast } = useToast()
   const db = createClient()
 
@@ -167,6 +252,44 @@ export default function AccountingPage() {
             totalConsultations > 0 ? totalRevenue / totalConsultations : 0,
           revenueByMethod,
         })
+
+        // Fetch manual revenue entries for the period
+        try {
+          const { data: practUser } = await db.auth.getUser()
+          if (practUser.user) {
+            const { data: practRow } = await db
+              .from('practitioners')
+              .select('id')
+              .eq('user_id', practUser.user.id)
+              .single()
+            if (practRow) {
+              setPractitionerId(practRow.id)
+              const start = new Date(startDate)
+              const end = new Date(endDate)
+              const newManual: Record<string, number> = {}
+              for (
+                let d = new Date(start.getFullYear(), start.getMonth(), 1);
+                d <= end;
+                d.setMonth(d.getMonth() + 1)
+              ) {
+                const yr = d.getFullYear()
+                const mo = d.getMonth() + 1
+                const key = `${yr}-${mo}`
+                const { data: mrows } = await db
+                  .from('manual_revenue_entries')
+                  .select('amount')
+                  .eq('practitioner_id', practRow.id)
+                  .eq('year', yr)
+                  .eq('month', mo)
+                  .single()
+                if (mrows) newManual[key] = mrows.amount
+              }
+              setManualEntries(newManual)
+            }
+          }
+        } catch {
+          // non-blocking
+        }
       } catch (error) {
         console.error('Error fetching accounting data:', error)
         toast({
@@ -391,6 +514,22 @@ export default function AccountingPage() {
     }
   }
 
+  const totalManual = Object.values(manualEntries).reduce((s, v) => s + v, 0)
+
+  // Build list of months in current date range for corrections UI
+  const monthsInRange: { year: number; month: number }[] = []
+  if (period !== 'day' && period !== 'week') {
+    const s = new Date(startDate)
+    const e = new Date(endDate)
+    for (
+      let d = new Date(s.getFullYear(), s.getMonth(), 1);
+      d <= e;
+      d.setMonth(d.getMonth() + 1)
+    ) {
+      monthsInRange.push({ year: d.getFullYear(), month: d.getMonth() + 1 })
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -502,10 +641,24 @@ export default function AccountingPage() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {formatCurrency(summary.totalRevenue)}
-              </div>
-              <p className="text-xs text-muted-foreground">
+              {totalManual > 0 ? (
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground">
+                    CA facturé : {formatCurrency(summary.totalRevenue)}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    + Corrections manuelles : {formatCurrency(totalManual)}
+                  </div>
+                  <div className="text-2xl font-bold">
+                    = {formatCurrency(summary.totalRevenue + totalManual)}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-2xl font-bold">
+                  {formatCurrency(summary.totalRevenue)}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">
                 Période du {formatDate(startDate)} au {formatDate(endDate)}
               </p>
             </CardContent>
