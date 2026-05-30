@@ -19,6 +19,26 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.5.0',
+    date: '2026-05-30',
+    title: 'E-Learning intégré, Communication IA, Tests orthos & refonte interface',
+    changes: [
+      { type: 'feature', text: 'Module E-Learning : retrouvez toutes vos formations OsteoUpgrade directement dans MyOsteoFlow — liste complète des cours avec votre progression, lecteur intégré chapitre par chapitre et barre de progression synchronisée dans le widget du tableau de bord.' },
+      { type: 'feature', text: 'Module Communication : générez des courriers patients personnalisés grâce à l\'IA — sélecteur de patient, liaison à une consultation, templates prédéfinis, mise en page structurée (expéditeur/destinataire/objet/formule de clôture) et export PDF.' },
+      { type: 'feature', text: 'Suggestions de tests orthopédiques par IA : nouveau bouton "Tests orthos" dans la consultation pour obtenir des recommandations de tests cliniques adaptés au motif de la séance.' },
+      { type: 'feature', text: 'Tableau de bord OsteoUpgrade : widget "Revue de littérature" (dernier article) + widget "Nouveauté" (formation mise en avant avec progression) encadrent la vidéo de pratique du jour.' },
+      { type: 'feature', text: 'Alerte anniversaire : une bannière apparaît automatiquement sur la fiche patient et lors de la création d\'une consultation le jour de l\'anniversaire du patient.' },
+      { type: 'feature', text: 'Broadcasts en temps réel : les annonces publiées par l\'équipe OsteoUpgrade s\'affichent dans la cloche de notifications avec mise à jour automatique.' },
+      { type: 'feature', text: 'Widget support flottant : bouton d\'aide déplaçable accessible depuis toutes les pages pour envoyer un ticket directement depuis l\'application.' },
+      { type: 'improvement', text: 'Interface unifiée : Patients et Consultations regroupés sur une seule page avec onglets ; Sondages et Messagerie fusionnés en une section Communication.' },
+      { type: 'improvement', text: 'Import CSV : nouvelle étape 2 pour envoyer le fichier brut au support pour transformation et réimport propre.' },
+      { type: 'improvement', text: 'Montants et modes de paiement éditables inline dans la ligne de consultation (icône crayon + pill cliquable).' },
+      { type: 'improvement', text: 'Âge du patient affiché à côté de la date de naissance dans la fiche de consultation (ex : "12 mars 1990 · 35 ans").' },
+      { type: 'fix', text: 'Recherche patient insensible aux accents : "epaule" trouve désormais "épaule" et inversement.' },
+      { type: 'fix', text: 'Synchronisation de la progression OsteoUpgrade : utilise l\'email de licence en priorité pour un suivi correct même si l\'email praticien diffère.' },
+    ],
+  },
+  {
     version: '1.4.0',
     date: '2026-05-30',
     title: 'Complétude du profil, motifs intelligents & nouveautés',
