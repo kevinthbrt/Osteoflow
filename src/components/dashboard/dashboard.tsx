@@ -20,6 +20,7 @@ import { BirthdayWidget } from './widgets/birthday-widget'
 import { StatusWidget } from './widgets/status-widget'
 import { ReviewWidget, FeaturedFormationWidget, type WidgetsData } from './widgets/osteoupgrade-widgets'
 import { BannerWeather } from './banner-weather'
+import { ProfileCompletionWidget } from './profile-completion-widget'
 
 import type { Practitioner } from '@/types/database'
 
@@ -122,6 +123,9 @@ export function Dashboard({
           <BannerWeather />
         </div>
       </div>
+
+      {/* ── Complétude du profil ── */}
+      <ProfileCompletionWidget />
 
       {/* ── Row 1 : Revue (gauche) · Vidéo (centre) · Nouveauté (droite) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
