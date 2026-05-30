@@ -24,10 +24,12 @@ export async function GET() {
     }
 
     if (!proxyRes.ok) {
+      console.error('[broadcasts] proxy non-ok:', proxyRes.status)
       return NextResponse.json({ broadcasts: [] }, { headers: { 'Cache-Control': 'no-store' } })
     }
 
     const data = await proxyRes.json()
+    console.log('[broadcasts] proxy returned', data.broadcasts?.length ?? 0, 'broadcasts')
 
     // Read locally-seen IDs from SQLite and compute unseen list here on the server
     try {
@@ -36,11 +38,14 @@ export async function GET() {
         .prepare("SELECT value FROM app_config WHERE key = 'broadcast_seen_ids'")
         .get() as { value: string } | undefined
       const seenIds: string[] = row?.value ? JSON.parse(row.value) : []
+      console.log('[broadcasts] seenIds in SQLite:', seenIds)
       const seenSet = new Set(seenIds)
       const broadcasts = data.broadcasts ?? []
       const unseen = broadcasts.filter((b: { id: string }) => !seenSet.has(b.id))
+      console.log('[broadcasts] unseen count:', unseen.length)
       return NextResponse.json({ broadcasts, unseen }, { headers: { 'Cache-Control': 'no-store' } })
-    } catch {
+    } catch (e) {
+      console.error('[broadcasts] SQLite error:', e)
       return NextResponse.json({ broadcasts: data.broadcasts ?? [], unseen: data.broadcasts ?? [] }, { headers: { 'Cache-Control': 'no-store' } })
     }
   } catch {
