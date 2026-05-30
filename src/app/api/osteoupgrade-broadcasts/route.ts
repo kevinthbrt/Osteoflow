@@ -29,6 +29,7 @@ export async function GET() {
     }
 
     const data = await proxyRes.json()
+    console.log('[broadcasts] proxy status:', proxyRes.status, '| raw:', JSON.stringify(data))
     console.log('[broadcasts] proxy returned', data.broadcasts?.length ?? 0, 'broadcasts')
 
     // Read locally-seen IDs from SQLite and compute unseen list here on the server
