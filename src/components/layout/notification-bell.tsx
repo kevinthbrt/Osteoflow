@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { Button } from '@/components/ui/button'
@@ -91,6 +92,8 @@ export function NotificationBell() {
   const router = useRouter()
   const db = createClient()
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
   // Mail notifications
   const [mailNotifs, setMailNotifs] = useState<MailNotification[]>([])
@@ -410,6 +413,7 @@ export function NotificationBell() {
                     <button
                       key={b.id}
                       onClick={() => {
+                        setOpen(false)
                         setSelectedBroadcast(b)
                         if (isUnread) markBroadcastSeen(b.id)
                       }}
@@ -718,14 +722,14 @@ export function NotificationBell() {
         </PopoverContent>
       </Popover>
 
-      {/* Broadcast detail modal */}
-      {selectedBroadcast && (
+      {/* Broadcast detail modal — rendered via Portal to escape header's backdrop-blur stacking context */}
+      {mounted && selectedBroadcast && createPortal(
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedBroadcast(null)} />
           <div className="relative z-10 w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             {selectedBroadcast.image_url && !selectedBroadcast.video_url && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={selectedBroadcast.image_url} alt={selectedBroadcast.title} className="w-full h-52 object-cover" />
+              <img src={selectedBroadcast.image_url} alt={selectedBroadcast.title} className="w-full max-h-64 object-contain bg-slate-100 shrink-0" />
             )}
             {selectedBroadcast.video_url && (
               <video src={selectedBroadcast.video_url} controls className="w-full max-h-56 bg-black" />
@@ -750,7 +754,7 @@ export function NotificationBell() {
               </div>
               <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">{selectedBroadcast.body}</p>
             </div>
-            <div className="border-t border-border/40 px-6 py-4 bg-muted/30 flex justify-end">
+            <div className="border-t border-border/40 px-6 py-4 bg-muted/30 flex justify-end shrink-0">
               <Button
                 size="sm"
                 onClick={() => setSelectedBroadcast(null)}
@@ -760,7 +764,8 @@ export function NotificationBell() {
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

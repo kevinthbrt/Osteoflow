@@ -97,7 +97,7 @@ export default function LoginPage() {
         description: `Connecté en tant que ${practitioner.first_name} ${practitioner.last_name}`,
       })
 
-      router.push('/patients')
+      router.push('/dashboard')
       router.refresh()
     } catch {
       toast({
@@ -173,7 +173,7 @@ export default function LoginPage() {
         description: `Bienvenue, ${firstName} ${lastName} !`,
       })
 
-      router.push('/patients')
+      router.push('/dashboard')
       router.refresh()
     } catch (error) {
       console.error('Error creating practitioner:', error)

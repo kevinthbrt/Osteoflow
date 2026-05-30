@@ -19,6 +19,16 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.5.1',
+    date: '2026-05-30',
+    title: 'Correctifs : page d\'accueil, diffusions & affichage des annonces',
+    changes: [
+      { type: 'fix', text: 'Page d\'accueil au lancement : l\'application ouvre désormais le Dashboard au lieu de la liste des patients.' },
+      { type: 'fix', text: 'Synchronisation des diffusions : les annonces supprimées disparaissent correctement et les nouvelles apparaissent immédiatement (correction d\'un cache qui figeait la liste).' },
+      { type: 'fix', text: 'Affichage des annonces : la fenêtre d\'une diffusion ouverte depuis la cloche de notifications ne dépasse plus de l\'écran.' },
+    ],
+  },
+  {
     version: '1.5.0',
     date: '2026-05-30',
     title: 'E-Learning intégré, Communication IA, Tests orthos, Étiopathes & refonte interface',
