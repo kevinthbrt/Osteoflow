@@ -11,6 +11,7 @@ import { ConsultationTimeline } from '@/components/consultations/consultation-ti
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 import { DraftResumeBanner } from '@/components/consultations/draft-resume-banner'
 import { ExercisePrescriptionSection } from '@/components/exercises/exercise-prescription-section'
+import { UnarchiveButton } from '@/components/patients/unarchive-button'
 
 interface PatientPageProps {
   params: Promise<{ id: string }>
@@ -77,6 +78,12 @@ export default async function PatientPage({ params }: PatientPageProps) {
           </div>
         </div>
         <div className="flex gap-2">
+          {patient.archived_at && (
+            <UnarchiveButton
+              patientId={id}
+              patientName={`${patient.first_name} ${patient.last_name}`}
+            />
+          )}
           <Button variant="outline" asChild>
             <Link href={`/patients/${id}/edit`}>
               <Edit className="mr-2 h-4 w-4" />
