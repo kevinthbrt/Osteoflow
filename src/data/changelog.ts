@@ -31,6 +31,7 @@ export const changelog: ChangelogEntry[] = [
       { type: 'feature', text: 'Alerte anniversaire : une bannière apparaît automatiquement sur la fiche patient et lors de la création d\'une consultation le jour de l\'anniversaire du patient.' },
       { type: 'feature', text: 'Broadcasts en temps réel : les annonces publiées par l\'équipe OsteoUpgrade s\'affichent dans la cloche de notifications avec mise à jour automatique.' },
       { type: 'feature', text: 'Widget support flottant : bouton d\'aide déplaçable accessible depuis toutes les pages pour envoyer un ticket directement depuis l\'application.' },
+      { type: 'feature', text: 'Widget « Complétez votre profil » sur le tableau de bord : barre de progression et liste des informations manquantes (profil, cabinet, facturation, email, objectifs) avec accès direct à chaque section. Disparaît automatiquement une fois le profil complet à 100%.' },
       { type: 'improvement', text: 'Interface unifiée : Patients et Consultations regroupés sur une seule page avec onglets ; Sondages et Messagerie fusionnés en une section Communication.' },
       { type: 'improvement', text: 'Import CSV : nouvelle étape 2 pour envoyer le fichier brut au support pour transformation et réimport propre.' },
       { type: 'improvement', text: 'Montants et modes de paiement éditables inline dans la ligne de consultation (icône crayon + pill cliquable).' },
