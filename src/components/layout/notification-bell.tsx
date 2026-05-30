@@ -17,8 +17,20 @@ import {
   Sparkles,
   Bug,
   Zap,
+  Megaphone,
+  ChevronRight,
 } from 'lucide-react'
 import { changelog, type ChangelogEntry } from '@/data/changelog'
+
+interface Broadcast {
+  id: string
+  title: string
+  body: string
+  image_url: string | null
+  video_url: string | null
+  target: 'osteoflow' | 'osteoupgrade' | 'both'
+  created_at: string
+}
 
 interface ElectronAPI {
   isDesktop: boolean
@@ -95,6 +107,11 @@ export function NotificationBell() {
 
   // Changelog / "Nouveautés" — entries newer than the last acknowledged version
   const [unseenChangelog, setUnseenChangelog] = useState<ChangelogEntry[]>([])
+
+  // Broadcasts from OsteoUpgrade admin
+  const [broadcasts, setBroadcasts] = useState<Broadcast[]>([])
+  const [unseenBroadcastIds, setUnseenBroadcastIds] = useState<Set<string>>(new Set())
+  const [selectedBroadcast, setSelectedBroadcast] = useState<Broadcast | null>(null)
 
   // Ephemeral toast
   const [ephemeralMessage, setEphemeralMessage] = useState<string | null>(null)
@@ -214,6 +231,29 @@ export function NotificationBell() {
     }
   }, [])
 
+  // Fetch broadcasts from OsteoUpgrade (via proxy)
+  const fetchBroadcasts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/osteoupgrade-broadcasts', { cache: 'no-store' })
+      if (!res.ok) return
+      const { broadcasts: all, unseen } = await res.json()
+      setBroadcasts(all ?? [])
+      setUnseenBroadcastIds(new Set((unseen ?? []).map((b: Broadcast) => b.id)))
+    } catch { /* silent — not critical */ }
+  }, [])
+
+  // Mark a broadcast as seen via proxy
+  const markBroadcastSeen = useCallback(async (id: string) => {
+    try {
+      await fetch('/api/osteoupgrade-broadcast-seen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      setUnseenBroadcastIds(prev => { const next = new Set(prev); next.delete(id); return next })
+    } catch { /* silent */ }
+  }, [])
+
   // Mark all changelog entries as seen (persist the latest version)
   const acknowledgeChangelog = useCallback(async () => {
     if (changelog.length === 0) return
@@ -265,17 +305,19 @@ export function NotificationBell() {
     fetchMailNotifs()
     fetchSurveyNotifs()
     fetchChangelogNotifs()
+    fetchBroadcasts()
 
     const interval = setInterval(() => {
       fetchMailNotifs()
       fetchSurveyNotifs()
-    }, 30000)
+      fetchBroadcasts()
+    }, 60000)
 
     return () => clearInterval(interval)
-  }, [fetchMailNotifs, fetchSurveyNotifs, fetchChangelogNotifs])
+  }, [fetchMailNotifs, fetchSurveyNotifs, fetchChangelogNotifs, fetchBroadcasts])
 
   const totalUnreadMails = mailNotifs.reduce((sum, n) => sum + n.unreadCount, 0)
-  const totalCount = totalUnreadMails + surveyNotifs.length + unseenChangelog.length + (updateNotif.state !== 'idle' ? 1 : 0)
+  const totalCount = totalUnreadMails + surveyNotifs.length + unseenChangelog.length + unseenBroadcastIds.size + (updateNotif.state !== 'idle' ? 1 : 0)
 
   const handleInstallUpdate = () => {
     const api = (window as unknown as { electronAPI?: ElectronAPI }).electronAPI
@@ -348,6 +390,48 @@ export function NotificationBell() {
           </div>
 
           <div className="max-h-96 overflow-y-auto">
+            {/* Broadcasts / Annonces admin */}
+            {broadcasts.length > 0 && (
+              <div className="border-b border-border/40">
+                <div className="px-4 py-2 bg-muted/30 flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Megaphone className="h-3 w-3" />
+                    Annonces
+                    {unseenBroadcastIds.size > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 rounded-full bg-blue-500 text-white text-[9px] font-bold leading-none">
+                        {unseenBroadcastIds.size}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                {broadcasts.slice(0, 3).map(b => {
+                  const isUnread = unseenBroadcastIds.has(b.id)
+                  return (
+                    <button
+                      key={b.id}
+                      onClick={() => {
+                        setSelectedBroadcast(b)
+                        if (isUnread) markBroadcastSeen(b.id)
+                      }}
+                      className={`w-full text-left px-4 py-2.5 hover:bg-accent/50 transition-colors flex items-start gap-3 border-b border-border/20 last:border-0 ${isUnread ? '' : 'opacity-60'}`}
+                    >
+                      <div className="mt-0.5 h-8 w-8 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center shrink-0">
+                        <Megaphone className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className={`text-sm font-medium truncate ${isUnread ? '' : 'text-muted-foreground'}`}>{b.title}</p>
+                          {isUnread && <span className="shrink-0 w-2 h-2 rounded-full bg-blue-500" />}
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{b.body}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0 mt-1" />
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
             {/* Update notification */}
             {updateNotif.state !== 'idle' && (
               <div className="border-b border-border/40">
@@ -633,6 +717,51 @@ export function NotificationBell() {
           )}
         </PopoverContent>
       </Popover>
+
+      {/* Broadcast detail modal */}
+      {selectedBroadcast && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedBroadcast(null)} />
+          <div className="relative z-10 w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            {selectedBroadcast.image_url && !selectedBroadcast.video_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={selectedBroadcast.image_url} alt={selectedBroadcast.title} className="w-full h-52 object-cover" />
+            )}
+            {selectedBroadcast.video_url && (
+              <video src={selectedBroadcast.video_url} controls className="w-full max-h-56 bg-black" />
+            )}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
+                    <Megaphone className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold text-blue-600 uppercase tracking-wide">Annonce</p>
+                    <h2 className="font-bold text-foreground text-lg leading-tight">{selectedBroadcast.title}</h2>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedBroadcast(null)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">{selectedBroadcast.body}</p>
+            </div>
+            <div className="border-t border-border/40 px-6 py-4 bg-muted/30 flex justify-end">
+              <Button
+                size="sm"
+                onClick={() => setSelectedBroadcast(null)}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:opacity-90"
+              >
+                Fermer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

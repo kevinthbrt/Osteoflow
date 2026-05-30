@@ -10,6 +10,7 @@ import { BackupReminderDialog } from '@/components/layout/backup-reminder-dialog
 import { CguModal } from '@/components/legal/cgu-modal'
 import { TourWrapper } from '@/components/layout/tour-wrapper'
 import { SupportWidget } from '@/components/support/support-widget'
+import { BroadcastModal } from '@/components/layout/broadcast-modal'
 
 export const dynamic = 'force-dynamic'
 
@@ -86,6 +87,7 @@ export default async function DashboardLayout({
         <WhatsNewDialog />
         <BackupReminderDialog />
         <CguModal />
+        <BroadcastModal />
         <LicenseGuard />
         <InactivityTimer timeoutMs={inactivityTimeoutMs} />
         <SupportWidget userEmail={licenseEmail} />
