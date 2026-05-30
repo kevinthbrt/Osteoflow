@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { Button } from '@/components/ui/button'
@@ -91,6 +92,8 @@ export function NotificationBell() {
   const router = useRouter()
   const db = createClient()
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
   // Mail notifications
   const [mailNotifs, setMailNotifs] = useState<MailNotification[]>([])
@@ -719,8 +722,8 @@ export function NotificationBell() {
         </PopoverContent>
       </Popover>
 
-      {/* Broadcast detail modal */}
-      {selectedBroadcast && (
+      {/* Broadcast detail modal — rendered via Portal to escape header's backdrop-blur stacking context */}
+      {mounted && selectedBroadcast && createPortal(
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedBroadcast(null)} />
           <div className="relative z-10 w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -761,7 +764,8 @@ export function NotificationBell() {
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
