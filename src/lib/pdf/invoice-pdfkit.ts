@@ -95,10 +95,10 @@ export async function generateInvoicePdf(data: InvoicePDFData): Promise<Uint8Arr
     ? data.practitionerRegistrations
     : (data.practitionerRpps ? [{ label: 'RPPS', value: data.practitionerRpps }] : [])
   registrations.forEach((reg, idx) => {
-    if (idx > 0) practY += 14
-    doc.fontSize(8).fillColor(colors.textMuted).text(reg.label, margin, practY)
-    practY += 10
-    doc.fontSize(9).fillColor(colors.textLight).text(reg.value, margin, practY)
+    if (idx > 0) practY += 4
+    doc.fontSize(8).fillColor(colors.textMuted).text(`${reg.label} : `, margin, practY, { continued: true })
+      .fillColor(colors.textLight).text(reg.value, { continued: false })
+    practY += 12
   })
 
   // TITRE "REÇU" à droite
