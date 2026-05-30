@@ -870,30 +870,38 @@ export default function StatisticsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-48 flex items-end gap-1">
-                      {revenueStats?.by_month && revenueStats.by_month.length > 0 ? (
-                        revenueStats.by_month.map(({ year, month, total }) => {
-                          const maxTotal = Math.max(...revenueStats.by_month.map(m => m.total), 1)
-                          const height = (total / maxTotal) * 100
-                          return (
-                            <div key={`${year}-${month}`} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                              <span className="text-xs font-medium">
-                                {total > 0 ? `${Math.round(total)}€` : '-'}
-                              </span>
-                              <div
-                                className="w-full bg-gradient-to-t from-green-600 to-green-400 rounded-t transition-all hover:opacity-80"
-                                style={{ height: `${Math.max(height, total > 0 ? 4 : 0)}%` }}
-                              />
-                              <span className="text-[10px] text-muted-foreground truncate">
-                                {monthNames[month - 1]} {year.toString().slice(2)}
-                              </span>
-                            </div>
-                          )
-                        })
-                      ) : (
-                        <p className="w-full text-center text-muted-foreground py-8">Aucune donnée</p>
-                      )}
-                    </div>
+                    {revenueStats?.by_month && revenueStats.by_month.length > 0 ? (
+                      (() => {
+                        const maxTotal = Math.max(...revenueStats.by_month.map(m => m.total), 1)
+                        return (
+                          <div className="h-48 flex items-end gap-1">
+                            {revenueStats.by_month.map(({ year, month, total }) => {
+                              const height = (total / maxTotal) * 100
+                              return (
+                                <div key={`${year}-${month}`} className="flex-1 flex flex-col items-center min-w-0 h-full">
+                                  <span className="text-xs font-medium mb-1">
+                                    {total > 0 ? `${Math.round(total)}€` : '-'}
+                                  </span>
+                                  <div className="flex-1 w-full flex items-end">
+                                    <div
+                                      className="w-full bg-gradient-to-t from-green-600 to-green-400 rounded-t transition-all hover:opacity-80"
+                                      style={{ height: `${Math.max(height, total > 0 ? 2 : 0)}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-[10px] text-muted-foreground truncate mt-1">
+                                    {monthNames[month - 1]} {year.toString().slice(2)}
+                                  </span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      })()
+                    ) : (
+                      <div className="h-48 flex items-center justify-center">
+                        <p className="text-muted-foreground">Aucune donnée</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 

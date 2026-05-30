@@ -724,7 +724,7 @@ export default function AccountingPage() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Pencil className="h-5 w-5" />
-                  Corrections manuelles (CA non facturé)
+                  Corrections manuelles (CA corrigé)
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
                   Les corrections s&apos;appliquent par mois et s&apos;ajoutent au CA facturé.
