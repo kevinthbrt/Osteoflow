@@ -716,6 +716,52 @@ export default function AccountingPage() {
         </div>
       ) : null}
 
+      {/* Manual Revenue Corrections */}
+      {period !== 'day' && period !== 'week' && monthsInRange.length > 0 && practitionerId && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Pencil className="h-5 w-5" />
+                  Corrections manuelles (CA non facturé)
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Les corrections s&apos;appliquent par mois et s&apos;ajoutent au CA facturé.
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowManualCorrections(!showManualCorrections)}>
+                {showManualCorrections ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </div>
+          </CardHeader>
+          {showManualCorrections && (
+            <CardContent>
+              <div className="flex text-xs font-medium text-muted-foreground mb-2 pb-1 border-b">
+                <span className="flex-1">Mois</span>
+                <span className="w-36 text-right pr-10">Correction (€)</span>
+              </div>
+              {monthsInRange.map(({ year, month }) => (
+                <EditableMonthRow
+                  key={`${year}-${month}`}
+                  year={year}
+                  month={month}
+                  initialValue={manualEntries[`${year}-${month}`] ?? 0}
+                  practitionerId={practitionerId}
+                  onSaved={(key, value) => setManualEntries((prev) => ({ ...prev, [key]: value }))}
+                />
+              ))}
+              {totalManual > 0 && (
+                <div className="flex items-center justify-between pt-3 mt-2 border-t font-semibold">
+                  <span className="text-sm">Total corrections</span>
+                  <span className="text-sm">{formatCurrency(totalManual)}</span>
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
+      )}
+
       {/* Daily Recap Table */}
       <Card>
         <CardHeader>
