@@ -67,7 +67,7 @@ export function ReviewWidget({
           <RefreshCw className={`h-3 w-3 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
         </button>
       </CardHeader>
-      <CardContent className="px-4 pb-4 flex-1 flex flex-col">
+      <CardContent className="px-4 pb-4 flex-1 flex flex-col justify-center">
         {loading ? (
           <div className="space-y-2">
             <div className="h-24 bg-muted/40 rounded animate-pulse mb-2" />
@@ -80,7 +80,7 @@ export function ReviewWidget({
             href={`${OSTEOUPGRADE_URL}/elearning/revue-litterature`}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex flex-col flex-1 gap-1.5"
+            className="group flex flex-col gap-1.5"
           >
             {review.image_url && (
               // eslint-disable-next-line @next/next/no-img-element
@@ -102,11 +102,11 @@ export function ReviewWidget({
               </Badge>
             )}
             {review.summary && (
-              <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed flex-1">
+              <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
                 {review.summary}
               </p>
             )}
-            <span className="text-xs text-primary flex items-center gap-1 mt-auto pt-1">
+            <span className="text-xs text-primary flex items-center gap-1 pt-1">
               Lire sur OsteoUpgrade <ExternalLink className="h-2.5 w-2.5" />
             </span>
           </a>
@@ -154,7 +154,7 @@ export function FeaturedFormationWidget({
           Nouveauté OsteoUpgrade
         </CardTitle>
       </CardHeader>
-      <CardContent className="px-4 pb-4 flex-1 flex flex-col">
+      <CardContent className="px-4 pb-4 flex-1 flex flex-col justify-center">
         {loading ? (
           <div className="space-y-2">
             <div className="h-24 bg-muted/40 rounded animate-pulse mb-2" />
@@ -162,7 +162,7 @@ export function FeaturedFormationWidget({
             <div className="h-3 bg-muted/40 rounded animate-pulse w-2/3" />
           </div>
         ) : formation ? (
-          <div className="flex flex-col flex-1 gap-3">
+          <div className="flex flex-col gap-3">
             {formation.photo_url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -171,7 +171,7 @@ export function FeaturedFormationWidget({
                 className="w-full h-24 object-cover rounded-md"
               />
             )}
-            <div className="flex-1">
+            <div>
               <p className="text-sm font-medium leading-snug line-clamp-2">{formation.title}</p>
               {formation.description && (
                 <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
