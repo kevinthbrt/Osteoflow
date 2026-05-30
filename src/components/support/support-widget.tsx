@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MessageCircleQuestion, X, ArrowLeft, Paperclip, Loader2, CheckCircle, Clock, Wrench, ChevronRight } from 'lucide-react'
+import { MessageCircleQuestion, X, ArrowLeft, Paperclip, Loader2, CheckCircle, Clock, Wrench, ChevronRight, MessageSquareReply } from 'lucide-react'
 
 interface Ticket {
   id: string
@@ -10,6 +10,8 @@ interface Ticket {
   status: 'pending' | 'in_progress' | 'resolved'
   created_at: string
   attachment_name?: string | null
+  admin_reply?: string | null
+  admin_replied_at?: string | null
 }
 
 const STATUS_CONFIG = {
@@ -208,17 +210,25 @@ export function SupportWidget({ userEmail }: SupportWidgetProps) {
                       const cfg = STATUS_CONFIG[t.status]
                       const Icon = cfg.icon
                       return (
-                        <div key={t.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                        <div key={t.id} className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
                           <div className="flex items-start justify-between gap-2">
                             <p className="text-sm font-medium text-slate-200 leading-tight">{t.title}</p>
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap ${cfg.color}`}>
                               <Icon className="w-3 h-3" />{cfg.label}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-500 mt-1">
+                          <p className="text-xs text-slate-500">
                             {new Date(t.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                             {t.attachment_name && <span className="ml-2"><Paperclip className="w-3 h-3 inline" /></span>}
                           </p>
+                          {t.admin_reply && (
+                            <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg p-2.5">
+                              <p className="text-xs font-semibold text-indigo-400 flex items-center gap-1 mb-1">
+                                <MessageSquareReply className="w-3 h-3" /> Réponse de l&apos;équipe
+                              </p>
+                              <p className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">{t.admin_reply}</p>
+                            </div>
+                          )}
                         </div>
                       )
                     })}

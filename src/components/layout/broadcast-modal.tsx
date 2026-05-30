@@ -51,6 +51,9 @@ export function BroadcastModal() {
 
   useEffect(() => {
     fetchUnseen()
+    // Poll every 90s for new broadcasts while the app is open
+    const interval = setInterval(fetchUnseen, 90_000)
+    return () => clearInterval(interval)
   }, [])
 
   const fetchUnseen = async () => {
@@ -59,8 +62,9 @@ export function BroadcastModal() {
       if (!res.ok) return
       const { unseen } = await res.json()
       if (unseen?.length) {
-        setQueue(unseen)
-        setIndex(0)
+        // Only update queue when not already showing something
+        setQueue(prev => prev.length > 0 ? prev : unseen)
+        setIndex(prev => prev)
       }
     } catch { /* silent */ }
   }
@@ -98,7 +102,7 @@ export function BroadcastModal() {
       <div className="relative z-10 w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {current.image_url && !current.video_url && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={current.image_url} alt={current.title} className="w-full h-52 object-cover" />
+          <img src={current.image_url} alt={current.title} className="w-full max-h-72 object-contain bg-slate-100" />
         )}
         {embedUrl && (
           <div className="aspect-video w-full">
