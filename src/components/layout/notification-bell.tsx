@@ -231,7 +231,7 @@ export function NotificationBell() {
     }
   }, [])
 
-  // Fetch broadcasts from OsteoUpgrade (via proxy)
+  // Fetch broadcasts from OsteoUpgrade (via proxy) — seen state tracked locally in SQLite
   const fetchBroadcasts = useCallback(async () => {
     try {
       const res = await fetch('/api/osteoupgrade-broadcasts', { cache: 'no-store' })
@@ -242,13 +242,13 @@ export function NotificationBell() {
     } catch { /* silent — not critical */ }
   }, [])
 
-  // Mark a broadcast as seen via proxy
+  // Mark a broadcast as seen in local SQLite
   const markBroadcastSeen = useCallback(async (id: string) => {
     try {
       await fetch('/api/osteoupgrade-broadcast-seen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ ids: [id] }),
       })
       setUnseenBroadcastIds(prev => { const next = new Set(prev); next.delete(id); return next })
     } catch { /* silent */ }

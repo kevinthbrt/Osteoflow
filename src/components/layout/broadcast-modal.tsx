@@ -35,12 +35,12 @@ function getEmbedUrl(url: string): string | null {
   return null
 }
 
-async function markSeen(id: string) {
+async function markSeenLocal(ids: string[]) {
   try {
     await fetch('/api/osteoupgrade-broadcast-seen', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ ids }),
     })
   } catch { /* silent */ }
 }
@@ -71,12 +71,12 @@ export function BroadcastModal() {
   const total = queue.length
 
   const handleClose = async () => {
-    await Promise.all(queue.map(b => markSeen(b.id)))
+    await markSeenLocal(queue.map(b => b.id))
     setQueue([])
   }
 
   const handleNext = async () => {
-    await markSeen(current.id)
+    await markSeenLocal([current.id])
     if (index < total - 1) {
       setIndex(i => i + 1)
     } else {

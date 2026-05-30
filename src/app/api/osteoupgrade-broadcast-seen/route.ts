@@ -3,35 +3,37 @@ import { getDatabase } from '@/lib/database/connection'
 
 export const dynamic = 'force-dynamic'
 
-const PROXY_BASE = 'https://osteoupgrade.vercel.app/api/osteoflow/broadcasts'
-const FALLBACK_SECRET = 'a8c0fcc6aa558582564131768fd6aa6b0628b84ac0abe494948b088f086be1a6'
+// GET  -> { seenIds: string[] }
+// POST { ids: string[] } -> persists seen broadcast IDs in SQLite
+export async function GET() {
+  try {
+    const db = getDatabase()
+    const row = db
+      .prepare("SELECT value FROM app_config WHERE key = 'broadcast_seen_ids'")
+      .get() as { value: string } | undefined
+    const seenIds: string[] = row?.value ? JSON.parse(row.value) : []
+    return NextResponse.json({ seenIds })
+  } catch {
+    return NextResponse.json({ seenIds: [] })
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { id } = await request.json()
-    if (!id) return NextResponse.json({ ok: false }, { status: 400 })
-
-    const secret = process.env.OSTEOFLOW_PROXY_SECRET || FALLBACK_SECRET
+    const { ids } = await request.json()
+    if (!Array.isArray(ids)) return NextResponse.json({ ok: false }, { status: 400 })
 
     const db = getDatabase()
+    // Read existing, merge, deduplicate
     const row = db
-      .prepare("SELECT value FROM app_config WHERE key = 'license_email'")
+      .prepare("SELECT value FROM app_config WHERE key = 'broadcast_seen_ids'")
       .get() as { value: string } | undefined
-    const email = row?.value
+    const existing: string[] = row?.value ? JSON.parse(row.value) : []
+    const merged = [...new Set([...existing, ...ids])]
 
-    if (!email) return NextResponse.json({ ok: false }, { status: 400 })
-
-    try {
-      await fetch(`${PROXY_BASE}/${id}/seen`, {
-        method: 'POST',
-        headers: {
-          'x-osteoflow-secret': secret,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-        signal: AbortSignal.timeout(10000),
-      })
-    } catch { /* silent — don't block UI */ }
+    db.prepare(
+      "INSERT INTO app_config (key, value) VALUES ('broadcast_seen_ids', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+    ).run(JSON.stringify(merged))
 
     return NextResponse.json({ ok: true })
   } catch {
