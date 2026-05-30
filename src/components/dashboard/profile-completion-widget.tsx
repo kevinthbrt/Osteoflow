@@ -49,7 +49,7 @@ export function ProfileCompletionWidget() {
   }
 
   return (
-    <Card className="border border-primary/30 border-l-4 border-l-primary bg-primary/5">
+    <Card className="border border-primary/30 border-l-4 border-l-primary bg-primary/5" data-tour="dashboard-completion">
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div>

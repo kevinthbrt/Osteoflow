@@ -162,6 +162,7 @@ export function SupportWidget({ userEmail }: SupportWidgetProps) {
     <>
       {/* FAB */}
       <button
+        data-tour="support-widget"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

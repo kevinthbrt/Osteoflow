@@ -150,6 +150,22 @@ export default function StatisticsPage() {
     try {
       const gender = genderFilter === 'all' ? null : genderFilter
 
+      // Get current practitioner id (needed for manual revenue entries)
+      let practitionerId: string | null = null
+      try {
+        const { data: authData } = await db.auth.getUser()
+        if (authData.user) {
+          const { data: practRow } = await db
+            .from('practitioners')
+            .select('id')
+            .eq('user_id', authData.user.id)
+            .single()
+          if (practRow) practitionerId = practRow.id
+        }
+      } catch {
+        // non-blocking: manual entries simply won't be added
+      }
+
       // Fetch patients
       let patientsQuery = db
         .from('patients')
@@ -281,9 +297,9 @@ export default function StatisticsPage() {
           yearMap[year].consultations++
           yearMap[year].patients.add(c.patient_id)
 
-          // Reason
-          const reason = normalizeReason(c.reason || 'Non spécifié')
-          reasonsMap[reason] = (reasonsMap[reason] || 0) + 1
+          // Reason (multi-keyword extraction)
+          const keywords = extractKeywords(c.reason || 'Non spécifié')
+          keywords.forEach((kw) => { reasonsMap[kw] = (reasonsMap[kw] || 0) + 1 })
 
           // Revenue
           const invoices = c.invoices as Array<{ amount: number; status: string; paid_at: string; payments: Array<{ method: string; amount: number }> }> | null
@@ -328,6 +344,32 @@ export default function StatisticsPage() {
             }))
             .sort((a, b) => a.year - b.year),
         })
+
+        // Fetch manual revenue entries and add them to monthlyRevenue
+        if (practitionerId) {
+          const startYear = new Date(startDate).getFullYear()
+          const endYear = new Date(endDate).getFullYear()
+          for (let yr = startYear; yr <= endYear; yr++) {
+            const { data: manualRows } = await db
+              .from('manual_revenue_entries')
+              .select('month, amount')
+              .eq('practitioner_id', practitionerId)
+              .eq('year', yr)
+            if (manualRows) {
+              for (const row of manualRows) {
+                const entryDate = new Date(yr, row.month - 1, 15)
+                if (entryDate >= new Date(`${startDate}T00:00:00`) && entryDate <= new Date(`${endDate}T23:59:59`)) {
+                  const revenueKey = `${yr}-${row.month}`
+                  if (!monthlyRevenue[revenueKey]) {
+                    monthlyRevenue[revenueKey] = { year: yr, month: row.month, total: 0, count: 0 }
+                  }
+                  monthlyRevenue[revenueKey].total += row.amount
+                  totalRevenue += row.amount
+                }
+              }
+            }
+          }
+        }
 
         const invoiceCount = Object.values(monthlyRevenue).reduce((sum, m) => sum + m.count, 0)
         setRevenueStats({
@@ -718,6 +760,9 @@ export default function StatisticsPage() {
                       <Activity className="h-5 w-5 text-primary" />
                       Top motifs de consultation
                     </CardTitle>
+                    <CardDescription>
+                      Un motif peut compter dans plusieurs catégories (ex : Lombalgie + Cervicalgie).
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2 max-h-64 overflow-y-auto">
