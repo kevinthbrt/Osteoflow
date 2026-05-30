@@ -19,6 +19,21 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.4.0',
+    date: '2026-05-30',
+    title: 'Complétude du profil, motifs intelligents & nouveautés',
+    changes: [
+      { type: 'feature', text: 'Nouveau widget « Complétez votre profil » sur le tableau de bord : barre de progression et liste des informations manquantes (profil, cabinet, facturation, email, objectifs) avec accès direct à chaque section. Il disparaît une fois le profil complet à 100%.' },
+      { type: 'feature', text: 'Statistiques : détection des motifs de consultation par mots-clés. Un motif comme « Lombalgie + Cervicalgie » est désormais comptabilisé dans les deux catégories, avec 22 catégories cliniques reconnues automatiquement.' },
+      { type: 'feature', text: 'Comptabilité : nouvelle section « Corrections manuelles (CA corrigé) » pour ajouter un chiffre d\'affaires non facturé par mois. Les corrections se propagent au total de la comptabilité, aux objectifs et aux statistiques.' },
+      { type: 'feature', text: 'Cloche de notifications : nouvelle rubrique « Nouveautés » qui vous signale les dernières fonctionnalités dès leur sortie.' },
+      { type: 'feature', text: 'Patients archivés : possibilité de désarchiver un patient (réactivation) depuis la liste et la fiche patient.' },
+      { type: 'improvement', text: 'Visite guidée enrichie et mise à jour avec les nouveaux modules (Communication, E-Learning, widget de complétude, support).' },
+      { type: 'fix', text: 'Factures étiopathes : correction de l\'affichage des numéros RPE et RNE qui débordaient sous le bandeau de couleur.' },
+      { type: 'fix', text: 'Statistiques : correction de l\'affichage des barres du diagramme de chiffre d\'affaires mensuel.' },
+    ],
+  },
+  {
     version: '1.3.4',
     date: '2026-05-28',
     title: 'Factures multi-professions & corrections',

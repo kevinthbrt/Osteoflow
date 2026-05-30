@@ -14,7 +14,11 @@ import {
   RefreshCw,
   X,
   CheckCheck,
+  Sparkles,
+  Bug,
+  Zap,
 } from 'lucide-react'
+import { changelog, type ChangelogEntry } from '@/data/changelog'
 
 interface ElectronAPI {
   isDesktop: boolean
@@ -53,6 +57,24 @@ interface UpdateNotification {
 
 const ratingEmojis = ['', '\u{1F622}', '\u{1F615}', '\u{1F610}', '\u{1F642}', '\u{1F601}']
 
+const changeTypeConfig = {
+  feature: { icon: Sparkles, className: 'text-emerald-600' },
+  fix: { icon: Bug, className: 'text-red-600' },
+  improvement: { icon: Zap, className: 'text-blue-600' },
+} as const
+
+// Compare semver-ish strings ("1.3.4"). Returns >0 if a>b, <0 if a<b, 0 if equal.
+function compareVersions(a: string, b: string): number {
+  const pa = a.split('.').map((n) => parseInt(n, 10) || 0)
+  const pb = b.split('.').map((n) => parseInt(n, 10) || 0)
+  const len = Math.max(pa.length, pb.length)
+  for (let i = 0; i < len; i++) {
+    const diff = (pa[i] || 0) - (pb[i] || 0)
+    if (diff !== 0) return diff
+  }
+  return 0
+}
+
 export function NotificationBell() {
   const router = useRouter()
   const db = createClient()
@@ -70,6 +92,9 @@ export function NotificationBell() {
     version: '',
     progress: 0,
   })
+
+  // Changelog / "Nouveautés" — entries newer than the last acknowledged version
+  const [unseenChangelog, setUnseenChangelog] = useState<ChangelogEntry[]>([])
 
   // Ephemeral toast
   const [ephemeralMessage, setEphemeralMessage] = useState<string | null>(null)
@@ -175,6 +200,36 @@ export function NotificationBell() {
     }
   }, [surveyNotifs])
 
+  // Fetch unseen changelog entries (newer than the last acknowledged version)
+  const fetchChangelogNotifs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/changelog/seen')
+      const { lastSeenVersion } = await res.json()
+      const unseen = lastSeenVersion
+        ? changelog.filter((e) => compareVersions(e.version, lastSeenVersion) > 0)
+        : changelog.slice(0, 1) // first visit: surface only the latest release
+      setUnseenChangelog(unseen)
+    } catch {
+      setUnseenChangelog([])
+    }
+  }, [])
+
+  // Mark all changelog entries as seen (persist the latest version)
+  const acknowledgeChangelog = useCallback(async () => {
+    if (changelog.length === 0) return
+    const latest = changelog[0].version
+    try {
+      await fetch('/api/changelog/seen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version: latest }),
+      })
+      setUnseenChangelog([])
+    } catch (error) {
+      console.error('Error acknowledging changelog:', error)
+    }
+  }, [])
+
   // Listen for Electron events (updates + survey sync)
   useEffect(() => {
     const api = (window as unknown as { electronAPI?: ElectronAPI }).electronAPI
@@ -209,6 +264,7 @@ export function NotificationBell() {
   useEffect(() => {
     fetchMailNotifs()
     fetchSurveyNotifs()
+    fetchChangelogNotifs()
 
     const interval = setInterval(() => {
       fetchMailNotifs()
@@ -216,10 +272,10 @@ export function NotificationBell() {
     }, 30000)
 
     return () => clearInterval(interval)
-  }, [fetchMailNotifs, fetchSurveyNotifs])
+  }, [fetchMailNotifs, fetchSurveyNotifs, fetchChangelogNotifs])
 
   const totalUnreadMails = mailNotifs.reduce((sum, n) => sum + n.unreadCount, 0)
-  const totalCount = totalUnreadMails + surveyNotifs.length + (updateNotif.state !== 'idle' ? 1 : 0)
+  const totalCount = totalUnreadMails + surveyNotifs.length + unseenChangelog.length + (updateNotif.state !== 'idle' ? 1 : 0)
 
   const handleInstallUpdate = () => {
     const api = (window as unknown as { electronAPI?: ElectronAPI }).electronAPI
@@ -340,6 +396,80 @@ export function NotificationBell() {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Changelog / Nouveautés */}
+            {unseenChangelog.length > 0 && (
+              <div className="border-b border-border/40">
+                <div className="px-4 py-2 bg-muted/30 flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3" />
+                    Nouveautés ({unseenChangelog.length})
+                  </p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      acknowledgeChangelog()
+                    }}
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                    title="Tout marquer comme lu"
+                  >
+                    <CheckCheck className="h-3 w-3" />
+                    Tout lu
+                  </button>
+                </div>
+                {unseenChangelog.slice(0, 3).map((entry) => (
+                  <button
+                    key={entry.version}
+                    onClick={() => {
+                      acknowledgeChangelog()
+                      setOpen(false)
+                      router.push('/changelog')
+                    }}
+                    className="w-full text-left px-4 py-2.5 hover:bg-accent/50 transition-colors flex items-start gap-3 border-b border-border/20 last:border-0"
+                  >
+                    <div className="mt-0.5 h-8 w-8 rounded-full bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center shrink-0">
+                      <Sparkles className="h-4 w-4 text-indigo-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">{entry.title}</p>
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5 shrink-0">
+                          v{entry.version}
+                        </Badge>
+                      </div>
+                      <ul className="mt-1 space-y-0.5">
+                        {entry.changes.slice(0, 3).map((change, i) => {
+                          const Icon = changeTypeConfig[change.type].icon
+                          return (
+                            <li key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                              <Icon className={`h-3 w-3 mt-0.5 shrink-0 ${changeTypeConfig[change.type].className}`} />
+                              <span className="line-clamp-2">{change.text}</span>
+                            </li>
+                          )
+                        })}
+                        {entry.changes.length > 3 && (
+                          <li className="text-xs text-muted-foreground/70 pl-[18px]">
+                            +{entry.changes.length - 3} autre{entry.changes.length - 3 > 1 ? 's' : ''}…
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  </button>
+                ))}
+                {unseenChangelog.length > 3 && (
+                  <button
+                    onClick={() => {
+                      acknowledgeChangelog()
+                      setOpen(false)
+                      router.push('/changelog')
+                    }}
+                    className="w-full text-center py-2 text-xs text-primary hover:underline"
+                  >
+                    Voir toutes les nouveautés
+                  </button>
+                )}
               </div>
             )}
 
