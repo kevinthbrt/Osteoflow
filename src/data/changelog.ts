@@ -21,11 +21,12 @@ export const changelog: ChangelogEntry[] = [
   {
     version: '1.5.0',
     date: '2026-05-30',
-    title: 'E-Learning intégré, Communication IA, Tests orthos & refonte interface',
+    title: 'E-Learning intégré, Communication IA, Tests orthos, Étiopathes & refonte interface',
     changes: [
       { type: 'feature', text: 'Module E-Learning : retrouvez toutes vos formations OsteoUpgrade directement dans MyOsteoFlow — liste complète des cours avec votre progression, lecteur intégré chapitre par chapitre et barre de progression synchronisée dans le widget du tableau de bord.' },
-      { type: 'feature', text: 'Module Communication : générez des courriers patients personnalisés grâce à l\'IA — sélecteur de patient, liaison à une consultation, templates prédéfinis, mise en page structurée (expéditeur/destinataire/objet/formule de clôture) et export PDF.' },
-      { type: 'feature', text: 'Suggestions de tests orthopédiques par IA : nouveau bouton "Tests orthos" dans la consultation pour obtenir des recommandations de tests cliniques adaptés au motif de la séance.' },
+      { type: 'feature', text: 'Module Communication — Génération de courriers par IA : rédigez des courriers patients en quelques secondes (compte-rendu, courrier médecin traitant…) grâce à un panel dédié. Sélecteur de patient et de consultation, templates prédéfinis, IA Claude génère le contenu, mise en page structurée (expéditeur/destinataire/objet/formule de clôture) et export PDF.' },
+      { type: 'feature', text: 'Suggestions de tests orthopédiques par IA : nouveau bouton "Tests orthos" dans le formulaire de consultation — entrez le motif et l\'IA propose les tests cliniques les plus adaptés, avec leur interprétation et leur pertinence, directement insérables dans la consultation.' },
+      { type: 'feature', text: 'Support complet des Étiopathes : nouveaux champs RPE et RNE dans les paramètres (remplacent le numéro RPPS) ; le titre professionnel s\'adapte automatiquement à la profession sélectionnée ; les numéros RPE et RNE apparaissent sur toutes les factures, ordonnances d\'exercices, emails de suivi et courriers générés.' },
       { type: 'feature', text: 'Tableau de bord OsteoUpgrade : widget "Revue de littérature" (dernier article) + widget "Nouveauté" (formation mise en avant avec progression) encadrent la vidéo de pratique du jour.' },
       { type: 'feature', text: 'Alerte anniversaire : une bannière apparaît automatiquement sur la fiche patient et lors de la création d\'une consultation le jour de l\'anniversaire du patient.' },
       { type: 'feature', text: 'Broadcasts en temps réel : les annonces publiées par l\'équipe OsteoUpgrade s\'affichent dans la cloche de notifications avec mise à jour automatique.' },
