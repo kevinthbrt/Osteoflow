@@ -606,7 +606,7 @@ export class QueryBuilder {
           params.push(cond.value)
           break
         case 'ilike':
-          clauses.push(`${cond.column} LIKE ? COLLATE NOCASE`)
+          clauses.push(`unaccent(${cond.column}) LIKE ?`)
           params.push(cond.value)
           break
         case 'in':
@@ -627,7 +627,7 @@ export class QueryBuilder {
                   params.push(oc.value)
                   break
                 case 'ilike':
-                  orParts.push(`${oc.column} LIKE ? COLLATE NOCASE`)
+                  orParts.push(`unaccent(${oc.column}) LIKE ?`)
                   params.push(oc.value)
                   break
                 case 'like':
