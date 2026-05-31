@@ -19,6 +19,14 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.5.2',
+    date: '2026-05-31',
+    title: 'Correctif : envoi du récapitulatif comptable',
+    changes: [
+      { type: 'fix', text: 'Envoi du récapitulatif comptable : correction d\'une erreur d\'authentification SMTP qui empêchait l\'envoi du PDF comptable pour les utilisateurs ayant configuré un mot de passe d\'application Gmail.' },
+    ],
+  },
+  {
     version: '1.5.1',
     date: '2026-05-30',
     title: 'Correctifs : page d\'accueil, diffusions & affichage des annonces',
