@@ -48,13 +48,31 @@ async function markSeenLocal(ids: string[]) {
 export function BroadcastModal() {
   const [queue, setQueue] = useState<Broadcast[]>([])
   const [index, setIndex] = useState(0)
+  const [cguReady, setCguReady] = useState(false)
 
   useEffect(() => {
+    // Don't show broadcasts until CGU is accepted
+    fetch('/api/legal/status', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(({ accepted }) => {
+        if (accepted) {
+          setCguReady(true)
+        } else {
+          const handler = () => setCguReady(true)
+          window.addEventListener('cgu-accepted', handler, { once: true })
+          return () => window.removeEventListener('cgu-accepted', handler)
+        }
+      })
+      .catch(() => setCguReady(true))
+  }, [])
+
+  useEffect(() => {
+    if (!cguReady) return
     fetchUnseen()
     // Poll every 90s for new broadcasts while the app is open
     const interval = setInterval(fetchUnseen, 90_000)
     return () => clearInterval(interval)
-  }, [])
+  }, [cguReady])
 
   const fetchUnseen = async () => {
     try {
