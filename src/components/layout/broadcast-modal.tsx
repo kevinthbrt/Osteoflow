@@ -51,19 +51,33 @@ export function BroadcastModal() {
   const [cguReady, setCguReady] = useState(false)
 
   useEffect(() => {
-    // Don't show broadcasts until CGU is accepted
-    fetch('/api/legal/status', { cache: 'no-store' })
-      .then(r => r.json())
-      .then(({ accepted }) => {
-        if (accepted) {
-          setCguReady(true)
-        } else {
-          const handler = () => setCguReady(true)
-          window.addEventListener('cgu-accepted', handler, { once: true })
-          return () => window.removeEventListener('cgu-accepted', handler)
+    // Don't show broadcasts until CGU is accepted and first-launch tour is done
+    const checkReady = async () => {
+      try {
+        const [legalRes, tourRes] = await Promise.all([
+          fetch('/api/legal/status', { cache: 'no-store' }).then(r => r.json()),
+          fetch('/api/tour/status', { cache: 'no-store' }).then(r => r.json()),
+        ])
+
+        if (!legalRes.accepted) {
+          // Wait for CGU, then re-check tour status
+          window.addEventListener('cgu-accepted', () => checkReady(), { once: true })
+          return
         }
-      })
-      .catch(() => setCguReady(true))
+
+        if (!tourRes.seen) {
+          // CGU done but tour will run — wait for it to finish
+          window.addEventListener('tour-completed', () => setCguReady(true), { once: true })
+          return
+        }
+
+        setCguReady(true)
+      } catch {
+        setCguReady(true)
+      }
+    }
+
+    checkReady()
   }, [])
 
   useEffect(() => {

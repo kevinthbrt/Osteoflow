@@ -220,6 +220,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     }
     await launchDriver(() => {
       fetch('/api/tour/status', { method: 'POST' }).catch(() => {})
+      window.dispatchEvent(new Event('tour-completed'))
     })
   }, [pathname, router])
 
