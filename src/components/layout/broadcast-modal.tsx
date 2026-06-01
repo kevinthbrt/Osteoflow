@@ -48,13 +48,45 @@ async function markSeenLocal(ids: string[]) {
 export function BroadcastModal() {
   const [queue, setQueue] = useState<Broadcast[]>([])
   const [index, setIndex] = useState(0)
+  const [cguReady, setCguReady] = useState(false)
 
   useEffect(() => {
+    // Don't show broadcasts until CGU is accepted and first-launch tour is done
+    const checkReady = async () => {
+      try {
+        const [legalRes, tourRes] = await Promise.all([
+          fetch('/api/legal/status', { cache: 'no-store' }).then(r => r.json()),
+          fetch('/api/tour/status', { cache: 'no-store' }).then(r => r.json()),
+        ])
+
+        if (!legalRes.accepted) {
+          // Wait for CGU, then re-check tour status
+          window.addEventListener('cgu-accepted', () => checkReady(), { once: true })
+          return
+        }
+
+        if (!tourRes.seen) {
+          // CGU done but tour will run — wait for it to finish
+          window.addEventListener('tour-completed', () => setCguReady(true), { once: true })
+          return
+        }
+
+        setCguReady(true)
+      } catch {
+        setCguReady(true)
+      }
+    }
+
+    checkReady()
+  }, [])
+
+  useEffect(() => {
+    if (!cguReady) return
     fetchUnseen()
     // Poll every 90s for new broadcasts while the app is open
     const interval = setInterval(fetchUnseen, 90_000)
     return () => clearInterval(interval)
-  }, [])
+  }, [cguReady])
 
   const fetchUnseen = async () => {
     try {
