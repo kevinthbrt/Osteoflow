@@ -19,6 +19,14 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.5.3',
+    date: '2026-06-01',
+    title: 'Correctif : diffusions bloquantes au premier login',
+    changes: [
+      { type: 'fix', text: 'Premier login : les diffusions n\'apparaissent plus par-dessus les CGU et la visite guidée. Elles s\'affichent désormais uniquement une fois l\'onboarding terminé.' },
+    ],
+  },
+  {
     version: '1.5.2',
     date: '2026-05-31',
     title: 'Correctif : envoi du récapitulatif comptable',
