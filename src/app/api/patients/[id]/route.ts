@@ -4,9 +4,10 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const { createClient } = await import('@/lib/db/server')
     const db = await createClient()
 
@@ -16,7 +17,7 @@ export async function GET(
     const { data: patient, error } = await db
       .from('patients')
       .select('id, first_name, last_name, birth_date, gender, profession, sport_activity, notes')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (error || !patient) return NextResponse.json({ error: 'Patient introuvable' }, { status: 404 })
@@ -26,7 +27,7 @@ export async function GET(
     const { data: historyEntries } = await db
       .from('medical_history_entries')
       .select('history_type, description, onset_age, note')
-      .eq('patient_id', params.id)
+      .eq('patient_id', id)
       .order('display_order', { ascending: true })
 
     const byType: Record<string, string[]> = { traumatic: [], medical: [], surgical: [], family: [] }
