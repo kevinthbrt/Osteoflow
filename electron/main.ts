@@ -431,15 +431,15 @@ app.whenReady().then(async () => {
   // Expose le chemin userData au serveur Next.js pour le cache Whisper
   process.env.ELECTRON_USER_DATA_PATH = app.getPath('userData')
 
-  // Allow microphone access for speech recognition (dictée IA).
+  // Allow media (microphone) and fullscreen permissions.
   // setPermissionRequestHandler: called when the page explicitly requests permission.
   // setPermissionCheckHandler: called when the page checks whether permission is already granted.
-  // Both must return true for webkitSpeechRecognition to work in Electron.
+  // Both must return true for webkitSpeechRecognition and iframe fullscreen (Vimeo) to work.
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-    callback(permission === 'media')
+    callback(permission === 'media' || permission === 'fullscreen')
   })
   session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
-    return permission === 'media'
+    return permission === 'media' || permission === 'fullscreen'
   })
 
   // Show window with splash screen immediately — no waiting
