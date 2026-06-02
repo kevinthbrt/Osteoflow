@@ -659,12 +659,12 @@ export function ConsultationForm({
                   <Stethoscope className="h-5 w-5 text-primary" />
                   <CardTitle className="text-lg">Contenu clinique</CardTitle>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="gap-1.5 text-muted-foreground hover:text-foreground"
+                    className="gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:text-sky-800 dark:border-sky-800/50 dark:bg-sky-950/40 dark:text-sky-300 dark:hover:bg-sky-900/50"
                     onClick={() => setShowTopography(true)}
                   >
                     <MapPin className="h-4 w-4" />
@@ -672,9 +672,9 @@ export function ConsultationForm({
                   </Button>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="gap-1.5 text-muted-foreground hover:text-foreground"
+                    className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
                     onClick={() => setShowTestsSuggestions(true)}
                   >
                     <Stethoscope className="h-4 w-4" />
@@ -682,9 +682,9 @@ export function ConsultationForm({
                   </Button>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="gap-1.5 text-muted-foreground hover:text-foreground"
+                    className="gap-1.5 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-800/50 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/50"
                     onClick={() => setShowExercises(true)}
                   >
                     <Dumbbell className="h-4 w-4" />
