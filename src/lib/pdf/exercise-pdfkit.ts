@@ -359,7 +359,7 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
   const footerParts = [data.practitionerName, data.practitionerCityLine].filter(Boolean).join('  ·  ')
   doc.font('Helvetica').fontSize(7.5).fillColor(C.textMuted).text(footerParts, ML, footerY)
   doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.primary)
-    .text('Osteoflow', PW - MR - 60, footerY, { width: 60, align: 'right' })
+    .text('MyOsteoFlow', PW - MR - 80, footerY, { width: 80, align: 'right' })
 
   doc.end()
   return done
