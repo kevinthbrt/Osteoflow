@@ -32,7 +32,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin, GitBranch, Dumbbell } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin, GitBranch, Dumbbell, Sparkles } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate, calculateAge } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
@@ -45,6 +45,7 @@ import { AnamnesisRecorder } from '@/components/consultations/anamnesis-recorder
 import { MarkdownField } from '@/components/ui/markdown-field'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
+import { AiExerciseGenerationDialog } from '@/components/exercises/ai-exercise-generation-dialog'
 import { TestsSuggestionsPanel } from '@/components/consultations/tests-suggestions-panel'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment, MedicalHistoryType } from '@/types/database'
 
@@ -107,6 +108,7 @@ export function ConsultationForm({
   const [showDecisionTree, setShowDecisionTree] = useState(false)
   const [showNeckTree, setShowNeckTree] = useState(false)
   const [showExercises, setShowExercises] = useState(false)
+  const [showAiExercises, setShowAiExercises] = useState(false)
   const [showTestsSuggestions, setShowTestsSuggestions] = useState(false)
 
   const now = new Date()
@@ -689,6 +691,16 @@ export function ConsultationForm({
                   >
                     <Dumbbell className="h-4 w-4" />
                     Exercices
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100 hover:text-fuchsia-800 dark:border-fuchsia-800/50 dark:bg-fuchsia-950/40 dark:text-fuchsia-300 dark:hover:bg-fuchsia-900/50"
+                    onClick={() => setShowAiExercises(true)}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Exercices par IA
                   </Button>
                 </div>
               </div>
@@ -1294,6 +1306,15 @@ export function ConsultationForm({
         patientId={currentPatient.id}
         patientName={`${currentPatient.first_name} ${currentPatient.last_name}`}
         consultationId={consultation?.id}
+      />
+      <AiExerciseGenerationDialog
+        open={showAiExercises}
+        onClose={() => setShowAiExercises(false)}
+        patientId={currentPatient.id}
+        patientName={`${currentPatient.first_name} ${currentPatient.last_name}`}
+        consultationId={consultation?.id}
+        consultationData={{ reason, anamnesis, examination }}
+        onSaved={() => {}}
       />
     </>
   )
