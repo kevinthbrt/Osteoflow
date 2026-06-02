@@ -690,16 +690,6 @@ export function ConsultationForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
-                    onClick={() => setShowOrthoTestsPicker(true)}
-                  >
-                    <Stethoscope className="h-4 w-4" />
-                    Tests orthos
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
                     className="gap-1.5 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-800/50 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/50"
                     onClick={() => setShowExercises(true)}
                   >
@@ -805,7 +795,19 @@ export function ConsultationForm({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="examination">Examen clinique et manipulations</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="examination">Examen clinique et manipulations</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+                    onClick={() => setShowOrthoTestsPicker(true)}
+                  >
+                    <Stethoscope className="h-4 w-4" />
+                    Tests orthos
+                  </Button>
+                </div>
                 <Textarea
                   id="examination"
                   data-autoresize
