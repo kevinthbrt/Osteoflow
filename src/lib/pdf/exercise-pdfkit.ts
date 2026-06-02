@@ -112,7 +112,7 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
     doc.rect(ML, curY, CW, 1).fill(C.borderLight)
     curY += SP.s
     doc.font('Helvetica-Oblique').fontSize(9).fillColor(C.textLight)
-      .text(data.notes, ML, curY, { width: CW })
+      .text(data.notes, ML, curY, { width: CW, lineGap: 2 })
     curY = doc.y + SP.l
   }
 
@@ -128,7 +128,7 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
   }
 
   // ── EXERCISE CARDS ──────────────────────────────────────────────────────
-  const IMG_SIZE = 76
+  const IMG_SIZE = 110
   const CIRCLE_R = 14
   // CIRCLE_CX: x center of the number circle
   const CIRCLE_CX = ML + CIRCLE_R          // = 62
@@ -233,16 +233,16 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
     // ── Nerve target & Progression/Regression ────────────────────────────
     if (item.nerve_target) {
       doc.font('Helvetica-Bold').fontSize(8).fillColor('#4F46E5')
-        .text('Cible nerveuse : ', CONTENT_X, curY, { continued: true, lineBreak: false })
+        .text('Cible nerveuse : ', CONTENT_X, curY, { continued: true })
       doc.font('Helvetica').fillColor(C.text)
-        .text(item.nerve_target, { width: CONTENT_W, lineBreak: false })
+        .text(item.nerve_target, { width: CONTENT_W })
       curY = doc.y + SP.xs
     }
     if (item.progression_regression) {
       doc.font('Helvetica-Bold').fontSize(8).fillColor(C.textLight)
-        .text('Progression/Régression : ', CONTENT_X, curY, { continued: true, lineBreak: false })
+        .text('Progression/Régression : ', CONTENT_X, curY, { continued: true })
       doc.font('Helvetica').fillColor(C.text)
-        .text(item.progression_regression, { width: CONTENT_W, lineBreak: false })
+        .text(item.progression_regression, { width: CONTENT_W })
       curY = doc.y + SP.xs
     }
     if (item.nerve_target || item.progression_regression) {
@@ -260,18 +260,19 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
 
     if (params.length > 0) {
       const paramText = params.join('   ·   ')
-      const paramBoxH = 24
+      const paramTextH = estimateTextHeight(paramText, 8.5, CONTENT_W - 16)
+      const paramBoxH = Math.max(24, paramTextH + 16)
       doc.roundedRect(CONTENT_X, curY, CONTENT_W, paramBoxH, 4).fill(C.paramBg)
       doc.roundedRect(CONTENT_X, curY, 3, paramBoxH, 2).fill(C.primary)
       doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.primary)
-        .text(paramText, CONTENT_X + 12, curY + 8, { width: CONTENT_W - 16, lineBreak: false })
+        .text(paramText, CONTENT_X + 12, curY + 8, { width: CONTENT_W - 16, lineGap: 2 })
       curY += paramBoxH + SP.s
     }
 
     // ── Notes ────────────────────────────────────────────────────────────
     if (item.notes) {
       doc.font('Helvetica-Oblique').fontSize(8.5).fillColor(C.textMuted)
-        .text(`Note : ${item.notes}`, CONTENT_X, curY, { width: CONTENT_W })
+        .text(`Note : ${item.notes}`, CONTENT_X, curY, { width: CONTENT_W, lineGap: 2 })
       curY = doc.y + SP.xs
     }
 

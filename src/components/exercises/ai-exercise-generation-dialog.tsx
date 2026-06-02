@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
-import { Sparkles, Loader2, ChevronLeft, Dumbbell, X } from 'lucide-react'
+import { Sparkles, Loader2, ChevronLeft, Dumbbell, X, Download, Mail } from 'lucide-react'
 
 interface Patient {
   id: string
@@ -98,10 +98,11 @@ export function AiExerciseGenerationDialog({
   const [prescriptionTitle, setPrescriptionTitle] = useState('')
   const [clinicalNotes, setClinicalNotes] = useState('')
   const [items, setItems] = useState<GeneratedItem[]>([])
-  const [saving, setSaving] = useState(false)
+  const [actionLoading, setActionLoading] = useState<'save' | 'pdf' | 'email' | null>(null)
+  const savedIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!open) { setStep('config'); setPatient(null); return }
+    if (!open) { setStep('config'); setPatient(null); savedIdRef.current = null; return }
     setLoadingPatient(true)
     fetch(`/api/patients/${patientId}`)
       .then(r => r.json())
@@ -173,38 +174,90 @@ export function AiExerciseGenerationDialog({
     }
   }
 
-  async function handleSave() {
+  async function ensureSaved(): Promise<string | null> {
+    if (savedIdRef.current) return savedIdRef.current
     if (items.length === 0) {
       toast({ title: 'Aucun exercice à sauvegarder', variant: 'destructive' })
-      return
+      return null
     }
-    setSaving(true)
+    const res = await fetch('/api/exercise-prescriptions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_id: patientId,
+        consultation_id: consultationId || null,
+        title: prescriptionTitle,
+        notes: clinicalNotes,
+        items,
+      }),
+    })
+    if (!res.ok) {
+      const d = await res.json()
+      toast({ title: d.error || 'Erreur lors de la sauvegarde', variant: 'destructive' })
+      return null
+    }
+    const d = await res.json()
+    const id: string = d.prescription?.id
+    savedIdRef.current = id
+    onSaved()
+    return id
+  }
+
+  async function handleSave() {
+    setActionLoading('save')
     try {
-      const res = await fetch('/api/exercise-prescriptions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patient_id: patientId,
-          consultation_id: consultationId || null,
-          title: prescriptionTitle,
-          notes: clinicalNotes,
-          items,
-        }),
-      })
-      if (!res.ok) {
-        const d = await res.json()
-        toast({ title: d.error || 'Erreur lors de la sauvegarde', variant: 'destructive' })
-        return
-      }
+      const id = await ensureSaved()
+      if (!id) return
       toast({ title: 'Programme sauvegardé' })
-      onSaved()
       onClose()
       setStep('config')
       setDiagnostic('')
     } catch {
       toast({ title: 'Erreur réseau', variant: 'destructive' })
     } finally {
-      setSaving(false)
+      setActionLoading(null)
+    }
+  }
+
+  async function handleExportPdf() {
+    setActionLoading('pdf')
+    try {
+      const id = await ensureSaved()
+      if (!id) return
+      toast({ title: 'Programme sauvegardé — génération du PDF…' })
+      const res = await fetch(`/api/exercise-prescriptions/${id}/pdf`)
+      if (!res.ok) { toast({ title: 'Erreur PDF', variant: 'destructive' }); return }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = 'programme-exercices.pdf'
+      document.body.appendChild(a); a.click()
+      document.body.removeChild(a); URL.revokeObjectURL(url)
+    } catch {
+      toast({ title: 'Erreur réseau', variant: 'destructive' })
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  async function handleSendEmail() {
+    setActionLoading('email')
+    try {
+      const id = await ensureSaved()
+      if (!id) return
+      toast({ title: 'Programme sauvegardé — envoi par email…' })
+      const res = await fetch(`/api/exercise-prescriptions/${id}/email`, { method: 'POST' })
+      const d = await res.json()
+      if (!res.ok) {
+        toast({ title: d.error || "Erreur lors de l'envoi", variant: 'destructive' })
+      } else {
+        toast({ title: 'Programme envoyé par email' })
+        onClose(); setStep('config'); setDiagnostic('')
+      }
+    } catch {
+      toast({ title: 'Erreur réseau', variant: 'destructive' })
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -398,16 +451,38 @@ export function AiExerciseGenerationDialog({
             </>
           ) : (
             <>
-              <Button variant="outline" onClick={() => setStep('config')}>
+              <Button variant="outline" onClick={() => setStep('config')} disabled={!!actionLoading}>
                 <ChevronLeft className="mr-1 h-4 w-4" />Modifier
               </Button>
-              <Button onClick={handleSave} disabled={saving || items.length === 0}>
-                {saving ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sauvegarde…</>
-                ) : (
-                  <><Dumbbell className="mr-2 h-4 w-4" />Sauvegarder le programme</>
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleExportPdf}
+                  disabled={!!actionLoading || items.length === 0}
+                  title="Sauvegarder et télécharger le PDF"
+                >
+                  {actionLoading === 'pdf'
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Download className="h-4 w-4" />}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleSendEmail}
+                  disabled={!!actionLoading || items.length === 0}
+                  title="Sauvegarder et envoyer par email"
+                >
+                  {actionLoading === 'email'
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Mail className="h-4 w-4" />}
+                </Button>
+                <Button onClick={handleSave} disabled={!!actionLoading || items.length === 0}>
+                  {actionLoading === 'save' ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sauvegarde…</>
+                  ) : (
+                    <><Dumbbell className="mr-2 h-4 w-4" />Sauvegarder</>
+                  )}
+                </Button>
+              </div>
             </>
           )}
         </div>
