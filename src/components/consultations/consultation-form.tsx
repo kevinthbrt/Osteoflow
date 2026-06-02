@@ -47,6 +47,7 @@ import { MarkdownText } from '@/components/ui/markdown-text'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
 import { AiExerciseGenerationDialog } from '@/components/exercises/ai-exercise-generation-dialog'
 import { TestsSuggestionsPanel } from '@/components/consultations/tests-suggestions-panel'
+import { OrthoTestsPickerDialog } from '@/components/consultations/ortho-tests-picker-dialog'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment, MedicalHistoryType } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -110,6 +111,7 @@ export function ConsultationForm({
   const [showExercises, setShowExercises] = useState(false)
   const [showAiExercises, setShowAiExercises] = useState(false)
   const [showTestsSuggestions, setShowTestsSuggestions] = useState(false)
+  const [showOrthoTestsPicker, setShowOrthoTestsPicker] = useState(false)
 
   const now = new Date()
   const toLocalDateTimeString = (d: Date) => {
@@ -672,12 +674,24 @@ export function ConsultationForm({
                     <MapPin className="h-4 w-4" />
                     Topographie
                   </Button>
+                  {/* AI suggest-tests button — temporarily hidden in favour of manual picker
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
                     onClick={() => setShowTestsSuggestions(true)}
+                  >
+                    <Stethoscope className="h-4 w-4" />
+                    Tests orthos
+                  </Button>
+                  */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+                    onClick={() => setShowOrthoTestsPicker(true)}
                   >
                     <Stethoscope className="h-4 w-4" />
                     Tests orthos
@@ -1220,6 +1234,15 @@ export function ConsultationForm({
         />
       )}
       <TopographyPanel open={showTopography} onClose={() => setShowTopography(false)} />
+      <OrthoTestsPickerDialog
+        open={showOrthoTestsPicker}
+        onClose={() => setShowOrthoTestsPicker(false)}
+        onInject={(text) => {
+          const current = watch('examination') || ''
+          const next = current ? `${current}\n${text}` : text
+          setValue('examination', next, { shouldDirty: true })
+        }}
+      />
       <Dialog open={showTestsSuggestions} onOpenChange={setShowTestsSuggestions}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
