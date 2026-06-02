@@ -10,6 +10,7 @@ import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels } from '@/lib/validations/invoice'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { ConsultationPaymentEditor } from '@/components/consultations/consultation-payment-editor'
+import { ExercisePrescriptionSection } from '@/components/exercises/exercise-prescription-section'
 
 interface ConsultationPageProps {
   params: Promise<{ id: string }>
@@ -173,6 +174,20 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
               )}
             </CardContent>
           </Card>
+
+          {/* Exercise prescriptions (with AI generation) */}
+          {patient && (
+            <ExercisePrescriptionSection
+              patientId={patient.id}
+              patientName={`${patient.first_name} ${patient.last_name}`}
+              consultationId={id}
+              consultationData={{
+                reason: consultation.reason,
+                anamnesis: consultation.anamnesis,
+                examination: consultation.examination,
+              }}
+            />
+          )}
 
           {/* Attachments */}
           {attachments && attachments.length > 0 && (
