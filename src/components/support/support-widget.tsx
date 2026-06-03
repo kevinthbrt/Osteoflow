@@ -1,7 +1,14 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MessageCircleQuestion, X, ArrowLeft, Paperclip, Loader2, CheckCircle, Clock, Wrench, ChevronRight, MessageSquareReply } from 'lucide-react'
+import { MessageCircleQuestion, X, ArrowLeft, Paperclip, Loader2, CheckCircle, Clock, Wrench, ChevronRight, Send, User, Shield } from 'lucide-react'
+
+interface Message {
+  id: string
+  sender: 'user' | 'admin'
+  content: string
+  created_at: string
+}
 
 interface Ticket {
   id: string
@@ -10,8 +17,10 @@ interface Ticket {
   status: 'pending' | 'in_progress' | 'resolved'
   created_at: string
   attachment_name?: string | null
+  attachment_url?: string | null
   admin_reply?: string | null
-  admin_replied_at?: string | null
+  last_admin_message_at?: string | null
+  messages?: Message[]
 }
 
 const STATUS_CONFIG = {
@@ -22,23 +31,48 @@ const STATUS_CONFIG = {
 
 const BTN = 56
 
+function getSeenMap(): Record<string, string> {
+  try { return JSON.parse(localStorage.getItem('support_widget_seen') || '{}') } catch { return {} }
+}
+
+function markSeen(ticketId: string) {
+  const map = getSeenMap()
+  map[ticketId] = new Date().toISOString()
+  try { localStorage.setItem('support_widget_seen', JSON.stringify(map)) } catch {}
+}
+
+function isUnread(ticket: Ticket): boolean {
+  if (!ticket.last_admin_message_at) return false
+  const seen = getSeenMap()
+  const seenAt = seen[ticket.id]
+  if (!seenAt) return true
+  return new Date(ticket.last_admin_message_at) > new Date(seenAt)
+}
+
 interface SupportWidgetProps {
   userEmail?: string
 }
 
 export function SupportWidget({ userEmail }: SupportWidgetProps) {
   const [open, setOpen] = useState(false)
-  const [view, setView] = useState<'list' | 'form' | 'success'>('list')
+  const [view, setView] = useState<'list' | 'form' | 'success' | 'chat'>('list')
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loadingTickets, setLoadingTickets] = useState(false)
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [loadingMessages, setLoadingMessages] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [sendingReply, setSendingReply] = useState(false)
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [unreadCount, setUnreadCount] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Drag state
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
   const [dragging, setDragging] = useState(false)
   const posRef = useRef<{ x: number; y: number } | null>(null)
@@ -55,17 +89,88 @@ export function SupportWidget({ userEmail }: SupportWidgetProps) {
     } catch {}
   }, [])
 
-  useEffect(() => {
-    if (open) fetchTickets()
-  }, [open])
-
   const fetchTickets = async () => {
-    setLoadingTickets(true)
     try {
       const res = await fetch('/api/support')
-      if (res.ok) setTickets((await res.json()).tickets || [])
+      if (res.ok) {
+        const list: Ticket[] = (await res.json()).tickets || []
+        setTickets(list)
+        setUnreadCount(list.filter(isUnread).length)
+        return list
+      }
+    } catch {}
+    return []
+  }
+
+  const fetchMessages = async (ticketId: string, licenseEmail?: string) => {
+    setLoadingMessages(true)
+    try {
+      const params = licenseEmail ? `?license_email=${encodeURIComponent(licenseEmail)}` : ''
+      const res = await fetch(`/api/support/${ticketId}/messages${params}`)
+      if (res.ok) {
+        const data = await res.json()
+        setMessages(data.messages || [])
+      }
     } finally {
-      setLoadingTickets(false)
+      setLoadingMessages(false)
+    }
+  }
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.length])
+
+  useEffect(() => {
+    if (pollingRef.current) clearInterval(pollingRef.current)
+
+    if (!open) {
+      // Poll every 60s when widget is closed (for unread badge)
+      pollingRef.current = setInterval(() => { fetchTickets() }, 60_000)
+      fetchTickets()
+    } else if (view === 'chat' && selectedTicket) {
+      // Poll every 10s when chat is open
+      pollingRef.current = setInterval(async () => {
+        const list = await fetchTickets()
+        const updated = list.find(t => t.id === selectedTicket.id)
+        if (updated) {
+          setSelectedTicket(updated)
+          await fetchMessages(updated.id, userEmail)
+        }
+      }, 10_000)
+      fetchTickets()
+    } else {
+      fetchTickets()
+    }
+
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, view, selectedTicket?.id])
+
+  const openChat = async (ticket: Ticket) => {
+    setSelectedTicket(ticket)
+    setView('chat')
+    markSeen(ticket.id)
+    setUnreadCount(prev => Math.max(0, prev - (isUnread(ticket) ? 1 : 0)))
+    await fetchMessages(ticket.id, userEmail)
+  }
+
+  const sendReply = async () => {
+    if (!selectedTicket || !replyText.trim() || sendingReply) return
+    setSendingReply(true)
+    const content = replyText.trim()
+    setReplyText('')
+    try {
+      const res = await fetch(`/api/support/${selectedTicket.id}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, license_email: userEmail }),
+      })
+      if (res.ok) {
+        const { message: newMsg } = await res.json()
+        if (newMsg) setMessages(prev => [...prev, newMsg])
+      }
+    } finally {
+      setSendingReply(false)
     }
   }
 
@@ -155,9 +260,8 @@ export function SupportWidget({ userEmail }: SupportWidgetProps) {
     }
   }
 
-  const reset = () => { setView('list'); setError(''); setTitle(''); setMessage(''); setFile(null) }
+  const reset = () => { setView('list'); setError(''); setTitle(''); setMessage(''); setFile(null); setSelectedTicket(null); setMessages([]) }
 
-  // suppress unused warning
   void pos
 
   return (
@@ -169,29 +273,37 @@ export function SupportWidget({ userEmail }: SupportWidgetProps) {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         style={btnStyle()}
-        className={`z-50 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-500 shadow-lg flex items-center justify-center transition-shadow duration-200 select-none ${dragging ? 'cursor-grabbing shadow-2xl scale-105' : 'cursor-grab'}`}
+        className={`z-50 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-500 shadow-lg flex items-center justify-center transition-shadow duration-200 select-none relative ${dragging ? 'cursor-grabbing shadow-2xl scale-105' : 'cursor-grab'}`}
         title="Support"
       >
         {open && !dragging
           ? <X className="w-6 h-6 text-white pointer-events-none" />
           : <MessageCircleQuestion className="w-6 h-6 text-white pointer-events-none" />
         }
+        {!open && unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1 pointer-events-none">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
       </button>
 
       {/* Panel */}
       {open && !dragging && (
         <div style={panelStyle()} className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
           <div className="bg-indigo-600 px-4 py-3 flex items-center gap-2 shrink-0">
-            {(view === 'form' || view === 'success') && (
+            {(view === 'form' || view === 'success' || view === 'chat') && (
               <button onClick={reset} className="text-white/70 hover:text-white mr-1">
                 <ArrowLeft className="w-4 h-4" />
               </button>
             )}
             <MessageCircleQuestion className="w-5 h-5 text-white" />
-            <span className="text-white font-semibold text-sm">Support MyOsteoFlow</span>
+            <span className="text-white font-semibold text-sm">
+              {view === 'chat' && selectedTicket ? selectedTicket.title : 'Support MyOsteoFlow'}
+            </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto flex flex-col min-h-0">
+            {/* LIST */}
             {view === 'list' && (
               <div className="p-4 space-y-3">
                 <button onClick={() => setView('form')}
@@ -209,11 +321,16 @@ export function SupportWidget({ userEmail }: SupportWidgetProps) {
                     {tickets.map(t => {
                       const cfg = STATUS_CONFIG[t.status]
                       const Icon = cfg.icon
+                      const unread = isUnread(t)
                       return (
-                        <div key={t.id} className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
-                          <div className="flex items-start justify-between gap-2">
+                        <button key={t.id} onClick={() => openChat(t)}
+                          className="w-full text-left rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 p-3 space-y-1.5 transition-colors relative">
+                          {unread && (
+                            <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-red-500" />
+                          )}
+                          <div className="flex items-start justify-between gap-2 pr-4">
                             <p className="text-sm font-medium text-slate-200 leading-tight">{t.title}</p>
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap ${cfg.color}`}>
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap shrink-0 ${cfg.color}`}>
                               <Icon className="w-3 h-3" />{cfg.label}
                             </span>
                           </div>
@@ -221,15 +338,13 @@ export function SupportWidget({ userEmail }: SupportWidgetProps) {
                             {new Date(t.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                             {t.attachment_name && <span className="ml-2"><Paperclip className="w-3 h-3 inline" /></span>}
                           </p>
-                          {t.admin_reply && (
-                            <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg p-2.5">
-                              <p className="text-xs font-semibold text-indigo-400 flex items-center gap-1 mb-1">
-                                <MessageSquareReply className="w-3 h-3" /> Réponse de l&apos;équipe
-                              </p>
-                              <p className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">{t.admin_reply}</p>
-                            </div>
+                          {t.messages && t.messages.length > 0 && (
+                            <p className="text-xs text-slate-400 truncate">
+                              {t.messages[t.messages.length - 1].sender === 'admin' ? '→ ' : '← '}
+                              {t.messages[t.messages.length - 1].content}
+                            </p>
                           )}
-                        </div>
+                        </button>
                       )
                     })}
                   </div>
@@ -237,6 +352,7 @@ export function SupportWidget({ userEmail }: SupportWidgetProps) {
               </div>
             )}
 
+            {/* FORM */}
             {view === 'form' && (
               <div className="p-4 space-y-3">
                 <div>
@@ -272,6 +388,7 @@ export function SupportWidget({ userEmail }: SupportWidgetProps) {
               </div>
             )}
 
+            {/* SUCCESS */}
             {view === 'success' && (
               <div className="flex flex-col items-center justify-center py-10 px-6 text-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
@@ -281,6 +398,77 @@ export function SupportWidget({ userEmail }: SupportWidgetProps) {
                 <p className="text-sm text-slate-400">Nous avons bien reçu votre ticket. Vous pouvez suivre son avancement ici.</p>
                 <button onClick={reset} className="text-sm text-indigo-400 hover:underline mt-1">Voir mes demandes</button>
               </div>
+            )}
+
+            {/* CHAT */}
+            {view === 'chat' && selectedTicket && (
+              <>
+                {/* Status badge */}
+                <div className="px-4 py-2 border-b border-white/10 shrink-0">
+                  {(() => {
+                    const cfg = STATUS_CONFIG[selectedTicket.status]
+                    const Icon = cfg.icon
+                    return (
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.color}`}>
+                        <Icon className="w-3 h-3" />{cfg.label}
+                      </span>
+                    )
+                  })()}
+                </div>
+
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {loadingMessages ? (
+                    <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-slate-500" /></div>
+                  ) : messages.length === 0 ? (
+                    <p className="text-center text-xs text-slate-500 py-6">Aucun message</p>
+                  ) : (
+                    messages.map(msg => (
+                      <div key={msg.id} className={`flex gap-2 ${msg.sender === 'admin' ? 'flex-row-reverse' : 'flex-row'}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                          msg.sender === 'admin' ? 'bg-indigo-500/30' : 'bg-white/10'
+                        }`}>
+                          {msg.sender === 'admin'
+                            ? <Shield className="w-3 h-3 text-indigo-400" />
+                            : <User className="w-3 h-3 text-slate-400" />}
+                        </div>
+                        <div className={`max-w-[78%] rounded-2xl px-3 py-2 ${
+                          msg.sender === 'admin'
+                            ? 'bg-indigo-600 text-white rounded-tr-sm'
+                            : 'bg-white/10 text-slate-200 rounded-tl-sm'
+                        }`}>
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                          <p className={`text-[10px] mt-1 ${msg.sender === 'admin' ? 'text-indigo-200' : 'text-slate-500'}`}>
+                            {new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {/* Reply input */}
+                <div className="shrink-0 p-3 border-t border-white/10">
+                  <div className="flex gap-2">
+                    <textarea
+                      value={replyText}
+                      onChange={e => setReplyText(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply() } }}
+                      rows={2}
+                      placeholder="Votre message… (Entrée pour envoyer)"
+                      className="flex-1 px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-500 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                    <button
+                      onClick={sendReply}
+                      disabled={sendingReply || !replyText.trim()}
+                      className="px-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors flex items-center justify-center"
+                    >
+                      {sendingReply ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>

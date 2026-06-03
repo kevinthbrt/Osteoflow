@@ -10,23 +10,33 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Dumbbell, Download, Trash2, Plus, Mail, Eye } from 'lucide-react'
+import { Dumbbell, Download, Trash2, Plus, Mail, Eye, Sparkles } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
+import { AiExerciseGenerationDialog } from '@/components/exercises/ai-exercise-generation-dialog'
 import type { ExercisePrescription } from '@/types/exercise'
 
 interface ExercisePrescriptionSectionProps {
   patientId: string
   patientName: string
+  consultationId?: string
+  consultationData?: {
+    reason?: string
+    anamnesis?: string
+    examination?: string
+  }
 }
 
 export function ExercisePrescriptionSection({
   patientId,
   patientName,
+  consultationId,
+  consultationData,
 }: ExercisePrescriptionSectionProps) {
   const [prescriptions, setPrescriptions] = useState<ExercisePrescription[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
+  const [showAiDialog, setShowAiDialog] = useState(false)
   const [viewingId, setViewingId] = useState<string | null>(null)
   const { toast } = useToast()
 
@@ -96,10 +106,16 @@ export function ExercisePrescriptionSection({
             <Dumbbell className="h-5 w-5" />
             Programmes d&apos;exercices
           </CardTitle>
-          <Button size="sm" variant="outline" onClick={() => setShowDialog(true)}>
-            <Plus className="mr-1 h-4 w-4" />
-            Nouveau
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setShowAiDialog(true)}>
+              <Sparkles className="mr-1 h-4 w-4 text-primary" />
+              IA
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setShowDialog(true)}>
+              <Plus className="mr-1 h-4 w-4" />
+              Nouveau
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -124,43 +140,18 @@ export function ExercisePrescriptionSection({
                     </p>
                   </div>
                   <div className="flex gap-1 flex-shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      title="Consulter"
-                      onClick={() => setViewingId(p.id)}
-                    >
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Consulter" onClick={() => setViewingId(p.id)}>
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      title="Télécharger le PDF"
-                      onClick={() => handleDownloadPdf(p.id)}
-                    >
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Télécharger le PDF" onClick={() => handleDownloadPdf(p.id)}>
                       <Download className="h-4 w-4" />
                     </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      title="Envoyer par email"
-                      onClick={() => handleSendEmail(p.id)}
-                    >
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Envoyer par email" onClick={() => handleSendEmail(p.id)}>
                       <Mail className="h-4 w-4" />
                     </Button>
                     <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      title="Supprimer"
-                      onClick={() => handleDelete(p.id)}
+                      type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
+                      title="Supprimer" onClick={() => handleDelete(p.id)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -180,13 +171,23 @@ export function ExercisePrescriptionSection({
         onSaved={load}
       />
 
+      <AiExerciseGenerationDialog
+        open={showAiDialog}
+        onClose={() => setShowAiDialog(false)}
+        patientId={patientId}
+        patientName={patientName}
+        consultationId={consultationId}
+        consultationData={consultationData}
+        onSaved={load}
+      />
+
       {/* Inline PDF viewer */}
       <Dialog open={!!viewingId} onOpenChange={(o) => !o && setViewingId(null)}>
         <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col p-0 gap-0">
           <DialogHeader className="px-4 py-3 border-b flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Dumbbell className="h-4 w-4 text-primary" />
-              {prescriptions.find((p) => p.id === viewingId)?.title ?? 'Programme d\'exercices'}
+              {prescriptions.find((p) => p.id === viewingId)?.title ?? "Programme d'exercices"}
             </DialogTitle>
           </DialogHeader>
           {viewingId && (

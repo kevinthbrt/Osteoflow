@@ -32,7 +32,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin, GitBranch, Dumbbell } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin, GitBranch, Dumbbell, Sparkles } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate, calculateAge } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
@@ -45,7 +45,9 @@ import { AnamnesisRecorder } from '@/components/consultations/anamnesis-recorder
 import { MarkdownField } from '@/components/ui/markdown-field'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
+import { AiExerciseGenerationDialog } from '@/components/exercises/ai-exercise-generation-dialog'
 import { TestsSuggestionsPanel } from '@/components/consultations/tests-suggestions-panel'
+import { OrthoTestsPickerDialog } from '@/components/consultations/ortho-tests-picker-dialog'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment, MedicalHistoryType } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -107,7 +109,9 @@ export function ConsultationForm({
   const [showDecisionTree, setShowDecisionTree] = useState(false)
   const [showNeckTree, setShowNeckTree] = useState(false)
   const [showExercises, setShowExercises] = useState(false)
+  const [showAiExercises, setShowAiExercises] = useState(false)
   const [showTestsSuggestions, setShowTestsSuggestions] = useState(false)
+  const [showOrthoTestsPicker, setShowOrthoTestsPicker] = useState(false)
 
   const now = new Date()
   const toLocalDateTimeString = (d: Date) => {
@@ -659,36 +663,48 @@ export function ConsultationForm({
                   <Stethoscope className="h-5 w-5 text-primary" />
                   <CardTitle className="text-lg">Contenu clinique</CardTitle>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="gap-1.5 text-muted-foreground hover:text-foreground"
+                    className="gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:text-sky-800 dark:border-sky-800/50 dark:bg-sky-950/40 dark:text-sky-300 dark:hover:bg-sky-900/50"
                     onClick={() => setShowTopography(true)}
                   >
                     <MapPin className="h-4 w-4" />
                     Topographie
                   </Button>
+                  {/* AI suggest-tests button — temporarily hidden in favour of manual picker
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="gap-1.5 text-muted-foreground hover:text-foreground"
+                    className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
                     onClick={() => setShowTestsSuggestions(true)}
                   >
                     <Stethoscope className="h-4 w-4" />
                     Tests orthos
                   </Button>
+                  */}
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="gap-1.5 text-muted-foreground hover:text-foreground"
+                    className="gap-1.5 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-800/50 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/50"
                     onClick={() => setShowExercises(true)}
                   >
                     <Dumbbell className="h-4 w-4" />
                     Exercices
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100 hover:text-fuchsia-800 dark:border-fuchsia-800/50 dark:bg-fuchsia-950/40 dark:text-fuchsia-300 dark:hover:bg-fuchsia-900/50"
+                    onClick={() => setShowAiExercises(true)}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Exercices par IA
                   </Button>
                 </div>
               </div>
@@ -779,7 +795,19 @@ export function ConsultationForm({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="examination">Examen clinique et manipulations</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="examination">Examen clinique et manipulations</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+                    onClick={() => setShowOrthoTestsPicker(true)}
+                  >
+                    <Stethoscope className="h-4 w-4" />
+                    Tests orthos
+                  </Button>
+                </div>
                 <Textarea
                   id="examination"
                   data-autoresize
@@ -1208,6 +1236,15 @@ export function ConsultationForm({
         />
       )}
       <TopographyPanel open={showTopography} onClose={() => setShowTopography(false)} />
+      <OrthoTestsPickerDialog
+        open={showOrthoTestsPicker}
+        onClose={() => setShowOrthoTestsPicker(false)}
+        onInject={(text) => {
+          const current = watch('examination') || ''
+          const next = current ? `${current}\n${text}` : text
+          setValue('examination', next, { shouldDirty: true })
+        }}
+      />
       <Dialog open={showTestsSuggestions} onOpenChange={setShowTestsSuggestions}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -1294,6 +1331,15 @@ export function ConsultationForm({
         patientId={currentPatient.id}
         patientName={`${currentPatient.first_name} ${currentPatient.last_name}`}
         consultationId={consultation?.id}
+      />
+      <AiExerciseGenerationDialog
+        open={showAiExercises}
+        onClose={() => setShowAiExercises(false)}
+        patientId={currentPatient.id}
+        patientName={`${currentPatient.first_name} ${currentPatient.last_name}`}
+        consultationId={consultation?.id}
+        consultationData={{ reason, anamnesis, examination }}
+        onSaved={() => {}}
       />
     </>
   )

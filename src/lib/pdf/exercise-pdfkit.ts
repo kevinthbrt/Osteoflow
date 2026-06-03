@@ -44,6 +44,56 @@ function estimateTextWidth(text: string, fontSize: number): number {
   return text.length * fontSize * 0.58
 }
 
+// @react-pdf/pdfkit ne fait PAS de retour à la ligne automatique : `width` ne
+// sert qu'à l'alignement. On découpe donc le texte manuellement avec les
+// vraies métriques de police (doc.widthOfString).
+function wrapLines(
+  doc: InstanceType<typeof PDFDocument>,
+  text: string,
+  fontName: string,
+  fontSize: number,
+  maxWidth: number,
+): string[] {
+  doc.font(fontName).fontSize(fontSize)
+  const out: string[] = []
+  for (const para of text.split('\n')) {
+    const words = para.split(/\s+/).filter(Boolean)
+    if (words.length === 0) { out.push(''); continue }
+    let cur = ''
+    for (const w of words) {
+      const test = cur ? `${cur} ${w}` : w
+      if (!cur || doc.widthOfString(test) <= maxWidth) {
+        cur = test
+      } else {
+        out.push(cur)
+        cur = w
+      }
+    }
+    if (cur) out.push(cur)
+  }
+  return out
+}
+
+// Dessine un texte multi-ligne et renvoie la position Y finale.
+function drawWrapped(
+  doc: InstanceType<typeof PDFDocument>,
+  text: string,
+  x: number,
+  y: number,
+  opts: { font: string; fontSize: number; color: string; maxWidth: number; lineGap?: number },
+): number {
+  const lineGap = opts.lineGap ?? 2
+  const lineH = opts.fontSize * 1.25 + lineGap
+  const lines = wrapLines(doc, text, opts.font, opts.fontSize, opts.maxWidth)
+  doc.font(opts.font).fontSize(opts.fontSize).fillColor(opts.color)
+  let cy = y
+  for (const line of lines) {
+    doc.text(line, x, cy, { lineBreak: false })
+    cy += lineH
+  }
+  return cy
+}
+
 export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8Array> {
   const doc = new PDFDocument({ size: 'A4', margin: 0 })
   const stream = new PassThrough()
@@ -102,8 +152,16 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
     .text('PATIENT', ML + 18, pCardY + 10, { characterSpacing: 1 })
   doc.font('Helvetica-Bold').fontSize(14).fillColor(C.dark)
     .text(data.patientName, ML + 18, pCardY + 22)
-  doc.font('Helvetica-Bold').fontSize(10).fillColor(C.primary)
-    .text(data.prescriptionTitle, titleX, pCardY + 20, { width: titleW, align: 'right' })
+  // Titre du programme — aligné à droite, retour à la ligne manuel
+  {
+    const titleLines = wrapLines(doc, data.prescriptionTitle, 'Helvetica-Bold', 10, titleW)
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(C.primary)
+    let ty = pCardY + (titleLines.length > 1 ? 12 : 20)
+    for (const line of titleLines) {
+      doc.text(line, titleX, ty, { width: titleW, align: 'right', lineBreak: false })
+      ty += 13
+    }
+  }
 
   let curY = pCardY + pCardH + SP.l
 
@@ -111,9 +169,10 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
   if (data.notes) {
     doc.rect(ML, curY, CW, 1).fill(C.borderLight)
     curY += SP.s
-    doc.font('Helvetica-Oblique').fontSize(9).fillColor(C.textLight)
-      .text(data.notes, ML, curY, { width: CW })
-    curY = doc.y + SP.l
+    curY = drawWrapped(doc, data.notes, ML, curY, {
+      font: 'Helvetica-Oblique', fontSize: 9, color: C.textLight, maxWidth: CW, lineGap: 2,
+    })
+    curY += SP.l
   }
 
   // ── PRE-FETCH IMAGES ────────────────────────────────────────────────────
@@ -128,7 +187,7 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
   }
 
   // ── EXERCISE CARDS ──────────────────────────────────────────────────────
-  const IMG_SIZE = 76
+  const IMG_SIZE = 110
   const CIRCLE_R = 14
   // CIRCLE_CX: x center of the number circle
   const CIRCLE_CX = ML + CIRCLE_R          // = 62
@@ -202,8 +261,14 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
     const nameFontSize = 13
     // 0.38 × fontSize ≈ cap height / 2 (vertical offset to center caps at circleCenterY)
     const nameY = circleCenterY - nameFontSize * 0.38
-    doc.font('Helvetica-Bold').fontSize(nameFontSize).fillColor(C.dark)
-      .text(item.exercise_name, CONTENT_X, nameY, { width: CONTENT_W, lineBreak: false })
+    doc.font('Helvetica-Bold').fontSize(nameFontSize)
+    let displayName = item.exercise_name
+    while (displayName.length > 4 && doc.widthOfString(displayName) > CONTENT_W) {
+      displayName = displayName.slice(0, -2)
+    }
+    if (displayName !== item.exercise_name) displayName = displayName.replace(/\s+\S*$/, '') + '…'
+    doc.fillColor(C.dark)
+      .text(displayName, CONTENT_X, nameY, { lineBreak: false })
 
     // ── Badges — below circle bottom, also respects name bottom ──────────
     const bY = Math.max(cardY + CIRCLE_R * 2 + SP.xs, doc.y + SP.xs)
@@ -226,24 +291,23 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
 
     // ── Description ──────────────────────────────────────────────────────
     const descY = bY + 14 + SP.m
-    doc.font('Helvetica').fontSize(9.5).fillColor(C.text)
-      .text(item.exercise_description, CONTENT_X, descY, { width: CONTENT_W, lineGap: 3 })
-    curY = doc.y + SP.m
+    curY = drawWrapped(doc, item.exercise_description, CONTENT_X, descY, {
+      font: 'Helvetica', fontSize: 9.5, color: C.text, maxWidth: CONTENT_W, lineGap: 3,
+    })
+    curY += SP.s
 
     // ── Nerve target & Progression/Regression ────────────────────────────
     if (item.nerve_target) {
-      doc.font('Helvetica-Bold').fontSize(8).fillColor('#4F46E5')
-        .text('Cible nerveuse : ', CONTENT_X, curY, { continued: true, lineBreak: false })
-      doc.font('Helvetica').fillColor(C.text)
-        .text(item.nerve_target, { width: CONTENT_W, lineBreak: false })
-      curY = doc.y + SP.xs
+      curY = drawWrapped(doc, `Cible nerveuse : ${item.nerve_target}`, CONTENT_X, curY, {
+        font: 'Helvetica', fontSize: 8, color: '#4F46E5', maxWidth: CONTENT_W, lineGap: 1,
+      })
+      curY += SP.xs
     }
     if (item.progression_regression) {
-      doc.font('Helvetica-Bold').fontSize(8).fillColor(C.textLight)
-        .text('Progression/Régression : ', CONTENT_X, curY, { continued: true, lineBreak: false })
-      doc.font('Helvetica').fillColor(C.text)
-        .text(item.progression_regression, { width: CONTENT_W, lineBreak: false })
-      curY = doc.y + SP.xs
+      curY = drawWrapped(doc, `Progression/Régression : ${item.progression_regression}`, CONTENT_X, curY, {
+        font: 'Helvetica', fontSize: 8, color: C.textLight, maxWidth: CONTENT_W, lineGap: 1,
+      })
+      curY += SP.xs
     }
     if (item.nerve_target || item.progression_regression) {
       curY += SP.xs
@@ -260,19 +324,22 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
 
     if (params.length > 0) {
       const paramText = params.join('   ·   ')
-      const paramBoxH = 24
+      const paramLines = wrapLines(doc, paramText, 'Helvetica-Bold', 8.5, CONTENT_W - 16)
+      const paramBoxH = Math.max(24, paramLines.length * (8.5 * 1.25 + 2) + 12)
       doc.roundedRect(CONTENT_X, curY, CONTENT_W, paramBoxH, 4).fill(C.paramBg)
       doc.roundedRect(CONTENT_X, curY, 3, paramBoxH, 2).fill(C.primary)
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.primary)
-        .text(paramText, CONTENT_X + 12, curY + 8, { width: CONTENT_W - 16, lineBreak: false })
+      drawWrapped(doc, paramText, CONTENT_X + 12, curY + 8, {
+        font: 'Helvetica-Bold', fontSize: 8.5, color: C.primary, maxWidth: CONTENT_W - 16, lineGap: 2,
+      })
       curY += paramBoxH + SP.s
     }
 
     // ── Notes ────────────────────────────────────────────────────────────
     if (item.notes) {
-      doc.font('Helvetica-Oblique').fontSize(8.5).fillColor(C.textMuted)
-        .text(`Note : ${item.notes}`, CONTENT_X, curY, { width: CONTENT_W })
-      curY = doc.y + SP.xs
+      curY = drawWrapped(doc, `Note : ${item.notes}`, CONTENT_X, curY, {
+        font: 'Helvetica-Oblique', fontSize: 8.5, color: C.textMuted, maxWidth: CONTENT_W, lineGap: 2,
+      })
+      curY += SP.xs
     }
 
     // Ensure content clears the image
@@ -292,7 +359,7 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
   const footerParts = [data.practitionerName, data.practitionerCityLine].filter(Boolean).join('  ·  ')
   doc.font('Helvetica').fontSize(7.5).fillColor(C.textMuted).text(footerParts, ML, footerY)
   doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.primary)
-    .text('Osteoflow', PW - MR - 60, footerY, { width: 60, align: 'right' })
+    .text('MyOsteoFlow', PW - MR - 80, footerY, { width: 80, align: 'right' })
 
   doc.end()
   return done

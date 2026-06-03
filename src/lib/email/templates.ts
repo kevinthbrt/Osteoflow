@@ -90,7 +90,7 @@ export function createExerciseProgramHtmlEmail({
             </div>
           </div>
           <p style="text-align: center; margin-top: 16px; color: #94a3b8; font-size: 12px;">
-            Envoyé via Osteoflow
+            Envoyé via MyOsteoFlow
           </p>
         </div>
       </body>
