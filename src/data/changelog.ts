@@ -19,7 +19,7 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
-    version: '1.5.4',
+    version: '1.6.0',
     date: '2026-06-03',
     title: 'Génération de fiches d\'exercices par IA & bibliothèque de tests orthopédiques',
     changes: [
