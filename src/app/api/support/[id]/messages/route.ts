@@ -5,10 +5,11 @@ const OSTEOFLOW_SECRET = process.env.OSTEOFLOW_PROXY_SECRET || 'a8c0fcc6aa558582
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   const url = new URL(req.url)
-  const upstream = new URL(`${OSTEOUPGRADE_URL}/api/osteoflow/support/${params.id}/messages`)
+  const upstream = new URL(`${OSTEOUPGRADE_URL}/api/osteoflow/support/${id}/messages`)
   url.searchParams.forEach((v, k) => upstream.searchParams.set(k, v))
 
   const res = await fetch(upstream.toString(), {
@@ -24,11 +25,12 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   const body = await req.json()
 
-  const res = await fetch(`${OSTEOUPGRADE_URL}/api/osteoflow/support/${params.id}/messages`, {
+  const res = await fetch(`${OSTEOUPGRADE_URL}/api/osteoflow/support/${id}/messages`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
