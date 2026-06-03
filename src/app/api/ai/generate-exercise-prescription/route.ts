@@ -19,7 +19,10 @@ export async function POST(req: Request) {
           'x-osteoflow-secret': secret,
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(50000),
+        // Must exceed the upstream's own ceiling (maxDuration 60s) so the proxy
+        // waits for osteoupgrade's response/error instead of aborting first and
+        // masking it as a generic failure.
+        signal: AbortSignal.timeout(65000),
       })
     } catch {
       return NextResponse.json({ error: 'Impossible de contacter le serveur.' }, { status: 500 })
