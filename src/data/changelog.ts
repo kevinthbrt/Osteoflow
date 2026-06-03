@@ -19,6 +19,14 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.6.1',
+    date: '2026-06-03',
+    title: 'Correctif : génération de fiches d\'exercices par IA (erreur 502)',
+    changes: [
+      { type: 'fix', text: 'Génération de fiches d\'exercices par IA : correction d\'une erreur 502 qui pouvait survenir sur les prescriptions les plus complètes. Le délai d\'attente du service était trop court pour les générations longues ; il a été allongé pour laisser le temps à l\'IA de répondre.' },
+    ],
+  },
+  {
     version: '1.6.0',
     date: '2026-06-03',
     title: 'Génération de fiches d\'exercices par IA & bibliothèque de tests orthopédiques',
