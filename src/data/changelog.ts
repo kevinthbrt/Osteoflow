@@ -19,6 +19,19 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.5.4',
+    date: '2026-06-03',
+    title: 'Génération de fiches d\'exercices par IA & bibliothèque de tests orthopédiques',
+    changes: [
+      { type: 'feature', text: 'Génération de fiches d\'exercices par IA : nouveau bouton "Exercices par IA" dans le formulaire de consultation. L\'IA sélectionne et justifie des exercices de rééducation adaptés au profil du patient (âge, genre, activité sportive, antécédents, diagnostic, niveau) à partir de la base OsteoUpgrade. Export PDF et envoi par email directement depuis la fenêtre de prévisualisation.' },
+      { type: 'feature', text: 'PDF d\'exercices : photos agrandies, retour à la ligne automatique sur toutes les zones de texte (description, justification IA, notes), signature "MyOsteoFlow".' },
+      { type: 'feature', text: 'Bibliothèque de tests orthopédiques : nouveau bouton "Tests orthos" à côté du champ Examen clinique. Parcourez les 116 tests de la base OsteoUpgrade par région (Épaule, Genou, Lombaire…) ou par cluster EBP validé (Laslett, Wainner, Cook, Sutlive…). Sélectionnez les tests effectués, indiquez Positif / Négatif / Incertain, puis injectez automatiquement les résultats dans le champ Examen.' },
+      { type: 'feature', text: 'Clusters de tests : mode "Clusters" dans le picker — sélectionnez tous les tests d\'un cluster en un clic. À l\'injection, les tests sont regroupés sous leur cluster ("Cluster réalisé : Cluster de Laslett") pour une traçabilité EBP claire.' },
+      { type: 'improvement', text: 'Recherche de tests insensible aux accents et à la casse : "epaule" trouve "Épaule", "cephalee" trouve "Céphalées".' },
+      { type: 'improvement', text: 'Boutons d\'action clinique mis en valeur avec des couleurs distinctives : Topographie (bleu), Tests orthos (vert), Exercices (violet), Exercices par IA (fuchsia).' },
+    ],
+  },
+  {
     version: '1.5.3',
     date: '2026-06-01',
     title: 'Correctif : diffusions bloquantes au premier login',
