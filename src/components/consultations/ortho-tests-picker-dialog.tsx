@@ -35,6 +35,8 @@ type TestResult = 'positive' | 'negative' | 'uncertain' | null
 interface SelectedTest {
   test: OrthoTest
   result: TestResult
+  /** Cluster this test was added from (via "Tout sélectionner"), if any */
+  fromClusterId: string | null
 }
 
 interface OrthoTestsPickerDialogProps {
@@ -74,6 +76,11 @@ const RESULT_CONFIG = {
 } as const
 
 type Mode = 'tests' | 'clusters'
+
+/** Normalize a string for accent- and case-insensitive comparison */
+function normalize(s: string) {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}
 
 function ResultButtons({ testId, result, onSet, onRemove }: {
   testId: string
@@ -143,39 +150,42 @@ export function OrthoTestsPickerDialog({ open, onClose, onInject }: OrthoTestsPi
   }, [tests])
 
   const filteredTests = useMemo(() => {
-    const q = query.toLowerCase().trim()
+    const q = normalize(query.trim())
     return tests.filter(t => {
       if (regionFilter && t.region !== regionFilter) return false
       if (!q) return true
       return (
-        t.name.toLowerCase().includes(q) ||
-        (t.indications?.toLowerCase().includes(q) ?? false) ||
-        (t.region?.toLowerCase().includes(q) ?? false) ||
-        t.clusters.some(c => c.toLowerCase().includes(q))
+        normalize(t.name).includes(q) ||
+        normalize(t.indications ?? '').includes(q) ||
+        normalize(t.region ?? '').includes(q) ||
+        t.clusters.some(c => normalize(c).includes(q))
       )
     })
   }, [tests, query, regionFilter])
 
   const filteredClusters = useMemo(() => {
-    const q = query.toLowerCase().trim()
+    const q = normalize(query.trim())
     return clusters.filter(c => {
       if (!q) return true
       return (
-        c.name.toLowerCase().includes(q) ||
-        (c.region?.toLowerCase().includes(q) ?? false) ||
-        c.tests.some(t => t.name.toLowerCase().includes(q))
+        normalize(c.name).includes(q) ||
+        normalize(c.region ?? '').includes(q) ||
+        c.tests.some(t => normalize(t.name).includes(q))
       )
     })
   }, [clusters, query])
 
   const selectedList = useMemo(() => Array.from(selected.values()), [selected])
 
-  function selectTest(test: OrthoTest | { id: string; name: string; region: string | null; indications: string | null }, result: TestResult = null) {
+  function selectTest(
+    test: OrthoTest | { id: string; name: string; region: string | null; indications: string | null },
+    fromClusterId: string | null = null,
+  ) {
     setSelected(prev => {
       if (prev.has(test.id)) return prev
       const next = new Map(prev)
       const fullTest: OrthoTest = 'clusters' in test ? test : { ...test, clusters: [] }
-      next.set(test.id, { test: fullTest, result })
+      next.set(test.id, { test: fullTest, result: null, fromClusterId })
       return next
     })
   }
@@ -207,7 +217,7 @@ export function OrthoTestsPickerDialog({ open, onClose, onInject }: OrthoTestsPi
     setSelected(prev => {
       const next = new Map(prev)
       for (const t of cluster.tests) {
-        if (!next.has(t.id)) next.set(t.id, { test: { ...t, clusters: [cluster.name] }, result: null })
+        if (!next.has(t.id)) next.set(t.id, { test: { ...t, clusters: [cluster.name] }, result: null, fromClusterId: cluster.id })
       }
       return next
     })
@@ -216,13 +226,49 @@ export function OrthoTestsPickerDialog({ open, onClose, onInject }: OrthoTestsPi
 
   function handleInject() {
     if (selected.size === 0) return
-    const lines: string[] = ['Tests réalisés :']
-    for (const { test, result } of selectedList) {
-      const cfg = result ? RESULT_CONFIG[result] : null
-      const symbol = cfg ? `${cfg.symbol} ` : '• '
-      const label = result ? ` — ${cfg!.label.toLowerCase()}` : ''
-      lines.push(`${symbol}${test.name}${label}`)
+
+    const lines: string[] = []
+
+    // Group by cluster (preserve insertion order)
+    const clusterGroups = new Map<string, { clusterName: string; items: SelectedTest[] }>()
+    const standaloneTests: SelectedTest[] = []
+
+    for (const entry of selectedList) {
+      if (entry.fromClusterId) {
+        const cluster = clusters.find(c => c.id === entry.fromClusterId)
+        const clusterName = cluster?.name ?? entry.fromClusterId
+        if (!clusterGroups.has(entry.fromClusterId)) {
+          clusterGroups.set(entry.fromClusterId, { clusterName, items: [] })
+        }
+        clusterGroups.get(entry.fromClusterId)!.items.push(entry)
+      } else {
+        standaloneTests.push(entry)
+      }
     }
+
+    // Cluster groups first
+    for (const { clusterName, items } of clusterGroups.values()) {
+      lines.push(`Cluster réalisé : ${clusterName}`)
+      for (const { test, result } of items) {
+        const cfg = result ? RESULT_CONFIG[result] : null
+        const symbol = cfg ? `${cfg.symbol} ` : '• '
+        const label = result ? ` — ${cfg!.label.toLowerCase()}` : ''
+        lines.push(`  ${symbol}${test.name}${label}`)
+      }
+    }
+
+    // Standalone tests
+    if (standaloneTests.length > 0) {
+      if (lines.length > 0) lines.push('')
+      lines.push('Tests réalisés :')
+      for (const { test, result } of standaloneTests) {
+        const cfg = result ? RESULT_CONFIG[result] : null
+        const symbol = cfg ? `${cfg.symbol} ` : '• '
+        const label = result ? ` — ${cfg!.label.toLowerCase()}` : ''
+        lines.push(`${symbol}${test.name}${label}`)
+      }
+    }
+
     onInject(lines.join('\n'))
     handleClose()
   }
@@ -327,7 +373,7 @@ export function OrthoTestsPickerDialog({ open, onClose, onInject }: OrthoTestsPi
                         ? resultCfg ? resultCfg.cardBg : 'border-primary/50 bg-primary/5'
                         : 'border-border hover:bg-muted/50 cursor-pointer'
                     }`}
-                    onClick={() => { if (!sel) selectTest(test) }}
+                    onClick={() => { if (!sel) selectTest(test, null) }}
                   >
                     <div className="flex items-start gap-3">
                       <div className="flex-1 min-w-0">
@@ -343,12 +389,7 @@ export function OrthoTestsPickerDialog({ open, onClose, onInject }: OrthoTestsPi
                         </div>
                       </div>
                       {sel && (
-                        <ResultButtons
-                          testId={test.id}
-                          result={sel.result}
-                          onSet={setResult}
-                          onRemove={removeSelected}
-                        />
+                        <ResultButtons testId={test.id} result={sel.result} onSet={setResult} onRemove={removeSelected} />
                       )}
                     </div>
                   </div>
@@ -368,7 +409,6 @@ export function OrthoTestsPickerDialog({ open, onClose, onInject }: OrthoTestsPi
                 const clusterSelectedCount = cluster.tests.filter(t => selected.has(t.id)).length
                 return (
                   <div key={cluster.id} className="rounded-lg border overflow-hidden">
-                    {/* Cluster header */}
                     <div
                       className="flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => toggleCluster(cluster.id)}
@@ -401,7 +441,6 @@ export function OrthoTestsPickerDialog({ open, onClose, onInject }: OrthoTestsPi
                       </div>
                     </div>
 
-                    {/* Cluster tests (expanded) */}
                     {expanded && (
                       <div className="border-t divide-y bg-muted/20">
                         {cluster.tests.map(test => {
@@ -415,7 +454,7 @@ export function OrthoTestsPickerDialog({ open, onClose, onInject }: OrthoTestsPi
                                   ? resultCfg ? resultCfg.cardBg : 'bg-primary/5'
                                   : 'hover:bg-muted/50 cursor-pointer'
                               }`}
-                              onClick={() => { if (!sel) selectTest(test) }}
+                              onClick={() => { if (!sel) selectTest(test, cluster.id) }}
                             >
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium leading-tight">{test.name}</p>
@@ -424,14 +463,9 @@ export function OrthoTestsPickerDialog({ open, onClose, onInject }: OrthoTestsPi
                                 )}
                               </div>
                               {sel ? (
-                                <ResultButtons
-                                  testId={test.id}
-                                  result={sel.result}
-                                  onSet={setResult}
-                                  onRemove={removeSelected}
-                                />
+                                <ResultButtons testId={test.id} result={sel.result} onSet={setResult} onRemove={removeSelected} />
                               ) : (
-                                <span className="text-xs text-muted-foreground">Cliquer pour sélectionner</span>
+                                <span className="text-xs text-muted-foreground italic">Cliquer pour sélectionner</span>
                               )}
                             </div>
                           )
@@ -460,10 +494,7 @@ export function OrthoTestsPickerDialog({ open, onClose, onInject }: OrthoTestsPi
                   >
                     {cfg?.symbol} {test.name}
                     {result && <span className="opacity-70">· {cfg!.label.toLowerCase()}</span>}
-                    <button
-                      onClick={() => removeSelected(test.id)}
-                      className="ml-0.5 opacity-50 hover:opacity-100"
-                    >
+                    <button onClick={() => removeSelected(test.id)} className="ml-0.5 opacity-50 hover:opacity-100">
                       <X className="h-3 w-3" />
                     </button>
                   </span>
