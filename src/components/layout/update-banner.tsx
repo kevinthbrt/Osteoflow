@@ -58,15 +58,15 @@ export function UpdateBanner() {
   const api = getElectronAPI()
   const isMacArm64 = api?.platform === 'darwin' && api?.arch === 'arm64'
 
-  // Mac ARM64 — étape 2 : l'utilisateur a installé la nouvelle version,
-  // l'ancienne instance exécute xattr puis rouvre la nouvelle app.
+  // Mac ARM64 — étape 2 : le DMG est téléchargé, l'app doit se fermer
+  // avant que l'utilisateur puisse glisser la nouvelle version dans Applications.
   if (state === 'ready' && isMacArm64 && dmgDownloadClicked) {
     return (
       <div className="relative z-50 border-b-2 border-emerald-400 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white px-4 py-4">
         <div className="flex flex-col items-center gap-3">
           <div className="flex items-center gap-2 text-base font-semibold">
             <CheckCircle className="h-5 w-5" />
-            Installation de la mise à jour v{version}
+            DMG v{version} téléchargé — prêt à installer
           </div>
 
           <div className="flex flex-wrap justify-center items-center gap-2 text-sm text-emerald-100">
@@ -77,12 +77,12 @@ export function UpdateBanner() {
             <ArrowRight className="h-3 w-3 text-emerald-300" />
             <span className="flex items-center gap-1.5 font-semibold">
               <span className="w-5 h-5 rounded-full bg-white/30 flex items-center justify-center text-xs font-bold">2</span>
-              Ouvrez le DMG et glissez l&apos;app dans Applications
+              Quittez l&apos;app, puis glissez dans Applications
             </span>
             <ArrowRight className="h-3 w-3 text-emerald-300" />
             <span className="flex items-center gap-1.5">
               <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">3</span>
-              Cliquez ci-dessous
+              Relancez manuellement
             </span>
           </div>
 
@@ -93,11 +93,11 @@ export function UpdateBanner() {
             onClick={() => api?.applyUpdateAndRelaunch()}
           >
             <RefreshCw className="h-4 w-4 mr-2" />
-            J&apos;ai installé — relancer maintenant
+            Quitter pour installer
           </Button>
 
           <p className="text-[10px] text-emerald-300">
-            L&apos;application va se fermer et rouvrir automatiquement en v{version}.
+            L&apos;app va se fermer. Ouvrez le DMG, glissez dans Applications, puis relancez.
           </p>
         </div>
       </div>
@@ -122,12 +122,12 @@ export function UpdateBanner() {
             <ArrowRight className="h-3 w-3 text-emerald-300" />
             <span className="flex items-center gap-1.5">
               <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">2</span>
-              Glissez l&apos;app dans Applications
+              Cliquez &quot;Quitter pour installer&quot;
             </span>
             <ArrowRight className="h-3 w-3 text-emerald-300" />
             <span className="flex items-center gap-1.5">
               <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">3</span>
-              Cliquez &quot;J&apos;ai installé&quot; ici
+              Glissez dans Applications, relancez
             </span>
           </div>
 
