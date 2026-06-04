@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 // Proxy pour open-meteo.com — évite le blocage CORS dans Electron
 // (le renderer sur localhost:3456 ne peut pas appeler des domaines externes directement)
 
@@ -29,10 +31,22 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const res = await fetch(upstream, { signal: AbortSignal.timeout(6000) })
+    const res = await fetch(upstream, {
+      signal: AbortSignal.timeout(8000),
+      headers: { 'User-Agent': 'MyOsteoFlow/1.0 (desktop)' },
+    })
+    if (!res.ok) {
+      const body = await res.text()
+      return NextResponse.json(
+        { error: 'upstream_status', status: res.status, body: body.slice(0, 500) },
+        { status: 502 }
+      )
+    }
     const data = await res.json()
     return NextResponse.json(data)
-  } catch {
-    return NextResponse.json({ error: 'upstream_error' }, { status: 502 })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('[weather] upstream error:', message, '→', upstream)
+    return NextResponse.json({ error: 'upstream_error', message }, { status: 502 })
   }
 }
