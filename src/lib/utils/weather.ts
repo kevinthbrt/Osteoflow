@@ -78,7 +78,7 @@ export async function searchCities(query: string): Promise<GeoSuggestion[]> {
   if (query.trim().length < 2) return []
   try {
     const res = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query.trim())}&count=6&language=fr&format=json`,
+      `/api/weather?type=geocoding&name=${encodeURIComponent(query.trim())}`,
       { signal: AbortSignal.timeout(5000) }
     )
     if (!res.ok) return []
@@ -116,7 +116,7 @@ export async function fetchWeatherFromCoords(
 ): Promise<Omit<WeatherData, 'cityName'> | null> {
   try {
     const res = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,is_day&timezone=auto`,
+      `/api/weather?lat=${lat}&lon=${lon}`,
       { signal: AbortSignal.timeout(5000) }
     )
     if (!res.ok) return null
@@ -141,10 +141,7 @@ export async function fetchWeatherWithForecast(
 ): Promise<WeatherWithForecast | null> {
   try {
     const res = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-      `&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,is_day` +
-      `&daily=weather_code,temperature_2m_max,temperature_2m_min` +
-      `&forecast_days=6&timezone=auto`,
+      `/api/weather?lat=${lat}&lon=${lon}&extra=1`,
       { signal: AbortSignal.timeout(5000) }
     )
     if (!res.ok) return null
