@@ -385,20 +385,11 @@ async function setupAutoUpdater(): Promise<void> {
       autoUpdater.quitAndInstall()
     })
 
-    // macOS ARM64 : retire la quarantaine de la nouvelle app déjà installée
-    // manuellement, puis la rouvre. L'ancienne instance (toujours en mémoire)
-    // a les droits pour exécuter xattr car sa propre quarantaine a déjà été levée.
+    // macOS ARM64 : l'app doit être fermée avant que l'utilisateur puisse
+    // glisser la nouvelle version dans Applications. On quitte simplement.
     ipcMain.on('apply-update-and-relaunch', () => {
-      // process.execPath = …/MyOsteoFlow.app/Contents/MacOS/MyOsteoFlow
-      const appBundlePath = process.execPath.replace(/\/Contents\/MacOS\/[^/]+$/, '')
-      console.log('[Updater] Removing quarantine and relaunching:', appBundlePath)
-      exec(`xattr -cr "${appBundlePath}"`, (xattrErr) => {
-        if (xattrErr) console.error('[Updater] xattr error (non-fatal):', xattrErr.message)
-        exec(`open "${appBundlePath}"`, (openErr) => {
-          if (openErr) console.error('[Updater] open error:', openErr.message)
-          app.quit()
-        })
-      })
+      console.log('[Updater] Quitting for manual ARM64 install...')
+      app.quit()
     })
 
     // Check for updates 5s after launch, then every 4 hours

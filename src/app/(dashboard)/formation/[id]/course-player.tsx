@@ -18,6 +18,7 @@ import {
   Sparkles,
   CheckSquare,
   X,
+  FileDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -54,6 +55,8 @@ type Subpart = {
   order_index: number
   vimeo_url?: string
   description_html?: string
+  pdf_url?: string
+  pdf_name?: string
   completed: boolean
   quiz?: Quiz | null
 }
@@ -611,6 +614,28 @@ export function CoursePlayer({
                   className="prose prose-sm dark:prose-invert max-w-none rounded-xl border border-border/40 bg-card p-5"
                   dangerouslySetInnerHTML={{ __html: selectedSubpart.description_html }}
                 />
+              )}
+
+              {/* PDF download */}
+              {selectedSubpart.pdf_url && (
+                <a
+                  href={selectedSubpart.pdf_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download={selectedSubpart.pdf_name || true}
+                  className="flex items-center gap-3 rounded-xl border border-border/40 bg-card p-4 hover:bg-accent/40 transition-colors group"
+                >
+                  <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-violet-100 dark:bg-violet-950/40 flex-shrink-0">
+                    <FileDown className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium group-hover:text-violet-700 dark:group-hover:text-violet-300 transition-colors truncate">
+                      {selectedSubpart.pdf_name || 'Télécharger le PDF'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Ressource PDF à télécharger</p>
+                  </div>
+                  <FileDown className="h-4 w-4 text-muted-foreground group-hover:text-violet-600 transition-colors flex-shrink-0" />
+                </a>
               )}
 
               {/* Quiz locked notice */}

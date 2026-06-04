@@ -19,6 +19,17 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.6.2',
+    date: '2026-06-04',
+    title: 'Ressources PDF dans les cours, noms en majuscules & mise à jour macOS',
+    changes: [
+      { type: 'fix', text: 'E-learning : les ressources PDF attachées aux sous-parties des cours s\'affichent désormais correctement et sont téléchargeables depuis le lecteur de cours.' },
+      { type: 'improvement', text: 'Patients : les noms de famille sont automatiquement mis en majuscules lors de la saisie (création et modification). Les patients déjà enregistrés sont mis à jour rétroactivement.' },
+      { type: 'improvement', text: 'Structuration de l\'anamnèse : libellé d\'attente neutralisé en « Structuration de l\'anamnèse en cours… ».' },
+      { type: 'fix', text: 'Mise à jour macOS (Apple Silicon) : le flux d\'installation ferme désormais l\'application avant que vous ne remplaciez la nouvelle version dans Applications, ce qui évite le blocage du remplacement quand l\'ancienne version est encore ouverte.' },
+    ],
+  },
+  {
     version: '1.6.1',
     date: '2026-06-03',
     title: 'Correctif : génération de fiches d\'exercices par IA (erreur 502)',

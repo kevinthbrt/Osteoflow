@@ -514,7 +514,7 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   if (!practFollowUpCols.some((c) => c.name === 'vat_regime')) {
     db.exec("ALTER TABLE practitioners ADD COLUMN vat_regime TEXT DEFAULT 'exempt_261';")
   }
-  // Étiopathe registration numbers (used instead of RPPS)
+  // Etiopathe registration numbers (used instead of RPPS)
   if (!practFollowUpCols.some((c) => c.name === 'rpe')) {
     db.exec('ALTER TABLE practitioners ADD COLUMN rpe TEXT;')
   }
@@ -653,6 +653,9 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
 
   // Clear legacy flat history fields — idempotent, superseded by medical_history_entries
   db.exec('UPDATE patients SET surgical_history = NULL, trauma_history = NULL, medical_history = NULL, family_history = NULL;')
+
+  // Normalize existing patient last names to uppercase
+  db.exec("UPDATE patients SET last_name = UPPER(last_name) WHERE last_name != UPPER(last_name);")
 }
 
 /**
