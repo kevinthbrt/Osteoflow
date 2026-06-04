@@ -658,7 +658,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
           ) : state === 'processing' ? (
             <span className="flex items-center gap-1.5 text-sm font-medium text-indigo-600">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Claude structure l&apos;anamnèse…
+              Structuration de l&apos;anamnèse en cours…
             </span>
           ) : state === 'done' ? (
             <span className="flex items-center gap-1.5 text-sm font-medium text-green-700">
