@@ -19,6 +19,14 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.6.3',
+    date: '2026-06-04',
+    title: 'Correctif : widget météo',
+    changes: [
+      { type: 'fix', text: 'Météo du tableau de bord : correction du chargement bloqué (erreur CORS) suite à un changement de l\'API open-meteo. Les requêtes passent désormais par le serveur de l\'application, ce qui rétablit l\'affichage de la météo et la recherche de ville.' },
+    ],
+  },
+  {
     version: '1.6.2',
     date: '2026-06-04',
     title: 'Ressources PDF dans les cours, noms en majuscules & mise à jour macOS',
