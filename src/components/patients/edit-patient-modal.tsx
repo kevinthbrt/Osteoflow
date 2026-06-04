@@ -74,6 +74,7 @@ export function EditPatientModal({
     try {
       const cleanedData = {
         ...data,
+        last_name: data.last_name.toUpperCase(),
         email: data.email || null,
         profession: data.profession || null,
         sport_activity: data.sport_activity || null,
@@ -160,6 +161,10 @@ export function EditPatientModal({
                 id="edit-last_name"
                 {...register('last_name')}
                 disabled={isLoading}
+                onChange={(e) => {
+                  e.target.value = e.target.value.toUpperCase()
+                  register('last_name').onChange(e)
+                }}
               />
               {errors.last_name && (
                 <p className="text-sm text-destructive">{errors.last_name.message}</p>
