@@ -35,7 +35,7 @@ type RecorderState =
   | 'done'
   | 'error'
 
-// ─── Web Speech API types ────────────────────────────────────────────────────
+// ─── Web Speech API types ──────────────────────────────────────────────
 
 interface SpeechRecognitionEvent extends Event {
   resultIndex: number
@@ -126,7 +126,7 @@ async function clearAudioBlob(): Promise<void> {
   } catch { /* silencieux */ }
 }
 
-// ─── Composant ───────────────────────────────────────────────────────────────
+// ─── Composant ──────────────────────────────────────────────────────────────────
 
 export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatientFieldsDetected }: AnamnesisRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle')
@@ -141,19 +141,19 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
   const [elapsed, setElapsed] = useState(0)
   const [hasCachedAudio, setHasCachedAudio] = useState(false)
 
-  // ── Refs communs ──────────────────────────────────────────────────────────
+  // ── Refs communs ─────────────────────────────────────────────────────────────────
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const finalTextRef = useRef('')
   const stateRef = useRef<RecorderState>('idle')
 
-  // ── Web Speech API ─────────────────────────────────────────────────────────
+  // ── Web Speech API ───────────────────────────────────────────────────────────
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const restartCountRef = useRef(0)
   const intentionalStopRef = useRef(false)
   const SRRef = useRef<(new () => SpeechRecognitionInstance) | null>(null)
 
-  // ── MediaRecorder (Electron) ───────────────────────────────────────────────
+  // ── MediaRecorder (Electron) ──────────────────────────────────────────────────
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<BlobPart[]>([])
   const mediaStreamRef = useRef<MediaStream | null>(null)
@@ -204,7 +204,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
     if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null }
   }, [])
 
-  // ── Structuration Claude ──────────────────────────────────────────────────
+  // ── Structuration Claude ──────────────────────────────────────────────────────
 
   const handleStructure = useCallback(async () => {
     const text = finalTextRef.current.trim()
@@ -243,7 +243,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
     }
   }, [stopTimer, stopReconnectTimer])
 
-  // ── Réinitialisation ──────────────────────────────────────────────────────
+  // ── Réinitialisation ───────────────────────────────────────────────────────────
 
   const handleReset = useCallback(() => {
     intentionalStopRef.current = true
@@ -282,12 +282,12 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
     }
   }, [stopTimer, stopReconnectTimer])
 
-  // ════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
   // MODE A – MediaRecorder + Groq Whisper API (Electron)
   // webkitSpeechRecognition nécessite les clés Google absentes d'Electron.
   // On enregistre l'audio avec MediaRecorder, puis on envoie le blob WebM
   // directement à notre API route qui appelle Groq (Whisper large-v3-turbo).
-  // ════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
 
   const transcribeBlob = useCallback(async (blob: Blob) => {
     if (!blob || blob.size === 0) {
@@ -464,10 +464,10 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
     }
   }, [elapsed, state, stopMediaRecorder])
 
-  // ════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
   // MODE B – Web Speech API (navigateur)
   // Transcription en temps réel via l'API speech intégrée au navigateur.
-  // ════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
 
   const attachHandlers = useCallback(
     (recognition: SpeechRecognitionInstance) => {
@@ -552,7 +552,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
     setState('idle')
   }, [stopTimer, stopReconnectTimer])
 
-  // ─── Handlers unifiés ─────────────────────────────────────────────────────
+  // ─── Handlers unifiés ────────────────────────────────────────────────────────────────
 
   const startRecording = useCallback(() => {
     if (isElectron()) startMediaRecorder()
@@ -612,7 +612,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
     setDetectedFields(null)
   }, [detectedFields, onPatientFieldsDetected])
 
-  // ─── Rendu ────────────────────────────────────────────────────────────────
+  // ─── Rendu ────────────────────────────────────────────────────────────────────────────
 
   const hasTranscript = finalText.trim().length > 0
 
