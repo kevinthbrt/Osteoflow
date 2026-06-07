@@ -118,14 +118,11 @@ export function Dashboard({
       {/* ── Complétude du profil ── */}
       <ProfileCompletionWidget />
 
-      {/* ── Vidéo pleine largeur ── */}
-      <VideoWidget />
+      {/* ── 3 colonnes : OsteoUpgrade | Vidéo | OsteoFlash ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
 
-      {/* ── OsteoUpgrade (gauche) + OsteoFlash (droite) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-        {/* Bloc OsteoUpgrade : Revue + Nouveauté empilées */}
-        <div className="flex flex-col gap-4">
+        {/* Gauche : Revue + Nouveauté empilées */}
+        <div className="lg:col-span-1 flex flex-col gap-4">
           <ReviewWidget
             review={widgets?.review ?? null}
             loading={widgetsLoading}
@@ -138,8 +135,15 @@ export function Dashboard({
           />
         </div>
 
-        {/* OsteoFlash */}
-        <FlashcardsWidget />
+        {/* Centre : Vidéo */}
+        <div className="lg:col-span-2">
+          <VideoWidget />
+        </div>
+
+        {/* Droite : OsteoFlash */}
+        <div className="lg:col-span-1">
+          <FlashcardsWidget />
+        </div>
       </div>
 
       {/* ── Progression pleine largeur ── */}
