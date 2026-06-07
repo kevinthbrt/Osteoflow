@@ -96,11 +96,9 @@ export function FlashcardsWidget() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          flashcard_id: card.id,
+          card_id: card.id,
+          deck_id: selectedDeck!.id,
           rating,
-          repetition: card.repetition,
-          ease: card.ease,
-          interval: card.interval,
         }),
       })
 
