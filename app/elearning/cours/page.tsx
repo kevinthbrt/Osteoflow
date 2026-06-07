@@ -10,15 +10,12 @@ import QuizComponent from '../components/QuizComponent'
 import QuizManager from '../components/QuizManager'
 import type { Quiz } from '../types/quiz'
 import {
-  AlertCircle,
   ArrowLeft,
   BookOpen,
   CheckCircle2,
   CheckSquare,
-  Clock3,
   GraduationCap,
   Layers,
-  ChevronDown,
   ChevronRight,
   PlayCircle,
   Plus,
