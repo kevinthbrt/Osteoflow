@@ -256,11 +256,11 @@ export function FlashcardsWidget() {
         </div>
       </CardHeader>
 
-      <CardContent className="px-4 pb-4 flex-1 flex flex-col gap-3">
+      <CardContent className="px-4 pb-4 flex flex-col gap-3">
         {/* Flashcard */}
         <div
           onClick={() => setIsFlipped(!isFlipped)}
-          className={`flex-1 rounded-xl border-2 cursor-pointer transition-all duration-200 p-4 flex flex-col min-h-[130px] select-none
+          className={`rounded-xl border-2 cursor-pointer transition-all duration-200 p-4 flex flex-col select-none
             ${isFlipped
               ? 'border-violet-300 bg-violet-50/60 dark:border-violet-700 dark:bg-violet-950/30'
               : 'border-border/50 bg-muted/30 hover:border-violet-200 hover:bg-muted/50 dark:hover:border-violet-800'
@@ -284,7 +284,7 @@ export function FlashcardsWidget() {
             </div>
           </div>
 
-          <p className="text-sm leading-relaxed flex-1">
+          <p className="text-sm leading-relaxed">
             {isFlipped ? currentCard?.back : currentCard?.front}
           </p>
 
@@ -295,7 +295,7 @@ export function FlashcardsWidget() {
           )}
 
           {!isFlipped && (
-            <p className="text-[11px] text-muted-foreground mt-2 flex items-center gap-1">
+            <p className="text-[11px] text-muted-foreground mt-3 flex items-center gap-1">
               <Eye className="h-3 w-3" /> Appuyez pour révéler
             </p>
           )}
