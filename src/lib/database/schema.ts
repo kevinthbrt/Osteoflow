@@ -668,6 +668,9 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   if (!prescNewCols.some((c) => c.name === 'weekly_routine')) {
     db.exec('ALTER TABLE exercise_prescriptions ADD COLUMN weekly_routine TEXT;')
   }
+  if (!prescNewCols.some((c) => c.name === 'clinical_notes')) {
+    db.exec('ALTER TABLE exercise_prescriptions ADD COLUMN clinical_notes TEXT;')
+  }
 }
 
 /**

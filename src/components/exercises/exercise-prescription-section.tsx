@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Dumbbell, Download, Trash2, Plus, Mail, Eye, Sparkles } from 'lucide-react'
+import { Dumbbell, Download, Trash2, Plus, Mail, Eye, Sparkles, Pencil, FlaskConical } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
 import { AiExerciseGenerationDialog } from '@/components/exercises/ai-exercise-generation-dialog'
@@ -35,9 +35,11 @@ export function ExercisePrescriptionSection({
 }: ExercisePrescriptionSectionProps) {
   const [prescriptions, setPrescriptions] = useState<ExercisePrescription[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [showDialog, setShowDialog] = useState(false)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showAiDialog, setShowAiDialog] = useState(false)
   const [viewingId, setViewingId] = useState<string | null>(null)
+  const [editingPrescription, setEditingPrescription] = useState<ExercisePrescription | null>(null)
+  const [ebpPrescription, setEbpPrescription] = useState<ExercisePrescription | null>(null)
   const { toast } = useToast()
 
   const load = useCallback(async () => {
@@ -111,7 +113,7 @@ export function ExercisePrescriptionSection({
               <Sparkles className="mr-1 h-4 w-4 text-primary" />
               IA
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setShowDialog(true)}>
+            <Button size="sm" variant="outline" onClick={() => setShowCreateDialog(true)}>
               <Plus className="mr-1 h-4 w-4" />
               Nouveau
             </Button>
@@ -143,6 +145,14 @@ export function ExercisePrescriptionSection({
                     <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Consulter" onClick={() => setViewingId(p.id)}>
                       <Eye className="h-4 w-4" />
                     </Button>
+                    {p.clinical_notes && (
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-violet-600 hover:text-violet-600" title="Justification EBP" onClick={() => setEbpPrescription(p)}>
+                        <FlaskConical className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Modifier" onClick={() => setEditingPrescription(p)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
                     <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Télécharger le PDF" onClick={() => handleDownloadPdf(p.id)}>
                       <Download className="h-4 w-4" />
                     </Button>
@@ -164,10 +174,22 @@ export function ExercisePrescriptionSection({
       </Card>
 
       <ExercisePrescriptionDialog
-        open={showDialog}
-        onClose={() => setShowDialog(false)}
+        open={showCreateDialog}
+        onClose={() => setShowCreateDialog(false)}
         patientId={patientId}
         patientName={patientName}
+        consultationId={consultationId}
+        onSaved={load}
+      />
+
+      <ExercisePrescriptionDialog
+        open={!!editingPrescription}
+        onClose={() => setEditingPrescription(null)}
+        patientId={patientId}
+        patientName={patientName}
+        consultationId={consultationId}
+        prescriptionId={editingPrescription?.id}
+        initialPrescription={editingPrescription ?? undefined}
         onSaved={load}
       />
 
@@ -180,6 +202,24 @@ export function ExercisePrescriptionSection({
         consultationData={consultationData}
         onSaved={load}
       />
+
+      {/* EBP justification modal */}
+      <Dialog open={!!ebpPrescription} onOpenChange={(o) => !o && setEbpPrescription(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FlaskConical className="h-4 w-4 text-violet-600" />
+              Justification EBP
+            </DialogTitle>
+          </DialogHeader>
+          {ebpPrescription && (
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-muted-foreground">{ebpPrescription.title}</p>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{ebpPrescription.clinical_notes}</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Inline PDF viewer */}
       <Dialog open={!!viewingId} onOpenChange={(o) => !o && setViewingId(null)}>
