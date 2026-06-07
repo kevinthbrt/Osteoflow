@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { ChevronRight, RotateCcw, BookOpen } from 'lucide-react'
+import { ChevronRight, RotateCcw, Zap, CheckCircle2, Eye } from 'lucide-react'
 
 interface Deck {
   id: string
@@ -28,6 +28,33 @@ interface Flashcard {
 }
 
 const MAX_REQUEUE = 2
+
+const RATINGS = [
+  { rating: 1, label: 'Oublié',   emoji: '😬', className: 'border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950' },
+  { rating: 2, label: 'Difficile', emoji: '😅', className: 'border-orange-200 text-orange-600 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-950' },
+  { rating: 3, label: 'Bien',     emoji: '🙂', className: 'border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950' },
+  { rating: 4, label: 'Facile',   emoji: '😎', className: 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950' },
+]
+
+function SkeletonWidget() {
+  return (
+    <Card className="border-border/30 h-full flex flex-col">
+      <CardHeader className="pb-2 pt-4 px-4 shrink-0">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-violet-500 flex items-center justify-center flex-shrink-0">
+            <Zap className="h-3.5 w-3.5 text-white" />
+          </div>
+          OsteoFlash
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 space-y-3">
+        <div className="h-16 bg-muted/40 rounded-lg animate-pulse" />
+        <div className="h-16 bg-muted/40 rounded-lg animate-pulse" />
+        <div className="h-16 bg-muted/40 rounded-lg animate-pulse" />
+      </CardContent>
+    </Card>
+  )
+}
 
 export function FlashcardsWidget() {
   const [decks, setDecks] = useState<Deck[]>([])
@@ -55,9 +82,7 @@ export function FlashcardsWidget() {
     }
   }, [])
 
-  useEffect(() => {
-    fetchDecks()
-  }, [fetchDecks])
+  useEffect(() => { fetchDecks() }, [fetchDecks])
 
   const startSession = async (deck: Deck) => {
     setSessionLoading(true)
@@ -67,7 +92,6 @@ export function FlashcardsWidget() {
       if (res.ok) {
         const data = await res.json()
         const cards: Flashcard[] = data.cards || []
-        // Sort: due first, then by due_date
         const sorted = [...cards].sort((a, b) => {
           const aDue = new Date(a.due_date) <= new Date() ? 0 : 1
           const bDue = new Date(b.due_date) <= new Date() ? 0 : 1
@@ -90,19 +114,12 @@ export function FlashcardsWidget() {
     const card = sessionCards[currentIndex]
     if (!card || submitting) return
     setSubmitting(true)
-
     try {
       await fetch('/api/osteoupgrade-flashcard-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          card_id: card.id,
-          deck_id: selectedDeck!.id,
-          rating,
-        }),
+        body: JSON.stringify({ card_id: card.id, deck_id: selectedDeck!.id, rating }),
       })
-
-      // Re-queue Oublié (rating 1) — max MAX_REQUEUE times per card
       if (rating === 1) {
         const count = requeueCount[card.id] || 0
         if (count < MAX_REQUEUE) {
@@ -110,7 +127,6 @@ export function FlashcardsWidget() {
           setSessionCards(prev => [...prev, { ...card }])
         }
       }
-
       setCurrentIndex(prev => prev + 1)
       setIsFlipped(false)
     } catch (e) {
@@ -120,168 +136,185 @@ export function FlashcardsWidget() {
     }
   }
 
+  if (isLoading || sessionLoading) return <SkeletonWidget />
+
   const isDone = sessionCards.length > 0 && currentIndex >= sessionCards.length
   const currentCard = sessionCards[currentIndex]
   const isRequeued = currentCard ? (requeueCount[currentCard.id] || 0) > 0 : false
+  const progress = sessionCards.length > 0 ? Math.round((currentIndex / sessionCards.length) * 100) : 0
 
-  if (isLoading) {
-    return (
-      <Card className="h-full">
-        <CardHeader>
-          <CardTitle className="text-sm font-semibold">OsteoFlash</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm text-muted-foreground">Chargement...</div>
-        </CardContent>
-      </Card>
-    )
-  }
-
+  /* ── Deck list ── */
   if (!selectedDeck) {
     return (
-      <Card className="h-full">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <BookOpen className="h-4 w-4" />
+      <Card className="border-border/30 h-full flex flex-col">
+        <CardHeader className="pb-2 pt-4 px-4 shrink-0">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <div className="w-6 h-6 rounded-md bg-violet-500 flex items-center justify-center flex-shrink-0">
+              <Zap className="h-3.5 w-3.5 text-white" />
+            </div>
             OsteoFlash
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {decks.length === 0 && (
-            <p className="text-sm text-muted-foreground">Aucun thème disponible.</p>
+        <CardContent className="px-4 pb-4 space-y-2">
+          {decks.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2">Aucun thème disponible.</p>
+          ) : (
+            decks.map(deck => {
+              const pct = deck.total_cards > 0 ? Math.round((deck.user_reviewed / deck.total_cards) * 100) : 0
+              return (
+                <button
+                  key={deck.id}
+                  onClick={() => startSession(deck)}
+                  className="w-full text-left rounded-xl border border-border/50 bg-card hover:bg-accent/60 hover:border-violet-200 dark:hover:border-violet-800 transition-all duration-150 p-3 group"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                      {deck.name}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {deck.user_due > 0 && (
+                        <span className="text-[10px] font-semibold bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400 px-1.5 py-0.5 rounded-full">
+                          {deck.user_due} à revoir
+                        </span>
+                      )}
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-violet-500 transition-colors" />
+                    </div>
+                  </div>
+                  <Progress value={pct} className="h-1 [&>div]:bg-violet-500" />
+                  <p className="text-[11px] text-muted-foreground mt-1.5">
+                    {deck.user_reviewed} / {deck.total_cards} maîtrisées · {pct}%
+                  </p>
+                </button>
+              )
+            })
           )}
-          {decks.map(deck => (
-            <div
-              key={deck.id}
-              className="rounded-lg border p-3 cursor-pointer hover:bg-accent transition-colors"
-              onClick={() => startSession(deck)}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium">{deck.name}</span>
-                <div className="flex items-center gap-1">
-                  {deck.user_due > 0 && (
-                    <Badge variant="destructive" className="text-xs px-1.5 py-0">
-                      {deck.user_due} à revoir
-                    </Badge>
-                  )}
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </div>
-              <Progress
-                value={deck.total_cards > 0 ? (deck.user_reviewed / deck.total_cards) * 100 : 0}
-                className="h-1.5"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {deck.user_reviewed} / {deck.total_cards} cartes maîtrisées
-              </p>
-            </div>
-          ))}
         </CardContent>
       </Card>
     )
   }
 
-  if (sessionLoading) {
+  /* ── Session terminée ── */
+  if (isDone) {
     return (
-      <Card className="h-full">
-        <CardHeader>
-          <CardTitle className="text-sm font-semibold">OsteoFlash</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm text-muted-foreground">Préparation de la session...</div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <Card className="h-full">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-semibold">
-            OsteoFlash — {selectedDeck.name}
+      <Card className="border-border/30 h-full flex flex-col">
+        <CardHeader className="pb-2 pt-4 px-4 shrink-0">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <div className="w-6 h-6 rounded-md bg-violet-500 flex items-center justify-center flex-shrink-0">
+              <Zap className="h-3.5 w-3.5 text-white" />
+            </div>
+            OsteoFlash
           </CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={() => { setSelectedDeck(null); fetchDecks() }}
-          >
-            <RotateCcw className="h-3 w-3 mr-1" /> Thèmes
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {currentIndex} / {sessionCards.length} cartes
-        </p>
-      </CardHeader>
-      <CardContent>
-        {isDone ? (
-          <div className="text-center space-y-3 py-4">
-            <p className="text-sm font-medium">Session terminée !</p>
-            <p className="text-xs text-muted-foreground">
+        </CardHeader>
+        <CardContent className="px-4 pb-4 flex-1 flex flex-col items-center justify-center gap-3 text-center">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center">
+            <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Session terminée !</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
               {sessionCards.length} cartes révisées
             </p>
-            <Button size="sm" onClick={() => { setSelectedDeck(null); fetchDecks() }}>
-              Retour aux thèmes
-            </Button>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {/* Card */}
-            <div
-              className="rounded-lg border-2 border-primary/20 bg-primary/5 p-4 cursor-pointer min-h-[120px] flex flex-col justify-between"
-              onClick={() => setIsFlipped(!isFlipped)}
-            >
-              <div className="flex justify-between items-start">
-                <Badge variant="outline" className="text-xs">
-                  {isFlipped ? 'Réponse' : 'Question'}
-                </Badge>
-                {isRequeued && (
-                  <Badge variant="secondary" className="text-xs">à revoir</Badge>
-                )}
-              </div>
-              <p className="text-sm mt-2">
-                {isFlipped ? currentCard?.back : currentCard?.front}
-              </p>
-              {isFlipped && currentCard?.explanation && (
-                <p className="text-xs text-muted-foreground mt-2 border-t pt-2">
-                  {currentCard.explanation}
-                </p>
-              )}
-              {!isFlipped && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Appuyez pour révéler la réponse
-                </p>
-              )}
-            </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-1 border-violet-200 text-violet-600 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-400 dark:hover:bg-violet-950"
+            onClick={() => { setSelectedDeck(null); fetchDecks() }}
+          >
+            <RotateCcw className="h-3 w-3 mr-1.5" />
+            Retour aux thèmes
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
 
-            {/* Rating buttons */}
-            {isFlipped && (
-              <div className="grid grid-cols-4 gap-1">
-                {[
-                  { rating: 1, label: 'Oublié', variant: 'destructive' as const },
-                  { rating: 2, label: 'Difficile', variant: 'outline' as const },
-                  { rating: 3, label: 'Bien', variant: 'outline' as const },
-                  { rating: 4, label: 'Facile', variant: 'default' as const },
-                ].map(({ rating, label, variant }) => (
-                  <Button
-                    key={rating}
-                    variant={variant}
-                    size="sm"
-                    className="text-xs h-8"
-                    disabled={submitting}
-                    onClick={() => submitRating(rating)}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            )}
-            {isFlipped && (
-              <p className="text-xs text-muted-foreground text-center">
-                Oublié = la carte revient dans cette session
-              </p>
-            )}
+  /* ── Session active ── */
+  return (
+    <Card className="border-border/30 h-full flex flex-col">
+      <CardHeader className="pb-2 pt-4 px-4 shrink-0">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <div className="w-6 h-6 rounded-md bg-violet-500 flex items-center justify-center flex-shrink-0">
+              <Zap className="h-3.5 w-3.5 text-white" />
+            </div>
+            <span className="truncate max-w-[130px]">{selectedDeck.name}</span>
+          </CardTitle>
+          <button
+            onClick={() => { setSelectedDeck(null); fetchDecks() }}
+            className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent transition-colors"
+          >
+            <RotateCcw className="h-3 w-3 text-muted-foreground" />
+          </button>
+        </div>
+        {/* Progress bar */}
+        <div className="mt-2 space-y-1">
+          <Progress value={progress} className="h-1.5 [&>div]:bg-violet-500" />
+          <p className="text-[11px] text-muted-foreground">
+            {currentIndex} / {sessionCards.length} cartes
+          </p>
+        </div>
+      </CardHeader>
+
+      <CardContent className="px-4 pb-4 flex-1 flex flex-col gap-3">
+        {/* Flashcard */}
+        <div
+          onClick={() => setIsFlipped(!isFlipped)}
+          className={`flex-1 rounded-xl border-2 cursor-pointer transition-all duration-200 p-4 flex flex-col min-h-[130px] select-none
+            ${isFlipped
+              ? 'border-violet-300 bg-violet-50/60 dark:border-violet-700 dark:bg-violet-950/30'
+              : 'border-border/50 bg-muted/30 hover:border-violet-200 hover:bg-muted/50 dark:hover:border-violet-800'
+            }`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full
+              ${isFlipped
+                ? 'bg-violet-100 text-violet-600 dark:bg-violet-900 dark:text-violet-300'
+                : 'bg-muted text-muted-foreground'
+              }`}>
+              {isFlipped ? 'Réponse' : 'Question'}
+            </span>
+            <div className="flex items-center gap-1">
+              {isRequeued && (
+                <span className="text-[10px] bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-400 px-1.5 py-0.5 rounded-full font-medium">
+                  à revoir
+                </span>
+              )}
+              {!isFlipped && <Eye className="h-3.5 w-3.5 text-muted-foreground/50" />}
+            </div>
+          </div>
+
+          <p className="text-sm leading-relaxed flex-1">
+            {isFlipped ? currentCard?.back : currentCard?.front}
+          </p>
+
+          {isFlipped && currentCard?.explanation && (
+            <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-violet-200/50 dark:border-violet-800/50 leading-relaxed">
+              {currentCard.explanation}
+            </p>
+          )}
+
+          {!isFlipped && (
+            <p className="text-[11px] text-muted-foreground mt-2 flex items-center gap-1">
+              <Eye className="h-3 w-3" /> Appuyez pour révéler
+            </p>
+          )}
+        </div>
+
+        {/* Rating buttons */}
+        {isFlipped && (
+          <div className="grid grid-cols-4 gap-1.5">
+            {RATINGS.map(({ rating, label, emoji, className }) => (
+              <button
+                key={rating}
+                disabled={submitting}
+                onClick={() => submitRating(rating)}
+                className={`flex flex-col items-center justify-center gap-0.5 rounded-lg border py-2 text-[11px] font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+              >
+                <span className="text-base leading-none">{emoji}</span>
+                <span>{label}</span>
+              </button>
+            ))}
           </div>
         )}
       </CardContent>
