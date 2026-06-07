@@ -17,6 +17,7 @@ import { Plus, Sparkles } from 'lucide-react'
 import { VideoWidget } from './widgets/video-widget'
 import { ProgressWidget } from './widgets/progress-widget'
 import { ReviewWidget, FeaturedFormationWidget, type WidgetsData } from './widgets/osteoupgrade-widgets'
+import { FlashcardsWidget } from './widgets/flashcards-widget'
 import { BannerWeather } from './banner-weather'
 import { ProfileCompletionWidget } from './profile-completion-widget'
 
@@ -139,8 +140,15 @@ export function Dashboard({
         </div>
       </div>
 
-      {/* ── Row 2 : Progression (bandeau horizontal pleine largeur) ── */}
-      <ProgressWidget layout="horizontal" />
+      {/* ── Row 2 : Progression (3/4) · Flashcards (1/4) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="lg:col-span-3">
+          <ProgressWidget layout="horizontal" />
+        </div>
+        <div className="lg:col-span-1">
+          <FlashcardsWidget />
+        </div>
+      </div>
 
       {/* ── New consultation dialog ── */}
       <Dialog open={isNewConsultationOpen} onOpenChange={setIsNewConsultationOpen}>
