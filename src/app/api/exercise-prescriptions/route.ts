@@ -65,11 +65,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { patient_id, consultation_id, title, notes, items } = body as {
+    const { patient_id, consultation_id, title, notes, patient_intro, vigilance_points, weekly_routine, items } = body as {
       patient_id: string
       consultation_id?: string
       title: string
       notes?: string
+      patient_intro?: string
+      vigilance_points?: string
+      weekly_routine?: string
       items: ExercisePrescriptionItemDraft[]
     }
 
@@ -84,6 +87,9 @@ export async function POST(request: NextRequest) {
         consultation_id: consultation_id || null,
         title,
         notes: notes || null,
+        patient_intro: patient_intro || null,
+        vigilance_points: vigilance_points || null,
+        weekly_routine: weekly_routine || null,
       })
       .select()
       .single()

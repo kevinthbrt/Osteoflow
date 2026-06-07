@@ -39,6 +39,9 @@ export interface ExercisePrescription {
   consultation_id: string | null
   title: string
   notes: string | null
+  patient_intro: string | null
+  vigilance_points: string | null
+  weekly_routine: string | null
   created_at: string
   updated_at: string
   items?: ExercisePrescriptionItem[]
