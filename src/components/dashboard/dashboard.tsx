@@ -63,7 +63,6 @@ export function Dashboard({
   const [patientSearch, setPatientSearch] = useState('')
   const router = useRouter()
 
-  // OsteoUpgrade widgets (revue + nouveauté) — single fetch shared by both cards
   const [widgets, setWidgets] = useState<WidgetsData | null>(null)
   const [widgetsLoading, setWidgetsLoading] = useState(true)
   const [widgetsRefreshKey, setWidgetsRefreshKey] = useState(0)
@@ -101,7 +100,7 @@ export function Dashboard({
                   {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </span>
               </div>
-              <h1 className="text-2xl font-bold">{greeting()}, {practitioner.first_name} !</h1>
+              <h1 className="text-2xl font-bold">{greeting()}, {practitioner.first_name} !</h1>
             </div>
             <Button
               className="self-start gap-2 bg-white/15 text-white border border-white/20 hover:bg-white/25 backdrop-blur-sm"
@@ -119,36 +118,32 @@ export function Dashboard({
       {/* ── Complétude du profil ── */}
       <ProfileCompletionWidget />
 
-      {/* ── Row 1 : Revue (gauche) · Vidéo (centre) · Nouveauté (droite) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <div className="lg:col-span-1">
+      {/* ── Vidéo pleine largeur ── */}
+      <VideoWidget />
+
+      {/* ── OsteoUpgrade (gauche) + OsteoFlash (droite) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* Bloc OsteoUpgrade : Revue + Nouveauté empilées */}
+        <div className="flex flex-col gap-4">
           <ReviewWidget
             review={widgets?.review ?? null}
             loading={widgetsLoading}
             onRefresh={() => setWidgetsRefreshKey((k) => k + 1)}
           />
-        </div>
-        <div className="lg:col-span-2">
-          <VideoWidget />
-        </div>
-        <div className="lg:col-span-1">
           <FeaturedFormationWidget
             formation={widgets?.featured_formation ?? null}
             loading={widgetsLoading}
             practitionerEmail={practitionerEmail}
           />
         </div>
+
+        {/* OsteoFlash */}
+        <FlashcardsWidget />
       </div>
 
-      {/* ── Row 2 : Progression (3/4) · Flashcards (1/4) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <div className="lg:col-span-3">
-          <ProgressWidget layout="horizontal" />
-        </div>
-        <div className="lg:col-span-1">
-          <FlashcardsWidget />
-        </div>
-      </div>
+      {/* ── Progression pleine largeur ── */}
+      <ProgressWidget layout="horizontal" />
 
       {/* ── New consultation dialog ── */}
       <Dialog open={isNewConsultationOpen} onOpenChange={setIsNewConsultationOpen}>
