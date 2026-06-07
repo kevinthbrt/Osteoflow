@@ -167,13 +167,15 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
 
   let curY = pCardY + pCardH + SP.s
 
-  // ── WEEKLY ROUTINE badge ────────────────────────────────────────────────
+  // ── WEEKLY ROUTINE ─────────────────────────────────────────────────────
   if (data.weekly_routine) {
-    const badgeW = Math.min(CW, estimateTextWidth(data.weekly_routine, 8) + 32)
-    doc.roundedRect(ML, curY, badgeW, 18, 4).fill(C.primaryBgDark)
-    doc.font('Helvetica-Bold').fontSize(8).fillColor(C.primary)
-      .text(data.weekly_routine, ML + 10, curY + 4, { lineBreak: false })
-    curY += 18 + SP.s
+    const routineLines = wrapLines(doc, data.weekly_routine, 'Helvetica-Bold', 8, CW - 20)
+    const routineH = Math.max(18, routineLines.length * (8 * 1.25 + 2) + 10)
+    doc.roundedRect(ML, curY, CW, routineH, 4).fill(C.primaryBgDark)
+    drawWrapped(doc, data.weekly_routine, ML + 10, curY + (routineH - routineLines.length * (8 * 1.25 + 2)) / 2, {
+      font: 'Helvetica-Bold', fontSize: 8, color: C.primary, maxWidth: CW - 20, lineGap: 2,
+    })
+    curY += routineH + SP.s
   }
 
   curY += SP.s
@@ -197,7 +199,7 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
     doc.roundedRect(ML, curY, CW, vigH, 5).fill(C.warningBg)
     doc.roundedRect(ML, curY, 4, vigH, 2).fill(C.warningAccent)
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.warningAccent)
-      .text('⚠  POINTS DE VIGILANCE', ML + 14, curY + 8, { characterSpacing: 0.5, lineBreak: false })
+      .text('POINTS DE VIGILANCE', ML + 14, curY + 8, { characterSpacing: 0.5, lineBreak: false })
     drawWrapped(doc, data.vigilance_points, ML + 14, curY + 20, {
       font: 'Helvetica', fontSize: 9, color: C.warningText, maxWidth: CW - 24, lineGap: 2,
     })
