@@ -17,6 +17,7 @@ import { Plus, Sparkles } from 'lucide-react'
 import { VideoWidget } from './widgets/video-widget'
 import { ProgressWidget } from './widgets/progress-widget'
 import { ReviewWidget, FeaturedFormationWidget, type WidgetsData } from './widgets/osteoupgrade-widgets'
+import { FlashcardsWidget } from './widgets/flashcards-widget'
 import { BannerWeather } from './banner-weather'
 import { ProfileCompletionWidget } from './profile-completion-widget'
 
@@ -62,7 +63,6 @@ export function Dashboard({
   const [patientSearch, setPatientSearch] = useState('')
   const router = useRouter()
 
-  // OsteoUpgrade widgets (revue + nouveauté) — single fetch shared by both cards
   const [widgets, setWidgets] = useState<WidgetsData | null>(null)
   const [widgetsLoading, setWidgetsLoading] = useState(true)
   const [widgetsRefreshKey, setWidgetsRefreshKey] = useState(0)
@@ -100,7 +100,7 @@ export function Dashboard({
                   {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </span>
               </div>
-              <h1 className="text-2xl font-bold">{greeting()}, {practitioner.first_name} !</h1>
+              <h1 className="text-2xl font-bold">{greeting()}, {practitioner.first_name} !</h1>
             </div>
             <Button
               className="self-start gap-2 bg-white/15 text-white border border-white/20 hover:bg-white/25 backdrop-blur-sm"
@@ -118,28 +118,35 @@ export function Dashboard({
       {/* ── Complétude du profil ── */}
       <ProfileCompletionWidget />
 
-      {/* ── Row 1 : Revue (gauche) · Vidéo (centre) · Nouveauté (droite) ── */}
+      {/* ── 3 colonnes : OsteoUpgrade | Vidéo | OsteoFlash ── */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <div className="lg:col-span-1">
+
+        {/* Gauche : Revue + Nouveauté empilées */}
+        <div className="lg:col-span-1 flex flex-col gap-4">
           <ReviewWidget
             review={widgets?.review ?? null}
             loading={widgetsLoading}
             onRefresh={() => setWidgetsRefreshKey((k) => k + 1)}
           />
-        </div>
-        <div className="lg:col-span-2">
-          <VideoWidget />
-        </div>
-        <div className="lg:col-span-1">
           <FeaturedFormationWidget
             formation={widgets?.featured_formation ?? null}
             loading={widgetsLoading}
             practitionerEmail={practitionerEmail}
           />
         </div>
+
+        {/* Centre : Vidéo */}
+        <div className="lg:col-span-2">
+          <VideoWidget />
+        </div>
+
+        {/* Droite : OsteoFlash */}
+        <div className="lg:col-span-1">
+          <FlashcardsWidget />
+        </div>
       </div>
 
-      {/* ── Row 2 : Progression (bandeau horizontal pleine largeur) ── */}
+      {/* ── Progression pleine largeur ── */}
       <ProgressWidget layout="horizontal" />
 
       {/* ── New consultation dialog ── */}

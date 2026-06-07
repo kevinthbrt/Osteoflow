@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
-import { Sparkles, Loader2, ChevronLeft, Dumbbell, X, Download, Mail } from 'lucide-react'
+import { Sparkles, Loader2, ChevronLeft, Dumbbell, X, Download, Mail, ChevronDown, ChevronUp, Edit2 } from 'lucide-react'
 
 interface Patient {
   id: string
@@ -44,6 +44,11 @@ interface GeneratedItem {
   notes?: string | null
 }
 
+interface EditableItem extends GeneratedItem {
+  _editDescription?: string
+  _editing?: boolean
+}
+
 export interface AiExerciseGenerationDialogProps {
   open: boolean
   onClose: () => void
@@ -73,6 +78,147 @@ const LEVEL_INFO = {
   3: { label: 'Niveau 3', desc: 'Renforcement fonctionnel' },
 } as const
 
+function ItemEditor({
+  item,
+  index,
+  onChange,
+  onRemove,
+}: {
+  item: EditableItem
+  index: number
+  onChange: (i: number, updated: EditableItem) => void
+  onRemove: (i: number) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  function update(patch: Partial<EditableItem>) {
+    onChange(index, { ...item, ...patch })
+  }
+
+  return (
+    <div className="rounded-lg border p-3 space-y-2">
+      <div className="flex gap-3">
+        {item.exercise.illustration_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={item.exercise.illustration_url}
+            alt=""
+            className="w-14 h-14 object-cover rounded-md flex-shrink-0 bg-muted"
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-medium leading-tight">{item.exercise.name}</p>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setExpanded(e => !e)}
+                className="text-muted-foreground hover:text-foreground"
+                title="Modifier les paramètres"
+              >
+                <Edit2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemove(index)}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {item.exercise.region} · Niveau {item.exercise.level}
+          </p>
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {item.sets != null && <span className="text-xs bg-muted rounded px-1.5 py-0.5">{item.sets} séries</span>}
+            {item.reps && <span className="text-xs bg-muted rounded px-1.5 py-0.5">{item.reps} rép.</span>}
+            {item.hold_time != null && <span className="text-xs bg-muted rounded px-1.5 py-0.5">{item.hold_time}s</span>}
+            {item.rest_time != null && <span className="text-xs bg-muted rounded px-1.5 py-0.5">Repos {item.rest_time}s</span>}
+            {item.frequency && <span className="text-xs bg-primary/10 text-primary rounded px-1.5 py-0.5">{item.frequency}</span>}
+          </div>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="border-t pt-2 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Séries</Label>
+              <input
+                type="number"
+                value={item.sets ?? ''}
+                onChange={e => update({ sets: e.target.value ? Number(e.target.value) : null })}
+                className="w-full rounded border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="ex: 3"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Répétitions</Label>
+              <input
+                type="text"
+                value={item.reps ?? ''}
+                onChange={e => update({ reps: e.target.value || null })}
+                className="w-full rounded border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="ex: 10 ou 8-12"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Maintien (s)</Label>
+              <input
+                type="number"
+                value={item.hold_time ?? ''}
+                onChange={e => update({ hold_time: e.target.value ? Number(e.target.value) : null })}
+                className="w-full rounded border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="ex: 30"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Repos (s)</Label>
+              <input
+                type="number"
+                value={item.rest_time ?? ''}
+                onChange={e => update({ rest_time: e.target.value ? Number(e.target.value) : null })}
+                className="w-full rounded border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="ex: 60"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Fréquence</Label>
+            <input
+              type="text"
+              value={item.frequency ?? ''}
+              onChange={e => update({ frequency: e.target.value || null })}
+              className="w-full rounded border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+              placeholder="ex: 1 fois par jour"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Note pour le patient</Label>
+            <Textarea
+              value={item.notes ?? ''}
+              onChange={e => update({ notes: e.target.value || null })}
+              rows={2}
+              className="resize-none text-xs"
+              placeholder="Consignes spécifiques pour cet exercice..."
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Description de l&apos;exercice</Label>
+            <Textarea
+              value={item._editDescription ?? item.exercise.description ?? ''}
+              onChange={e => update({ _editDescription: e.target.value })}
+              rows={3}
+              className="resize-none text-xs"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function AiExerciseGenerationDialog({
   open, onClose, patientId, patientName, consultationId, consultationData, onSaved,
 }: AiExerciseGenerationDialogProps) {
@@ -80,6 +226,7 @@ export function AiExerciseGenerationDialog({
   const [step, setStep] = useState<'config' | 'preview'>('config')
   const [patient, setPatient] = useState<Patient | null>(null)
   const [loadingPatient, setLoadingPatient] = useState(false)
+  const [showClinicalNotes, setShowClinicalNotes] = useState(false)
 
   // Config
   const [includeAge, setIncludeAge] = useState(true)
@@ -97,7 +244,10 @@ export function AiExerciseGenerationDialog({
   // Preview
   const [prescriptionTitle, setPrescriptionTitle] = useState('')
   const [clinicalNotes, setClinicalNotes] = useState('')
-  const [items, setItems] = useState<GeneratedItem[]>([])
+  const [patientIntro, setPatientIntro] = useState('')
+  const [vigilancePoints, setVigilancePoints] = useState('')
+  const [weeklyRoutine, setWeeklyRoutine] = useState('')
+  const [items, setItems] = useState<EditableItem[]>([])
   const [actionLoading, setActionLoading] = useState<'save' | 'pdf' | 'email' | null>(null)
   const savedIdRef = useRef<string | null>(null)
 
@@ -164,7 +314,10 @@ export function AiExerciseGenerationDialog({
         return
       }
       setPrescriptionTitle(data.title)
-      setClinicalNotes(data.clinical_notes)
+      setClinicalNotes(data.clinical_notes || '')
+      setPatientIntro(data.patient_intro || '')
+      setVigilancePoints(data.vigilance_points || '')
+      setWeeklyRoutine(data.weekly_routine || '')
       setItems(data.items || [])
       setStep('preview')
     } catch {
@@ -180,6 +333,15 @@ export function AiExerciseGenerationDialog({
       toast({ title: 'Aucun exercice à sauvegarder', variant: 'destructive' })
       return null
     }
+
+    const enrichedItems = items.map(item => ({
+      ...item,
+      exercise: {
+        ...item.exercise,
+        description: item._editDescription ?? item.exercise.description ?? '',
+      },
+    }))
+
     const res = await fetch('/api/exercise-prescriptions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -187,8 +349,12 @@ export function AiExerciseGenerationDialog({
         patient_id: patientId,
         consultation_id: consultationId || null,
         title: prescriptionTitle,
-        notes: clinicalNotes,
-        items,
+        notes: null,
+        clinical_notes: clinicalNotes,
+        patient_intro: patientIntro || null,
+        vigilance_points: vigilancePoints || null,
+        weekly_routine: weeklyRoutine || null,
+        items: enrichedItems,
       }),
     })
     if (!res.ok) {
@@ -276,7 +442,6 @@ export function AiExerciseGenerationDialog({
           {/* CONFIG STEP */}
           {step === 'config' && (
             <div className="p-6 space-y-6">
-              {/* Patient factors */}
               <div className="space-y-3">
                 <Label className="text-sm font-medium">Facteurs patient à prendre en compte</Label>
                 {loadingPatient ? (
@@ -315,14 +480,13 @@ export function AiExerciseGenerationDialog({
                 )}
               </div>
 
-              {/* Diagnostic */}
               <div className="space-y-2">
                 <Label htmlFor="diagnostic" className="text-sm font-medium">
                   Diagnostic du praticien <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
                   id="diagnostic"
-                  placeholder="Ex : Lombalgie commune non spécifique, prédominance droite, composante musculaire paravertébrale..."
+                  placeholder="Ex : Lombalgie commune non spécifique, prédominance droite, composante musculaire paravertébrale..."
                   value={diagnostic}
                   onChange={e => setDiagnostic(e.target.value)}
                   rows={3}
@@ -330,7 +494,6 @@ export function AiExerciseGenerationDialog({
                 />
               </div>
 
-              {/* Level */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Niveau d&apos;intensité</Label>
                 <div className="flex gap-2">
@@ -352,7 +515,6 @@ export function AiExerciseGenerationDialog({
                 </div>
               </div>
 
-              {/* Duration */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium flex justify-between">
                   <span>Durée maximale de séance</span>
@@ -374,13 +536,31 @@ export function AiExerciseGenerationDialog({
           {/* PREVIEW STEP */}
           {step === 'preview' && (
             <div className="p-6 space-y-4">
+              {/* Justification clinique EBP — pour le praticien */}
               {clinicalNotes && (
-                <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
-                  <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">Justification clinique EBP</p>
-                  <p className="text-sm text-foreground leading-relaxed">{clinicalNotes}</p>
+                <div className="rounded-lg bg-muted/50 border border-muted">
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between px-4 py-2.5 text-left"
+                    onClick={() => setShowClinicalNotes(v => !v)}
+                  >
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Justification clinique EBP (praticien)
+                    </span>
+                    {showClinicalNotes
+                      ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                      : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                    }
+                  </button>
+                  {showClinicalNotes && (
+                    <div className="px-4 pb-3">
+                      <p className="text-xs text-muted-foreground leading-relaxed">{clinicalNotes}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
+              {/* Titre */}
               <div className="space-y-1.5">
                 <Label htmlFor="presc-title" className="text-sm font-medium">Titre du programme</Label>
                 <input
@@ -392,44 +572,64 @@ export function AiExerciseGenerationDialog({
                 />
               </div>
 
+              {/* Message patient */}
+              <div className="space-y-1.5">
+                <Label htmlFor="patient-intro" className="text-sm font-medium">
+                  Message au patient
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">affiché sur la fiche PDF</span>
+                </Label>
+                <Textarea
+                  id="patient-intro"
+                  value={patientIntro}
+                  onChange={e => setPatientIntro(e.target.value)}
+                  rows={3}
+                  className="resize-none text-sm"
+                  placeholder="Explication bienveillante du programme pour le patient..."
+                />
+              </div>
+
+              {/* Routine hebdomadaire */}
+              <div className="space-y-1.5">
+                <Label htmlFor="weekly-routine" className="text-sm font-medium">Routine hebdomadaire</Label>
+                <input
+                  id="weekly-routine"
+                  type="text"
+                  value={weeklyRoutine}
+                  onChange={e => setWeeklyRoutine(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="ex: 3 fois par semaine, avec 1 jour de repos entre chaque séance"
+                />
+              </div>
+
+              {/* Points de vigilance */}
+              <div className="space-y-1.5">
+                <Label htmlFor="vigilance" className="text-sm font-medium">
+                  Points de vigilance
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">quand arrêter / contacter le praticien</span>
+                </Label>
+                <Textarea
+                  id="vigilance"
+                  value={vigilancePoints}
+                  onChange={e => setVigilancePoints(e.target.value)}
+                  rows={3}
+                  className="resize-none text-sm"
+                  placeholder="• Douleur > 3/10 durant l'exercice&#10;• Vertiges ou nausées&#10;• Engourdissements qui augmentent"
+                />
+              </div>
+
+              {/* Exercices */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
-                  {items.length} exercice{items.length > 1 ? 's' : ''} proposé{items.length > 1 ? 's' : ''}
+                  {items.length} exercice{items.length > 1 ? 's' : ''} — cliquer sur ✏ pour modifier les paramètres
                 </Label>
                 {items.map((item, i) => (
-                  <div key={`${item.exercise.id}-${i}`} className="rounded-lg border p-3 flex gap-3">
-                    {item.exercise.illustration_url && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={item.exercise.illustration_url}
-                        alt=""
-                        className="w-14 h-14 object-cover rounded-md flex-shrink-0 bg-muted"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium leading-tight">{item.exercise.name}</p>
-                        <button
-                          type="button"
-                          onClick={() => setItems(prev => prev.filter((_, idx) => idx !== i))}
-                          className="text-muted-foreground hover:text-destructive flex-shrink-0 mt-0.5"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {item.exercise.region} · Niveau {item.exercise.level}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
-                        {item.sets != null && <span className="text-xs bg-muted rounded px-1.5 py-0.5">{item.sets} séries</span>}
-                        {item.reps && <span className="text-xs bg-muted rounded px-1.5 py-0.5">{item.reps} rép.</span>}
-                        {item.hold_time != null && <span className="text-xs bg-muted rounded px-1.5 py-0.5">{item.hold_time}s</span>}
-                        {item.rest_time != null && <span className="text-xs bg-muted rounded px-1.5 py-0.5">Repos {item.rest_time}s</span>}
-                        {item.frequency && <span className="text-xs bg-primary/10 text-primary rounded px-1.5 py-0.5">{item.frequency}</span>}
-                      </div>
-                      {item.notes && <p className="text-xs text-muted-foreground mt-1 italic">{item.notes}</p>}
-                    </div>
-                  </div>
+                  <ItemEditor
+                    key={`${item.exercise.id}-${i}`}
+                    item={item}
+                    index={i}
+                    onChange={(idx, updated) => setItems(prev => prev.map((it, j) => j === idx ? updated : it))}
+                    onRemove={(idx) => setItems(prev => prev.filter((_, j) => j !== idx))}
+                  />
                 ))}
               </div>
             </div>
@@ -443,7 +643,7 @@ export function AiExerciseGenerationDialog({
               <Button variant="outline" onClick={onClose}>Annuler</Button>
               <Button onClick={handleGenerate} disabled={generating || !diagnostic.trim()}>
                 {generating ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Génération en cours…</>  
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Génération en cours…</>
                 ) : (
                   <><Sparkles className="mr-2 h-4 w-4" />Générer le programme</>
                 )}

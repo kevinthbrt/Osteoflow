@@ -656,6 +656,21 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
 
   // Normalize existing patient last names to uppercase
   db.exec("UPDATE patients SET last_name = UPPER(last_name) WHERE last_name != UPPER(last_name);")
+
+  // Add patient-facing fields to exercise prescriptions
+  const prescNewCols = db.pragma('table_info(exercise_prescriptions)') as Array<{ name: string }>
+  if (!prescNewCols.some((c) => c.name === 'patient_intro')) {
+    db.exec('ALTER TABLE exercise_prescriptions ADD COLUMN patient_intro TEXT;')
+  }
+  if (!prescNewCols.some((c) => c.name === 'vigilance_points')) {
+    db.exec('ALTER TABLE exercise_prescriptions ADD COLUMN vigilance_points TEXT;')
+  }
+  if (!prescNewCols.some((c) => c.name === 'weekly_routine')) {
+    db.exec('ALTER TABLE exercise_prescriptions ADD COLUMN weekly_routine TEXT;')
+  }
+  if (!prescNewCols.some((c) => c.name === 'clinical_notes')) {
+    db.exec('ALTER TABLE exercise_prescriptions ADD COLUMN clinical_notes TEXT;')
+  }
 }
 
 /**

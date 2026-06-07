@@ -1,0 +1,38 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getOsteoUpgradeEmail } from '@/lib/osteoupgrade/email'
+
+export const dynamic = 'force-dynamic'
+
+const OSTEOUPGRADE_BASE = process.env.NEXT_PUBLIC_OSTEOUPGRADE_URL || 'https://osteoupgrade.vercel.app'
+const FALLBACK_SECRET = 'a8c0fcc6aa558582564131768fd6aa6b0628b84ac0abe494948b088f086be1a6'
+
+export async function GET(request: NextRequest) {
+  try {
+    const deckId = request.nextUrl.searchParams.get('deck_id')
+    if (!deckId) return NextResponse.json({ cards: [] }, { status: 400 })
+
+    const email = getOsteoUpgradeEmail()
+    if (!email) return NextResponse.json({ cards: [] })
+
+    const secret = process.env.OSTEOFLOW_PROXY_SECRET || FALLBACK_SECRET
+    const url = `${OSTEOUPGRADE_BASE}/api/osteoflow/flashcards/cards?email=${encodeURIComponent(email)}&deck_id=${deckId}`
+
+    let res: Response
+    try {
+      res = await fetch(url, {
+        headers: { authorization: `Bearer ${secret}` },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10000),
+      })
+    } catch {
+      return NextResponse.json({ cards: [] }, { headers: { 'Cache-Control': 'no-store' } })
+    }
+
+    if (!res.ok) return NextResponse.json({ cards: [] }, { headers: { 'Cache-Control': 'no-store' } })
+
+    const data = await res.json()
+    return NextResponse.json(data, { headers: { 'Cache-Control': 'no-store' } })
+  } catch {
+    return NextResponse.json({ cards: [] }, { headers: { 'Cache-Control': 'no-store' } })
+  }
+}

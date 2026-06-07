@@ -19,6 +19,18 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.7.0',
+    date: '2026-06-07',
+    title: 'OsteoFlash — Flashcards spaced repetition & justification EBP des fiches',
+    changes: [
+      { type: 'feature', text: 'OsteoFlash : nouveau widget de révision par flashcards sur le tableau de bord. Révisez les thèmes cliniques (Lombalgie, Épaule…) avec un système de répétition espacée (algorithme SM-2) — 4 niveaux de difficulté (Oublié, Difficile, Bien, Facile), barre de progression, et re-queue automatique des cartes oubliées en session. Réservé aux abonnés Premium.' },
+      { type: 'feature', text: 'OsteoFlash — Deck Épaule : 121 questions-réponses réparties en 21 modules (épidémiologie, anatomie, diagnostic différentiel, tests cliniques EBP, imagerie, tendinopathie de la coiffe, capsulite rétractile, instabilité, SLAP, arthrose GH, syndrome myofascial, thérapie manuelle, pharmacologie, cas cliniques intégratifs…).' },
+      { type: 'feature', text: 'Justification EBP des fiches d\'exercices : un bouton (icône flacon) apparaît désormais sur chaque fiche générée par IA. Il affiche la justification clinique complète rédigée par l\'IA à l\'attention du praticien (protocole choisi, bases scientifiques, niveau de preuve).' },
+      { type: 'fix', text: 'Fiches d\'exercices IA : correction du champ de sauvegarde de la justification EBP — les fiches créées avant cette version n\'affichaient pas le bouton de justification, ce qui est désormais corrigé.' },
+      { type: 'improvement', text: 'OsteoFlash : redesign visuel complet du widget — thème violet, boutons d\'évaluation avec emojis, barre de progression, écran de fin de session, et skeleton de chargement.' },
+    ],
+  },
+  {
     version: '1.6.2',
     date: '2026-06-04',
     title: 'Ressources PDF dans les cours, noms en majuscules & mise à jour macOS',

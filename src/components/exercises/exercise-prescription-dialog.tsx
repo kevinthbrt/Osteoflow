@@ -37,6 +37,7 @@ import type {
   RehabExercise,
   ExercisePrescriptionItemDraft,
   ExercisePrescriptionTemplate,
+  ExercisePrescription,
 } from '@/types/exercise'
 
 const TYPE_COLORS: Record<string, string> = {
@@ -62,6 +63,8 @@ interface ExercisePrescriptionDialogProps {
   patientId: string
   patientName: string
   consultationId?: string
+  prescriptionId?: string
+  initialPrescription?: ExercisePrescription
   onSaved?: () => void
 }
 
@@ -71,6 +74,8 @@ export function ExercisePrescriptionDialog({
   patientId,
   patientName,
   consultationId,
+  prescriptionId,
+  initialPrescription,
   onSaved,
 }: ExercisePrescriptionDialogProps) {
   const [exercises, setExercises] = useState<RehabExercise[]>([])
@@ -107,6 +112,36 @@ export function ExercisePrescriptionDialog({
       .then((data) => setTemplates(data.templates || []))
       .catch(() => {})
   }, [open])
+
+  // Pre-fill when editing an existing prescription
+  useEffect(() => {
+    if (!open || !initialPrescription) return
+    setTitle(initialPrescription.title)
+    setNotes(initialPrescription.notes || '')
+    const drafts: ExercisePrescriptionItemDraft[] = (initialPrescription.items || []).map((item) => ({
+      exercise: {
+        id: item.exercise_id,
+        name: item.exercise_name,
+        description: item.exercise_description,
+        region: item.exercise_region,
+        type: item.exercise_type,
+        level: item.exercise_level as 1 | 2 | 3,
+        nerve_target: item.nerve_target || null,
+        progression_regression: item.progression_regression || null,
+        is_active: true,
+        illustration_url: item.illustration_url,
+      },
+      sets: item.sets,
+      reps: item.reps || '',
+      hold_time: item.hold_time,
+      rest_time: item.rest_time,
+      frequency: item.frequency || '1x/jour',
+      notes: item.notes || '',
+      nerve_target: item.nerve_target || '',
+      progression_regression: item.progression_regression || '',
+    }))
+    setSelectedItems(drafts)
+  }, [open, initialPrescription])
 
   const regions = useMemo(() => Array.from(new Set(exercises.map((e) => e.region).filter(Boolean))).sort(), [exercises])
   const types = useMemo(() => Array.from(new Set(exercises.map((e) => e.type).filter(Boolean))).sort(), [exercises])
@@ -281,8 +316,12 @@ export function ExercisePrescriptionDialog({
     }
     setIsSaving(true)
     try {
-      const res = await fetch('/api/exercise-prescriptions', {
-        method: 'POST',
+      const isEdit = !!prescriptionId
+      const url = isEdit
+        ? `/api/exercise-prescriptions/${prescriptionId}`
+        : '/api/exercise-prescriptions'
+      const res = await fetch(url, {
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patient_id: patientId,
@@ -321,17 +360,17 @@ export function ExercisePrescriptionDialog({
           if (!emailRes.ok) {
             toast({ title: emailData.error || "Erreur lors de l'envoi email", variant: 'destructive' })
           } else {
-            toast({ title: 'Programme enregistré et envoyé par email' })
+            toast({ title: isEdit ? 'Programme modifié et envoyé par email' : 'Programme enregistré et envoyé par email' })
           }
         } catch {
-          toast({ title: "Programme enregistré (erreur envoi email)", variant: 'destructive' })
+          toast({ title: isEdit ? 'Programme modifié (erreur envoi email)' : "Programme enregistré (erreur envoi email)", variant: 'destructive' })
         }
         onSaved?.()
         handleClose()
         return
       }
 
-      toast({ title: 'Programme enregistré' })
+      toast({ title: isEdit ? 'Programme modifié' : 'Programme enregistré' })
       onSaved?.()
       handleClose()
     } catch {
@@ -362,7 +401,7 @@ export function ExercisePrescriptionDialog({
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl flex items-center gap-2">
               <Dumbbell className="h-5 w-5 text-primary" />
-              Programme d&apos;exercices — {patientName}
+              {prescriptionId ? 'Modifier le programme' : 'Programme d’exercices'} — {patientName}
             </DialogTitle>
             <div className="flex gap-2">
               <Button
@@ -781,7 +820,7 @@ export function ExercisePrescriptionDialog({
             disabled={isSaving}
           >
             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Enregistrer
+            {prescriptionId ? 'Modifier' : 'Enregistrer'}
           </Button>
           <Button
             type="button"
@@ -790,11 +829,11 @@ export function ExercisePrescriptionDialog({
             disabled={isSaving}
           >
             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-            Enregistrer & PDF
+            {prescriptionId ? 'Modifier & PDF' : 'Enregistrer & PDF'}
           </Button>
           <Button type="button" onClick={() => handleSave('email')} disabled={isSaving}>
             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-            Enregistrer & Envoyer
+            {prescriptionId ? 'Modifier & Envoyer' : 'Enregistrer & Envoyer'}
           </Button>
         </div>
       </DialogContent>

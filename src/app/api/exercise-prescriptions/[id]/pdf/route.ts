@@ -76,6 +76,9 @@ export async function GET(
       prescriptionTitle: prescription.title,
       prescriptionDate,
       notes: prescription.notes || undefined,
+      patient_intro: prescription.patient_intro || undefined,
+      vigilance_points: prescription.vigilance_points || undefined,
+      weekly_routine: prescription.weekly_routine || undefined,
       items: items || [],
     })
 

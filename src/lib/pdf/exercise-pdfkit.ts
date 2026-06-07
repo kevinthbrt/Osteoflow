@@ -15,6 +15,10 @@ const C = {
   borderLight: '#E2E8F0',
   white: '#FFFFFF',
   paramBg: '#F0FDFA',
+  warningBg: '#FFFBEB',
+  warningBorder: '#FDE68A',
+  warningText: '#92400E',
+  warningAccent: '#F59E0B',
 }
 
 const SP = { xs: 4, s: 8, m: 14, l: 22, xl: 32 }
@@ -28,10 +32,12 @@ export interface ExercisePdfData {
   prescriptionTitle: string
   prescriptionDate: string
   notes?: string
+  patient_intro?: string
+  vigilance_points?: string
+  weekly_routine?: string
   items: ExercisePrescriptionItem[]
 }
 
-// Helvetica avg char width ≈ fontSize × 0.55, line height ≈ fontSize × 1.5
 function estimateTextHeight(text: string, fontSize: number, width: number): number {
   const charsPerLine = Math.max(1, Math.floor(width / (fontSize * 0.55)))
   const lines = text.split('\n').reduce((total, line) => {
@@ -44,9 +50,6 @@ function estimateTextWidth(text: string, fontSize: number): number {
   return text.length * fontSize * 0.58
 }
 
-// @react-pdf/pdfkit ne fait PAS de retour à la ligne automatique : `width` ne
-// sert qu'à l'alignement. On découpe donc le texte manuellement avec les
-// vraies métriques de police (doc.widthOfString).
 function wrapLines(
   doc: InstanceType<typeof PDFDocument>,
   text: string,
@@ -74,7 +77,6 @@ function wrapLines(
   return out
 }
 
-// Dessine un texte multi-ligne et renvoie la position Y finale.
 function drawWrapped(
   doc: InstanceType<typeof PDFDocument>,
   text: string,
@@ -152,7 +154,7 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
     .text('PATIENT', ML + 18, pCardY + 10, { characterSpacing: 1 })
   doc.font('Helvetica-Bold').fontSize(14).fillColor(C.dark)
     .text(data.patientName, ML + 18, pCardY + 22)
-  // Titre du programme — aligné à droite, retour à la ligne manuel
+
   {
     const titleLines = wrapLines(doc, data.prescriptionTitle, 'Helvetica-Bold', 10, titleW)
     doc.font('Helvetica-Bold').fontSize(10).fillColor(C.primary)
@@ -163,16 +165,45 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
     }
   }
 
-  let curY = pCardY + pCardH + SP.l
+  let curY = pCardY + pCardH + SP.s
 
-  // ── GENERAL NOTES ───────────────────────────────────────────────────────
-  if (data.notes) {
-    doc.rect(ML, curY, CW, 1).fill(C.borderLight)
-    curY += SP.s
-    curY = drawWrapped(doc, data.notes, ML, curY, {
-      font: 'Helvetica-Oblique', fontSize: 9, color: C.textLight, maxWidth: CW, lineGap: 2,
+  // ── WEEKLY ROUTINE ─────────────────────────────────────────────────────
+  if (data.weekly_routine) {
+    const routineLines = wrapLines(doc, data.weekly_routine, 'Helvetica-Bold', 8, CW - 20)
+    const routineH = Math.max(18, routineLines.length * (8 * 1.25 + 2) + 10)
+    doc.roundedRect(ML, curY, CW, routineH, 4).fill(C.primaryBgDark)
+    drawWrapped(doc, data.weekly_routine, ML + 10, curY + (routineH - routineLines.length * (8 * 1.25 + 2)) / 2, {
+      font: 'Helvetica-Bold', fontSize: 8, color: C.primary, maxWidth: CW - 20, lineGap: 2,
     })
-    curY += SP.l
+    curY += routineH + SP.s
+  }
+
+  curY += SP.s
+
+  // ── PATIENT INTRO ──────────────────────────────────────────────────────
+  if (data.patient_intro) {
+    const introLines = wrapLines(doc, data.patient_intro, 'Helvetica', 9.5, CW - 24)
+    const introH = introLines.length * (9.5 * 1.25 + 2) + 20
+    doc.roundedRect(ML, curY, CW, introH, 5).fill(C.primaryBg)
+    doc.roundedRect(ML, curY, 4, introH, 2).fill(C.primary)
+    drawWrapped(doc, data.patient_intro, ML + 14, curY + 10, {
+      font: 'Helvetica', fontSize: 9.5, color: C.text, maxWidth: CW - 24, lineGap: 2,
+    })
+    curY += introH + SP.l
+  }
+
+  // ── VIGILANCE POINTS ───────────────────────────────────────────────────
+  if (data.vigilance_points) {
+    const vigLines = wrapLines(doc, data.vigilance_points, 'Helvetica', 9, CW - 24)
+    const vigH = vigLines.length * (9 * 1.25 + 2) + 28
+    doc.roundedRect(ML, curY, CW, vigH, 5).fill(C.warningBg)
+    doc.roundedRect(ML, curY, 4, vigH, 2).fill(C.warningAccent)
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.warningAccent)
+      .text('POINTS DE VIGILANCE', ML + 14, curY + 8, { characterSpacing: 0.5, lineBreak: false })
+    drawWrapped(doc, data.vigilance_points, ML + 14, curY + 20, {
+      font: 'Helvetica', fontSize: 9, color: C.warningText, maxWidth: CW - 24, lineGap: 2,
+    })
+    curY += vigH + SP.l
   }
 
   // ── PRE-FETCH IMAGES ────────────────────────────────────────────────────
@@ -189,17 +220,13 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
   // ── EXERCISE CARDS ──────────────────────────────────────────────────────
   const IMG_SIZE = 110
   const CIRCLE_R = 14
-  // CIRCLE_CX: x center of the number circle
-  const CIRCLE_CX = ML + CIRCLE_R          // = 62
-  // CONTENT_X: where text starts — 14pt gap after circle right edge
-  const CONTENT_X = ML + CIRCLE_R * 2 + 14 // = 90
-  // CONTENT_W: available width between text start and image left edge
-  const CONTENT_W = CW - CIRCLE_R * 2 - 14 - IMG_SIZE - SP.m  // ≈ 367
+  const CIRCLE_CX = ML + CIRCLE_R
+  const CONTENT_X = ML + CIRCLE_R * 2 + 14
+  const CONTENT_W = CW - CIRCLE_R * 2 - 14 - IMG_SIZE - SP.m
 
   for (let i = 0; i < data.items.length; i++) {
     const item = data.items[i]
 
-    // Estimate card height for page-break detection
     const descH = estimateTextHeight(item.exercise_description, 9.5, CONTENT_W)
     const hasParams = !!(item.sets || item.reps || item.hold_time || item.rest_time || item.frequency)
     const notesH = item.notes ? estimateTextHeight(item.notes, 8.5, CONTENT_W) + SP.xs : 0
@@ -208,7 +235,6 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
       IMG_SIZE + SP.s
     )
 
-    // Page break
     const FOOTER_H = 44
     if (curY + estimatedH > PH - FOOTER_H && i > 0) {
       doc.addPage()
@@ -219,15 +245,12 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
     const cardY = curY
     const imgX = PW - MR - IMG_SIZE
     const imgY = cardY
-    const circleCenterY = cardY + CIRCLE_R  // vertical center of the circle
+    const circleCenterY = cardY + CIRCLE_R
 
-    // ── Image — fit mode shows the complete image without cropping ──────────
     const imgBuffer = item.illustration_url ? imageBuffers.get(item.illustration_url) : undefined
     if (imgBuffer) {
       try {
-        // Light background for the image box (visible when image has whitespace with fit)
         doc.roundedRect(imgX, imgY, IMG_SIZE, IMG_SIZE, 5).fill('#F8FAFC')
-        // Clip to prevent any overflow, then draw with fit to show full image
         doc.save()
         doc.roundedRect(imgX, imgY, IMG_SIZE, IMG_SIZE, 5).clip()
         doc.image(imgBuffer, imgX, imgY, {
@@ -244,22 +267,17 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
       drawPlaceholder(doc, imgX, imgY, IMG_SIZE, item.exercise_type)
     }
 
-    // ── Number circle ────────────────────────────────────────────────────
     doc.circle(CIRCLE_CX, circleCenterY, CIRCLE_R).fill(C.primary)
 
-    // Manual x/y centering — more reliable than align:'center' with lineBreak:false
     const numFS = i >= 9 ? 8 : 10
     const numStr = String(i + 1)
     const numW = estimateTextWidth(numStr, numFS)
-    // 0.40 × fontSize approximates half the cap height in PDFKit coordinates
     const numX = CIRCLE_CX - numW / 2
     const numY = circleCenterY - numFS * 0.40
     doc.font('Helvetica-Bold').fontSize(numFS).fillColor(C.white)
       .text(numStr, numX, numY, { lineBreak: false })
 
-    // ── Exercise name — vertically centered with circle ───────────────────
     const nameFontSize = 13
-    // 0.38 × fontSize ≈ cap height / 2 (vertical offset to center caps at circleCenterY)
     const nameY = circleCenterY - nameFontSize * 0.38
     doc.font('Helvetica-Bold').fontSize(nameFontSize)
     let displayName = item.exercise_name
@@ -270,7 +288,6 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
     doc.fillColor(C.dark)
       .text(displayName, CONTENT_X, nameY, { lineBreak: false })
 
-    // ── Badges — below circle bottom, also respects name bottom ──────────
     const bY = Math.max(cardY + CIRCLE_R * 2 + SP.xs, doc.y + SP.xs)
     let bX = CONTENT_X
 
@@ -289,14 +306,12 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
       bX += bW + SP.xs + 2
     }
 
-    // ── Description ──────────────────────────────────────────────────────
     const descY = bY + 14 + SP.m
     curY = drawWrapped(doc, item.exercise_description, CONTENT_X, descY, {
       font: 'Helvetica', fontSize: 9.5, color: C.text, maxWidth: CONTENT_W, lineGap: 3,
     })
     curY += SP.s
 
-    // ── Nerve target & Progression/Regression ────────────────────────────
     if (item.nerve_target) {
       curY = drawWrapped(doc, `Cible nerveuse : ${item.nerve_target}`, CONTENT_X, curY, {
         font: 'Helvetica', fontSize: 8, color: '#4F46E5', maxWidth: CONTENT_W, lineGap: 1,
@@ -313,7 +328,6 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
       curY += SP.xs
     }
 
-    // ── Params box ───────────────────────────────────────────────────────
     const params: string[] = []
     if (item.sets != null && item.reps)  params.push(`${item.sets} × ${item.reps}`)
     else if (item.sets != null)          params.push(`${item.sets} séries`)
@@ -334,7 +348,6 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
       curY += paramBoxH + SP.s
     }
 
-    // ── Notes ────────────────────────────────────────────────────────────
     if (item.notes) {
       curY = drawWrapped(doc, `Note : ${item.notes}`, CONTENT_X, curY, {
         font: 'Helvetica-Oblique', fontSize: 8.5, color: C.textMuted, maxWidth: CONTENT_W, lineGap: 2,
@@ -342,11 +355,9 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
       curY += SP.xs
     }
 
-    // Ensure content clears the image
     curY = Math.max(curY, cardY + IMG_SIZE + SP.s)
     curY += SP.m
 
-    // ── Separator ────────────────────────────────────────────────────────
     if (i < data.items.length - 1) {
       doc.rect(ML, curY, CW, 0.75).fill(C.borderLight)
       curY += SP.xl
