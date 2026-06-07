@@ -120,7 +120,7 @@ export function FlashcardsWidget() {
               <div className="w-6 h-6 rounded-md bg-violet-500 flex items-center justify-center">
                 <Brain className="h-3.5 w-3.5 text-white" />
               </div>
-              Flashcards — {activeDeck.title}
+              OsteoFlash — {activeDeck.title}
             </CardTitle>
             <button onClick={exitSession} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
               <RotateCcw className="h-3 w-3" /> Quitter
@@ -137,7 +137,7 @@ export function FlashcardsWidget() {
               </div>
               <p className="text-sm font-semibold">Session terminée !</p>
               <p className="text-xs text-muted-foreground">{sessionCards.length} carte{sessionCards.length > 1 ? 's' : ''} révisée{sessionCards.length > 1 ? 's' : ''}</p>
-              <button onClick={exitSession} className="text-xs text-violet-600 hover:underline">Retour aux decks</button>
+              <button onClick={exitSession} className="text-xs text-violet-600 hover:underline">Retour aux thèmes</button>
             </div>
           ) : (
             <div className="space-y-3">
@@ -150,7 +150,7 @@ export function FlashcardsWidget() {
                 <div className="bg-violet-500 h-1 rounded-full transition-all" style={{ width: `${(currentIndex / sessionCards.length) * 100}%` }} />
               </div>
 
-              {/* Card face */}
+              {/* Card front */}
               {!flipped ? (
                 <div
                   onClick={() => setFlipped(true)}
@@ -206,7 +206,7 @@ export function FlashcardsWidget() {
           <div className="w-6 h-6 rounded-md bg-violet-500 flex items-center justify-center">
             <Brain className="h-3.5 w-3.5 text-white" />
           </div>
-          Flashcards
+          OsteoFlash
         </CardTitle>
       </CardHeader>
       <CardContent className="px-4 pb-4">
@@ -216,7 +216,7 @@ export function FlashcardsWidget() {
             <div className="h-16 bg-muted/40 rounded animate-pulse" />
           </div>
         ) : decks.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-4 text-center">Aucun deck disponible</p>
+          <p className="text-xs text-muted-foreground py-4 text-center">Aucun thème disponible</p>
         ) : (
           <div className="space-y-2">
             {decks.map((deck) => {
@@ -241,7 +241,7 @@ export function FlashcardsWidget() {
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                    <span>{deck.user_reviewed}/{deck.total_cards} cartes</span>
+                    <span>{deck.user_reviewed}/{deck.total_cards} cartes maîtrisées</span>
                     <span className="font-semibold text-violet-600">{pct}%</span>
                   </div>
                   <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
