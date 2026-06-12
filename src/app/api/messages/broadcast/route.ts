@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
     for (const patient of patientsWithEmail) {
       try {
-        const emailContent = `Bonjour ${patient.first_name},\n\n${content}`
+        const emailContent = content
         const htmlEmail = createHtmlEmail(emailContent, practitioner)
 
         const result = await sendEmail(
