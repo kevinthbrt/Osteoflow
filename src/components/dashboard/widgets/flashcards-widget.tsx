@@ -266,13 +266,10 @@ export function FlashcardsWidget() {
               : 'border-border/50 bg-muted/30 hover:border-violet-200 hover:bg-muted/50 dark:hover:border-violet-800'
             }`}
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full
-              ${isFlipped
-                ? 'bg-violet-100 text-violet-600 dark:bg-violet-900 dark:text-violet-300'
-                : 'bg-muted text-muted-foreground'
-              }`}>
-              {isFlipped ? 'Réponse' : 'Question'}
+          {/* Question — always visible */}
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+              Question
             </span>
             <div className="flex items-center gap-1">
               {isRequeued && (
@@ -283,15 +280,27 @@ export function FlashcardsWidget() {
               {!isFlipped && <Eye className="h-3.5 w-3.5 text-muted-foreground/50" />}
             </div>
           </div>
-
-          <p className="text-sm leading-relaxed">
-            {isFlipped ? currentCard?.back : currentCard?.front}
+          <p className={`leading-relaxed ${isFlipped ? 'text-xs text-muted-foreground' : 'text-sm'}`}>
+            {currentCard?.front}
           </p>
 
-          {isFlipped && currentCard?.explanation && (
-            <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-violet-200/50 dark:border-violet-800/50 leading-relaxed">
-              {currentCard.explanation}
-            </p>
+          {/* Answer — only when flipped */}
+          {isFlipped && (
+            <>
+              <div className="border-t border-violet-200/50 dark:border-violet-800/50 mt-3 pt-3">
+                <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600 dark:bg-violet-900 dark:text-violet-300">
+                  Réponse
+                </span>
+                <p className="text-sm font-medium text-violet-900 dark:text-violet-200 mt-1 leading-relaxed">
+                  {currentCard?.back}
+                </p>
+              </div>
+              {currentCard?.explanation && (
+                <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-violet-200/50 dark:border-violet-800/50 leading-relaxed">
+                  {currentCard.explanation}
+                </p>
+              )}
+            </>
           )}
 
           {!isFlipped && (
