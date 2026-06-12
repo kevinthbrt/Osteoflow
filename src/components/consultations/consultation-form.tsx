@@ -711,16 +711,6 @@ export function ConsultationForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="gap-1.5 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-800/50 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/50"
-                    onClick={() => setShowPrescriptionsList(true)}
-                  >
-                    <Eye className="h-4 w-4" />
-                    Voir les fiches
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
                     className="gap-1.5 border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100 hover:text-fuchsia-800 dark:border-fuchsia-800/50 dark:bg-fuchsia-950/40 dark:text-fuchsia-300 dark:hover:bg-fuchsia-900/50"
                     onClick={() => setShowAiExercises(true)}
                   >
@@ -1514,6 +1504,16 @@ export function ConsultationForm({
             initialEntries={medicalHistoryEntries}
             refreshTrigger={medicalHistoryRefreshKey}
           />
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full gap-2 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-800/50 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/50"
+            onClick={() => setShowPrescriptionsList(true)}
+          >
+            <Dumbbell className="h-4 w-4" />
+            Fiches exercices du patient
+          </Button>
 
           {pastConsultations && pastConsultations.length > 0 && (
             <Card>
