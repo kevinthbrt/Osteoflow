@@ -421,11 +421,12 @@ CREATE INDEX IF NOT EXISTS idx_generated_letters_consultation ON generated_lette
 CREATE TABLE IF NOT EXISTS custom_clinical_content (
   id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
   practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
-  content_type TEXT NOT NULL CHECK (content_type IN ('test', 'manipulation')),
+  content_type TEXT NOT NULL CHECK (content_type IN ('test', 'technique')),
   name TEXT NOT NULL,
   description TEXT,
   region TEXT,
   sort_order INTEGER DEFAULT 0,
+  use_count INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -674,6 +675,12 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
 
   // Normalize existing patient last names to uppercase
   db.exec("UPDATE patients SET last_name = UPPER(last_name) WHERE last_name != UPPER(last_name);")
+
+  // Add use_count to custom_clinical_content
+  const customClinicalCols = db.pragma('table_info(custom_clinical_content)') as Array<{ name: string }>
+  if (!customClinicalCols.some((c) => c.name === 'use_count')) {
+    db.exec('ALTER TABLE custom_clinical_content ADD COLUMN use_count INTEGER DEFAULT 0;')
+  }
 
   // Add patient-facing fields to exercise prescriptions
   const prescNewCols = db.pragma('table_info(exercise_prescriptions)') as Array<{ name: string }>

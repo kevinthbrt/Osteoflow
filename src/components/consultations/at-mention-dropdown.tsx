@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-interface OrthoTest {
+interface Item {
   id: string
   name: string
-  region: string | null
-  indications: string | null
+  region?: string | null
+  description?: string | null
+  use_count?: number
 }
 
 type TestResult = 'positive' | 'negative' | 'uncertain'
@@ -29,26 +30,38 @@ function normalize(s: string) {
 }
 
 interface Props {
-  tests: OrthoTest[]
+  items: Item[]
   regionQuery: string
   anchorRef: React.RefObject<HTMLTextAreaElement>
   onSelect: (text: string) => void
   onClose: () => void
+  showResultPicker?: boolean
 }
 
-export function AtMentionDropdown({ tests, regionQuery, anchorRef, onSelect, onClose }: Props) {
+export function AtMentionDropdown({ items, regionQuery, anchorRef, onSelect, onClose, showResultPicker = true }: Props) {
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
-  const [pendingTest, setPendingTest] = useState<OrthoTest | null>(null)
+  const [pendingItem, setPendingItem] = useState<Item | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const filtered = useMemo(() => {
     const q = normalize(regionQuery)
-    if (!q) return []
-    return tests
-      .filter(t => t.region && normalize(t.region).includes(q))
+    let result = items
+    if (q) {
+      result = items.filter(t => {
+        const haystack = normalize(t.region ?? '') + ' ' + normalize(t.name)
+        return haystack.includes(q)
+      })
+    }
+    return result
+      .slice()
+      .sort((a, b) => {
+        const ucDiff = (b.use_count ?? 0) - (a.use_count ?? 0)
+        if (ucDiff !== 0) return ucDiff
+        return a.name.localeCompare(b.name)
+      })
       .slice(0, 12)
-  }, [tests, regionQuery])
+  }, [items, regionQuery])
 
   // Position dropdown below textarea
   useEffect(() => {
@@ -68,18 +81,25 @@ export function AtMentionDropdown({ tests, regionQuery, anchorRef, onSelect, onC
   // Keyboard nav
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (pendingTest) {
-        if (e.key === 'Escape') { setPendingTest(null); e.preventDefault() }
+      if (pendingItem) {
+        if (e.key === 'Escape') { setPendingItem(null); e.preventDefault() }
         return
       }
       if (e.key === 'Escape') { onClose(); e.preventDefault() }
       if (e.key === 'ArrowDown') { setActiveIndex(i => Math.min(i + 1, filtered.length - 1)); e.preventDefault() }
       if (e.key === 'ArrowUp') { setActiveIndex(i => Math.max(i - 1, 0)); e.preventDefault() }
-      if (e.key === 'Enter' && filtered[activeIndex]) { setPendingTest(filtered[activeIndex]); e.preventDefault() }
+      if (e.key === 'Enter' && filtered[activeIndex]) {
+        if (showResultPicker) {
+          setPendingItem(filtered[activeIndex])
+        } else {
+          onSelect(filtered[activeIndex].name)
+        }
+        e.preventDefault()
+      }
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [filtered, activeIndex, onClose, pendingTest])
+  }, [filtered, activeIndex, onClose, pendingItem, showResultPicker, onSelect])
 
   // Close on outside click
   useEffect(() => {
@@ -94,9 +114,9 @@ export function AtMentionDropdown({ tests, regionQuery, anchorRef, onSelect, onC
 
   if (!pos) return null
 
-  const handleResult = (test: OrthoTest, result: TestResult) => {
-    onSelect(`${test.name} : ${RESULT_LABELS[result]}`)
-    setPendingTest(null)
+  const handleResult = (item: Item, result: TestResult) => {
+    onSelect(`${item.name} : ${RESULT_LABELS[result]}`)
+    setPendingItem(null)
   }
 
   return createPortal(
@@ -106,17 +126,17 @@ export function AtMentionDropdown({ tests, regionQuery, anchorRef, onSelect, onC
       className="bg-popover border border-border rounded-lg shadow-lg overflow-hidden"
     >
       {filtered.length === 0 ? (
-        <p className="px-3 py-2 text-sm text-muted-foreground">Aucun test trouvé pour « {regionQuery} »</p>
-      ) : pendingTest ? (
-        /* Result picker for selected test */
+        <p className="px-3 py-2 text-sm text-muted-foreground">Aucun résultat pour « {regionQuery} »</p>
+      ) : pendingItem ? (
+        /* Result picker for selected item */
         <div className="p-2">
-          <p className="text-xs font-medium text-muted-foreground px-1 mb-2 truncate">{pendingTest.name}</p>
+          <p className="text-xs font-medium text-muted-foreground px-1 mb-2 truncate">{pendingItem.name}</p>
           <div className="flex gap-1">
             {RESULT_OPTIONS.map(opt => (
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => handleResult(pendingTest, opt.value)}
+                onClick={() => handleResult(pendingItem, opt.value)}
                 className={`flex-1 flex flex-col items-center gap-0.5 rounded-md py-2 text-xs border border-border transition-colors ${opt.cls}`}
               >
                 <span className="text-base">{opt.symbol}</span>
@@ -126,21 +146,27 @@ export function AtMentionDropdown({ tests, regionQuery, anchorRef, onSelect, onC
           </div>
           <button
             type="button"
-            onClick={() => setPendingTest(null)}
+            onClick={() => setPendingItem(null)}
             className="mt-1 w-full text-xs text-center text-muted-foreground hover:text-foreground py-1"
           >
             ← Retour
           </button>
         </div>
       ) : (
-        /* Tests list */
+        /* Items list */
         <ul className="max-h-56 overflow-y-auto py-1">
           {filtered.map((t, i) => (
             <li key={t.id}>
               <button
                 type="button"
                 onMouseEnter={() => setActiveIndex(i)}
-                onClick={() => setPendingTest(t)}
+                onClick={() => {
+                  if (showResultPicker) {
+                    setPendingItem(t)
+                  } else {
+                    onSelect(t.name)
+                  }
+                }}
                 className={`w-full text-left px-3 py-2 text-sm transition-colors ${
                   i === activeIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/60'
                 }`}
@@ -148,6 +174,9 @@ export function AtMentionDropdown({ tests, regionQuery, anchorRef, onSelect, onC
                 <span className="font-medium">{t.name}</span>
                 {t.region && (
                   <span className="ml-2 text-xs text-muted-foreground">{t.region}</span>
+                )}
+                {t.description && (
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">{t.description}</p>
                 )}
               </button>
             </li>

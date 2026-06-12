@@ -27,7 +27,7 @@ import { Plus, Pencil, Trash2, Loader2, Stethoscope, Activity } from 'lucide-rea
 
 interface CustomClinicalContent {
   id: string
-  content_type: 'test' | 'manipulation'
+  content_type: 'test' | 'technique'
   name: string
   description: string | null
   region: string | null
@@ -35,14 +35,14 @@ interface CustomClinicalContent {
 }
 
 interface FormState {
-  content_type: 'test' | 'manipulation'
+  content_type: 'test' | 'technique'
   name: string
   description: string
   region: string
 }
 
 const emptyForm: FormState = {
-  content_type: 'manipulation',
+  content_type: 'technique',
   name: '',
   description: '',
   region: '',
@@ -65,7 +65,7 @@ export function CustomClinicalContentTab({ practitionerId }: { practitionerId: s
       .select('*')
       .eq('practitioner_id', practitionerId)
       .order('content_type', { ascending: true })
-      .order('sort_order', { ascending: true })
+      .order('use_count', { ascending: false })
       .order('name', { ascending: true })
     setItems(data || [])
     setLoading(false)
@@ -74,7 +74,7 @@ export function CustomClinicalContentTab({ practitionerId }: { practitionerId: s
 
   useEffect(() => { load() }, [load])
 
-  const openAdd = (type: 'test' | 'manipulation') => {
+  const openAdd = (type: 'test' | 'technique') => {
     setEditingId(null)
     setForm({ ...emptyForm, content_type: type })
     setDialogOpen(true)
@@ -139,7 +139,7 @@ export function CustomClinicalContentTab({ practitionerId }: { practitionerId: s
   }
 
   const tests = items.filter(i => i.content_type === 'test')
-  const manipulations = items.filter(i => i.content_type === 'manipulation')
+  const techniques = items.filter(i => i.content_type === 'technique')
 
   const Section = ({
     title,
@@ -152,13 +152,13 @@ export function CustomClinicalContentTab({ practitionerId }: { practitionerId: s
     title: string
     icon: typeof Stethoscope
     entries: CustomClinicalContent[]
-    type: 'test' | 'manipulation'
+    type: 'test' | 'technique'
     description: string
     mention: string
   }) => (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-2">
-        <div>
+      <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <Icon className="h-4 w-4 text-primary" />
             <CardTitle className="text-base">{title}</CardTitle>
@@ -168,7 +168,7 @@ export function CustomClinicalContentTab({ practitionerId }: { practitionerId: s
             Utilisez <code className="bg-muted px-1 rounded">{mention}</code> dans l'examen clinique pour y accéder
           </p>
         </div>
-        <Button type="button" size="sm" variant="outline" onClick={() => openAdd(type)}>
+        <Button type="button" size="sm" variant="outline" className="shrink-0 mt-0.5" onClick={() => openAdd(type)}>
           <Plus className="h-4 w-4 mr-1" />
           Ajouter
         </Button>
@@ -216,12 +216,12 @@ export function CustomClinicalContentTab({ practitionerId }: { practitionerId: s
   return (
     <div className="space-y-6">
       <Section
-        title="Mes manipulations"
+        title="Mes techniques"
         icon={Activity}
-        entries={manipulations}
-        type="manipulation"
-        description="Vos techniques de manipulation personnelles"
-        mention="@manip"
+        entries={techniques}
+        type="technique"
+        description="Vos techniques personnelles"
+        mention="@tech<région>"
       />
       <Section
         title="Mes tests personnalisés"
@@ -242,13 +242,13 @@ export function CustomClinicalContentTab({ practitionerId }: { practitionerId: s
               <Label>Type</Label>
               <Select
                 value={form.content_type}
-                onValueChange={(v) => setForm(p => ({ ...p, content_type: v as 'test' | 'manipulation' }))}
+                onValueChange={(v) => setForm(p => ({ ...p, content_type: v as 'test' | 'technique' }))}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="manipulation">Manipulation</SelectItem>
+                  <SelectItem value="technique">Technique</SelectItem>
                   <SelectItem value="test">Test personnalisé</SelectItem>
                 </SelectContent>
               </Select>

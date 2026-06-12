@@ -114,8 +114,8 @@ export function ConsultationForm({
   const [showTestsSuggestions, setShowTestsSuggestions] = useState(false)
   const [showOrthoTestsPicker, setShowOrthoTestsPicker] = useState(false)
   const [orthoPickerRegionFilter, setOrthoPickerRegionFilter] = useState<string | undefined>(undefined)
-  const [showManipPicker, setShowManipPicker] = useState(false)
-  const [manipItems, setManipItems] = useState<{ id: string; name: string; description: string | null }[]>([])
+  const [techMentionRegion, setTechMentionRegion] = useState<string | null>(null)
+  const [techItems, setTechItems] = useState<{ id: string; name: string; region: string | null; description: string | null; use_count: number }[]>([])
   // @ec inline dropdown
   const [ecMentionRegion, setEcMentionRegion] = useState<string | null>(null)
   const [orthoTests, setOrthoTests] = useState<{ id: string; name: string; region: string | null; indications: string | null }[]>([])
@@ -843,34 +843,39 @@ export function ConsultationForm({
                           return
                         }
                         if (ecMentionRegion !== null) setEcMentionRegion(null)
-                        if (/@manip\s*$/.test(val)) {
-                          setValue('examination', val.replace(/@manip\s*$/, ''), { shouldDirty: true })
-                          try {
-                            const { createClient: cc } = await import('@/lib/db/client')
-                            const db = cc()
-                            const { data } = await db
-                              .from('custom_clinical_content')
-                              .select('id, name, description')
-                              .eq('content_type', 'manipulation')
-                              .order('sort_order', { ascending: true })
-                            setManipItems(data || [])
-                          } catch { setManipItems([]) }
-                          setShowManipPicker(true)
+                        const techMatch = val.match(/@tech([a-zA-ZÀ-ÿ]*)$/)
+                        if (techMatch) {
+                          if (techItems.length === 0) {
+                            try {
+                              const { createClient: cc } = await import('@/lib/db/client')
+                              const db = cc()
+                              const { data } = await db
+                                .from('custom_clinical_content')
+                                .select('id, name, region, description, use_count')
+                                .eq('content_type', 'technique')
+                                .order('use_count', { ascending: false })
+                              setTechItems(data || [])
+                            } catch { /* silent */ }
+                          }
+                          setTechMentionRegion(techMatch[1])
+                          return
                         }
+                        if (techMentionRegion !== null) setTechMentionRegion(null)
                       },
                     }
                   })()}
                   onInput={autoResize}
                   disabled={isLoading}
-                  placeholder="Tests effectués, dysfonctions trouvées... (tapez @ec<région> pour les tests ortho)"
+                  placeholder="Tests effectués, dysfonctions trouvées... (@ec<région> pour tests ortho, @tech<région> pour vos techniques)"
                   rows={4}
                   className="min-h-[100px] resize-none overflow-hidden transition-[height] duration-200"
                 />
                 {ecMentionRegion !== null && (
                   <AtMentionDropdown
-                    tests={orthoTests}
+                    items={orthoTests}
                     regionQuery={ecMentionRegion}
                     anchorRef={examinationRef as React.RefObject<HTMLTextAreaElement>}
+                    showResultPicker={true}
                     onSelect={(text) => {
                       const current = watch('examination') || ''
                       const cleaned = current.replace(/@ec[a-zA-ZÀ-ÿ]*$/, '')
@@ -881,6 +886,32 @@ export function ConsultationForm({
                       const current = watch('examination') || ''
                       setValue('examination', current.replace(/@ec[a-zA-ZÀ-ÿ]*$/, ''), { shouldDirty: true })
                       setEcMentionRegion(null)
+                    }}
+                  />
+                )}
+                {techMentionRegion !== null && (
+                  <AtMentionDropdown
+                    items={techItems}
+                    regionQuery={techMentionRegion}
+                    anchorRef={examinationRef as React.RefObject<HTMLTextAreaElement>}
+                    showResultPicker={false}
+                    onSelect={(text) => {
+                      const current = watch('examination') || ''
+                      const cleaned = current.replace(/@tech[a-zA-ZÀ-ÿ]*$/, '')
+                      const match = techItems.find(t => t.name === text)
+                      if (match) {
+                        import('@/lib/db/client').then(({ createClient: cc }) => {
+                          cc().from('custom_clinical_content').update({ use_count: (match.use_count || 0) + 1 }).eq('id', match.id)
+                        })
+                        setTechItems(prev => prev.map(t => t.id === match.id ? { ...t, use_count: (t.use_count || 0) + 1 } : t))
+                      }
+                      setValue('examination', cleaned ? `${cleaned}\n${text}` : text, { shouldDirty: true })
+                      setTechMentionRegion(null)
+                    }}
+                    onClose={() => {
+                      const current = watch('examination') || ''
+                      setValue('examination', current.replace(/@tech[a-zA-ZÀ-ÿ]*$/, ''), { shouldDirty: true })
+                      setTechMentionRegion(null)
                     }}
                   />
                 )}
@@ -1302,39 +1333,6 @@ export function ConsultationForm({
         />
       )}
       <TopographyPanel open={showTopography} onClose={() => setShowTopography(false)} />
-      {/* @manip picker */}
-      <Dialog open={showManipPicker} onOpenChange={setShowManipPicker}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Mes manipulations</DialogTitle>
-            <DialogDescription>Sélectionnez une manipulation à insérer</DialogDescription>
-          </DialogHeader>
-          {manipItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              Aucune manipulation. Ajoutez-en dans Paramètres → Contenu clinique.
-            </p>
-          ) : (
-            <div className="space-y-2 max-h-72 overflow-y-auto">
-              {manipItems.map(m => (
-                <button
-                  key={m.id}
-                  type="button"
-                  className="w-full text-left rounded-lg border px-3 py-2 text-sm hover:bg-accent transition-colors"
-                  onClick={() => {
-                    const current = watch('examination') || ''
-                    const text = m.description ? `${m.name} — ${m.description}` : m.name
-                    setValue('examination', current ? `${current}\n${text}` : text, { shouldDirty: true })
-                    setShowManipPicker(false)
-                  }}
-                >
-                  <p className="font-medium">{m.name}</p>
-                  {m.description && <p className="text-xs text-muted-foreground">{m.description}</p>}
-                </button>
-              ))}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       <OrthoTestsPickerDialog
         open={showOrthoTestsPicker}
