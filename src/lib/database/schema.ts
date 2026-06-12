@@ -438,7 +438,7 @@ CREATE INDEX IF NOT EXISTS idx_custom_clinical_content_practitioner ON custom_cl
  * Run safe migrations that add columns if they don't already exist.
  * Called after the main schema is executed.
  */
-export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: string) => unknown }) {
+export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: string) => unknown; prepare?: (sql: string) => { get: (...args: unknown[]) => unknown } }) {
   // Add check_number to payments
   const paymentCols = db.pragma('table_info(payments)') as Array<{ name: string }>
   if (!paymentCols.some((c) => c.name === 'check_number')) {
@@ -676,29 +676,36 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   // Normalize existing patient last names to uppercase
   db.exec("UPDATE patients SET last_name = UPPER(last_name) WHERE last_name != UPPER(last_name);")
 
-  // Migrate custom_clinical_content: fix CHECK constraint ('manipulation'→'technique') + add use_count
-  // SQLite can't ALTER CHECK constraints, so we rebuild when use_count is missing (= old schema).
+  // Migrate custom_clinical_content: fix CHECK constraint ('manipulation'→'technique') + add use_count.
+  // SQLite can't ALTER CHECK constraints, so we inspect CREATE SQL via sqlite_master and rebuild.
   const customClinicalCols = db.pragma('table_info(custom_clinical_content)') as Array<{ name: string }>
-  if (customClinicalCols.length > 0 && !customClinicalCols.some((c) => c.name === 'use_count')) {
-    db.exec(`CREATE TABLE IF NOT EXISTS custom_clinical_content_v2 (
-      id TEXT PRIMARY KEY,
-      practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
-      content_type TEXT NOT NULL CHECK (content_type IN ('test', 'technique')),
-      name TEXT NOT NULL,
-      description TEXT,
-      region TEXT,
-      sort_order INTEGER DEFAULT 0,
-      use_count INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
-    )`)
-    db.exec(`INSERT OR IGNORE INTO custom_clinical_content_v2
-      SELECT id, practitioner_id,
-        CASE content_type WHEN 'manipulation' THEN 'technique' ELSE content_type END,
-        name, description, region, sort_order, 0, created_at, updated_at
-      FROM custom_clinical_content`)
-    db.exec(`DROP TABLE custom_clinical_content`)
-    db.exec(`ALTER TABLE custom_clinical_content_v2 RENAME TO custom_clinical_content`)
+  if (customClinicalCols.length > 0) {
+    let needsRebuild = !customClinicalCols.some((c) => c.name === 'use_count')
+    if (!needsRebuild && db.prepare) {
+      const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='custom_clinical_content'").get() as { sql?: string } | undefined
+      if ((row?.sql || '').includes("'manipulation'")) needsRebuild = true
+    }
+    if (needsRebuild) {
+      db.exec(`CREATE TABLE IF NOT EXISTS custom_clinical_content_v2 (
+        id TEXT PRIMARY KEY,
+        practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+        content_type TEXT NOT NULL CHECK (content_type IN ('test', 'technique')),
+        name TEXT NOT NULL,
+        description TEXT,
+        region TEXT,
+        sort_order INTEGER DEFAULT 0,
+        use_count INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )`)
+      db.exec(`INSERT OR IGNORE INTO custom_clinical_content_v2
+        SELECT id, practitioner_id,
+          CASE content_type WHEN 'manipulation' THEN 'technique' ELSE content_type END,
+          name, description, region, sort_order, 0, created_at, updated_at
+        FROM custom_clinical_content`)
+      db.exec(`DROP TABLE custom_clinical_content`)
+      db.exec(`ALTER TABLE custom_clinical_content_v2 RENAME TO custom_clinical_content`)
+    }
   }
 
   // Add patient-facing fields to exercise prescriptions
