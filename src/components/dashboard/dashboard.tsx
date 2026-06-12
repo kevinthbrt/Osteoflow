@@ -115,6 +115,9 @@ export function Dashboard({
         </div>
       </div>
 
+      {/* ── Progression pleine largeur ── */}
+      <ProgressWidget layout="horizontal" />
+
       {/* ── Complétude du profil ── */}
       <ProfileCompletionWidget />
 
@@ -145,9 +148,6 @@ export function Dashboard({
           <FlashcardsWidget />
         </div>
       </div>
-
-      {/* ── Progression pleine largeur ── */}
-      <ProgressWidget layout="horizontal" />
 
       {/* ── New consultation dialog ── */}
       <Dialog open={isNewConsultationOpen} onOpenChange={setIsNewConsultationOpen}>

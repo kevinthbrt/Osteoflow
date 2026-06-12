@@ -755,10 +755,7 @@ function MessageInput({
 }) {
   const [showQuickReplies, setShowQuickReplies] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const greeting = previewName ? `Bonjour ${previewName},` : 'Bonjour,'
-  const previewContent = value.trim()
-    ? `${greeting}\n\n${value}`
-    : `${greeting}\n\nVotre message apparaîtra ici.`
+  const previewContent = value.trim() || 'Votre message apparaîtra ici.'
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])

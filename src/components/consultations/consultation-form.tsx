@@ -112,6 +112,9 @@ export function ConsultationForm({
   const [showAiExercises, setShowAiExercises] = useState(false)
   const [showTestsSuggestions, setShowTestsSuggestions] = useState(false)
   const [showOrthoTestsPicker, setShowOrthoTestsPicker] = useState(false)
+  const [orthoPickerRegionFilter, setOrthoPickerRegionFilter] = useState<string | undefined>(undefined)
+  const [showManipPicker, setShowManipPicker] = useState(false)
+  const [manipItems, setManipItems] = useState<{ id: string; name: string; description: string | null }[]>([])
 
   const now = new Date()
   const toLocalDateTimeString = (d: Date) => {
@@ -796,7 +799,7 @@ export function ConsultationForm({
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor="examination">Examen clinique et manipulations</Label>
+                  <Label htmlFor="examination">Examen clinique et traitement</Label>
                   <Button
                     type="button"
                     variant="outline"
@@ -811,10 +814,37 @@ export function ConsultationForm({
                 <Textarea
                   id="examination"
                   data-autoresize
-                  {...register('examination')}
+                  {...register('examination', {
+                    onChange: async (e) => {
+                      const val: string = e.target.value
+                      // @ec<region> → open ortho tests picker pre-filtered
+                      const ecMatch = val.match(/@ec([a-zA-ZÀ-ÿ]+)\s*$/)
+                      if (ecMatch) {
+                        setValue('examination', val.replace(/@ec[a-zA-ZÀ-ÿ]+\s*$/, ''), { shouldDirty: true })
+                        setOrthoPickerRegionFilter(ecMatch[1])
+                        setShowOrthoTestsPicker(true)
+                        return
+                      }
+                      // @manip → open custom manipulations picker
+                      if (/@manip\s*$/.test(val)) {
+                        setValue('examination', val.replace(/@manip\s*$/, ''), { shouldDirty: true })
+                        try {
+                          const { createClient: cc } = await import('@/lib/db/client')
+                          const db = cc()
+                          const { data } = await db
+                            .from('custom_clinical_content')
+                            .select('id, name, description')
+                            .eq('content_type', 'manipulation')
+                            .order('sort_order', { ascending: true })
+                          setManipItems(data || [])
+                        } catch { setManipItems([]) }
+                        setShowManipPicker(true)
+                      }
+                    }
+                  })}
                   onInput={autoResize}
                   disabled={isLoading}
-                  placeholder="Tests effectués, dysfonctions trouvées, techniques utilisées..."
+                  placeholder="Tests effectués, dysfonctions trouvées... (tapez @ec<région> pour les tests ortho)"
                   rows={4}
                   className="min-h-[100px] resize-none overflow-hidden transition-[height] duration-200"
                 />
@@ -1236,9 +1266,44 @@ export function ConsultationForm({
         />
       )}
       <TopographyPanel open={showTopography} onClose={() => setShowTopography(false)} />
+      {/* @manip picker */}
+      <Dialog open={showManipPicker} onOpenChange={setShowManipPicker}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Mes manipulations</DialogTitle>
+            <DialogDescription>Sélectionnez une manipulation à insérer</DialogDescription>
+          </DialogHeader>
+          {manipItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              Aucune manipulation. Ajoutez-en dans Paramètres → Contenu clinique.
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-72 overflow-y-auto">
+              {manipItems.map(m => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className="w-full text-left rounded-lg border px-3 py-2 text-sm hover:bg-accent transition-colors"
+                  onClick={() => {
+                    const current = watch('examination') || ''
+                    const text = m.description ? `${m.name} — ${m.description}` : m.name
+                    setValue('examination', current ? `${current}\n${text}` : text, { shouldDirty: true })
+                    setShowManipPicker(false)
+                  }}
+                >
+                  <p className="font-medium">{m.name}</p>
+                  {m.description && <p className="text-xs text-muted-foreground">{m.description}</p>}
+                </button>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <OrthoTestsPickerDialog
         open={showOrthoTestsPicker}
-        onClose={() => setShowOrthoTestsPicker(false)}
+        onClose={() => { setShowOrthoTestsPicker(false); setOrthoPickerRegionFilter(undefined) }}
+        initialRegion={orthoPickerRegionFilter}
         onInject={(text) => {
           const current = watch('examination') || ''
           const next = current ? `${current}\n${text}` : text
@@ -1449,7 +1514,7 @@ export function ConsultationForm({
                       <div>
                         <Separator />
                         <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1 mt-3">
-                          Examen clinique et manipulations
+                          Examen clinique et traitement
                         </h4>
                         <MarkdownText text={viewingConsultation.examination} />
                       </div>

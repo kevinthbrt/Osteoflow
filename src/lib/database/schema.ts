@@ -416,6 +416,20 @@ CREATE TABLE IF NOT EXISTS generated_letters (
 CREATE INDEX IF NOT EXISTS idx_generated_letters_practitioner ON generated_letters(practitioner_id);
 CREATE INDEX IF NOT EXISTS idx_generated_letters_consultation ON generated_letters(consultation_id);
 
+-- Custom clinical content (tests & manipulations) for @mention
+CREATE TABLE IF NOT EXISTS custom_clinical_content (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+  content_type TEXT NOT NULL CHECK (content_type IN ('test', 'manipulation')),
+  name TEXT NOT NULL,
+  description TEXT,
+  region TEXT,
+  sort_order INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_custom_clinical_content_practitioner ON custom_clinical_content(practitioner_id, content_type);
+
 `
 
 /**

@@ -173,6 +173,7 @@ export interface Database {
           family_history: string | null
           notes: string | null
           referred_by_patient_id: string | null
+          referred_by_source: string | null
           pregnancy_due_date: string | null
           created_at: string
           updated_at: string
@@ -196,6 +197,7 @@ export interface Database {
           family_history?: string | null
           notes?: string | null
           referred_by_patient_id?: string | null
+          referred_by_source?: string | null
           pregnancy_due_date?: string | null
           created_at?: string
           updated_at?: string
@@ -219,6 +221,7 @@ export interface Database {
           family_history?: string | null
           notes?: string | null
           referred_by_patient_id?: string | null
+          referred_by_source?: string | null
           pregnancy_due_date?: string | null
           created_at?: string
           updated_at?: string
