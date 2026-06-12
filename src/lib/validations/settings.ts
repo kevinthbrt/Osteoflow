@@ -54,7 +54,7 @@ export const practitionerSettingsSchema = z.object({
     .or(z.literal('')),
   siret: z
     .string()
-    .max(14, 'Le SIRET ne peut pas dépasser 14 caractères')
+    .regex(/^(\d{9}|\d{14})?$/, 'Format invalide (9 chiffres pour SIREN ou 14 pour SIRET)')
     .optional()
     .or(z.literal('')),
   rpps: z

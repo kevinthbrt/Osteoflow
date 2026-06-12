@@ -43,6 +43,7 @@ interface OrthoTestsPickerDialogProps {
   open: boolean
   onClose: () => void
   onInject: (text: string) => void
+  initialRegion?: string
 }
 
 const RESULT_CONFIG = {
@@ -117,7 +118,7 @@ function ResultButtons({ testId, result, onSet, onRemove }: {
   )
 }
 
-export function OrthoTestsPickerDialog({ open, onClose, onInject }: OrthoTestsPickerDialogProps) {
+export function OrthoTestsPickerDialog({ open, onClose, onInject, initialRegion }: OrthoTestsPickerDialogProps) {
   const { toast } = useToast()
   const [tests, setTests] = useState<OrthoTest[]>([])
   const [clusters, setClusters] = useState<OrthoCluster[]>([])
@@ -127,6 +128,10 @@ export function OrthoTestsPickerDialog({ open, onClose, onInject }: OrthoTestsPi
   const [regionFilter, setRegionFilter] = useState<string | null>(null)
   const [selected, setSelected] = useState<Map<string, SelectedTest>>(new Map())
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (open && initialRegion) setRegionFilter(initialRegion)
+  }, [open, initialRegion])
 
   useEffect(() => {
     if (!open) return

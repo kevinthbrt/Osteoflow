@@ -77,7 +77,7 @@ export async function POST(request: Request) {
 
     if (emailSettings) {
       // Use practitioner's SMTP settings
-      const emailContent = `Bonjour ${patientName},\n\n${content}`
+      const emailContent = content
       const htmlEmail = createHtmlEmail(emailContent, practitioner)
 
       const result = await sendEmail(
@@ -141,7 +141,6 @@ export async function POST(request: Request) {
                     ${practitioner.practice_name || `Cabinet ${practitioner.last_name}`}
                   </h2>
                 </div>
-                <p>Bonjour ${patientName},</p>
                 <div class="content">${content}</div>
                 <div class="footer">
                   <p>

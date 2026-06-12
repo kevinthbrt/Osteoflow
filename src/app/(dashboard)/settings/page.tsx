@@ -20,11 +20,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield, Upload, FileUp, Send, CheckCircle } from 'lucide-react'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield, Upload, FileUp, Send, CheckCircle, Stethoscope } from 'lucide-react'
 import { CGU_SECTIONS, PRIVACY_SECTIONS, CGU_VERSION, CGU_DATE, type LegalSection } from '@/lib/legal/documents'
 import { parseCSV, autoDetectMapping, importRows, type ImportResult } from '@/lib/import/csv'
 import { PROFESSION_OPTIONS } from '@/lib/practitioner/profession'
 import type { Practitioner, SessionType } from '@/types/database'
+import { CustomClinicalContentTab } from '@/components/settings/custom-clinical-content-tab'
 
 interface PatientListItem {
   id: string
@@ -902,6 +903,10 @@ function SettingsPageInner() {
             <Upload className="mr-2 h-4 w-4" />
             Import
           </TabsTrigger>
+          <TabsTrigger value="clinical-content">
+            <Stethoscope className="mr-2 h-4 w-4" />
+            Contenu clinique
+          </TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -1450,7 +1455,7 @@ function SettingsPageInner() {
               <CardHeader>
                 <CardTitle>Connecter votre messagerie</CardTitle>
                 <CardDescription>
-                  Envoyez et recevez des emails directement depuis MyOsteoFlow via votre adresse email personnelle
+                  Envoyez et recevez des emails directement depuis MyOsteoFlow via votre adresse email dédiée
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1657,7 +1662,7 @@ function SettingsPageInner() {
                     </div>
                     <h4 className="font-medium mb-1">Envoi</h4>
                     <p className="text-sm text-muted-foreground">
-                      Vos factures et messages partent depuis votre adresse email personnelle
+                      Vos factures et messages partent depuis votre adresse email dédiée
                     </p>
                   </div>
                   <div className="text-center p-4">
@@ -1912,6 +1917,14 @@ function SettingsPageInner() {
         {/* Import Tab */}
         <TabsContent value="import">
           <ImportTab />
+        </TabsContent>
+
+        <TabsContent value="clinical-content">
+          {practitioner ? (
+            <CustomClinicalContentTab practitionerId={practitioner.id} />
+          ) : (
+            <div className="text-sm text-muted-foreground">Chargement...</div>
+          )}
         </TabsContent>
 
       </Tabs>

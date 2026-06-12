@@ -44,6 +44,7 @@ interface FormData {
   onset_mode: OnsetMode
   onset_date: string
   onset_age: string
+  onset_age_unit: 'days' | 'months' | 'years'
   onset_duration_value: string
   onset_duration_unit: OnsetDurationUnit
   is_vigilance: boolean
@@ -56,6 +57,7 @@ const initialFormData: FormData = {
   onset_mode: 'none',
   onset_date: '',
   onset_age: '',
+  onset_age_unit: 'years',
   onset_duration_value: '',
   onset_duration_unit: 'years',
   is_vigilance: false,
@@ -85,13 +87,17 @@ const durationUnitLabels: Record<OnsetDurationUnit, string> = {
 
 function formatOnset(entry: MedicalHistoryEntry): string | null {
   if (entry.onset_date) {
-    return `Depuis le ${new Date(entry.onset_date).toLocaleDateString('fr-FR')}`
+    // Try to parse as ISO date; otherwise display as-is
+    const d = new Date(entry.onset_date)
+    const display = isNaN(d.getTime()) ? entry.onset_date : d.toLocaleDateString('fr-FR')
+    return `Depuis ${display}`
   }
   if (entry.onset_age !== null) {
     return `Depuis l'âge de ${entry.onset_age} ans`
   }
   if (entry.onset_duration_value && entry.onset_duration_unit) {
-    return `Depuis ${entry.onset_duration_value} ${durationUnitLabels[entry.onset_duration_unit]}`
+    const label = durationUnitLabels[entry.onset_duration_unit]
+    return `Depuis l'âge de ${entry.onset_duration_value} ${label}`
   }
   return null
 }
@@ -137,6 +143,7 @@ export function MedicalHistorySection({ patientId, entries, onEntriesChange }: M
       onset_mode,
       onset_date: entry.onset_date || '',
       onset_age: entry.onset_age?.toString() || '',
+      onset_age_unit: 'years',
       onset_duration_value: entry.onset_duration_value?.toString() || '',
       onset_duration_unit: entry.onset_duration_unit || 'years',
       is_vigilance: entry.is_vigilance,
@@ -179,7 +186,14 @@ export function MedicalHistorySection({ patientId, entries, onEntriesChange }: M
           data.onset_date = formData.onset_date || null
           break
         case 'age':
-          data.onset_age = formData.onset_age ? parseInt(formData.onset_age) : null
+          if (formData.onset_age) {
+            if (formData.onset_age_unit === 'years') {
+              data.onset_age = parseInt(formData.onset_age)
+            } else {
+              data.onset_duration_value = parseInt(formData.onset_age)
+              data.onset_duration_unit = formData.onset_age_unit
+            }
+          }
           break
         case 'duration':
           data.onset_duration_value = formData.onset_duration_value
@@ -372,9 +386,10 @@ export function MedicalHistorySection({ patientId, entries, onEntriesChange }: M
                       <Label htmlFor="onset_date" className="sr-only">Date de début</Label>
                       <Input
                         id="onset_date"
-                        type="date"
+                        type="text"
                         value={formData.onset_date}
                         onChange={(e) => setFormData(prev => ({ ...prev, onset_date: e.target.value }))}
+                        placeholder="AAAA, MM/AAAA ou JJ/MM/AAAA"
                         className="flex-1"
                       />
                     </div>
@@ -387,13 +402,28 @@ export function MedicalHistorySection({ patientId, entries, onEntriesChange }: M
                         id="onset_age"
                         type="number"
                         min="0"
-                        max="150"
+                        max="999"
                         value={formData.onset_age}
                         onChange={(e) => setFormData(prev => ({ ...prev, onset_age: e.target.value }))}
                         placeholder="Âge"
                         className="w-24"
                       />
-                      <span className="text-sm text-muted-foreground">ans</span>
+                      <Select
+                        value={formData.onset_age_unit}
+                        onValueChange={(value) => setFormData(prev => ({
+                          ...prev,
+                          onset_age_unit: value as 'days' | 'months' | 'years'
+                        }))}
+                      >
+                        <SelectTrigger className="w-28">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="days">jours</SelectItem>
+                          <SelectItem value="months">mois</SelectItem>
+                          <SelectItem value="years">ans</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
 
@@ -564,9 +594,8 @@ export function MedicalHistorySection({ patientId, entries, onEntriesChange }: M
           })
         )}
 
-        {/* Quick add buttons */}
-        {entries.length > 0 && (
-          <div className="flex flex-wrap gap-2 pt-2 border-t">
+        {/* Quick add buttons — always visible */}
+        <div className="flex flex-wrap gap-2 pt-2 border-t">
             {types.map((type) => (
               <Badge
                 key={type}
@@ -582,7 +611,6 @@ export function MedicalHistorySection({ patientId, entries, onEntriesChange }: M
               </Badge>
             ))}
           </div>
-        )}
       </CardContent>
     </Card>
   )

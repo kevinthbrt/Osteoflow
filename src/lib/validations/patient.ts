@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-// French phone validation regex
-const frenchPhoneRegex = /^(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}$/
+// French phone validation: 10 digits (0X XX XX XX XX) or +33/0033 + 9 digits, with optional separators
+const frenchPhoneRegex = /^(?:(?:\+|00)33[\s.-]?|0)[1-9](?:[\s.-]?\d{2}){4}$/
 
 export const patientSchema = z.object({
   gender: z.enum(['M', 'F'], {
@@ -31,7 +31,7 @@ export const patientSchema = z.object({
   phone: z
     .string()
     .min(1, 'Le téléphone est requis')
-    .regex(frenchPhoneRegex, 'Format de téléphone français invalide (ex: 06 12 34 56 78)'),
+    .regex(frenchPhoneRegex, 'Format invalide (ex: 06 12 34 56 78 ou +33 6 12 34 56 78)'),
   email: z
     .string()
     .email('Format d\'email invalide')
@@ -62,6 +62,10 @@ export const patientSchema = z.object({
     .optional()
     .or(z.literal(''))
     .transform((val) => val || undefined),
+  referred_by_source: z
+    .string()
+    .optional()
+    .or(z.literal('')),
   pregnancy_due_date: z
     .string()
     .optional()

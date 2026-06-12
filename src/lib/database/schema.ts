@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS patients (
   family_history TEXT,
   notes TEXT,
   referred_by_patient_id TEXT REFERENCES patients(id),
+  referred_by_source TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   archived_at TEXT
@@ -416,13 +417,28 @@ CREATE TABLE IF NOT EXISTS generated_letters (
 CREATE INDEX IF NOT EXISTS idx_generated_letters_practitioner ON generated_letters(practitioner_id);
 CREATE INDEX IF NOT EXISTS idx_generated_letters_consultation ON generated_letters(consultation_id);
 
+-- Custom clinical content (tests & manipulations) for @mention
+CREATE TABLE IF NOT EXISTS custom_clinical_content (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+  content_type TEXT NOT NULL CHECK (content_type IN ('test', 'technique')),
+  name TEXT NOT NULL,
+  description TEXT,
+  region TEXT,
+  sort_order INTEGER DEFAULT 0,
+  use_count INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_custom_clinical_content_practitioner ON custom_clinical_content(practitioner_id, content_type);
+
 `
 
 /**
  * Run safe migrations that add columns if they don't already exist.
  * Called after the main schema is executed.
  */
-export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: string) => unknown }) {
+export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: string) => unknown; prepare?: (sql: string) => { get: (...args: unknown[]) => unknown } }) {
   // Add check_number to payments
   const paymentCols = db.pragma('table_info(payments)') as Array<{ name: string }>
   if (!paymentCols.some((c) => c.name === 'check_number')) {
@@ -471,6 +487,9 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   }
   if (!patientCols.some((c) => c.name === 'pregnancy_due_date')) {
     db.exec('ALTER TABLE patients ADD COLUMN pregnancy_due_date TEXT;')
+  }
+  if (!patientCols.some((c) => c.name === 'referred_by_source')) {
+    db.exec('ALTER TABLE patients ADD COLUMN referred_by_source TEXT;')
   }
 
   // Add new survey fields (eva_score, pain_reduction, better_mobility, acknowledged_at)
@@ -656,6 +675,38 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
 
   // Normalize existing patient last names to uppercase
   db.exec("UPDATE patients SET last_name = UPPER(last_name) WHERE last_name != UPPER(last_name);")
+
+  // Migrate custom_clinical_content: fix CHECK constraint ('manipulation'→'technique') + add use_count.
+  // SQLite can't ALTER CHECK constraints, so we inspect CREATE SQL via sqlite_master and rebuild.
+  const customClinicalCols = db.pragma('table_info(custom_clinical_content)') as Array<{ name: string }>
+  if (customClinicalCols.length > 0) {
+    let needsRebuild = !customClinicalCols.some((c) => c.name === 'use_count')
+    if (!needsRebuild && db.prepare) {
+      const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='custom_clinical_content'").get() as { sql?: string } | undefined
+      if ((row?.sql || '').includes("'manipulation'")) needsRebuild = true
+    }
+    if (needsRebuild) {
+      db.exec(`CREATE TABLE IF NOT EXISTS custom_clinical_content_v2 (
+        id TEXT PRIMARY KEY,
+        practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+        content_type TEXT NOT NULL CHECK (content_type IN ('test', 'technique')),
+        name TEXT NOT NULL,
+        description TEXT,
+        region TEXT,
+        sort_order INTEGER DEFAULT 0,
+        use_count INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )`)
+      db.exec(`INSERT OR IGNORE INTO custom_clinical_content_v2
+        SELECT id, practitioner_id,
+          CASE content_type WHEN 'manipulation' THEN 'technique' ELSE content_type END,
+          name, description, region, sort_order, 0, created_at, updated_at
+        FROM custom_clinical_content`)
+      db.exec(`DROP TABLE custom_clinical_content`)
+      db.exec(`ALTER TABLE custom_clinical_content_v2 RENAME TO custom_clinical_content`)
+    }
+  }
 
   // Add patient-facing fields to exercise prescriptions
   const prescNewCols = db.pragma('table_info(exercise_prescriptions)') as Array<{ name: string }>

@@ -54,8 +54,28 @@ if (!gotTheLock) {
 // Next.js server
 let nextServer: any = null
 let mainWindow: BrowserWindow | null = null
-const PORT = 3456
+const BASE_PORT = 3456
+let PORT = BASE_PORT
 const isDev = !app.isPackaged
+
+/**
+ * Find a free port starting from BASE_PORT. A leftover zombie process or
+ * another app on 3456 used to make the app exit silently — instead, walk
+ * up to 10 ports before giving up.
+ */
+async function findFreePort(startPort: number): Promise<number> {
+  const net = await import('net')
+  for (let port = startPort; port < startPort + 10; port++) {
+    const free = await new Promise<boolean>((resolve) => {
+      const tester = net.createServer()
+      tester.once('error', () => resolve(false))
+      tester.once('listening', () => tester.close(() => resolve(true)))
+      tester.listen(port, 'localhost')
+    })
+    if (free) return port
+  }
+  throw new Error(`Aucun port disponible entre ${startPort} et ${startPort + 9}`)
+}
 
 /**
  * Wait for a local HTTP server to respond on the given port.
@@ -255,15 +275,32 @@ const SPLASH_HTML = `data:text/html;charset=utf-8,${encodeURIComponent(`<!DOCTYP
 <html><head><style>
   body { margin:0; height:100vh; display:flex; align-items:center; justify-content:center;
          background:#f8fafc; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:#334155; }
-  .c { text-align:center; }
+  .c { text-align:center; max-width:420px; padding:0 24px; }
   h1 { font-size:28px; font-weight:600; margin-bottom:12px; }
-  p { font-size:14px; color:#94a3b8; margin-bottom:24px; }
+  p { font-size:14px; color:#94a3b8; margin-bottom:24px; min-height:20px; transition:opacity .3s; }
   .spinner { width:32px; height:32px; border:3px solid #e2e8f0; border-top-color:#6366f1;
              border-radius:50%; animation:spin .8s linear infinite; margin:0 auto; }
   @keyframes spin { to { transform:rotate(360deg) } }
 </style></head><body><div class="c">
-  <h1>MyOsteoFlow</h1><p>Chargement en cours…</p><div class="spinner"></div>
-</div></body></html>`)}`
+  <h1>MyOsteoFlow</h1><p id="msg">Chargement en cours…</p><div class="spinner"></div>
+</div>
+<script>
+  // Reassure the user during long startups (DB migration, antivirus scan
+  // after an update) — a frozen "Chargement…" looks like a crash.
+  var msgs = [
+    [8000,  "Démarrage en cours… cela peut prendre un peu plus de temps après une mise à jour."],
+    [20000, "Optimisation de la base de données en cours, merci de patienter…"],
+    [40000, "Encore quelques instants… Ne fermez pas l'application."]
+  ];
+  msgs.forEach(function(m) {
+    setTimeout(function() {
+      var el = document.getElementById("msg");
+      el.style.opacity = 0;
+      setTimeout(function() { el.textContent = m[1]; el.style.opacity = 1; }, 300);
+    }, m[0]);
+  });
+</script>
+</body></html>`)}`
 
 /**
  * Create the main application window.
@@ -325,7 +362,7 @@ function createWindow(): void {
  * Navigate the main window to the Next.js app once the server is ready.
  * Retries on failure (e.g. server not fully ready yet).
  */
-function loadApp(retries = 5): void {
+function loadApp(retries = 10): void {
   if (!mainWindow) return
 
   const url = `http://localhost:${PORT}`
@@ -338,6 +375,23 @@ function loadApp(retries = 5): void {
       setTimeout(() => loadApp(retries - 1), 1500)
     } else {
       console.error(`[Electron] Failed to load app after retries: ${errorDescription} (code ${errorCode})`)
+      // Don't leave the user stuck on the splash screen forever.
+      if (!mainWindow) return
+      dialog.showMessageBox(mainWindow, {
+        type: 'error',
+        title: 'MyOsteoFlow — Problème de chargement',
+        message: 'L\'application met plus de temps que prévu à démarrer.',
+        detail: `Détail technique : ${errorDescription} (code ${errorCode})\n\n` +
+          'Cela peut arriver après une mise à jour ou si votre antivirus analyse l\'application.',
+        buttons: ['Réessayer', 'Quitter'],
+        defaultId: 0,
+      }).then(({ response }) => {
+        if (response === 0) {
+          loadApp(10)
+        } else {
+          app.quit()
+        }
+      })
     }
   })
 }
@@ -379,10 +433,13 @@ async function setupAutoUpdater(): Promise<void> {
       console.error('[Updater] Error:', error.message)
     })
 
-    // Listen for restart request from the renderer
+    // Listen for restart request from the renderer.
+    // quitAndInstall(isSilent=true, isForceRunAfter=true): install without
+    // showing the NSIS wizard, then relaunch the app automatically so the
+    // user sees it come back instead of wondering if it crashed.
     ipcMain.on('install-update', () => {
       console.log('[Updater] Install requested by user — quitting and installing...')
-      autoUpdater.quitAndInstall()
+      autoUpdater.quitAndInstall(true, true)
     })
 
     // macOS ARM64 : l'app doit être fermée avant que l'utilisateur puisse
@@ -436,6 +493,19 @@ app.whenReady().then(async () => {
   // Show window with splash screen immediately — no waiting
   createWindow()
 
+  // In production, pick a free port up-front so a zombie process or another
+  // app on 3456 can't block the launch.
+  if (!isDev) {
+    try {
+      PORT = await findFreePort(BASE_PORT)
+      if (PORT !== BASE_PORT) {
+        console.log(`[Electron] Port ${BASE_PORT} occupied — using ${PORT} instead`)
+      }
+    } catch (error) {
+      console.error('[Electron] No free port found:', error)
+    }
+  }
+
   try {
     await startNextServer()
   } catch (error: any) {
@@ -443,6 +513,16 @@ app.whenReady().then(async () => {
       console.log('[Electron] Port', PORT, 'already in use — connecting to existing dev server')
     } else {
       console.error('[Electron] Failed to start:', error)
+      // Never exit silently: tell the user what happened and what to try.
+      dialog.showErrorBox(
+        'MyOsteoFlow — Erreur de démarrage',
+        `L'application n'a pas pu démarrer.\n\n` +
+        `Détail technique : ${error?.message || error}\n\n` +
+        `Suggestions :\n` +
+        `• Redémarrez votre ordinateur puis relancez MyOsteoFlow\n` +
+        `• Vérifiez que votre antivirus ne bloque pas l'application\n` +
+        `• Si le problème persiste, réinstallez la dernière version depuis le site`
+      )
       app.quit()
       return
     }

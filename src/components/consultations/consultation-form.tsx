@@ -46,8 +46,10 @@ import { MarkdownField } from '@/components/ui/markdown-field'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
 import { AiExerciseGenerationDialog } from '@/components/exercises/ai-exercise-generation-dialog'
+import { PatientPrescriptionsListDialog } from '@/components/exercises/patient-prescriptions-list-dialog'
 import { TestsSuggestionsPanel } from '@/components/consultations/tests-suggestions-panel'
 import { OrthoTestsPickerDialog } from '@/components/consultations/ortho-tests-picker-dialog'
+import { AtMentionDropdown } from '@/components/consultations/at-mention-dropdown'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment, MedicalHistoryType } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -110,8 +112,17 @@ export function ConsultationForm({
   const [showNeckTree, setShowNeckTree] = useState(false)
   const [showExercises, setShowExercises] = useState(false)
   const [showAiExercises, setShowAiExercises] = useState(false)
+  const [showPrescriptionsList, setShowPrescriptionsList] = useState(false)
+  const [prescriptionsRefreshKey, setPrescriptionsRefreshKey] = useState(0)
   const [showTestsSuggestions, setShowTestsSuggestions] = useState(false)
   const [showOrthoTestsPicker, setShowOrthoTestsPicker] = useState(false)
+  const [orthoPickerRegionFilter, setOrthoPickerRegionFilter] = useState<string | undefined>(undefined)
+  const [techMentionRegion, setTechMentionRegion] = useState<string | null>(null)
+  const [techItems, setTechItems] = useState<{ id: string; name: string; region: string | null; description: string | null; use_count: number }[]>([])
+  // @ec inline dropdown
+  const [ecMentionRegion, setEcMentionRegion] = useState<string | null>(null)
+  const [orthoTests, setOrthoTests] = useState<{ id: string; name: string; region: string | null; indications: string | null }[]>([])
+  const examinationRef = useRef<HTMLTextAreaElement | null>(null)
 
   const now = new Date()
   const toLocalDateTimeString = (d: Date) => {
@@ -796,7 +807,7 @@ export function ConsultationForm({
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor="examination">Examen clinique et manipulations</Label>
+                  <Label htmlFor="examination">Examen clinique et traitement</Label>
                   <Button
                     type="button"
                     variant="outline"
@@ -811,13 +822,102 @@ export function ConsultationForm({
                 <Textarea
                   id="examination"
                   data-autoresize
-                  {...register('examination')}
+                  {...(() => {
+                    const { ref: registerRef, onChange: registerOnChange, ...rest } = register('examination')
+                    return {
+                      ...rest,
+                      ref: (el: HTMLTextAreaElement | null) => {
+                        registerRef(el)
+                        examinationRef.current = el
+                      },
+                      onChange: async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                        await registerOnChange(e)
+                        const val = e.target.value
+                        const ecMatch = val.match(/@ec([a-zA-ZÀ-ÿ]*)$/)
+                        if (ecMatch) {
+                          if (orthoTests.length === 0) {
+                            try {
+                              const res = await fetch('/api/ortho-tests')
+                              const json = await res.json()
+                              setOrthoTests(json?.tests || [])
+                            } catch { /* silent */ }
+                          }
+                          setEcMentionRegion(ecMatch[1])
+                          return
+                        }
+                        if (ecMentionRegion !== null) setEcMentionRegion(null)
+                        const techMatch = val.match(/@tech([a-zA-ZÀ-ÿ]*)$/)
+                        if (techMatch) {
+                          if (techItems.length === 0) {
+                            try {
+                              const { createClient: cc } = await import('@/lib/db/client')
+                              const db = cc()
+                              const { data } = await db
+                                .from('custom_clinical_content')
+                                .select('id, name, region, description, use_count')
+                                .eq('content_type', 'technique')
+                                .order('use_count', { ascending: false })
+                              setTechItems(data || [])
+                            } catch { /* silent */ }
+                          }
+                          setTechMentionRegion(techMatch[1])
+                          return
+                        }
+                        if (techMentionRegion !== null) setTechMentionRegion(null)
+                      },
+                    }
+                  })()}
                   onInput={autoResize}
                   disabled={isLoading}
-                  placeholder="Tests effectués, dysfonctions trouvées, techniques utilisées..."
+                  placeholder="Tests effectués, dysfonctions trouvées... (@ec<région> pour tests ortho, @tech<région> pour vos techniques)"
                   rows={4}
                   className="min-h-[100px] resize-none overflow-hidden transition-[height] duration-200"
                 />
+                {ecMentionRegion !== null && (
+                  <AtMentionDropdown
+                    items={orthoTests}
+                    regionQuery={ecMentionRegion}
+                    anchorRef={examinationRef as React.RefObject<HTMLTextAreaElement>}
+                    showResultPicker={true}
+                    onSelect={(text) => {
+                      const current = watch('examination') || ''
+                      const cleaned = current.replace(/@ec[a-zA-ZÀ-ÿ]*$/, '')
+                      setValue('examination', cleaned ? `${cleaned}\n${text}` : text, { shouldDirty: true })
+                      setEcMentionRegion(null)
+                    }}
+                    onClose={() => {
+                      const current = watch('examination') || ''
+                      setValue('examination', current.replace(/@ec[a-zA-ZÀ-ÿ]*$/, ''), { shouldDirty: true })
+                      setEcMentionRegion(null)
+                    }}
+                  />
+                )}
+                {techMentionRegion !== null && (
+                  <AtMentionDropdown
+                    items={techItems}
+                    regionQuery={techMentionRegion}
+                    anchorRef={examinationRef as React.RefObject<HTMLTextAreaElement>}
+                    showResultPicker={false}
+                    onSelect={(text) => {
+                      const current = watch('examination') || ''
+                      const cleaned = current.replace(/@tech[a-zA-ZÀ-ÿ]*$/, '')
+                      const match = techItems.find(t => t.name === text)
+                      if (match) {
+                        import('@/lib/db/client').then(({ createClient: cc }) => {
+                          cc().from('custom_clinical_content').update({ use_count: (match.use_count || 0) + 1 }).eq('id', match.id)
+                        })
+                        setTechItems(prev => prev.map(t => t.id === match.id ? { ...t, use_count: (t.use_count || 0) + 1 } : t))
+                      }
+                      setValue('examination', cleaned ? `${cleaned}\n${text}` : text, { shouldDirty: true })
+                      setTechMentionRegion(null)
+                    }}
+                    onClose={() => {
+                      const current = watch('examination') || ''
+                      setValue('examination', current.replace(/@tech[a-zA-ZÀ-ÿ]*$/, ''), { shouldDirty: true })
+                      setTechMentionRegion(null)
+                    }}
+                  />
+                )}
                 {errors.examination && (
                   <p className="text-sm text-destructive">{errors.examination.message}</p>
                 )}
@@ -1236,9 +1336,11 @@ export function ConsultationForm({
         />
       )}
       <TopographyPanel open={showTopography} onClose={() => setShowTopography(false)} />
+
       <OrthoTestsPickerDialog
         open={showOrthoTestsPicker}
-        onClose={() => setShowOrthoTestsPicker(false)}
+        onClose={() => { setShowOrthoTestsPicker(false); setOrthoPickerRegionFilter(undefined) }}
+        initialRegion={orthoPickerRegionFilter}
         onInject={(text) => {
           const current = watch('examination') || ''
           const next = current ? `${current}\n${text}` : text
@@ -1331,6 +1433,15 @@ export function ConsultationForm({
         patientId={currentPatient.id}
         patientName={`${currentPatient.first_name} ${currentPatient.last_name}`}
         consultationId={consultation?.id}
+        onSaved={() => setPrescriptionsRefreshKey((k) => k + 1)}
+      />
+      <PatientPrescriptionsListDialog
+        open={showPrescriptionsList}
+        onClose={() => setShowPrescriptionsList(false)}
+        patientId={currentPatient.id}
+        patientName={`${currentPatient.first_name} ${currentPatient.last_name}`}
+        consultationId={consultation?.id}
+        refreshKey={prescriptionsRefreshKey}
       />
       <AiExerciseGenerationDialog
         open={showAiExercises}
@@ -1339,7 +1450,7 @@ export function ConsultationForm({
         patientName={`${currentPatient.first_name} ${currentPatient.last_name}`}
         consultationId={consultation?.id}
         consultationData={{ reason, anamnesis, examination }}
-        onSaved={() => {}}
+        onSaved={() => setPrescriptionsRefreshKey((k) => k + 1)}
       />
     </>
   )
@@ -1393,6 +1504,16 @@ export function ConsultationForm({
             initialEntries={medicalHistoryEntries}
             refreshTrigger={medicalHistoryRefreshKey}
           />
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full gap-2 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-800/50 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/50"
+            onClick={() => setShowPrescriptionsList(true)}
+          >
+            <Dumbbell className="h-4 w-4" />
+            Fiches exercices du patient
+          </Button>
 
           {pastConsultations && pastConsultations.length > 0 && (
             <Card>
@@ -1449,7 +1570,7 @@ export function ConsultationForm({
                       <div>
                         <Separator />
                         <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1 mt-3">
-                          Examen clinique et manipulations
+                          Examen clinique et traitement
                         </h4>
                         <MarkdownText text={viewingConsultation.examination} />
                       </div>
