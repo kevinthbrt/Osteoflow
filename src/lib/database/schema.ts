@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS patients (
   family_history TEXT,
   notes TEXT,
   referred_by_patient_id TEXT REFERENCES patients(id),
+  referred_by_source TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   archived_at TEXT
@@ -485,6 +486,9 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   }
   if (!patientCols.some((c) => c.name === 'pregnancy_due_date')) {
     db.exec('ALTER TABLE patients ADD COLUMN pregnancy_due_date TEXT;')
+  }
+  if (!patientCols.some((c) => c.name === 'referred_by_source')) {
+    db.exec('ALTER TABLE patients ADD COLUMN referred_by_source TEXT;')
   }
 
   // Add new survey fields (eva_score, pain_reduction, better_mobility, acknowledged_at)
