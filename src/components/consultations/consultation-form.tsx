@@ -48,6 +48,7 @@ import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-pres
 import { AiExerciseGenerationDialog } from '@/components/exercises/ai-exercise-generation-dialog'
 import { TestsSuggestionsPanel } from '@/components/consultations/tests-suggestions-panel'
 import { OrthoTestsPickerDialog } from '@/components/consultations/ortho-tests-picker-dialog'
+import { AtMentionDropdown } from '@/components/consultations/at-mention-dropdown'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment, MedicalHistoryType } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -115,6 +116,10 @@ export function ConsultationForm({
   const [orthoPickerRegionFilter, setOrthoPickerRegionFilter] = useState<string | undefined>(undefined)
   const [showManipPicker, setShowManipPicker] = useState(false)
   const [manipItems, setManipItems] = useState<{ id: string; name: string; description: string | null }[]>([])
+  // @ec inline dropdown
+  const [ecMentionRegion, setEcMentionRegion] = useState<string | null>(null)
+  const [orthoTests, setOrthoTests] = useState<{ id: string; name: string; region: string | null; indications: string | null }[]>([])
+  const examinationRef = useRef<HTMLTextAreaElement | null>(null)
 
   const now = new Date()
   const toLocalDateTimeString = (d: Date) => {
@@ -814,40 +819,71 @@ export function ConsultationForm({
                 <Textarea
                   id="examination"
                   data-autoresize
-                  {...register('examination', {
-                    onChange: async (e) => {
-                      const val: string = e.target.value
-                      // @ec<region> → open ortho tests picker pre-filtered
-                      const ecMatch = val.match(/@ec([a-zA-ZÀ-ÿ]+)\s*$/)
-                      if (ecMatch) {
-                        setValue('examination', val.replace(/@ec[a-zA-ZÀ-ÿ]+\s*$/, ''), { shouldDirty: true })
-                        setOrthoPickerRegionFilter(ecMatch[1])
-                        setShowOrthoTestsPicker(true)
-                        return
-                      }
-                      // @manip → open custom manipulations picker
-                      if (/@manip\s*$/.test(val)) {
-                        setValue('examination', val.replace(/@manip\s*$/, ''), { shouldDirty: true })
-                        try {
-                          const { createClient: cc } = await import('@/lib/db/client')
-                          const db = cc()
-                          const { data } = await db
-                            .from('custom_clinical_content')
-                            .select('id, name, description')
-                            .eq('content_type', 'manipulation')
-                            .order('sort_order', { ascending: true })
-                          setManipItems(data || [])
-                        } catch { setManipItems([]) }
-                        setShowManipPicker(true)
-                      }
+                  {...(() => {
+                    const { ref: registerRef, onChange: registerOnChange, ...rest } = register('examination')
+                    return {
+                      ...rest,
+                      ref: (el: HTMLTextAreaElement | null) => {
+                        registerRef(el)
+                        examinationRef.current = el
+                      },
+                      onChange: async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                        await registerOnChange(e)
+                        const val = e.target.value
+                        const ecMatch = val.match(/@ec([a-zA-ZÀ-ÿ]*)$/)
+                        if (ecMatch) {
+                          if (orthoTests.length === 0) {
+                            try {
+                              const res = await fetch('/api/ortho-tests')
+                              const json = await res.json()
+                              setOrthoTests(json?.tests || [])
+                            } catch { /* silent */ }
+                          }
+                          setEcMentionRegion(ecMatch[1])
+                          return
+                        }
+                        if (ecMentionRegion !== null) setEcMentionRegion(null)
+                        if (/@manip\s*$/.test(val)) {
+                          setValue('examination', val.replace(/@manip\s*$/, ''), { shouldDirty: true })
+                          try {
+                            const { createClient: cc } = await import('@/lib/db/client')
+                            const db = cc()
+                            const { data } = await db
+                              .from('custom_clinical_content')
+                              .select('id, name, description')
+                              .eq('content_type', 'manipulation')
+                              .order('sort_order', { ascending: true })
+                            setManipItems(data || [])
+                          } catch { setManipItems([]) }
+                          setShowManipPicker(true)
+                        }
+                      },
                     }
-                  })}
+                  })()}
                   onInput={autoResize}
                   disabled={isLoading}
                   placeholder="Tests effectués, dysfonctions trouvées... (tapez @ec<région> pour les tests ortho)"
                   rows={4}
                   className="min-h-[100px] resize-none overflow-hidden transition-[height] duration-200"
                 />
+                {ecMentionRegion !== null && (
+                  <AtMentionDropdown
+                    tests={orthoTests}
+                    regionQuery={ecMentionRegion}
+                    anchorRef={examinationRef as React.RefObject<HTMLTextAreaElement>}
+                    onSelect={(text) => {
+                      const current = watch('examination') || ''
+                      const cleaned = current.replace(/@ec[a-zA-ZÀ-ÿ]*$/, '')
+                      setValue('examination', cleaned ? `${cleaned}\n${text}` : text, { shouldDirty: true })
+                      setEcMentionRegion(null)
+                    }}
+                    onClose={() => {
+                      const current = watch('examination') || ''
+                      setValue('examination', current.replace(/@ec[a-zA-ZÀ-ÿ]*$/, ''), { shouldDirty: true })
+                      setEcMentionRegion(null)
+                    }}
+                  />
+                )}
                 {errors.examination && (
                   <p className="text-sm text-destructive">{errors.examination.message}</p>
                 )}
