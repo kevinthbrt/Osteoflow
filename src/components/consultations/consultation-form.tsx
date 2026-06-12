@@ -46,6 +46,7 @@ import { MarkdownField } from '@/components/ui/markdown-field'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
 import { AiExerciseGenerationDialog } from '@/components/exercises/ai-exercise-generation-dialog'
+import { PatientPrescriptionsListDialog } from '@/components/exercises/patient-prescriptions-list-dialog'
 import { TestsSuggestionsPanel } from '@/components/consultations/tests-suggestions-panel'
 import { OrthoTestsPickerDialog } from '@/components/consultations/ortho-tests-picker-dialog'
 import { AtMentionDropdown } from '@/components/consultations/at-mention-dropdown'
@@ -111,6 +112,8 @@ export function ConsultationForm({
   const [showNeckTree, setShowNeckTree] = useState(false)
   const [showExercises, setShowExercises] = useState(false)
   const [showAiExercises, setShowAiExercises] = useState(false)
+  const [showPrescriptionsList, setShowPrescriptionsList] = useState(false)
+  const [prescriptionsRefreshKey, setPrescriptionsRefreshKey] = useState(0)
   const [showTestsSuggestions, setShowTestsSuggestions] = useState(false)
   const [showOrthoTestsPicker, setShowOrthoTestsPicker] = useState(false)
   const [orthoPickerRegionFilter, setOrthoPickerRegionFilter] = useState<string | undefined>(undefined)
@@ -703,6 +706,16 @@ export function ConsultationForm({
                   >
                     <Dumbbell className="h-4 w-4" />
                     Exercices
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-800/50 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/50"
+                    onClick={() => setShowPrescriptionsList(true)}
+                  >
+                    <Eye className="h-4 w-4" />
+                    Voir les fiches
                   </Button>
                   <Button
                     type="button"
@@ -1430,6 +1443,15 @@ export function ConsultationForm({
         patientId={currentPatient.id}
         patientName={`${currentPatient.first_name} ${currentPatient.last_name}`}
         consultationId={consultation?.id}
+        onSaved={() => setPrescriptionsRefreshKey((k) => k + 1)}
+      />
+      <PatientPrescriptionsListDialog
+        open={showPrescriptionsList}
+        onClose={() => setShowPrescriptionsList(false)}
+        patientId={currentPatient.id}
+        patientName={`${currentPatient.first_name} ${currentPatient.last_name}`}
+        consultationId={consultation?.id}
+        refreshKey={prescriptionsRefreshKey}
       />
       <AiExerciseGenerationDialog
         open={showAiExercises}
@@ -1438,7 +1460,7 @@ export function ConsultationForm({
         patientName={`${currentPatient.first_name} ${currentPatient.last_name}`}
         consultationId={consultation?.id}
         consultationData={{ reason, anamnesis, examination }}
-        onSaved={() => {}}
+        onSaved={() => setPrescriptionsRefreshKey((k) => k + 1)}
       />
     </>
   )
