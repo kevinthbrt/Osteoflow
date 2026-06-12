@@ -548,18 +548,21 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
             {/* Source quick-pick buttons */}
             <div className="flex flex-wrap gap-2">
               {['Médecin', 'Internet', 'Réseaux sociaux', 'Bouche à oreille', 'Autre'].map((src) => {
-                const isSelected = watch('referred_by_source') === src
+                const currentSource = watch('referred_by_source') || ''
+                const isSelected = src === 'Autre'
+                  ? currentSource.startsWith('Autre')
+                  : currentSource === src
                 return (
                   <button
                     key={src}
                     type="button"
                     disabled={isLoading}
                     onClick={() => {
-                      if (isSelected) {
+                      if (isSelected && src !== 'Autre') {
                         setValue('referred_by_source', '')
                       } else {
-                        setValue('referred_by_source', src)
-                        clearReferrer()
+                        setValue('referred_by_source', src === 'Autre' ? 'Autre : ' : src)
+                        if (src !== 'Autre') clearReferrer()
                       }
                     }}
                     className={`px-3 py-1 rounded-full border text-xs transition-colors ${
@@ -573,6 +576,16 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
                 )
               })}
             </div>
+            {/* Free text input when "Autre" is selected */}
+            {(watch('referred_by_source') || '').startsWith('Autre') && (
+              <Input
+                placeholder="Précisez..."
+                value={(watch('referred_by_source') || '').replace(/^Autre : ?/, '')}
+                onChange={(e) => setValue('referred_by_source', e.target.value ? `Autre : ${e.target.value}` : 'Autre : ')}
+                disabled={isLoading}
+                className="mt-1"
+              />
+            )}
             {/* Patient referral search */}
             {selectedReferrer ? (
               <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">

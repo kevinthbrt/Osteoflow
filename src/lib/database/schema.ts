@@ -676,10 +676,39 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   // Normalize existing patient last names to uppercase
   db.exec("UPDATE patients SET last_name = UPPER(last_name) WHERE last_name != UPPER(last_name);")
 
-  // Add use_count to custom_clinical_content
+  // Migrate custom_clinical_content: fix CHECK constraint ('manipulation' → 'technique') and add use_count
+  // SQLite can't ALTER CHECK constraints, so we rebuild the table if the old constraint exists.
   const customClinicalCols = db.pragma('table_info(custom_clinical_content)') as Array<{ name: string }>
-  if (!customClinicalCols.some((c) => c.name === 'use_count')) {
-    db.exec('ALTER TABLE custom_clinical_content ADD COLUMN use_count INTEGER DEFAULT 0;')
+  if (customClinicalCols.length > 0) {
+    // Check if the constraint still references 'manipulation' by inspecting the CREATE TABLE SQL
+    const tableInfo = db.pragma("sql ON custom_clinical_content") as Array<{ sql: string }> | string
+    const createSql: string = Array.isArray(tableInfo) ? (tableInfo[0]?.sql || '') : (tableInfo || '')
+    if (createSql.includes("'manipulation'") || !customClinicalCols.some((c) => c.name === 'use_count')) {
+      // Rebuild table with correct constraint and use_count column
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS custom_clinical_content_v2 (
+          id TEXT PRIMARY KEY,
+          practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+          content_type TEXT NOT NULL CHECK (content_type IN ('test', 'technique')),
+          name TEXT NOT NULL,
+          description TEXT,
+          region TEXT,
+          sort_order INTEGER DEFAULT 0,
+          use_count INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+        INSERT OR IGNORE INTO custom_clinical_content_v2
+          SELECT id, practitioner_id,
+            CASE content_type WHEN 'manipulation' THEN 'technique' ELSE content_type END,
+            name, description, region, sort_order,
+            COALESCE((SELECT 0), 0),
+            created_at, updated_at
+          FROM custom_clinical_content;
+        DROP TABLE custom_clinical_content;
+        ALTER TABLE custom_clinical_content_v2 RENAME TO custom_clinical_content;
+      `)
+    }
   }
 
   // Add patient-facing fields to exercise prescriptions
