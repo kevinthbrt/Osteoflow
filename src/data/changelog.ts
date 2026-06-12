@@ -19,6 +19,31 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.8.0',
+    date: '2026-06-12',
+    title: 'Mentions @ec / @tech, antécédents assouplis, démarrage fiabilisé — merci les bêta-testeurs !',
+    changes: [
+      { type: 'feature', text: 'Mentions intelligentes dans l\'examen clinique : tapez @ec suivi d\'une région (ex: @ecgenou, @ecepaule) pour faire apparaître une liste déroulante des tests orthopédiques de cette zone. Cliquez un test, indiquez Positif / Négatif / Incertain, et le résultat s\'insère automatiquement dans le champ. Navigation au clavier (flèches, Entrée, Échap).' },
+      { type: 'feature', text: 'Mes techniques : tapez @tech suivi d\'une région pour insérer vos techniques personnelles en un clic. Créez et gérez votre bibliothèque de techniques (et de tests personnalisés) dans Paramètres → Contenu clinique. Les listes sont triées par fréquence d\'utilisation : vos techniques favorites remontent en premier.' },
+      { type: 'feature', text: 'Recommandé par : en plus de la recherche d\'un patient référent, vous pouvez maintenant indiquer une source — Médecin, Internet, Réseaux sociaux, Bouche à oreille, ou Autre avec un champ libre pour préciser.' },
+      { type: 'improvement', text: 'Antécédents — âge de début : l\'âge peut désormais être saisi en années, en mois ou en jours, indispensable pour les nourrissons (ex: « depuis l\'âge de 3 mois »).' },
+      { type: 'improvement', text: 'Antécédents — date de début : plus besoin de saisir une date complète. Une année seule (2019), un mois et une année (05/2019) ou une date complète (12/05/2019) sont acceptés.' },
+      { type: 'improvement', text: 'Antécédents : les boutons de catégorie (Médicaux, Traumatiques, Chirurgicaux, Familiaux) sont visibles dès l\'ouverture de la fiche patient, même sans antécédent existant.' },
+      { type: 'improvement', text: 'Le champ « Examen clinique et manipulations » est renommé « Examen clinique et traitement ».' },
+      { type: 'improvement', text: 'Tableau de bord : le widget de progression des objectifs remonte juste sous la bannière d\'accueil pour une visibilité immédiate.' },
+      { type: 'improvement', text: 'OsteoFlash : la question reste affichée quand vous révélez la réponse — fini la gymnastique mentale pour se souvenir de ce qui était demandé.' },
+      { type: 'fix', text: 'Messagerie : suppression du « Bonjour prénom nom » ajouté automatiquement au début des emails — votre message part désormais exactement tel que vous l\'avez écrit (envoi individuel et diffusion).' },
+      { type: 'fix', text: 'E-learning : la progression des cours suivis dans MyOsteoFlow est désormais correctement synchronisée avec OsteoUpgrade quand vous marquez une sous-partie comme terminée.' },
+      { type: 'fix', text: 'Paramètres cabinet : le champ SIRET accepte maintenant les numéros SIREN (9 chiffres) et SIRET (14 chiffres) avec un contrôle de format clair.' },
+      { type: 'fix', text: 'Téléphone patient : validation stricte du format français — 10 chiffres (06 12 34 56 78) ou format international (+33 6 12 34 56 78).' },
+      { type: 'improvement', text: 'Messagerie : les libellés « adresse email personnelle » deviennent « adresse email dédiée » pour mieux refléter l\'usage professionnel recommandé.' },
+      { type: 'fix', text: 'Mises à jour Windows : le raccourci bureau est recréé à chaque mise à jour — fini l\'erreur « l\'élément auquel ce raccourci renvoie a été modifié ou déplacé ».' },
+      { type: 'improvement', text: 'Mises à jour : après avoir cliqué « Redémarrer et mettre à jour », l\'application se relance automatiquement une fois l\'installation terminée.' },
+      { type: 'fix', text: 'Démarrage : si le port de l\'application est occupé (processus précédent mal fermé, autre logiciel), MyOsteoFlow bascule automatiquement sur un port libre au lieu de ne pas démarrer.' },
+      { type: 'improvement', text: 'Démarrage : en cas de problème, un message d\'erreur clair s\'affiche avec des suggestions (redémarrer, vérifier l\'antivirus) au lieu d\'une fermeture silencieuse. L\'écran de chargement affiche aussi des messages de patience lors des démarrages longs (migration de données, analyse antivirus après mise à jour).' },
+    ],
+  },
+  {
     version: '1.7.0',
     date: '2026-06-07',
     title: 'OsteoFlash — Flashcards spaced repetition & justification EBP des fiches',
