@@ -438,7 +438,7 @@ CREATE INDEX IF NOT EXISTS idx_custom_clinical_content_practitioner ON custom_cl
  * Run safe migrations that add columns if they don't already exist.
  * Called after the main schema is executed.
  */
-export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: string) => unknown; prepare?: (sql: string) => { get: (...args: unknown[]) => unknown } }) {
+export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: string) => unknown; prepare?(sql: string): { get(...args: never[]): unknown } }) {
   // Add check_number to payments
   const paymentCols = db.pragma('table_info(payments)') as Array<{ name: string }>
   if (!paymentCols.some((c) => c.name === 'check_number')) {
