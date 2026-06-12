@@ -23,7 +23,7 @@ declare module 'electron-updater' {
     on(event: 'error', listener: (error: Error) => void): void
     checkForUpdates(): Promise<unknown>
     downloadUpdate(): Promise<unknown>
-    quitAndInstall(): void
+    quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void
   }
 
   export const autoUpdater: AutoUpdater

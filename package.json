@@ -167,7 +167,10 @@
       "allowToChangeInstallationDirectory": true,
       "installerLanguages": [
         "fr"
-      ]
+      ],
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true
     }
   }
 }
