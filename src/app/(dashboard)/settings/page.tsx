@@ -168,7 +168,6 @@ const SETTINGS_NAV: {
   {
     key: 'pratique', label: 'Pratique', icon: Stethoscope, items: [
       { value: 'clinical-content', label: 'Contenu clinique' },
-      { value: 'import', label: 'Import de données' },
     ],
   },
   {
@@ -179,6 +178,7 @@ const SETTINGS_NAV: {
   {
     key: 'donnees', label: 'Données & sécurité', icon: HardDrive, items: [
       { value: 'storage', label: 'Sauvegarde' },
+      { value: 'import', label: 'Import de données' },
       { value: 'security', label: 'Sécurité (PIN)' },
       { value: 'audit', label: 'Journal' },
       { value: 'gdpr', label: 'RGPD' },
