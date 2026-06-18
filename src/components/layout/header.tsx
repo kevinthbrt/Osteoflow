@@ -72,8 +72,11 @@ export function Header({ user, practitioner }: HeaderProps) {
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleSignOut = async () => {
+    // Libère la licence (verrou « une seule instance active par utilisateur »)
+    // avant de se déconnecter, puis revient sur la connexion Osteoupgrade.
+    try { await fetch('/api/license', { method: 'DELETE' }) } catch {}
     await dbRef.current.auth.signOut()
-    router.push('/login')
+    router.push('/osteoupgrade')
     router.refresh()
   }
 

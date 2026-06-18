@@ -139,7 +139,7 @@ export function BackupReminderDialog() {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleSnooze() }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-1">
             {mode === 'first_time' ? (
@@ -182,13 +182,13 @@ export function BackupReminderDialog() {
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2 mt-1">
-          <Button variant="outline" size="sm" onClick={handleSnooze} className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5" />
-            Rappeler dans 3 jours
+          <Button variant="outline" size="sm" onClick={handleSnooze} className="w-full sm:w-auto flex items-center justify-center gap-1.5">
+            <Clock className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Rappeler dans 3 jours</span>
           </Button>
-          <Button onClick={handleDownload} disabled={isDownloading} className="flex items-center gap-1.5">
-            <Download className="h-4 w-4" />
-            {isDownloading ? 'Téléchargement…' : 'Télécharger la sauvegarde'}
+          <Button size="sm" onClick={handleDownload} disabled={isDownloading} className="w-full sm:w-auto flex items-center justify-center gap-1.5">
+            <Download className="h-4 w-4 shrink-0" />
+            <span className="truncate">{isDownloading ? 'Téléchargement…' : 'Télécharger la sauvegarde'}</span>
           </Button>
         </DialogFooter>
       </DialogContent>
