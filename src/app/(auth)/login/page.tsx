@@ -30,6 +30,7 @@ export default function LoginPage() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
+  const [practiceName, setPracticeName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -146,6 +147,7 @@ export default function LoginPage() {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         email: email.trim(),
+        practice_name: practiceName.trim() || null,
         created_at: now,
         updated_at: now,
       })
@@ -169,8 +171,10 @@ export default function LoginPage() {
 
       toast({
         variant: 'success',
-        title: 'Profil créé',
-        description: `Bienvenue, ${firstName} ${lastName} !`,
+        title: 'Cabinet créé',
+        description: practiceName.trim()
+          ? `Bienvenue dans ${practiceName.trim()} !`
+          : `Bienvenue, ${firstName} ${lastName} !`,
       })
 
       router.push('/dashboard')
@@ -203,10 +207,10 @@ export default function LoginPage() {
           <CardTitle className="text-2xl font-bold [font-family:var(--font-playfair)] italic tracking-wide">MyOsteoFlow</CardTitle>
           <CardDescription>
             {showCreateForm
-              ? 'Créez votre profil praticien'
+              ? 'Créez votre cabinet'
               : selectedPractitioner
-              ? `Entrez le mot de passe pour ${selectedPractitioner.first_name}`
-              : 'Sélectionnez votre profil pour continuer'}
+              ? `Entrez le mot de passe pour ${selectedPractitioner.practice_name || selectedPractitioner.first_name}`
+              : 'Sélectionnez votre cabinet pour continuer'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -293,10 +297,10 @@ export default function LoginPage() {
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">
-                        {p.first_name} {p.last_name}
+                        {p.practice_name || `${p.first_name} ${p.last_name}`}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {p.practice_name || p.email}
+                        {p.practice_name ? `${p.first_name} ${p.last_name}` : p.email}
                       </p>
                     </div>
                     {p.has_password && <Lock className="h-4 w-4 text-muted-foreground" />}
@@ -312,7 +316,7 @@ export default function LoginPage() {
                 disabled={isLoading}
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Ajouter un praticien
+                Ajouter un cabinet
               </Button>
             </div>
           ) : (
@@ -338,6 +342,19 @@ export default function LoginPage() {
                     disabled={isLoading}
                   />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="practice_name">Nom du cabinet</Label>
+                <Input
+                  id="practice_name"
+                  placeholder="Cabinet du centre-ville"
+                  value={practiceName}
+                  onChange={(e) => setPracticeName(e.target.value)}
+                  disabled={isLoading}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Permet de distinguer vos cabinets dans le sélecteur
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email *</Label>

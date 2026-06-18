@@ -89,6 +89,15 @@ export function Header({ user, practitioner }: HeaderProps) {
     router.push('/pin?mode=unlock')
   }
 
+  const handleSwitchCabinet = async () => {
+    // Changer de cabinet = quitter le cabinet actif (profil praticien) et
+    // revenir au sélecteur de cabinets, SANS libérer la licence Osteoupgrade
+    // (on reste connecté au compte, on bascule simplement de cabinet).
+    await dbRef.current.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
+
   const displayName = practitioner
     ? `${practitioner.first_name} ${practitioner.last_name}`
     : user.email
@@ -314,11 +323,11 @@ export function Header({ user, practitioner }: HeaderProps) {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuItem
-                onClick={() => router.push('/settings')}
+                onClick={handleSwitchCabinet}
                 className="rounded-xl py-2.5"
               >
                 <Building2 className="mr-3 h-4 w-4" />
-                <span>Mon cabinet</span>
+                <span>Changer de cabinet</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => router.push('/settings')}
