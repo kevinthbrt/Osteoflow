@@ -96,9 +96,23 @@ export async function generateLetterPdf(data: LetterPDFData): Promise<Uint8Array
     if (!paragraph.trim()) {
       gap()
     } else {
-      for (const visualLine of wrapParagraph(paragraph)) {
-        drawLine(visualLine)
-      }
+      const visualLines = wrapParagraph(paragraph)
+      visualLines.forEach((visualLine, idx) => {
+        const isLastLine = idx === visualLines.length - 1
+        // Justification du corps : on répartit l'espace sur toutes les lignes
+        // sauf la dernière de chaque paragraphe (comportement standard).
+        let wordSpacing = 0
+        const spaceCount = (visualLine.match(/ /g) || []).length
+        if (!isLastLine && spaceCount > 0) {
+          const naturalWidth = doc
+            .font('Helvetica')
+            .fontSize(FONT_SIZE)
+            .widthOfString(visualLine)
+          const extra = contentWidth - naturalWidth
+          if (extra > 0) wordSpacing = extra / spaceCount
+        }
+        drawLine(visualLine, false, wordSpacing > 0 ? { wordSpacing } : {})
+      })
     }
   }
 

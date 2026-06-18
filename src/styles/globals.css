@@ -390,6 +390,17 @@
 .stagger-children > *:nth-child(5) { animation-delay: 240ms; }
 
 /* ── Driver.js tour overrides ─────────────────────────────── */
+/* L'élément mis en avant doit passer AU-DESSUS du voile sombre (z-index 10000),
+   sinon la zone pointée par la bulle apparaît « noircie » et illisible.
+   `position: relative` est volontairement SANS `!important` afin de ne pas
+   écraser les éléments déjà en `position: fixed` inline (ex. widget de support),
+   qui restent positionnés tout en bénéficiant du z-index élevé. */
+.driver-active-element {
+  position: relative;
+  z-index: 10001 !important;
+  border-radius: 8px;
+}
+
 .osteoflow-tour-popover {
   border-radius: 16px !important;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;

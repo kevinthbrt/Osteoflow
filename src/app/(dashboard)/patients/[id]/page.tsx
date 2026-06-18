@@ -79,7 +79,7 @@ export default async function PatientPage({ params }: PatientPageProps) {
               <h1 className="text-3xl font-bold tracking-tight">
                 {patient.last_name} {patient.first_name}
               </h1>
-              <Badge variant={patient.gender === 'M' ? 'default' : 'secondary'}>
+              <Badge variant={patient.gender === 'M' ? 'default' : 'female'}>
                 {patient.gender === 'M' ? 'Homme' : 'Femme'}
               </Badge>
               {patient.archived_at && (

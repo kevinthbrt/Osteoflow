@@ -13,12 +13,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { LogOut, Settings, User, Search, HelpCircle } from 'lucide-react'
+import { LogOut, Settings, Search, HelpCircle, Lock, Building2, ChevronDown } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
 import { buildSearchOrFilters } from '@/lib/utils/search'
 import type { Practitioner } from '@/types/database'
 import { Input } from '@/components/ui/input'
 import { NotificationBell } from '@/components/layout/notification-bell'
+import { BackupButton } from '@/components/layout/backup-button'
 import { HeaderWeather } from '@/components/layout/header-weather'
 import { useTour } from '@/contexts/tour-context'
 
@@ -74,6 +75,15 @@ export function Header({ user, practitioner }: HeaderProps) {
     await dbRef.current.auth.signOut()
     router.push('/login')
     router.refresh()
+  }
+
+  const handleLock = async () => {
+    // Sauvegarde des brouillons en cours avant de verrouiller, puis bascule
+    // sur l'écran de code PIN. Même comportement que dans la barre latérale.
+    window.dispatchEvent(new Event('myosteoflow:before-lock'))
+    await new Promise((r) => setTimeout(r, 400))
+    await fetch('/api/session/lock', { method: 'POST' })
+    router.push('/pin?mode=unlock')
   }
 
   const displayName = practitioner
@@ -259,15 +269,19 @@ export function Header({ user, practitioner }: HeaderProps) {
           {/* Notifications */}
           <NotificationBell />
 
+          {/* Sauvegarde des données */}
+          <BackupButton />
+
           {/* Separator */}
           <div className="hidden sm:block w-px h-6 bg-border/50 mx-1" />
 
-          {/* User menu */}
+          {/* User / cabinet menu — encadré pour être bien visible */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="relative h-9 gap-2 rounded-full pl-1 pr-3 hover:bg-accent/50"
+                className="relative h-9 gap-2 rounded-full pl-1 pr-2 border border-border bg-accent/40 hover:bg-accent/70 hover:border-primary/40 transition-colors"
+                title="Mon cabinet"
               >
                 <Avatar className="h-7 w-7">
                   <AvatarFallback className="text-white text-xs font-medium gradient-primary">
@@ -277,6 +291,7 @@ export function Header({ user, practitioner }: HeaderProps) {
                 <span className="hidden sm:block text-sm font-medium text-foreground">
                   {practitioner?.first_name || 'Utilisateur'}
                 </span>
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-64 p-2 rounded-2xl" align="end" forceMount>
@@ -299,8 +314,8 @@ export function Header({ user, practitioner }: HeaderProps) {
                 onClick={() => router.push('/settings')}
                 className="rounded-xl py-2.5"
               >
-                <User className="mr-3 h-4 w-4" />
-                <span>Mon profil</span>
+                <Building2 className="mr-3 h-4 w-4" />
+                <span>Mon cabinet</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => router.push('/settings')}
@@ -311,11 +326,18 @@ export function Header({ user, practitioner }: HeaderProps) {
               </DropdownMenuItem>
               <DropdownMenuSeparator className="my-2" />
               <DropdownMenuItem
+                onClick={handleLock}
+                className="rounded-xl py-2.5"
+              >
+                <Lock className="mr-3 h-4 w-4" />
+                <span>Verrouiller</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 onClick={handleSignOut}
                 className="rounded-xl py-2.5 text-destructive focus:text-destructive focus:bg-destructive/10"
               >
                 <LogOut className="mr-3 h-4 w-4" />
-                <span>Changer de praticien</span>
+                <span>Déconnexion</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

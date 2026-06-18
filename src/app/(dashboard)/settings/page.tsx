@@ -2119,7 +2119,29 @@ function StorageSettings() {
 function BackupRestoreSettings() {
   const [isBackingUp, setIsBackingUp] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
+  const [reminderHour, setReminderHour] = useState(8)
   const { toast } = useToast()
+
+  useEffect(() => {
+    fetch('/api/settings/database/backup-status')
+      .then((r) => r.json())
+      .then((d) => { if (typeof d.reminderHour === 'number') setReminderHour(d.reminderHour) })
+      .catch(() => {})
+  }, [])
+
+  const handleReminderHourChange = async (hour: number) => {
+    setReminderHour(hour)
+    try {
+      await fetch('/api/settings/database/backup-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_reminder_hour', hour }),
+      })
+      toast({ title: 'Heure du rappel mise à jour', description: `Le rappel quotidien de sauvegarde aura lieu à ${String(hour).padStart(2, '0')}h.` })
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible d\'enregistrer l\'heure du rappel.' })
+    }
+  }
 
   const handleBackup = async () => {
     setIsBackingUp(true)
@@ -2198,8 +2220,29 @@ function BackupRestoreSettings() {
             <input type="file" accept=".db" className="hidden" onChange={handleRestore} disabled={isRestoring} />
           </label>
         </div>
-        <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 rounded-lg text-xs text-amber-800 dark:text-amber-200">
-          ⚠️ La restauration remplace toutes les données actuelles. L&apos;application redémarre après la restauration.
+        <div className="flex flex-col gap-2 border-t pt-4">
+          <Label htmlFor="backup-reminder-hour" className="text-sm font-medium">
+            Heure du rappel quotidien de sauvegarde
+          </Label>
+          <div className="flex items-center gap-2">
+            <select
+              id="backup-reminder-hour"
+              value={reminderHour}
+              onChange={(e) => handleReminderHourChange(parseInt(e.target.value, 10))}
+              className="h-9 w-28 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              {Array.from({ length: 24 }, (_, h) => (
+                <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>
+              ))}
+            </select>
+            <span className="text-xs text-muted-foreground">
+              Une notification vous rappellera de générer votre sauvegarde chaque jour à cette heure.
+            </span>
+          </div>
+        </div>
+        <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 rounded-lg text-xs text-amber-800 dark:text-amber-200 space-y-1">
+          <p>⚠️ La restauration remplace toutes les données actuelles. L&apos;application redémarre après la restauration.</p>
+          <p>🔒 Pour la confidentialité des données patients, ne déposez jamais votre sauvegarde sur un cloud (Google Drive, iCloud, Dropbox…). Utilisez un disque externe ou une clé USB.</p>
         </div>
       </CardContent>
     </Card>

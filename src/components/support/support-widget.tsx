@@ -43,6 +43,9 @@ function markSeen(ticketId: string) {
 
 function isUnread(ticket: Ticket): boolean {
   if (!ticket.last_admin_message_at) return false
+  // Un ticket résolu n'est plus « actif » : on retire le point rouge dès que
+  // le support l'a clôturé côté osteoupgrade (synchro du statut via polling).
+  if (ticket.status === 'resolved') return false
   const seen = getSeenMap()
   const seenAt = seen[ticket.id]
   if (!seenAt) return true
@@ -135,6 +138,10 @@ export function SupportWidget({ userEmail }: SupportWidgetProps) {
         if (updated) {
           setSelectedTicket(updated)
           await fetchMessages(updated.id, userEmail)
+          // Le ticket est ouvert et lu en direct : on le marque vu pour que
+          // le point rouge ne réapparaisse pas à chaque réponse du support.
+          markSeen(updated.id)
+          setUnreadCount(list.filter(t => t.id !== updated.id && isUnread(t)).length)
         }
       }, 10_000)
       fetchTickets()
@@ -218,13 +225,22 @@ export function SupportWidget({ userEmail }: SupportWidgetProps) {
   const panelStyle = (): React.CSSProperties => {
     const PANEL_W = 360
     const GAP = 8
+    const PANEL_MAX = 540
     const p = posRef.current ?? { x: window.innerWidth - BTN - 24, y: window.innerHeight - BTN - 24 }
     const left = Math.max(GAP, Math.min(window.innerWidth - PANEL_W - GAP, p.x + BTN - PANEL_W))
     const inBottomHalf = p.y > window.innerHeight / 2
+    // Hauteur disponible selon l'ancrage, pour ne JAMAIS faire dépasser le haut
+    // du panneau (qui contient la flèche de retour) hors de l'écran. Sinon, sur
+    // les fenêtres basses, l'en-tête passe au-dessus du viewport et devient
+    // inatteignable (le panneau est en position: fixed, donc non « scrollable »).
+    const available = inBottomHalf
+      ? p.y - 2 * GAP                      // espace au-dessus de l'ancrage bas
+      : window.innerHeight - (p.y + BTN + GAP) - GAP // espace sous l'ancrage haut
+    const maxHeight = Math.max(220, Math.min(PANEL_MAX, available))
     const vertical: React.CSSProperties = inBottomHalf
       ? { bottom: window.innerHeight - p.y + GAP, top: 'auto' }
       : { top: p.y + BTN + GAP, bottom: 'auto' }
-    return { position: 'fixed', left, ...vertical, width: PANEL_W, maxHeight: 540, zIndex: 50 }
+    return { position: 'fixed', left, ...vertical, width: PANEL_W, maxHeight, zIndex: 50 }
   }
 
   const handleSubmit = async () => {
@@ -417,7 +433,7 @@ export function SupportWidget({ userEmail }: SupportWidgetProps) {
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
                   {loadingMessages ? (
                     <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-slate-500" /></div>
                   ) : messages.length === 0 ? (

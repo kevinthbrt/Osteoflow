@@ -300,6 +300,10 @@ export function ConsultationForm({
       clearTimeout(timer)
       if (submittedRef.current) return
       timer = setTimeout(() => {
+        // Re-vérifie au moment du déclenchement : si la consultation vient
+        // d'être validée, ce save tardif recréerait le brouillon après sa
+        // suppression (le brouillon « ressuscite » après validation).
+        if (submittedRef.current) return
         const values = getValues()
         fetch('/api/consultation/draft', {
           method: 'POST',
@@ -537,6 +541,9 @@ export function ConsultationForm({
           })
           setShowInvoiceModal(true)
           setIsLoading(false)
+          // Rafraîchit pour que le banner « brouillon » disparaisse même
+          // lorsqu'une facture est créée (sortie anticipée avant le refresh final).
+          router.refresh()
           return
         }
 
@@ -723,6 +730,8 @@ export function ConsultationForm({
             </CardHeader>
             <CardContent className="space-y-4">
               <AnamnesisRecorder
+                key={currentPatient.id}
+                patientId={currentPatient.id}
                 onApply={(data) => {
                   if (data.reason) setValue('reason', data.reason, { shouldDirty: true })
                   if (data.anamnesis) setValue('anamnesis', data.anamnesis, { shouldDirty: true })

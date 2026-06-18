@@ -23,6 +23,7 @@ interface AnamnesisRecorderProps {
   onApply: (data: { reason: string; anamnesis: string }) => void
   disabled?: boolean
   patientContext?: PatientContext
+  patientId?: string
   onPatientFieldsDetected?: (fields: PatientFieldsDetected) => void
 }
 
@@ -128,7 +129,7 @@ async function clearAudioBlob(): Promise<void> {
 
 // ─── Composant ──────────────────────────────────────────────────────────────────
 
-export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatientFieldsDetected }: AnamnesisRecorderProps) {
+export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId, onPatientFieldsDetected }: AnamnesisRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle')
   const [finalText, setFinalText] = useState('')
   const [interimText, setInterimText] = useState('')
@@ -162,15 +163,17 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
   const isContinuingRef = useRef(false)
 
   // ── Persistance localStorage (survie à la veille/rechargement) ────────────
-  const DRAFT_KEY = 'osteoflow-anamnesis-draft'
+  // Clé spécifique au patient : un brouillon dicté ne doit jamais « fuiter »
+  // d'un patient vers un autre. Sans patientId on retombe sur l'ancienne clé.
+  const DRAFT_KEY = patientId ? `osteoflow-anamnesis-draft-${patientId}` : 'osteoflow-anamnesis-draft'
   const DRAFT_TTL_MS = 24 * 60 * 60 * 1000 // 24h
 
   const saveDraft = useCallback((text: string, structuredData: typeof structured) => {
     if (!text && !structuredData) { localStorage.removeItem(DRAFT_KEY); return }
     localStorage.setItem(DRAFT_KEY, JSON.stringify({ text, structured: structuredData, savedAt: Date.now() }))
-  }, [])
+  }, [DRAFT_KEY])
 
-  const clearDraft = useCallback(() => { localStorage.removeItem(DRAFT_KEY) }, [])
+  const clearDraft = useCallback(() => { localStorage.removeItem(DRAFT_KEY) }, [DRAFT_KEY])
 
   // Restaure le brouillon texte et vérifie si un blob audio en attente existe
   useEffect(() => {
@@ -689,10 +692,10 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, onPatient
           </p>
         )}
 
-        {state !== 'idle' && (
-          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={handleReset}>
+        {(state !== 'idle' || hasTranscript || !!structured) && (
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive hover:text-destructive" onClick={handleReset}>
             <RotateCcw className="h-3 w-3 mr-1" />
-            Recommencer
+            Effacer
           </Button>
         )}
       </div>
