@@ -732,45 +732,44 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   // afin de pouvoir cloisonner (par défaut) ou partager (sur option).
   const dbp = db as unknown as { prepare?(sql: string): { get(...a: unknown[]): unknown; all(...a: unknown[]): unknown; run(...a: unknown[]): unknown } }
 
+  // 1) Ajout des colonnes (idempotent via garde sur l'existence).
   const practColsMC = db.pragma('table_info(practitioners)') as Array<{ name: string }>
   if (!practColsMC.some((c) => c.name === 'owner_id')) {
     db.exec('ALTER TABLE practitioners ADD COLUMN owner_id TEXT;')
-    if (dbp.prepare) {
-      // Rattache tous les cabinets existants à un propriétaire unique et stable.
-      const ownerRow = dbp.prepare("SELECT value FROM app_config WHERE key = 'cabinet_owner_id'").get() as { value?: string } | undefined
-      const ownerId = ownerRow?.value || randomUUID()
-      if (!ownerRow?.value) {
-        dbp.prepare("INSERT OR REPLACE INTO app_config (key, value) VALUES ('cabinet_owner_id', ?)").run(ownerId)
-      }
-      dbp.prepare('UPDATE practitioners SET owner_id = ? WHERE owner_id IS NULL').run(ownerId)
-    }
     db.exec('CREATE INDEX IF NOT EXISTS idx_practitioners_owner ON practitioners(owner_id);')
   }
-
   const consultColsMC = db.pragma('table_info(consultations)') as Array<{ name: string }>
   if (!consultColsMC.some((c) => c.name === 'cabinet_id')) {
     db.exec('ALTER TABLE consultations ADD COLUMN cabinet_id TEXT;')
-    if (dbp.prepare) {
-      // Sécurité : rattache les patients sans cabinet (legacy/import) au cabinet
-      // principal (le plus ancien), sinon le cloisonnement les masquerait.
-      const principal = dbp.prepare('SELECT id FROM practitioners ORDER BY created_at ASC LIMIT 1').get() as { id?: string } | undefined
-      if (principal?.id) {
-        dbp.prepare('UPDATE patients SET practitioner_id = ? WHERE practitioner_id IS NULL OR practitioner_id = ""').run(principal.id)
-      }
-      // Rétro-attribution : le cabinet d'une consultation = celui de son patient.
-      dbp.prepare('UPDATE consultations SET cabinet_id = (SELECT p.practitioner_id FROM patients p WHERE p.id = consultations.patient_id) WHERE cabinet_id IS NULL').run()
-    }
     db.exec('CREATE INDEX IF NOT EXISTS idx_consultations_cabinet ON consultations(cabinet_id);')
   }
-
   const invColsMC = db.pragma('table_info(invoices)') as Array<{ name: string }>
   if (!invColsMC.some((c) => c.name === 'cabinet_id')) {
     db.exec('ALTER TABLE invoices ADD COLUMN cabinet_id TEXT;')
-    // Rétro-attribution : le cabinet d'une facture = celui de sa consultation.
-    if (dbp.prepare) {
-      dbp.prepare('UPDATE invoices SET cabinet_id = (SELECT c.cabinet_id FROM consultations c WHERE c.id = invoices.consultation_id) WHERE cabinet_id IS NULL').run()
-    }
     db.exec('CREATE INDEX IF NOT EXISTS idx_invoices_cabinet ON invoices(cabinet_id);')
+  }
+
+  // 2) Rétro-attribution IDEMPOTENTE (rejouée à chaque démarrage tant que des
+  //    lignes ne sont pas attribuées). Indispensable pour réparer les bases où
+  //    une version antérieure de cette migration a échoué en cours de route.
+  if (dbp.prepare) {
+    // Propriétaire unique et stable pour tous les cabinets de l'installation.
+    const ownerRow = dbp.prepare("SELECT value FROM app_config WHERE key = 'cabinet_owner_id'").get() as { value?: string } | undefined
+    const existingOwner = dbp.prepare('SELECT owner_id FROM practitioners WHERE owner_id IS NOT NULL LIMIT 1').get() as { owner_id?: string } | undefined
+    const ownerId = ownerRow?.value || existingOwner?.owner_id || randomUUID()
+    if (!ownerRow?.value) {
+      dbp.prepare("INSERT OR REPLACE INTO app_config (key, value) VALUES ('cabinet_owner_id', ?)").run(ownerId)
+    }
+    dbp.prepare('UPDATE practitioners SET owner_id = ? WHERE owner_id IS NULL').run(ownerId)
+
+    // Patients sans cabinet (legacy/import) → cabinet principal (le plus ancien).
+    const principal = dbp.prepare('SELECT id FROM practitioners ORDER BY created_at ASC LIMIT 1').get() as { id?: string } | undefined
+    if (principal?.id) {
+      dbp.prepare("UPDATE patients SET practitioner_id = ? WHERE practitioner_id IS NULL OR practitioner_id = ''").run(principal.id)
+    }
+    // Consultation → cabinet du patient ; Facture → cabinet de la consultation.
+    dbp.prepare('UPDATE consultations SET cabinet_id = (SELECT p.practitioner_id FROM patients p WHERE p.id = consultations.patient_id) WHERE cabinet_id IS NULL').run()
+    dbp.prepare('UPDATE invoices SET cabinet_id = (SELECT c.cabinet_id FROM consultations c WHERE c.id = invoices.consultation_id) WHERE cabinet_id IS NULL').run()
   }
 }
 
