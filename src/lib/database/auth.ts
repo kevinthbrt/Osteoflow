@@ -231,3 +231,56 @@ export function listCabinets(): CabinetInfo[] {
     .all(ownerId) as Array<Omit<CabinetInfo, 'is_active'>>
   return rows.map((r) => ({ ...r, is_active: r.user_id === currentUserRow?.value }))
 }
+
+export type DeleteCabinetResult =
+  | { ok: true }
+  | { ok: false; reason: 'not_found' | 'active' | 'last' | 'has_data' }
+
+/**
+ * Supprime un cabinet du propriétaire courant.
+ * Refuse si : cabinet inconnu, cabinet actif, dernier cabinet, ou cabinet
+ * contenant des données patients (par sécurité — il faut le vider d'abord).
+ * Supprime sinon le cabinet et ses lignes de configuration (réglages, modèles…)
+ * dans une transaction.
+ */
+export function deleteCabinet(userId: string): DeleteCabinetResult {
+  const db = getDatabase()
+  const ownerId = getCabinetOwnerId()
+
+  const target = db
+    .prepare('SELECT id, user_id FROM practitioners WHERE user_id = ? AND owner_id = ?')
+    .get(userId, ownerId) as { id?: string; user_id?: string } | undefined
+  if (!target?.id) return { ok: false, reason: 'not_found' }
+
+  const currentUserRow = db
+    .prepare("SELECT value FROM app_config WHERE key = 'current_user_id'")
+    .get() as { value?: string } | undefined
+  if (currentUserRow?.value === userId) return { ok: false, reason: 'active' }
+
+  const count = db.prepare('SELECT COUNT(*) AS n FROM practitioners WHERE owner_id = ?').get(ownerId) as { n: number }
+  if (count.n <= 1) return { ok: false, reason: 'last' }
+
+  // Sécurité : on n'autorise pas la suppression d'un cabinet contenant des
+  // dossiers patients (donc aussi consultations/factures qui en dépendent).
+  const patients = db.prepare('SELECT COUNT(*) AS n FROM patients WHERE practitioner_id = ?').get(target.id) as { n: number }
+  if (patients.n > 0) return { ok: false, reason: 'has_data' }
+
+  // Supprime dynamiquement toutes les lignes de configuration rattachées à ce
+  // cabinet (clés practitioner_id / cabinet_id), puis le cabinet lui-même.
+  const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT IN ('practitioners','app_config')").all() as Array<{ name: string }>
+  const tx = db.transaction(() => {
+    for (const { name } of tables) {
+      const cols = db.pragma(`table_info(${name})`) as Array<{ name: string }>
+      if (cols.some((c) => c.name === 'practitioner_id')) {
+        db.prepare(`DELETE FROM ${name} WHERE practitioner_id = ?`).run(target.id)
+      }
+      if (cols.some((c) => c.name === 'cabinet_id')) {
+        db.prepare(`DELETE FROM ${name} WHERE cabinet_id = ?`).run(target.id)
+      }
+    }
+    db.prepare('DELETE FROM practitioners WHERE id = ?').run(target.id)
+  })
+  tx()
+
+  return { ok: true }
+}

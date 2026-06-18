@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Building2, Check, Plus, Loader2, ArrowRightLeft, Share2 } from 'lucide-react'
+import { Building2, Check, Plus, Loader2, ArrowRightLeft, Share2, Trash2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,7 @@ export function ChangeCabinetDialog() {
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [switching, setSwitching] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const { toast } = useToast()
@@ -80,6 +81,30 @@ export function ChangeCabinetDialog() {
     } catch {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de changer de cabinet.' })
       setSwitching(null)
+    }
+  }
+
+  const handleDelete = async (c: Cabinet) => {
+    const label = c.practice_name || `${c.first_name} ${c.last_name}`
+    if (!window.confirm(`Supprimer le cabinet « ${label} » ? Cette action est définitive.`)) return
+    setDeleting(c.user_id)
+    try {
+      const res = await fetch('/api/cabinets/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: c.user_id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast({ variant: 'destructive', title: 'Suppression impossible', description: data.error })
+        return
+      }
+      setCabinets(data.cabinets || [])
+      toast({ title: 'Cabinet supprimé' })
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer le cabinet.' })
+    } finally {
+      setDeleting(null)
     }
   }
 
@@ -162,10 +187,22 @@ export function ChangeCabinetDialog() {
                   {c.is_active ? (
                     <Check className="h-4 w-4 text-primary shrink-0" />
                   ) : (
-                    <Button size="sm" variant="outline" disabled={!!switching} onClick={() => handleSwitch(c.user_id)} className="gap-1.5 shrink-0">
-                      {switching === c.user_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRightLeft className="h-3.5 w-3.5" />}
-                      Basculer
-                    </Button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Button size="sm" variant="outline" disabled={!!switching || !!deleting} onClick={() => handleSwitch(c.user_id)} className="gap-1.5">
+                        {switching === c.user_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRightLeft className="h-3.5 w-3.5" />}
+                        Basculer
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        disabled={!!switching || !!deleting}
+                        onClick={() => handleDelete(c)}
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        title="Supprimer ce cabinet"
+                      >
+                        {deleting === c.user_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
                   )}
                 </div>
               ))}
