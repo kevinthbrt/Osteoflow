@@ -30,6 +30,7 @@ import {
 import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels } from '@/lib/validations/invoice'
 import { MarkdownText } from '@/components/ui/markdown-text'
+import { AnamnesisDisplay } from '@/components/consultations/anamnesis-display'
 import { ConsultationPaymentEditor } from './consultation-payment-editor'
 import { ExercisePrescriptionSection } from '@/components/exercises/exercise-prescription-section'
 
@@ -155,10 +156,14 @@ export function ConsultationModal({ consultationId, onClose, onOpenInvoice }: Pr
                       <CardTitle className="text-sm">Contenu clinique</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {consultation.anamnesis && (
+                      {(consultation.anamnesis || consultation.anamnesis_sections) && (
                         <div>
                           <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Anamnèse</h4>
-                          <MarkdownText text={consultation.anamnesis} />
+                          <AnamnesisDisplay
+                            anamnesis={consultation.anamnesis}
+                            anamnesisSections={consultation.anamnesis_sections}
+                            reason={consultation.reason}
+                          />
                         </div>
                       )}
                       {consultation.examination && (

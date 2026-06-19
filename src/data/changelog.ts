@@ -19,6 +19,26 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.10.0',
+    date: '2026-06-19',
+    title: 'Comptabilité repensée, objectifs en couleurs et tampon sur les courriers',
+    changes: [
+      // Comptabilité
+      { type: 'feature', text: 'Comptabilité : la page adopte le même style moderne que les objectifs — une grande carte dégradée met en avant le chiffre d\'affaires, les consultations et le panier moyen, avec une ventilation par mode de paiement illustrée par des barres proportionnelles.' },
+      { type: 'improvement', text: 'Comptabilité : la barre de filtres (Période, Date début, Date fin, Mode de paiement) est compacte et regroupée. Le bouton « Corrections » y est intégré et ouvre l\'éditeur des corrections manuelles juste en dessous.' },
+      { type: 'improvement', text: 'Comptabilité — corrections manuelles : l\'ancien grand bloc est remplacé par un éditeur compact. Chaque mois de la période s\'affiche en petite tuile cliquable que l\'on édite sur place, sans encombrer la page.' },
+      { type: 'fix', text: 'Comptabilité : sélectionner « Cette année » démarrait par erreur au 31 décembre de l\'année précédente sur certains fuseaux horaires. La période commence désormais correctement au 1er janvier.' },
+      // Objectifs
+      { type: 'improvement', text: 'Objectifs : les badges de pourcentage et les barres de progression suivent un code couleur clair — vert dès 100 % atteint, ambre à partir de 75 %, neutre en dessous — pour repérer d\'un coup d\'œil les objectifs en avance ou en retard.' },
+      // Courriers
+      { type: 'improvement', text: 'Courriers générés : votre tampon (configuré dans les paramètres, comme sur les factures) est désormais apposé en bas à droite du PDF. Le pied de page texte qui faisait doublon a été retiré.' },
+      { type: 'fix', text: 'Courriers générés : le corps justifié ne déborde plus de la page sur la droite et l\'alignement du bloc destinataire à droite est fiabilisé.' },
+      // Anamnèse
+      { type: 'improvement', text: 'Anamnèse structurée : une fois la dictée injectée, le contenu s\'affiche directement dans le champ Anamnèse sous forme de cartes thématiques claires (motif, antécédents, histoire de la plainte…) au lieu d\'un bloc de texte brut. Les sections sont conservées et réapparaissent sur les consultations enregistrées et passées.' },
+      { type: 'improvement', text: 'Anamnèse structurée : nouveau code couleur sémantique — le rouge et le vert sont désormais réservés aux drapeaux (red flags), le reste des sections adopte des teintes neutres pour ne pas noyer l\'information importante.' },
+    ],
+  },
+  {
     version: '1.9.0',
     date: '2026-06-19',
     title: 'Multi-cabinet, navigation repensée et consultation sans quitter la fiche patient',

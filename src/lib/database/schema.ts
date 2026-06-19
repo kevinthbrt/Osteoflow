@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS consultations (
   date_time TEXT NOT NULL DEFAULT (datetime('now')),
   reason TEXT NOT NULL,
   anamnesis TEXT,
+  anamnesis_sections TEXT,
   examination TEXT,
   advice TEXT,
   follow_up_7d INTEGER DEFAULT 0,
@@ -460,6 +461,11 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   }
   if (!consultCols.some((c) => c.name === 'post_session_advice_sent_at')) {
     db.exec('ALTER TABLE consultations ADD COLUMN post_session_advice_sent_at TEXT;')
+  }
+  // Cartes d'anamnèse structurées par l'IA (JSON sérialisé), pour réaffichage
+  // sur les consultations passées sans repasser par l'IA.
+  if (!consultCols.some((c) => c.name === 'anamnesis_sections')) {
+    db.exec('ALTER TABLE consultations ADD COLUMN anamnesis_sections TEXT;')
   }
 
   // Add status to practitioners

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Target, Settings, Users, Euro, Check, Pencil, X } from 'lucide-react'
+import { Loader2, Target, Settings, Users, Euro, Check, Pencil, X, TrendingUp, TrendingDown, Sparkles } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 const MONTHS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
@@ -50,9 +50,11 @@ interface ProgressBarProps {
   objective: number
   showPatients: boolean
   consultationPrice: number | null
+  /** Variante sur fond gradient sombre (texte blanc, panneau translucide) */
+  dark?: boolean
 }
 
-function ProgressBar({ label, sublabel, actual, objective, showPatients, consultationPrice }: ProgressBarProps) {
+function ProgressBar({ label, sublabel, actual, objective, showPatients, consultationPrice, dark }: ProgressBarProps) {
   const pct = objective > 0 ? Math.min(100, (actual / objective) * 100) : 0
   const isComplete = pct >= 100
 
@@ -63,6 +65,44 @@ function ProgressBar({ label, sublabel, actual, objective, showPatients, consult
   const displayObjective = showPatients && consultationPrice
     ? formatPatients(objective, consultationPrice)
     : formatEuro(objective)
+
+  if (dark) {
+    const badgeCls = pct >= 100
+      ? 'bg-emerald-400 text-emerald-950'
+      : pct >= 75
+        ? 'bg-amber-300 text-amber-950'
+        : 'bg-white/20 text-white'
+    const barCls = pct >= 100
+      ? 'bg-emerald-400'
+      : pct >= 75
+        ? 'bg-amber-300'
+        : 'bg-white'
+    return (
+      <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-3.5 py-3">
+        <div className="flex items-start justify-between mb-2.5 gap-2">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white truncate">{label}</p>
+            <p className="text-[11px] text-white/70 truncate">{sublabel}</p>
+          </div>
+          <span className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full ${badgeCls}`}>
+            {pct.toFixed(0)} %
+          </span>
+        </div>
+        <div className="space-y-1.5">
+          <div className="h-2 w-full rounded-full bg-white/15 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${barCls}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-[11px] text-white/70">
+            <span className="font-medium text-white">{displayActual}</span>
+            <span>sur {displayObjective}</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <Card className={isComplete ? 'border-emerald-200 bg-emerald-50/50' : ''}>
@@ -100,9 +140,10 @@ function ProgressBar({ label, sublabel, actual, objective, showPatients, consult
 interface AnnualTimelineProps {
   data: ObjectivesData
   year: number
+  showPatients: boolean
 }
 
-function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
+function AnnualProgressTimeline({ data, year, showPatients }: AnnualTimelineProps) {
   const now = new Date()
   const startOfYear = new Date(year, 0, 1)
   const isLeap = (year % 400 === 0) || (year % 4 === 0 && year % 100 !== 0)
@@ -124,6 +165,19 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
   const dailyObj = data.computed.daily_objective
   const advanceDays = (isAhead && dailyObj > 0) ? Math.floor(diff / dailyObj) : 0
 
+  // --- Projection fin d'année (extrapolation au rythme actuel) ---
+  const elapsedFraction = Math.min(1, dayOfYear / totalDays)
+  // Avant 14 jours d'activité, la projection est trop bruitée
+  const enoughData = dayOfYear >= 14
+  const projected = enoughData && elapsedFraction > 0 ? data.revenue.this_year / elapsedFraction : data.revenue.this_year
+  const projectedPct = annualObj > 0 ? (projected / annualObj) * 100 : 0
+  const onTrack = projected >= annualObj
+  // Rythme requis sur les jours travaillés restants pour atteindre la cible
+  const remaining = Math.max(0, annualObj - data.revenue.this_year)
+  const workingDaysElapsed = data.computed.working_days * elapsedFraction
+  const remainingWorkingDays = Math.max(0, data.computed.working_days - workingDaysElapsed)
+  const needPerDay = remainingWorkingDays > 0 ? remaining / remainingWorkingDays : 0
+
   // Month tick positions (start of each month as % of year)
   const monthTicks = Array.from({ length: 12 }, (_, i) => {
     const monthStart = new Date(year, i, 1)
@@ -143,25 +197,106 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
   const todayLabel = now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <CardTitle className="text-base">Trajectoire annuelle {year}</CardTitle>
+    <div className="relative overflow-hidden rounded-2xl gradient-primary text-white p-6 shadow-lg">
+      {/* Liquid glass sheen */}
+      <div className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full bg-white/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 -left-10 w-56 h-56 rounded-full bg-black/10 blur-3xl" />
+
+      <div className="relative">
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+          <h3 className="text-base font-semibold">Trajectoire annuelle {year}</h3>
           <div
-            className={`flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full ${
-              isAhead ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+            className={`flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full backdrop-blur-sm ${
+              isAhead ? 'bg-emerald-400/30 text-emerald-100' : 'bg-amber-400/25 text-amber-100'
             }`}
           >
             {isAhead ? '▲' : '▼'} {isAhead ? 'En avance' : 'En retard'} de {formatEuro(Math.abs(diff))}
             {isAhead && advanceDays > 0 && (
-              <span className="ml-1 font-normal text-emerald-600">
+              <span className="ml-1 font-normal text-white/80">
                 · ≈ {advanceDays} jour{advanceDays > 1 ? 's' : ''} de congés
               </span>
             )}
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="pt-4">
+
+        {/* KPI : aujourd'hui / semaine / mois / année */}
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 mb-5">
+          <ProgressBar
+            dark
+            label="Aujourd'hui"
+            sublabel={now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            actual={data.revenue.today}
+            objective={data.computed.daily_objective}
+            showPatients={showPatients}
+            consultationPrice={data.settings.average_consultation_price}
+          />
+          <ProgressBar
+            dark
+            label="Cette semaine"
+            sublabel={`Objectif hebdo : ${formatEuro(data.computed.weekly_objective)}`}
+            actual={data.revenue.this_week}
+            objective={data.computed.weekly_objective}
+            showPatients={showPatients}
+            consultationPrice={data.settings.average_consultation_price}
+          />
+          <ProgressBar
+            dark
+            label={`${MONTHS_FR[now.getMonth()]}`}
+            sublabel={`Objectif mensuel : ${formatEuro(data.computed.monthly_objective)}`}
+            actual={data.revenue.this_month}
+            objective={data.computed.monthly_objective}
+            showPatients={showPatients}
+            consultationPrice={data.settings.average_consultation_price}
+          />
+          <ProgressBar
+            dark
+            label={`Année ${year}`}
+            sublabel={`Objectif annuel : ${formatEuro(annualObj)}`}
+            actual={data.revenue.this_year}
+            objective={annualObj}
+            showPatients={showPatients}
+            consultationPrice={data.settings.average_consultation_price}
+          />
+        </div>
+
+        {/* Projection fin d'année — bloc en évidence */}
+        {enoughData && (
+          <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-4 py-3 mb-5">
+            <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+              <div>
+                <div className="flex items-center gap-1.5 text-white/80 text-xs font-medium">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Projection fin {year} · au rythme actuel
+                </div>
+                <p className="mt-0.5 text-2xl font-bold tracking-tight tabular-nums leading-tight">
+                  {formatEuro(projected)}
+                  <span className={`ml-2 text-sm font-semibold ${
+                    projectedPct >= 100 ? 'text-emerald-300' : projectedPct >= 75 ? 'text-amber-300' : 'text-white/80'
+                  }`}>{projectedPct.toFixed(0)} %</span>
+                </p>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <div
+                  className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                    onTrack ? 'bg-emerald-400/30 text-emerald-100' : 'bg-amber-400/25 text-amber-100'
+                  }`}
+                >
+                  {onTrack ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                  {onTrack
+                    ? `+${formatEuro(projected - annualObj)} vs objectif`
+                    : `${formatEuro(annualObj - projected)} sous l'objectif`}
+                </div>
+                {!onTrack && needPerDay > 0 && (
+                  <p className="text-[11px] text-white/80 text-right">
+                    À tenir : <span className="font-semibold text-white">{formatEuro(needPerDay)}</span> / jour travaillé
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Timeline — extra top padding for the needle label */}
         <div className="relative" style={{ paddingTop: '2.75rem' }}>
 
@@ -170,7 +305,7 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
             className="absolute z-20 flex flex-col items-center"
             style={{ left: `${datePct}%`, top: 0, transform: 'translateX(-50%)' }}
           >
-            <div className="bg-foreground text-background text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap mb-1">
+            <div className="bg-white text-slate-900 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap mb-1 shadow">
               {todayLabel}
             </div>
             <div
@@ -178,18 +313,18 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
                 width: 0, height: 0,
                 borderLeft: '5px solid transparent',
                 borderRight: '5px solid transparent',
-                borderTop: '7px solid hsl(var(--foreground))',
+                borderTop: '7px solid white',
               }}
             />
           </div>
 
           {/* Bar */}
-          <div className="relative h-10 w-full rounded-full bg-muted overflow-hidden">
+          <div className="relative h-10 w-full rounded-full bg-white/15 overflow-hidden">
 
             {/* CA fill */}
             <div
               className={`absolute left-0 top-0 h-full transition-all duration-700 ${
-                isAhead ? 'bg-emerald-500' : 'bg-amber-500'
+                isAhead ? 'bg-emerald-400' : 'bg-amber-300'
               }`}
               style={{ width: `${caPct}%`, borderRadius: caPct >= 100 ? '9999px' : '9999px 0 0 9999px' }}
             />
@@ -198,21 +333,23 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
             {monthTicks.slice(1).map(({ month, pct }) => (
               <div
                 key={month}
-                className="absolute top-0 bottom-0 w-px bg-black z-10"
+                className="absolute top-0 bottom-0 w-px bg-white/30 z-10"
                 style={{ left: `${pct}%` }}
               />
             ))}
 
             {/* Today vertical line through bar */}
             <div
-              className="absolute top-0 bottom-0 w-0.5 bg-foreground/70 z-20"
+              className="absolute top-0 bottom-0 w-0.5 bg-white z-20"
               style={{ left: `${datePct}%`, transform: 'translateX(-50%)' }}
             />
 
             {/* CA value label inside fill */}
             {caPct > 10 && (
               <div
-                className="absolute top-1/2 text-xs font-bold text-white pointer-events-none z-10"
+                className={`absolute top-1/2 text-xs font-bold pointer-events-none z-10 ${
+                  isAhead ? 'text-emerald-950' : 'text-amber-950'
+                }`}
                 style={{
                   left: `${Math.min(caPct - 1, 96)}%`,
                   transform: 'translateY(-50%) translateX(-100%)',
@@ -229,7 +366,7 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
             {monthCenters.map((centerPct, i) => (
               <div
                 key={i}
-                className="absolute text-[11px] text-muted-foreground"
+                className="absolute text-[11px] text-white/70"
                 style={{ left: `${centerPct}%`, transform: 'translateX(-50%)', top: 0 }}
               >
                 {MONTHS_FR[i].slice(0, 3)}
@@ -239,21 +376,102 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
         </div>
 
         {/* Stats row */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t border-white/20 text-sm">
           <div>
-            <span className="text-muted-foreground">CA réel </span>
+            <span className="text-white/70">CA réel </span>
             <span className="font-semibold">{formatEuro(data.revenue.this_year)}</span>
-            <span className="text-muted-foreground ml-1">({caPct.toFixed(1)} %)</span>
+            <span className="text-white/70 ml-1">({caPct.toFixed(1)} %)</span>
           </div>
           <div>
-            <span className="text-muted-foreground">Attendu au {todayLabel} </span>
+            <span className="text-white/70">Attendu au {todayLabel} </span>
             <span className="font-semibold">{formatEuro(expectedRevenue)}</span>
-            <span className="text-muted-foreground ml-1">({datePct.toFixed(1)} %)</span>
+            <span className="text-white/70 ml-1">({datePct.toFixed(1)} %)</span>
           </div>
           <div>
-            <span className="text-muted-foreground">Objectif annuel </span>
+            <span className="text-white/70">Objectif annuel </span>
             <span className="font-semibold">{formatEuro(annualObj)}</span>
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface MonthlyBarChartProps {
+  breakdown: ObjectivesData['revenue']['monthly_breakdown']
+  monthlyObjective: number
+  currentMonth: number
+}
+
+/**
+ * Graphique en barres CA réalisé vs objectif mensuel (SVG/divs, sans lib).
+ * Ligne de référence pointillée = objectif mensuel. Mois en cours mis en
+ * valeur, mois futurs estompés.
+ */
+function MonthlyBarChart({ breakdown, monthlyObjective, currentMonth }: MonthlyBarChartProps) {
+  const maxVal = Math.max(monthlyObjective, ...breakdown.map((b) => b.total), 1)
+  const objPct = (monthlyObjective / maxVal) * 100
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Évolution mensuelle</CardTitle>
+        <CardDescription>CA réalisé par mois — la ligne pointillée marque l&apos;objectif mensuel.</CardDescription>
+      </CardHeader>
+      <CardContent className="pt-4">
+        <div className="relative h-44">
+          {/* Ligne d'objectif */}
+          <div
+            className="absolute left-0 right-0 border-t border-dashed border-foreground/30 z-10"
+            style={{ bottom: `${objPct}%` }}
+          >
+            <span className="absolute -top-2.5 right-0 bg-background px-1 text-[10px] text-muted-foreground">
+              {formatEuro(monthlyObjective)}
+            </span>
+          </div>
+
+          {/* Barres */}
+          <div className="absolute inset-0 flex items-end justify-between gap-1.5">
+            {breakdown.map((row) => {
+              const isFuture = row.month > currentMonth
+              const isCurrent = row.month === currentMonth
+              const hPct = (row.total / maxVal) * 100
+              const reached = row.total >= monthlyObjective && monthlyObjective > 0
+              return (
+                <div key={row.month} className="group relative flex-1 flex flex-col items-center justify-end h-full">
+                  {row.total > 0 && (
+                    <span className="absolute -top-0 text-[9px] font-medium text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity tabular-nums whitespace-nowrap">
+                      {formatEuro(row.total)}
+                    </span>
+                  )}
+                  <div
+                    className={`w-full max-w-[28px] rounded-t-md transition-all duration-500 ${
+                      isFuture
+                        ? 'bg-muted'
+                        : reached
+                          ? 'bg-emerald-500'
+                          : 'bg-primary'
+                    } ${isCurrent ? 'ring-2 ring-primary/40 ring-offset-1 ring-offset-background' : ''}`}
+                    style={{ height: `${Math.max(hPct, row.total > 0 ? 2 : 0)}%` }}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Labels mois */}
+        <div className="mt-2 flex justify-between gap-1.5">
+          {breakdown.map((row) => (
+            <div
+              key={row.month}
+              className={`flex-1 text-center text-[10px] ${
+                row.month === currentMonth ? 'font-semibold text-foreground' : 'text-muted-foreground'
+              }`}
+            >
+              {MONTHS_FR[row.month - 1].slice(0, 3)}
+            </div>
+          ))}
         </div>
       </CardContent>
     </Card>
@@ -423,43 +641,15 @@ export default function ObjectivesPage() {
       {/* Progress bars */}
       {hasObjective && data && (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <ProgressBar
-              label="Aujourd'hui"
-              sublabel={new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-              actual={data.revenue.today}
-              objective={data.computed.daily_objective}
-              showPatients={showPatients}
-              consultationPrice={data.settings.average_consultation_price}
-            />
-            <ProgressBar
-              label="Cette semaine"
-              sublabel={`Objectif hebdo : ${formatEuro(data.computed.weekly_objective)}`}
-              actual={data.revenue.this_week}
-              objective={data.computed.weekly_objective}
-              showPatients={showPatients}
-              consultationPrice={data.settings.average_consultation_price}
-            />
-            <ProgressBar
-              label={`${MONTHS_FR[new Date().getMonth()]}`}
-              sublabel={`Objectif mensuel : ${formatEuro(data.computed.monthly_objective)}`}
-              actual={data.revenue.this_month}
-              objective={data.computed.monthly_objective}
-              showPatients={showPatients}
-              consultationPrice={data.settings.average_consultation_price}
-            />
-            <ProgressBar
-              label={`Année ${currentYear}`}
-              sublabel={`Objectif annuel : ${formatEuro(data.settings.annual_revenue_objective!)}`}
-              actual={data.revenue.this_year}
-              objective={data.settings.annual_revenue_objective!}
-              showPatients={showPatients}
-              consultationPrice={data.settings.average_consultation_price}
-            />
-          </div>
+          {/* Carte gradient : KPI + projection + trajectoire annuelle */}
+          <AnnualProgressTimeline data={data} year={currentYear} showPatients={showPatients} />
 
-          {/* Annual timeline bar */}
-          <AnnualProgressTimeline data={data} year={currentYear} />
+          {/* Monthly bar chart */}
+          <MonthlyBarChart
+            breakdown={data.revenue.monthly_breakdown}
+            monthlyObjective={data.computed.monthly_objective}
+            currentMonth={currentMonth}
+          />
 
           {/* Summary chips */}
           <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">

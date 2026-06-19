@@ -20,7 +20,7 @@ interface PatientContext {
 }
 
 interface AnamnesisRecorderProps {
-  onApply: (data: { reason: string; anamnesis: string }) => void
+  onApply: (data: { reason: string; anamnesis: string; sections?: AnamnesisSection[] }) => void
   disabled?: boolean
   patientContext?: PatientContext
   patientId?: string
@@ -36,7 +36,7 @@ type RecorderState =
   | 'done'
   | 'error'
 
-// ─── Web Speech API types ──────────────────────────────────────────────
+// ─── Web Speech API types ────────────────────────
 
 interface SpeechRecognitionEvent extends Event {
   resultIndex: number
@@ -73,7 +73,7 @@ function isElectron(): boolean {
   return typeof window !== 'undefined' && !!(window as any).electronAPI?.isDesktop
 }
 
-// ─── IndexedDB — cache audio blob (survie à la veille / erreur réseau) ────────
+// ─── IndexedDB — cache audio blob (survie à la veille / erreur réseau) ────
 
 const IDB_NAME = 'osteoflow-audio'
 const IDB_STORE = 'drafts'
@@ -83,8 +83,29 @@ const IDB_TTL_MS = 24 * 60 * 60 * 1000
 function openAudioDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(IDB_NAME, 1)
-    req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE)
-    req.onsuccess = () => resolve(req.result)
+    req.onupgradeneeded = () => {
+      const db = req.result
+      if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE)
+    }
+    req.onsuccess = () => {
+      const db = req.result
+      // Si la base existe déjà mais sans le store (création partielle ou
+      // schéma plus ancien), onupgradeneeded ne se redéclenche pas à version
+      // égale : on rouvre en incrémentant la version pour forcer la création.
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        const nextVersion = db.version + 1
+        db.close()
+        const upgradeReq = indexedDB.open(IDB_NAME, nextVersion)
+        upgradeReq.onupgradeneeded = () => {
+          const upDb = upgradeReq.result
+          if (!upDb.objectStoreNames.contains(IDB_STORE)) upDb.createObjectStore(IDB_STORE)
+        }
+        upgradeReq.onsuccess = () => resolve(upgradeReq.result)
+        upgradeReq.onerror = () => reject(upgradeReq.error)
+        return
+      }
+      resolve(db)
+    }
     req.onerror = () => reject(req.error)
   })
 }
@@ -127,14 +148,36 @@ async function clearAudioBlob(): Promise<void> {
   } catch { /* silencieux */ }
 }
 
-// ─── Composant ──────────────────────────────────────────────────────────────────
+export interface AnamnesisSection {
+  id: string
+  label: string
+  icon: string
+  color: 'red' | 'green' | 'slate' | 'sky' | 'teal' | 'indigo' | 'stone'
+  items: string[]
+  allClear?: boolean
+}
+
+export const SECTION_STYLES: Record<AnamnesisSection['color'], { card: string; label: string; item: string }> = {
+  // Drapeaux rouges détectés
+  red:    { card: 'bg-red-50/60 border-red-200 dark:bg-red-950/20 dark:border-red-800', label: 'text-red-600 dark:text-red-400', item: 'text-red-900 dark:text-red-200' },
+  // Drapeaux rouges — aucun identifié
+  green:  { card: 'bg-green-50/60 border-green-200 dark:bg-green-950/20 dark:border-green-800', label: 'text-green-600 dark:text-green-400', item: 'text-green-900 dark:text-green-200' },
+  // Sections neutres (sans connotation de gravité)
+  slate:  { card: 'bg-slate-50/60 border-slate-200 dark:bg-slate-900/20 dark:border-slate-700', label: 'text-slate-600 dark:text-slate-400', item: 'text-slate-900 dark:text-slate-200' },
+  sky:    { card: 'bg-sky-50/60 border-sky-200 dark:bg-sky-950/20 dark:border-sky-800', label: 'text-sky-600 dark:text-sky-400', item: 'text-sky-900 dark:text-sky-200' },
+  teal:   { card: 'bg-teal-50/60 border-teal-200 dark:bg-teal-950/20 dark:border-teal-800', label: 'text-teal-600 dark:text-teal-400', item: 'text-teal-900 dark:text-teal-200' },
+  indigo: { card: 'bg-indigo-50/60 border-indigo-200 dark:bg-indigo-950/20 dark:border-indigo-800', label: 'text-indigo-600 dark:text-indigo-400', item: 'text-indigo-900 dark:text-indigo-200' },
+  stone:  { card: 'bg-stone-50/60 border-stone-200 dark:bg-stone-900/20 dark:border-stone-700', label: 'text-stone-600 dark:text-stone-400', item: 'text-stone-900 dark:text-stone-200' },
+}
+
+// ─── Composant ───────────────────────────────────────────────────────────────
 
 export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId, onPatientFieldsDetected }: AnamnesisRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle')
   const [finalText, setFinalText] = useState('')
   const [interimText, setInterimText] = useState('')
   const [isElectronApp, setIsElectronApp] = useState(false)
-  const [structured, setStructured] = useState<{ reason: string; anamnesis: string } | null>(null)
+  const [structured, setStructured] = useState<{ reason: string; anamnesis: string; sections?: AnamnesisSection[] } | null>(null)
   const [detectedFields, setDetectedFields] = useState<PatientFieldsDetected | null>(null)
   const [detectionSkipped, setDetectionSkipped] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -147,7 +190,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
   const finalTextRef = useRef('')
   const stateRef = useRef<RecorderState>('idle')
 
-  // ── Web Speech API ───────────────────────────────────────────────────────────
+  // ── Web Speech API ────────────────────────────────────────────────────────
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const restartCountRef = useRef(0)
@@ -234,7 +277,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
       })
       const data = await res.json()
       if (!res.ok) { setErrorMsg(data.error || 'Erreur lors de la structuration.'); setState('error'); return }
-      setStructured({ reason: data.reason, anamnesis: data.anamnesis })
+      setStructured({ reason: data.reason, anamnesis: data.anamnesis, sections: data.sections })
       if (data.patient_fields && Object.keys(data.patient_fields).length > 0) {
         setDetectedFields(data.patient_fields)
       }
@@ -573,19 +616,21 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
     if (detectedFields && onPatientFieldsDetected) {
       onPatientFieldsDetected(detectedFields)
     }
+    // Réinitialise l'encadré de dictée : le résultat structuré vit désormais
+    // dans le champ Anamnèse (cartes), pas ici.
     clearDraft()
-    setTimeout(() => {
-      setState('idle')
-      setFinalText('')
-      setInterimText('')
-      setStructured(null)
-      setDetectedFields(null)
-      setDetectionSkipped(false)
-      setErrorMsg('')
-      setStatusMsg('')
-      setElapsed(0)
-      finalTextRef.current = ''
-    }, 300)
+    clearAudioBlob()
+    setHasCachedAudio(false)
+    setState('idle')
+    setFinalText('')
+    setInterimText('')
+    setStructured(null)
+    setDetectedFields(null)
+    setDetectionSkipped(false)
+    setErrorMsg('')
+    setStatusMsg('')
+    setElapsed(0)
+    finalTextRef.current = ''
   }, [structured, detectedFields, onApply, onPatientFieldsDetected, clearDraft])
 
   const acceptField = useCallback((key: keyof PatientFieldsDetected) => {
@@ -732,25 +777,88 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
 
       {/* Résultat structuré */}
       {state === 'done' && structured && (
-        <div className="rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed max-h-[300px] overflow-y-auto">
+        <div className="space-y-2">
+          {/* Motif pill */}
           {structured.reason && (
-            <p className="font-semibold text-foreground mb-3">Motif : {structured.reason}</p>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-800 text-red-700 dark:text-red-300 text-xs font-semibold rounded-full px-3 py-1">
+                🎯 {structured.reason}
+              </span>
+            </div>
           )}
-          <div className="text-muted-foreground space-y-1">
-            {structured.anamnesis.split('\n').map((line, i) => {
-              if (!line.trim()) return <div key={i} className="h-1" />
-              const parts = line.split(/\*\*(.+?)\*\*/g)
-              return (
-                <p key={i} className="leading-relaxed">
-                  {parts.map((part, j) =>
-                    j % 2 === 1 ? (
-                      <strong key={j} className="font-semibold text-foreground">{part}</strong>
-                    ) : part
-                  )}
-                </p>
-              )
-            })}
-          </div>
+
+          {/* Cards sections */}
+          {structured.sections && structured.sections.length > 0 ? (
+            <div className="grid grid-cols-2 gap-1.5">
+              {structured.sections.map((section) => {
+                const isRedFlags = section.id === 'red_flags'
+                const effectiveColor = isRedFlags
+                  ? (section.allClear ? 'green' : 'red')
+                  : section.color
+                const styles = SECTION_STYLES[effectiveColor] ?? SECTION_STYLES.slate
+                return (
+                  <div
+                    key={section.id}
+                    className={cn(
+                      'rounded-lg border px-2.5 py-2 text-xs',
+                      styles.card,
+                      isRedFlags && 'col-span-2'
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span>{section.icon}</span>
+                      <span className={cn('font-semibold uppercase tracking-wide text-[10px]', styles.label)}>
+                        {section.label}
+                      </span>
+                      {isRedFlags && section.allClear && (
+                        <span className="ml-auto flex items-center gap-1 text-[10px] font-medium text-green-600 dark:text-green-400">
+                          <Check className="h-3 w-3" /> Aucun identifié
+                        </span>
+                      )}
+                    </div>
+                    {isRedFlags && section.allClear ? (
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                        {section.items.filter(i => i !== '—').map((item, i) => (
+                          <span key={i} className={cn('flex items-center gap-1', styles.item)}>
+                            <Check className="h-2.5 w-2.5 text-green-500 shrink-0" />
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <ul className="space-y-0.5 list-none pl-0">
+                        {section.items.map((item, i) => (
+                          <li key={i} className={cn('leading-relaxed', item === '—' ? 'text-muted-foreground italic' : styles.item)}>
+                            {item !== '—' && <span className="mr-1 opacity-40">·</span>}
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            /* Fallback texte si pas de sections (réponse ancienne format) */
+            <div className="rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed max-h-[300px] overflow-y-auto">
+              <div className="text-muted-foreground space-y-1">
+                {structured.anamnesis.split('\n').map((line, i) => {
+                  if (!line.trim()) return <div key={i} className="h-1" />
+                  const parts = line.split(/\*\*(.+?)\*\*/g)
+                  return (
+                    <p key={i} className="leading-relaxed">
+                      {parts.map((part, j) =>
+                        j % 2 === 1 ? (
+                          <strong key={j} className="font-semibold text-foreground">{part}</strong>
+                        ) : part
+                      )}
+                    </p>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -9,6 +9,7 @@ import { ArrowLeft, Edit, User, FileText, Clock, CheckCircle, AlertCircle, Paper
 import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels } from '@/lib/validations/invoice'
 import { MarkdownText } from '@/components/ui/markdown-text'
+import { AnamnesisDisplay } from '@/components/consultations/anamnesis-display'
 import { ConsultationPaymentEditor } from '@/components/consultations/consultation-payment-editor'
 import { ExercisePrescriptionSection } from '@/components/exercises/exercise-prescription-section'
 
@@ -141,12 +142,16 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
               <CardTitle>Contenu clinique</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {consultation.anamnesis && (
+              {(consultation.anamnesis || consultation.anamnesis_sections) && (
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
                     Anamnèse
                   </h4>
-                  <MarkdownText text={consultation.anamnesis} />
+                  <AnamnesisDisplay
+                    anamnesis={consultation.anamnesis}
+                    anamnesisSections={consultation.anamnesis_sections}
+                    reason={consultation.reason}
+                  />
                 </div>
               )}
               {consultation.examination && (
