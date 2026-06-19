@@ -5,22 +5,14 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { ArrowLeft, Edit, Calendar, FileText, Phone, Mail, Briefcase, Cake, Eye, Download } from 'lucide-react'
-import { formatDate, formatDateTime, formatPhone, formatCurrency, calculateAge } from '@/lib/utils'
-import { invoiceStatusLabels } from '@/lib/validations/invoice'
+import { ArrowLeft, Edit, Calendar, FileText, Phone, Mail, Briefcase, Cake } from 'lucide-react'
+import { formatDate, formatPhone, calculateAge } from '@/lib/utils'
 import { ConsultationTimeline } from '@/components/consultations/consultation-timeline'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 import { DraftResumeBanner } from '@/components/consultations/draft-resume-banner'
 import { ExercisePrescriptionSection } from '@/components/exercises/exercise-prescription-section'
 import { UnarchiveButton } from '@/components/patients/unarchive-button'
+import { PatientInvoicesTab } from '@/components/patients/patient-invoices-tab'
 import type { Invoice, Consultation } from '@/types/database'
 
 interface PatientPageProps {
@@ -285,76 +277,7 @@ export default async function PatientPage({ params, searchParams }: PatientPageP
 
       {/* Tab: Factures */}
       {activeTab === 'factures' && (
-        <div className="space-y-4">
-          {allInvoices.length === 0 ? (
-            <div className="text-center py-12 border rounded-lg bg-muted/50">
-              <FileText className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-              <p className="text-muted-foreground text-sm">Aucune facture pour ce patient</p>
-            </div>
-          ) : (
-            <div className="rounded-2xl glass-card overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Numéro</TableHead>
-                    <TableHead>Consultation</TableHead>
-                    <TableHead>Montant</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead className="w-[80px]" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {allInvoices.map((invoice) => (
-                    <TableRow key={invoice.id}>
-                      <TableCell className="font-mono font-medium">
-                        {invoice.invoice_number}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {formatDateTime(invoice.consultation_date)}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(invoice.amount)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            invoice.status === 'paid'
-                              ? 'success'
-                              : invoice.status === 'cancelled'
-                              ? 'destructive'
-                              : invoice.status === 'issued'
-                              ? 'default'
-                              : 'outline'
-                          }
-                        >
-                          {invoiceStatusLabels[invoice.status]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" asChild>
-                            <Link href={`/invoices/${invoice.id}`}>
-                              <Eye className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button variant="ghost" size="icon" asChild>
-                            <a
-                              href={`/api/invoices/${invoice.id}/pdf`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <Download className="h-4 w-4" />
-                            </a>
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
+        <PatientInvoicesTab invoices={allInvoices} />
       )}
     </div>
   )

@@ -22,6 +22,8 @@ import { invoiceStatusLabels } from '@/lib/validations/invoice'
 import { FileText, Edit, Eye, Clock, CheckCircle, AlertCircle, Trash2 } from 'lucide-react'
 import type { Consultation, Invoice } from '@/types/database'
 import { MarkdownText } from '@/components/ui/markdown-text'
+import { ConsultationModal } from './consultation-modal'
+import { InvoiceModal } from '@/components/invoices/invoice-modal'
 
 interface ConsultationWithInvoice extends Consultation {
   invoices: Invoice[] | null
@@ -39,6 +41,8 @@ export function ConsultationTimeline({
   const router = useRouter()
   const { toast } = useToast()
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [openConsultationId, setOpenConsultationId] = useState<string | null>(null)
+  const [openInvoiceId, setOpenInvoiceId] = useState<string | null>(null)
 
   const handleDelete = async (consultationId: string) => {
     setDeletingId(consultationId)
@@ -173,11 +177,9 @@ export function ConsultationTimeline({
 
                 {/* Actions */}
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href={`/consultations/${consultation.id}`}>
-                      <Eye className="mr-1 h-3 w-3" />
-                      Voir
-                    </Link>
+                  <Button variant="ghost" size="sm" onClick={() => setOpenConsultationId(consultation.id)}>
+                    <Eye className="mr-1 h-3 w-3" />
+                    Voir
                   </Button>
                   <Button variant="ghost" size="sm" asChild>
                     <Link href={`/consultations/${consultation.id}/edit`}>
@@ -186,11 +188,9 @@ export function ConsultationTimeline({
                     </Link>
                   </Button>
                   {invoice && (
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/invoices/${invoice.id}`}>
-                        <FileText className="mr-1 h-3 w-3" />
-                        Facture
-                      </Link>
+                    <Button variant="ghost" size="sm" onClick={() => setOpenInvoiceId(invoice.id)}>
+                      <FileText className="mr-1 h-3 w-3" />
+                      Facture
                     </Button>
                   )}
                   <AlertDialog>
@@ -230,6 +230,15 @@ export function ConsultationTimeline({
           </div>
         )
       })}
+      <ConsultationModal
+        consultationId={openConsultationId}
+        onClose={() => setOpenConsultationId(null)}
+        onOpenInvoice={(id) => { setOpenConsultationId(null); setOpenInvoiceId(id) }}
+      />
+      <InvoiceModal
+        invoiceId={openInvoiceId}
+        onClose={() => setOpenInvoiceId(null)}
+      />
     </div>
   )
 }
