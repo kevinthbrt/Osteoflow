@@ -124,6 +124,19 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
   const dailyObj = data.computed.daily_objective
   const advanceDays = (isAhead && dailyObj > 0) ? Math.floor(diff / dailyObj) : 0
 
+  // --- Projection fin d'année (extrapolation au rythme actuel) ---
+  const elapsedFraction = Math.min(1, dayOfYear / totalDays)
+  // Avant 14 jours d'activité, la projection est trop bruitée
+  const enoughData = dayOfYear >= 14
+  const projected = enoughData && elapsedFraction > 0 ? data.revenue.this_year / elapsedFraction : data.revenue.this_year
+  const projectedPct = annualObj > 0 ? (projected / annualObj) * 100 : 0
+  const onTrack = projected >= annualObj
+  // Rythme requis sur les jours travaillés restants pour atteindre la cible
+  const remaining = Math.max(0, annualObj - data.revenue.this_year)
+  const workingDaysElapsed = data.computed.working_days * elapsedFraction
+  const remainingWorkingDays = Math.max(0, data.computed.working_days - workingDaysElapsed)
+  const needPerDay = remainingWorkingDays > 0 ? remaining / remainingWorkingDays : 0
+
   // Month tick positions (start of each month as % of year)
   const monthTicks = Array.from({ length: 12 }, (_, i) => {
     const monthStart = new Date(year, i, 1)
@@ -162,6 +175,42 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
         </div>
       </CardHeader>
       <CardContent className="pt-4">
+        {/* Projection fin d'année — bloc en évidence (gradient liquid glass) */}
+        {enoughData && (
+          <div className="relative overflow-hidden rounded-xl gradient-primary text-white px-4 py-3 mb-5">
+            <div className="pointer-events-none absolute -top-12 -right-12 w-40 h-40 rounded-full bg-white/15 blur-3xl" />
+            <div className="relative flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+              <div>
+                <div className="flex items-center gap-1.5 text-white/80 text-xs font-medium">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Projection fin {year} · au rythme actuel
+                </div>
+                <p className="mt-0.5 text-2xl font-bold tracking-tight tabular-nums leading-tight">
+                  {formatEuro(projected)}
+                  <span className="ml-2 text-sm font-semibold text-white/80">{projectedPct.toFixed(0)} %</span>
+                </p>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <div
+                  className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm ${
+                    onTrack ? 'bg-white/25' : 'bg-black/20'
+                  }`}
+                >
+                  {onTrack ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                  {onTrack
+                    ? `+${formatEuro(projected - annualObj)} vs objectif`
+                    : `${formatEuro(annualObj - projected)} sous l'objectif`}
+                </div>
+                {!onTrack && needPerDay > 0 && (
+                  <p className="text-[11px] text-white/80 text-right">
+                    À tenir : <span className="font-semibold text-white">{formatEuro(needPerDay)}</span> / jour travaillé
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Timeline — extra top padding for the needle label */}
         <div className="relative" style={{ paddingTop: '2.75rem' }}>
 
@@ -257,109 +306,6 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-interface ProjectionHeroProps {
-  data: ObjectivesData
-  year: number
-}
-
-/**
- * Carte "hero" de projection — l'info la plus motivante de la page.
- *
- * Extrapole le CA de fin d'année à partir du rythme actuel (CA réel ÷ fraction
- * d'année écoulée) et le compare à l'objectif annuel. Indique aussi combien il
- * reste à réaliser par jour travaillé pour atteindre la cible.
- */
-function ProjectionHero({ data, year }: ProjectionHeroProps) {
-  const now = new Date()
-  const startOfYear = new Date(year, 0, 1)
-  const isLeap = (year % 400 === 0) || (year % 4 === 0 && year % 100 !== 0)
-  const totalDays = isLeap ? 366 : 365
-  const dayOfYear = Math.max(1, Math.floor((now.getTime() - startOfYear.getTime()) / 86400000) + 1)
-  const elapsedFraction = Math.min(1, dayOfYear / totalDays)
-
-  const annualObj = data.settings.annual_revenue_objective!
-  const realYear = data.revenue.this_year
-
-  // Pas assez de recul en tout début d'année → projection trop bruitée
-  const enoughData = dayOfYear >= 14
-
-  const projected = enoughData && elapsedFraction > 0 ? realYear / elapsedFraction : realYear
-  const projectedPct = annualObj > 0 ? (projected / annualObj) * 100 : 0
-  const onTrack = projected >= annualObj
-
-  // Reste à réaliser et rythme requis sur les jours travaillés restants
-  const remaining = Math.max(0, annualObj - realYear)
-  const workingDaysElapsed = data.computed.working_days * elapsedFraction
-  const remainingWorkingDays = Math.max(0, data.computed.working_days - workingDaysElapsed)
-  const needPerDay = remainingWorkingDays > 0 ? remaining / remainingWorkingDays : 0
-
-  return (
-    <div className="relative overflow-hidden rounded-2xl gradient-primary text-white p-6 shadow-lg">
-      {/* Liquid glass sheen */}
-      <div className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full bg-white/15 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-20 -left-10 w-56 h-56 rounded-full bg-black/10 blur-3xl" />
-
-      <div className="relative flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-2 text-white/80 text-sm font-medium">
-            <Sparkles className="h-4 w-4" />
-            Projection fin {year}
-          </div>
-          {enoughData ? (
-            <>
-              <p className="mt-1 text-4xl font-bold tracking-tight tabular-nums">{formatEuro(projected)}</p>
-              <p className="mt-1 text-sm text-white/80">
-                au rythme actuel · <span className="font-semibold text-white">{projectedPct.toFixed(0)} %</span> de l&apos;objectif
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="mt-1 text-2xl font-bold tracking-tight">Bientôt disponible</p>
-              <p className="mt-1 text-sm text-white/80">La projection s&apos;affine après deux semaines d&apos;activité.</p>
-            </>
-          )}
-        </div>
-
-        {enoughData && (
-          <div className="flex flex-col items-end gap-2">
-            <div
-              className={`flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full backdrop-blur-sm ${
-                onTrack ? 'bg-white/25' : 'bg-black/20'
-              }`}
-            >
-              {onTrack ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-              {onTrack
-                ? `+${formatEuro(projected - annualObj)} au-dessus`
-                : `${formatEuro(annualObj - projected)} sous l'objectif`}
-            </div>
-            {!onTrack && needPerDay > 0 && (
-              <p className="text-xs text-white/80 text-right">
-                Pour combler : <span className="font-semibold text-white">{formatEuro(needPerDay)}</span> / jour travaillé
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Mini barre objectif vs projection */}
-      {enoughData && (
-        <div className="relative mt-5">
-          <div className="h-2.5 w-full rounded-full bg-white/20 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-white transition-all duration-700"
-              style={{ width: `${Math.min(100, projectedPct)}%` }}
-            />
-          </div>
-          <div className="mt-1.5 flex justify-between text-xs text-white/70">
-            <span>Réalisé {formatEuro(realYear)}</span>
-            <span>Objectif {formatEuro(annualObj)}</span>
-          </div>
-        </div>
-      )}
-    </div>
   )
 }
 
@@ -607,9 +553,6 @@ export default function ObjectivesPage() {
       {/* Progress bars */}
       {hasObjective && data && (
         <>
-          {/* Projection fin d'année — hero */}
-          <ProjectionHero data={data} year={currentYear} />
-
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <ProgressBar
               label="Aujourd'hui"
@@ -645,7 +588,7 @@ export default function ObjectivesPage() {
             />
           </div>
 
-          {/* Annual timeline bar */}
+          {/* Annual timeline bar (inclut la projection fin d'année) */}
           <AnnualProgressTimeline data={data} year={currentYear} />
 
           {/* Monthly bar chart */}
