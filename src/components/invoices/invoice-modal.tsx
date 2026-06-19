@@ -145,9 +145,14 @@ export function InvoiceModal({ invoiceId, onClose }: Props) {
       <Dialog open={!!invoiceId} onOpenChange={(open) => { if (!open) onClose() }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           {loading || !invoice ? (
-            <div className="flex justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+            <>
+              <DialogHeader>
+                <DialogTitle className="sr-only">Chargement de la facture…</DialogTitle>
+              </DialogHeader>
+              <div className="flex justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            </>
           ) : (
             <>
               <DialogHeader>
