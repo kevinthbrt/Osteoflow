@@ -36,7 +36,7 @@ type RecorderState =
   | 'done'
   | 'error'
 
-// ─── Web Speech API types ──────────────────────────────────────────────
+// ─── Web Speech API types ────────────────────────
 
 interface SpeechRecognitionEvent extends Event {
   resultIndex: number
@@ -58,31 +58,54 @@ interface SpeechRecognitionInstance extends EventTarget {
 
 function getSpeechRecognition(): (new () => SpeechRecognitionInstance) | null {
   if (typeof window === 'undefined') return null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const w = window as any
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null
-}
-
-function isElectron(): boolean {
-  if (typeof window === 'undefined') return false
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return !!(window as any).__ELECTRON__
+  return (
+    (window as any).SpeechRecognition ||
+    (window as any).webkitSpeechRecognition ||
+    null
+  )
 }
 
 const MAX_RESTARTS = 10
-const MAX_RECORD_SECONDS = 600 // 10 min
-const WARN_RECORD_SECONDS = 540 // 9 min
+const MAX_RECORD_SECONDS = 600  // 10 minutes
+const WARN_RECORD_SECONDS = 540 // avertissement à 9 minutes
 
-// ─── IndexedDB audio cache ──────────────────────────────────────────────
-const IDB_DB = 'osteoflow-audio'
-const IDB_STORE = 'blobs'
-const IDB_KEY = 'pending'
+function isElectron(): boolean {
+  return typeof window !== 'undefined' && !!(window as any).electronAPI?.isDesktop
+}
+
+// ─── IndexedDB — cache audio blob (survie à la veille / erreur réseau) ────
+
+const IDB_NAME = 'osteoflow-audio'
+const IDB_STORE = 'drafts'
+const IDB_KEY = 'current'
+const IDB_TTL_MS = 24 * 60 * 60 * 1000
 
 function openAudioDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_DB, 1)
-    req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE)
-    req.onsuccess = () => resolve(req.result)
+    const req = indexedDB.open(IDB_NAME, 1)
+    req.onupgradeneeded = () => {
+      const db = req.result
+      if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE)
+    }
+    req.onsuccess = () => {
+      const db = req.result
+      // Si la base existe déjà mais sans le store (création partielle ou
+      // schéma plus ancien), onupgradeneeded ne se redéclenche pas à version
+      // égale : on rouvre en incrémentant la version pour forcer la création.
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        const nextVersion = db.version + 1
+        db.close()
+        const upgradeReq = indexedDB.open(IDB_NAME, nextVersion)
+        upgradeReq.onupgradeneeded = () => {
+          const upDb = upgradeReq.result
+          if (!upDb.objectStoreNames.contains(IDB_STORE)) upDb.createObjectStore(IDB_STORE)
+        }
+        upgradeReq.onsuccess = () => resolve(upgradeReq.result)
+        upgradeReq.onerror = () => reject(upgradeReq.error)
+        return
+      }
+      resolve(db)
+    }
     req.onerror = () => reject(req.error)
   })
 }
@@ -90,19 +113,27 @@ function openAudioDB(): Promise<IDBDatabase> {
 async function saveAudioBlob(blob: Blob): Promise<void> {
   try {
     const db = await openAudioDB()
-    const tx = db.transaction(IDB_STORE, 'readwrite')
-    tx.objectStore(IDB_STORE).put(blob, IDB_KEY)
-    tx.oncomplete = () => db.close()
-  } catch { /* silencieux */ }
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite')
+      tx.objectStore(IDB_STORE).put({ blob, savedAt: Date.now() }, IDB_KEY)
+      tx.oncomplete = () => { db.close(); resolve() }
+      tx.onerror = () => reject(tx.error)
+    })
+  } catch (e) { console.warn('[AudioCache] save failed', e) }
 }
 
 async function loadAudioBlob(): Promise<Blob | null> {
   try {
     const db = await openAudioDB()
-    return new Promise((resolve) => {
+    return await new Promise<Blob | null>((resolve) => {
       const tx = db.transaction(IDB_STORE, 'readonly')
       const req = tx.objectStore(IDB_STORE).get(IDB_KEY)
-      req.onsuccess = () => { db.close(); resolve(req.result ?? null) }
+      req.onsuccess = () => {
+        db.close()
+        const record = req.result
+        if (!record || Date.now() - record.savedAt > IDB_TTL_MS) { resolve(null); return }
+        resolve(record.blob)
+      }
       req.onerror = () => { db.close(); resolve(null) }
     })
   } catch { return null }
@@ -139,7 +170,7 @@ export const SECTION_STYLES: Record<AnamnesisSection['color'], { card: string; l
   stone:  { card: 'bg-stone-50/60 border-stone-200 dark:bg-stone-900/20 dark:border-stone-700', label: 'text-stone-600 dark:text-stone-400', item: 'text-stone-900 dark:text-stone-200' },
 }
 
-// ─── Composant ──────────────────────────────────────────────────────────────────
+// ─── Composant ───────────────────────────────────────────────────────────────
 
 export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId, onPatientFieldsDetected }: AnamnesisRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle')
@@ -159,7 +190,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
   const finalTextRef = useRef('')
   const stateRef = useRef<RecorderState>('idle')
 
-  // ── Web Speech API ───────────────────────────────────────────────────────────
+  // ── Web Speech API ────────────────────────────────────────────────────────
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const restartCountRef = useRef(0)
