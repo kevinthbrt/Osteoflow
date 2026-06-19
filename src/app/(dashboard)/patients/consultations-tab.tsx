@@ -26,6 +26,8 @@ import { useToast } from '@/hooks/use-toast'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels, paymentMethodLabels } from '@/lib/validations/invoice'
 import { Eye, FileText, Calendar, Download, Check, Loader2, Pencil } from 'lucide-react'
+import { ConsultationModal } from '@/components/consultations/consultation-modal'
+import { InvoiceModal } from '@/components/invoices/invoice-modal'
 
 type PaymentMethod = 'card' | 'cash' | 'check' | 'transfer' | 'other'
 
@@ -66,6 +68,8 @@ export function ConsultationsTab() {
   const [period, setPeriod] = useState('10')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [openConsultationId, setOpenConsultationId] = useState<string | null>(null)
+  const [openInvoiceId, setOpenInvoiceId] = useState<string | null>(null)
   const [editingPayment, setEditingPayment] = useState<string | null>(null)
   const [editMethod, setEditMethod] = useState<PaymentMethod>('card')
   const [editCheckNumber, setEditCheckNumber] = useState('')
@@ -300,22 +304,22 @@ export function ConsultationsTab() {
                     </TableCell>
                     <TableCell>
                       {invoice ? (
-                        <Link href={`/invoices/${invoice.id}`}>
+                        <button onClick={() => setOpenInvoiceId(invoice.id)}>
                           <Badge variant={invoice.status === 'paid' ? 'success' : invoice.status === 'cancelled' ? 'destructive' : 'outline'} className="cursor-pointer whitespace-nowrap">
                             {invoiceStatusLabels[invoice.status]}
                           </Badge>
-                        </Link>
+                        </button>
                       ) : <span className="text-muted-foreground">-</span>}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-0.5">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" asChild>
-                          <Link href={`/consultations/${consultation.id}`}><Eye className="h-3.5 w-3.5" /></Link>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setOpenConsultationId(consultation.id)}>
+                          <Eye className="h-3.5 w-3.5" />
                         </Button>
                         {invoice && (
                           <>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" asChild>
-                              <Link href={`/invoices/${invoice.id}`}><FileText className="h-3.5 w-3.5" /></Link>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setOpenInvoiceId(invoice.id)}>
+                              <FileText className="h-3.5 w-3.5" />
                             </Button>
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0" asChild>
                               <a href={`/api/invoices/${invoice.id}/pdf`} target="_blank" rel="noopener noreferrer"><Download className="h-3.5 w-3.5" /></a>
@@ -331,6 +335,16 @@ export function ConsultationsTab() {
           </Table>
         </div>
       )}
+
+      <ConsultationModal
+        consultationId={openConsultationId}
+        onClose={() => setOpenConsultationId(null)}
+        onOpenInvoice={(id) => { setOpenConsultationId(null); setOpenInvoiceId(id) }}
+      />
+      <InvoiceModal
+        invoiceId={openInvoiceId}
+        onClose={() => setOpenInvoiceId(null)}
+      />
     </div>
   )
 }
