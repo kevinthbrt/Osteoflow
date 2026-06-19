@@ -25,8 +25,11 @@ export function AnamnesisCards({ reason, sections, onEdit, disabled }: Anamnesis
 
       <div className="grid grid-cols-2 gap-1.5">
         {sections.map((section) => {
-          const styles = SECTION_STYLES[section.color] ?? SECTION_STYLES.blue
           const isRedFlags = section.id === 'red_flags'
+          const effectiveColor = isRedFlags
+            ? (section.allClear ? 'green' : 'red')
+            : section.color
+          const styles = SECTION_STYLES[effectiveColor] ?? SECTION_STYLES.slate
           return (
             <div
               key={section.id}
