@@ -58,54 +58,51 @@ export async function GET() {
     // First day of current year
     const firstOfYear = `${year}-01-01`
 
-    const practitionerId = practitioner.id
+    // Multi-cabinet : le CA suit le périmètre de la catégorie "compta"
+    // (cloisonné par défaut, ou agrégé sur tous les cabinets si partagée).
+    const { getScopeCabinetIds } = await import('@/lib/database/cabinet-scope')
+    const scopeIds = getScopeCabinetIds('compta', rawDb)
+    const cabinetIds = scopeIds.length ? scopeIds : [practitioner.id]
+    const ph = cabinetIds.map(() => '?').join(', ')
 
     // Revenue today
     const todayRow = rawDb.prepare(`
       SELECT COALESCE(SUM(p.amount), 0) as total
       FROM payments p
       JOIN invoices i ON p.invoice_id = i.id
-      JOIN consultations c ON i.consultation_id = c.id
-      JOIN patients pat ON c.patient_id = pat.id
-      WHERE pat.practitioner_id = ?
+      WHERE i.cabinet_id IN (${ph})
         AND p.payment_date = ?
-    `).get(practitionerId, todayStr) as { total: number }
+    `).get(...cabinetIds, todayStr) as { total: number }
 
     // Revenue this week
     const weekRow = rawDb.prepare(`
       SELECT COALESCE(SUM(p.amount), 0) as total
       FROM payments p
       JOIN invoices i ON p.invoice_id = i.id
-      JOIN consultations c ON i.consultation_id = c.id
-      JOIN patients pat ON c.patient_id = pat.id
-      WHERE pat.practitioner_id = ?
+      WHERE i.cabinet_id IN (${ph})
         AND p.payment_date >= ?
         AND p.payment_date <= ?
-    `).get(practitionerId, mondayStr, todayStr) as { total: number }
+    `).get(...cabinetIds, mondayStr, todayStr) as { total: number }
 
     // Revenue this month (from payments)
     const monthRow = rawDb.prepare(`
       SELECT COALESCE(SUM(p.amount), 0) as total
       FROM payments p
       JOIN invoices i ON p.invoice_id = i.id
-      JOIN consultations c ON i.consultation_id = c.id
-      JOIN patients pat ON c.patient_id = pat.id
-      WHERE pat.practitioner_id = ?
+      WHERE i.cabinet_id IN (${ph})
         AND p.payment_date >= ?
         AND p.payment_date <= ?
-    `).get(practitionerId, firstOfMonth, todayStr) as { total: number }
+    `).get(...cabinetIds, firstOfMonth, todayStr) as { total: number }
 
     // Revenue this year (from payments)
     const yearRow = rawDb.prepare(`
       SELECT COALESCE(SUM(p.amount), 0) as total
       FROM payments p
       JOIN invoices i ON p.invoice_id = i.id
-      JOIN consultations c ON i.consultation_id = c.id
-      JOIN patients pat ON c.patient_id = pat.id
-      WHERE pat.practitioner_id = ?
+      WHERE i.cabinet_id IN (${ph})
         AND p.payment_date >= ?
         AND p.payment_date <= ?
-    `).get(practitionerId, firstOfYear, todayStr) as { total: number }
+    `).get(...cabinetIds, firstOfYear, todayStr) as { total: number }
 
     // Monthly breakdown for current year (from payments)
     const monthlyRows = rawDb.prepare(`
@@ -114,20 +111,19 @@ export async function GET() {
         COALESCE(SUM(p.amount), 0) as actual
       FROM payments p
       JOIN invoices i ON p.invoice_id = i.id
-      JOIN consultations c ON i.consultation_id = c.id
-      JOIN patients pat ON c.patient_id = pat.id
-      WHERE pat.practitioner_id = ?
+      WHERE i.cabinet_id IN (${ph})
         AND p.payment_date >= ?
         AND p.payment_date <= ?
       GROUP BY month
-    `).all(practitionerId, firstOfYear, todayStr) as Array<{ month: number; actual: number }>
+    `).all(...cabinetIds, firstOfYear, todayStr) as Array<{ month: number; actual: number }>
 
     // Manual revenue entries for current year
     const manualRows = rawDb.prepare(`
-      SELECT month, amount
+      SELECT month, SUM(amount) as amount
       FROM manual_revenue_entries
-      WHERE practitioner_id = ? AND year = ?
-    `).all(practitionerId, year) as Array<{ month: number; amount: number }>
+      WHERE practitioner_id IN (${ph}) AND year = ?
+      GROUP BY month
+    `).all(...cabinetIds, year) as Array<{ month: number; amount: number }>
 
     // Build monthly breakdown (12 months)
     const monthlyBreakdown = Array.from({ length: 12 }, (_, i) => {

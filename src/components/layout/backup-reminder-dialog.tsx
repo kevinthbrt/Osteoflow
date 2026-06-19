@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 
-const REMINDER_INTERVAL_DAYS = 14
+const REMINDER_INTERVAL_DAYS = 7
 // Delay after login (CGU already accepted) before showing the reminder
 const CHECK_DELAY_MS = 4000
 // Longer delay after CGU acceptance — gives the tour time to start first
@@ -77,7 +77,26 @@ export function BackupReminderDialog() {
       })
       .catch(() => scheduleCheck(CHECK_DELAY_MS))
 
-    return () => clearTimeout(timer)
+    // Ouverture manuelle — via le bouton « Sauvegarde » de l'en-tête ou via le
+    // clic sur la notification quotidienne (IPC Electron).
+    const openManually = () => {
+      fetch('/api/settings/database/backup-status')
+        .then((r) => r.json())
+        .then(({ lastBackupDate: last }) => {
+          setLastBackupDate(last)
+          setMode(last ? 'reminder' : 'first_time')
+          setOpen(true)
+        })
+        .catch(() => { setMode('first_time'); setOpen(true) })
+    }
+    window.addEventListener('open-backup-dialog', openManually)
+    const api = (window as unknown as { electronAPI?: { onOpenBackupReminder?: (cb: () => void) => void } }).electronAPI
+    api?.onOpenBackupReminder?.(openManually)
+
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('open-backup-dialog', openManually)
+    }
   }, [])
 
   const handleDownload = async () => {
@@ -92,7 +111,7 @@ export function BackupReminderDialog() {
       a.download = `myosteoflow-backup-${new Date().toISOString().split('T')[0]}.db`
       a.click()
       URL.revokeObjectURL(url)
-      toast({ title: 'Sauvegarde téléchargée', description: 'Conservez ce fichier sur un disque externe ou un espace cloud personnel.' })
+      toast({ title: 'Sauvegarde téléchargée', description: 'Conservez ce fichier sur un disque externe ou une clé USB. Ne le déposez jamais sur un cloud.' })
       setOpen(false)
     } catch {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de créer la sauvegarde.' })
@@ -120,7 +139,7 @@ export function BackupReminderDialog() {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleSnooze() }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-1">
             {mode === 'first_time' ? (
@@ -154,22 +173,22 @@ export function BackupReminderDialog() {
         <div className="my-2 p-3 bg-muted/50 rounded-lg space-y-1.5 text-sm text-muted-foreground">
           <div className="flex items-start gap-2">
             <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
-            <span>Téléchargez le fichier et copiez-le sur un <strong>disque externe</strong>, une clé USB ou un espace cloud personnel (Google Drive, iCloud…)</span>
+            <span>Téléchargez le fichier et copiez-le sur un <strong>disque externe</strong> ou une <strong>clé USB</strong> conservés dans un endroit sûr</span>
           </div>
           <div className="flex items-start gap-2">
-            <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
-            <span>Ce fichier contient l&apos;intégralité de vos données — conservez-le dans un endroit sûr</span>
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+            <span>Pour des raisons de confidentialité des données patients, il est <strong>interdit de déposer ce fichier sur un cloud</strong> (Google Drive, iCloud, Dropbox…)</span>
           </div>
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2 mt-1">
-          <Button variant="outline" size="sm" onClick={handleSnooze} className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5" />
-            Rappeler dans 3 jours
+          <Button variant="outline" size="sm" onClick={handleSnooze} className="w-full sm:w-auto flex items-center justify-center gap-1.5">
+            <Clock className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Rappeler dans 3 jours</span>
           </Button>
-          <Button onClick={handleDownload} disabled={isDownloading} className="flex items-center gap-1.5">
-            <Download className="h-4 w-4" />
-            {isDownloading ? 'Téléchargement…' : 'Télécharger la sauvegarde'}
+          <Button size="sm" onClick={handleDownload} disabled={isDownloading} className="w-full sm:w-auto flex items-center justify-center gap-1.5">
+            <Download className="h-4 w-4 shrink-0" />
+            <span className="truncate">{isDownloading ? 'Téléchargement…' : 'Télécharger la sauvegarde'}</span>
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -19,6 +19,33 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.9.0',
+    date: '2026-06-19',
+    title: 'Multi-cabinet, navigation repensée et consultation sans quitter la fiche patient',
+    changes: [
+      // Multi-cabinet
+      { type: 'feature', text: 'Multi-cabinet : créez autant de cabinets que vous souhaitez depuis le menu « Changer de cabinet » (en-tête). Chaque cabinet dispose de ses propres coordonnées, données patients, consultations et comptabilité. Basculez d\'un cabinet à l\'autre en un clic ; vos données sont strictement cloisonnées par défaut.' },
+      { type: 'feature', text: 'Multi-cabinet — partage sélectif : activez la mise en commun des données par catégorie (Patients → Consultations → Comptabilité). Un partage partiel est possible : par exemple partager le carnet de patients tout en gardant les consultations et la comptabilité séparées.' },
+      { type: 'feature', text: 'Multi-cabinet — suppression : supprimez un cabinet secondaire vide depuis le même dialog. Par sécurité, la suppression est refusée si le cabinet contient des dossiers patients ou s\'il s\'agit du dernier cabinet ou du cabinet actif.' },
+      // Navigation patient
+      { type: 'feature', text: 'Fiche patient : la page est restructurée en trois onglets — Dossier (coordonnées, antécédents, exercices, statistiques), Consultations (historique complet) et Factures (toutes les factures du patient avec téléchargement PDF). Plus besoin de faire défiler un écran surchargé.' },
+      { type: 'feature', text: 'Consultation sans navigation : cliquer sur « Voir » dans la timeline d\'un patient ouvre désormais un modal complet — contenu clinique (anamnèse, examen, conseils), exercices prescrits, résultat du questionnaire J+7 et éditeur de paiement. Vous ne quittez plus la fiche patient.' },
+      { type: 'feature', text: 'Facture sans navigation : cliquer sur une facture (depuis la fiche patient ou depuis l\'onglet global Consultations) ouvre un modal complet — détails, statut modifiable en place, paiements modifiables, impression, téléchargement PDF et envoi par email.' },
+      // UX improvements
+      { type: 'improvement', text: 'Patientes : le badge de genre « Femme » passe en violet pour le distinguer du bleu « Homme » au premier coup d\'œil (fiche patient, tableau des patients, consultations, factures).' },
+      { type: 'improvement', text: 'Anamnèse dictée : un bouton « Effacer » permet de repartir de zéro sans rechargement. Le brouillon est maintenant rattaché à chaque patient séparément — changer de patient efface le brouillon du patient précédent plutôt que de le contaminer.' },
+      { type: 'improvement', text: 'Rappels de sauvegarde : un bouton dédié apparaît à côté de la cloche dans l\'en-tête pour ouvrir la fenêtre de sauvegarde à tout moment. Une notification desktop peut être envoyée chaque jour à l\'heure de votre choix (configurable dans Paramètres → Données & sécurité).' },
+      { type: 'improvement', text: 'Paramètres : la navigation passe à deux niveaux dans un panneau latéral inspiré de macOS — Compte, Cabinet, Pratique, Données & sécurité. Plus de sous-onglets empilés : chaque section est clairement identifiée et accessible en un clic.' },
+      { type: 'improvement', text: 'Paramètres : « Import de données » est déplacé dans la section « Données & sécurité », aux côtés de la sauvegarde et de la restauration.' },
+      { type: 'improvement', text: 'Interface : le bouton « Déconnexion » quitte la barre latérale et rejoint le menu déroulant du cabinet dans l\'en-tête. La barre reste ainsi centrée sur la navigation clinique.' },
+      { type: 'improvement', text: 'Courriers générés : le corps de la lettre est maintenant justifié et le bloc destinataire est aligné à droite, conformément aux standards du courrier médical.' },
+      // Fixes
+      { type: 'fix', text: 'Consultation : le brouillon ne ressurgissait plus après validation — une sauvegarde automatique différée pouvait écraser la suppression du brouillon si elle s\'exécutait après l\'enregistrement final.' },
+      { type: 'fix', text: 'Widget support : la pastille rouge de notification ne disparaissait pas quand l\'admin marquait un ticket comme résolu. Elle s\'efface maintenant correctement dès la prochaine synchronisation.' },
+      { type: 'fix', text: 'Tour d\'accueil : les zones mises en évidence apparaissaient en noir au lieu de laisser passer le contenu en dessous. Problème de z-index entre Driver.js et les composants de l\'interface, corrigé.' },
+    ],
+  },
+  {
     version: '1.8.0',
     date: '2026-06-12',
     title: 'Mentions @ec / @tech, antécédents assouplis, démarrage fiabilisé — merci les bêta-testeurs !',

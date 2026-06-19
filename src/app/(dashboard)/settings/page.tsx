@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, Link, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield, Upload, FileUp, Send, CheckCircle, Stethoscope } from 'lucide-react'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield, Upload, FileUp, Send, CheckCircle, Stethoscope } from 'lucide-react'
 import { CGU_SECTIONS, PRIVACY_SECTIONS, CGU_VERSION, CGU_DATE, type LegalSection } from '@/lib/legal/documents'
 import { parseCSV, autoDetectMapping, importRows, type ImportResult } from '@/lib/import/csv'
 import { PROFESSION_OPTIONS } from '@/lib/practitioner/profession'
@@ -150,9 +150,52 @@ function LegalSettingsTab() {
   )
 }
 
+// Navigation des paramètres regroupée en grandes catégories (2 niveaux) pour
+// éviter la longue liste d'onglets à plat, source de confusion.
+const SETTINGS_NAV: {
+  key: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  items: { value: string; label: string }[]
+}[] = [
+  {
+    key: 'cabinet', label: 'Mon cabinet', icon: Building, items: [
+      { value: 'profile', label: 'Coordonnées' },
+      { value: 'invoices', label: 'Facturation' },
+      { value: 'objectives', label: 'Objectifs' },
+    ],
+  },
+  {
+    key: 'pratique', label: 'Pratique', icon: Stethoscope, items: [
+      { value: 'clinical-content', label: 'Contenu clinique' },
+    ],
+  },
+  {
+    key: 'communication', label: 'Communication', icon: Mail, items: [
+      { value: 'email-connection', label: 'Connexion e-mail' },
+    ],
+  },
+  {
+    key: 'donnees', label: 'Données & sécurité', icon: HardDrive, items: [
+      { value: 'storage', label: 'Sauvegarde' },
+      { value: 'import', label: 'Import de données' },
+      { value: 'security', label: 'Sécurité (PIN)' },
+      { value: 'audit', label: 'Journal' },
+      { value: 'gdpr', label: 'RGPD' },
+    ],
+  },
+  {
+    key: 'legal', label: 'Légal', icon: Shield, items: [
+      { value: 'legal', label: 'CGU · Confidentialité · Mentions' },
+    ],
+  },
+]
+
 function SettingsPageInner() {
   const searchParams = useSearchParams()
   const defaultTab = searchParams.get('tab') || 'profile'
+  const [activeTab, setActiveTab] = useState(defaultTab)
+  const activeCategory = SETTINGS_NAV.find((c) => c.items.some((i) => i.value === activeTab)) ?? SETTINGS_NAV[0]
   const [practitioner, setPractitioner] = useState<Practitioner | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -862,52 +905,42 @@ function SettingsPageInner() {
         </p>
       </div>
 
-      <Tabs defaultValue={defaultTab} className="space-y-6">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="profile">
-            <Building className="mr-2 h-4 w-4" />
-            Cabinet
-          </TabsTrigger>
-          <TabsTrigger value="invoices">
-            <FileText className="mr-2 h-4 w-4" />
-            Facturation
-          </TabsTrigger>
-          <TabsTrigger value="email-connection">
-            <Link className="mr-2 h-4 w-4" />
-            Connexion Email
-          </TabsTrigger>
-          <TabsTrigger value="gdpr">
-            <Download className="mr-2 h-4 w-4" />
-            RGPD
-          </TabsTrigger>
-          <TabsTrigger value="storage">
-            <HardDrive className="mr-2 h-4 w-4" />
-            Stockage
-          </TabsTrigger>
-          <TabsTrigger value="security">
-            <Lock className="mr-2 h-4 w-4" />
-            Sécurité
-          </TabsTrigger>
-          <TabsTrigger value="audit">
-            Journal
-          </TabsTrigger>
-          <TabsTrigger value="objectives">
-            <Target className="mr-2 h-4 w-4" />
-            Objectifs
-          </TabsTrigger>
-          <TabsTrigger value="legal">
-            <Shield className="mr-2 h-4 w-4" />
-            Légal
-          </TabsTrigger>
-          <TabsTrigger value="import">
-            <Upload className="mr-2 h-4 w-4" />
-            Import
-          </TabsTrigger>
-          <TabsTrigger value="clinical-content">
-            <Stethoscope className="mr-2 h-4 w-4" />
-            Contenu clinique
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-6 md:flex-row md:items-start">
+        {/* Navigation à 2 niveaux : catégories à gauche, réglages à droite */}
+        <nav className="w-full shrink-0 md:w-60 space-y-1">
+          {SETTINGS_NAV.map((cat) => {
+            const Icon = cat.icon
+            const isActiveCat = cat.key === activeCategory.key
+            return (
+              <div key={cat.key}>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(cat.items[0].value)}
+                  className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${isActiveCat ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {cat.label}
+                </button>
+                {isActiveCat && cat.items.length > 1 && (
+                  <div className="mt-1 ml-3 space-y-0.5 border-l pl-3">
+                    {cat.items.map((it) => (
+                      <button
+                        key={it.value}
+                        type="button"
+                        onClick={() => setActiveTab(it.value)}
+                        className={`w-full text-left rounded-md px-2.5 py-1.5 text-sm transition-colors ${activeTab === it.value ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}
+                      >
+                        {it.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </nav>
+
+        <div className="flex-1 min-w-0 space-y-6">
 
         {/* Profile Tab */}
         <TabsContent value="profile">
@@ -1926,7 +1959,7 @@ function SettingsPageInner() {
             <div className="text-sm text-muted-foreground">Chargement...</div>
           )}
         </TabsContent>
-
+        </div>
       </Tabs>
 
       {/* Delete Confirmation Dialog */}
@@ -2119,7 +2152,29 @@ function StorageSettings() {
 function BackupRestoreSettings() {
   const [isBackingUp, setIsBackingUp] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
+  const [reminderHour, setReminderHour] = useState(8)
   const { toast } = useToast()
+
+  useEffect(() => {
+    fetch('/api/settings/database/backup-status')
+      .then((r) => r.json())
+      .then((d) => { if (typeof d.reminderHour === 'number') setReminderHour(d.reminderHour) })
+      .catch(() => {})
+  }, [])
+
+  const handleReminderHourChange = async (hour: number) => {
+    setReminderHour(hour)
+    try {
+      await fetch('/api/settings/database/backup-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_reminder_hour', hour }),
+      })
+      toast({ title: 'Heure du rappel mise à jour', description: `Le rappel quotidien de sauvegarde aura lieu à ${String(hour).padStart(2, '0')}h.` })
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible d\'enregistrer l\'heure du rappel.' })
+    }
+  }
 
   const handleBackup = async () => {
     setIsBackingUp(true)
@@ -2198,8 +2253,29 @@ function BackupRestoreSettings() {
             <input type="file" accept=".db" className="hidden" onChange={handleRestore} disabled={isRestoring} />
           </label>
         </div>
-        <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 rounded-lg text-xs text-amber-800 dark:text-amber-200">
-          ⚠️ La restauration remplace toutes les données actuelles. L&apos;application redémarre après la restauration.
+        <div className="flex flex-col gap-2 border-t pt-4">
+          <Label htmlFor="backup-reminder-hour" className="text-sm font-medium">
+            Heure du rappel quotidien de sauvegarde
+          </Label>
+          <div className="flex items-center gap-2">
+            <select
+              id="backup-reminder-hour"
+              value={reminderHour}
+              onChange={(e) => handleReminderHourChange(parseInt(e.target.value, 10))}
+              className="h-9 w-28 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              {Array.from({ length: 24 }, (_, h) => (
+                <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>
+              ))}
+            </select>
+            <span className="text-xs text-muted-foreground">
+              Une notification vous rappellera de générer votre sauvegarde chaque jour à cette heure.
+            </span>
+          </div>
+        </div>
+        <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 rounded-lg text-xs text-amber-800 dark:text-amber-200 space-y-1">
+          <p>⚠️ La restauration remplace toutes les données actuelles. L&apos;application redémarre après la restauration.</p>
+          <p>🔒 Pour la confidentialité des données patients, ne déposez jamais votre sauvegarde sur un cloud (Google Drive, iCloud, Dropbox…). Utilisez un disque externe ou une clé USB.</p>
         </div>
       </CardContent>
     </Card>

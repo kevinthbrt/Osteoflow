@@ -163,7 +163,7 @@ export function PatientsTable({ patients, currentPage, totalPages, totalCount }:
                     href={`/patients/${patient.id}`}
                     className="flex items-center gap-2 hover:underline"
                   >
-                    <Badge variant={patient.gender === 'M' ? 'default' : 'secondary'}>
+                    <Badge variant={patient.gender === 'M' ? 'default' : 'female'}>
                       {patient.gender === 'M' ? 'H' : 'F'}
                     </Badge>
                     <span className="font-medium">

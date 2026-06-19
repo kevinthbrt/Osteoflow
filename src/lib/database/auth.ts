@@ -114,6 +114,25 @@ export function listPractitioners(): Array<{
 }
 
 /**
+ * Get (or lazily create) the owner id shared by all cabinets of this install.
+ * Tous les cabinets créés sur ce poste appartiennent au même propriétaire.
+ */
+export function getCabinetOwnerId(): string {
+  const db = getDatabase()
+  const row = db
+    .prepare("SELECT value FROM app_config WHERE key = 'cabinet_owner_id'")
+    .get() as { value?: string } | undefined
+  if (row?.value) return row.value
+  // Aligne sur un cabinet existant si présent, sinon en génère un nouveau.
+  const existing = db
+    .prepare('SELECT owner_id FROM practitioners WHERE owner_id IS NOT NULL LIMIT 1')
+    .get() as { owner_id?: string } | undefined
+  const ownerId = existing?.owner_id || generateUUID()
+  db.prepare("INSERT OR REPLACE INTO app_config (key, value) VALUES ('cabinet_owner_id', ?)").run(ownerId)
+  return ownerId
+}
+
+/**
  * Create a new practitioner profile.
  * Returns the user_id of the created practitioner.
  */
@@ -123,16 +142,18 @@ export function createPractitioner(data: {
   email: string
   practice_name?: string
   password?: string
+  owner_id?: string
 }): string {
   const db = getDatabase()
   const userId = generateUUID()
   const practitionerId = generateUUID()
   const now = new Date().toISOString()
   const passwordHash = data.password ? hashPassword(data.password) : null
+  const ownerId = data.owner_id || getCabinetOwnerId()
 
   db.prepare(`
-    INSERT INTO practitioners (id, user_id, first_name, last_name, email, practice_name, password_hash, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO practitioners (id, user_id, first_name, last_name, email, practice_name, password_hash, owner_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     practitionerId,
     userId,
@@ -141,9 +162,125 @@ export function createPractitioner(data: {
     data.email,
     data.practice_name || null,
     passwordHash,
+    ownerId,
     now,
     now
   )
 
   return userId
+}
+
+/**
+ * Crée un nouveau cabinet pour le propriétaire courant en clonant l'identité
+ * de connexion (nom/email/mot de passe) du cabinet actif, afin qu'il soit
+ * sélectionnable au prochain login. Renvoie le user_id du nouveau cabinet.
+ */
+export function createCabinet(practiceName: string): string {
+  const db = getDatabase()
+  const cfg = db
+    .prepare("SELECT value FROM app_config WHERE key = 'current_user_id'")
+    .get() as { value?: string } | undefined
+  const current = cfg?.value
+    ? (db.prepare('SELECT * FROM practitioners WHERE user_id = ?').get(cfg.value) as any)
+    : null
+
+  const userId = generateUUID()
+  const practitionerId = generateUUID()
+  const now = new Date().toISOString()
+  const ownerId = current?.owner_id || getCabinetOwnerId()
+
+  db.prepare(`
+    INSERT INTO practitioners (id, user_id, first_name, last_name, email, practice_name, password_hash, owner_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    practitionerId,
+    userId,
+    current?.first_name || 'Praticien',
+    current?.last_name || '',
+    current?.email || `cabinet-${practitionerId.slice(0, 8)}@local`,
+    practiceName.trim() || 'Nouveau cabinet',
+    current?.password_hash || null,
+    ownerId,
+    now,
+    now,
+  )
+
+  return userId
+}
+
+export interface CabinetInfo {
+  id: string
+  user_id: string
+  first_name: string
+  last_name: string
+  practice_name: string | null
+  is_active: boolean
+}
+
+/**
+ * Liste les cabinets du propriétaire courant (multi-cabinet).
+ */
+export function listCabinets(): CabinetInfo[] {
+  const db = getDatabase()
+  const ownerId = getCabinetOwnerId()
+  const currentUserRow = db
+    .prepare("SELECT value FROM app_config WHERE key = 'current_user_id'")
+    .get() as { value?: string } | undefined
+  const rows = db
+    .prepare('SELECT id, user_id, first_name, last_name, practice_name FROM practitioners WHERE owner_id = ? ORDER BY practice_name, last_name')
+    .all(ownerId) as Array<Omit<CabinetInfo, 'is_active'>>
+  return rows.map((r) => ({ ...r, is_active: r.user_id === currentUserRow?.value }))
+}
+
+export type DeleteCabinetResult =
+  | { ok: true }
+  | { ok: false; reason: 'not_found' | 'active' | 'last' | 'has_data' }
+
+/**
+ * Supprime un cabinet du propriétaire courant.
+ * Refuse si : cabinet inconnu, cabinet actif, dernier cabinet, ou cabinet
+ * contenant des données patients (par sécurité — il faut le vider d'abord).
+ * Supprime sinon le cabinet et ses lignes de configuration (réglages, modèles…)
+ * dans une transaction.
+ */
+export function deleteCabinet(userId: string): DeleteCabinetResult {
+  const db = getDatabase()
+  const ownerId = getCabinetOwnerId()
+
+  const target = db
+    .prepare('SELECT id, user_id FROM practitioners WHERE user_id = ? AND owner_id = ?')
+    .get(userId, ownerId) as { id?: string; user_id?: string } | undefined
+  if (!target?.id) return { ok: false, reason: 'not_found' }
+
+  const currentUserRow = db
+    .prepare("SELECT value FROM app_config WHERE key = 'current_user_id'")
+    .get() as { value?: string } | undefined
+  if (currentUserRow?.value === userId) return { ok: false, reason: 'active' }
+
+  const count = db.prepare('SELECT COUNT(*) AS n FROM practitioners WHERE owner_id = ?').get(ownerId) as { n: number }
+  if (count.n <= 1) return { ok: false, reason: 'last' }
+
+  // Sécurité : on n'autorise pas la suppression d'un cabinet contenant des
+  // dossiers patients (donc aussi consultations/factures qui en dépendent).
+  const patients = db.prepare('SELECT COUNT(*) AS n FROM patients WHERE practitioner_id = ?').get(target.id) as { n: number }
+  if (patients.n > 0) return { ok: false, reason: 'has_data' }
+
+  // Supprime dynamiquement toutes les lignes de configuration rattachées à ce
+  // cabinet (clés practitioner_id / cabinet_id), puis le cabinet lui-même.
+  const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT IN ('practitioners','app_config')").all() as Array<{ name: string }>
+  const tx = db.transaction(() => {
+    for (const { name } of tables) {
+      const cols = db.pragma(`table_info(${name})`) as Array<{ name: string }>
+      if (cols.some((c) => c.name === 'practitioner_id')) {
+        db.prepare(`DELETE FROM ${name} WHERE practitioner_id = ?`).run(target.id)
+      }
+      if (cols.some((c) => c.name === 'cabinet_id')) {
+        db.prepare(`DELETE FROM ${name} WHERE cabinet_id = ?`).run(target.id)
+      }
+    }
+    db.prepare('DELETE FROM practitioners WHERE id = ?').run(target.id)
+  })
+  tx()
+
+  return { ok: true }
 }

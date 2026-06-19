@@ -439,7 +439,7 @@ export default function InvoicePage() {
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex items-center gap-2">
-                <Badge variant={patient.gender === 'M' ? 'default' : 'secondary'}>
+                <Badge variant={patient.gender === 'M' ? 'default' : 'female'}>
                   {patient.gender === 'M' ? 'H' : 'F'}
                 </Badge>
                 <span className="font-medium">

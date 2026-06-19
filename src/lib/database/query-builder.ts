@@ -17,6 +17,30 @@
 
 import { getDatabase, generateUUID } from './connection'
 import { BOOLEAN_FIELDS, JSON_FIELDS } from './schema'
+import { getScopeCabinetIds, getActiveCabinetId, type ShareCategory } from './cabinet-scope'
+
+/**
+ * Tables soumises au cloisonnement par cabinet, avec la façon de filtrer.
+ * - 'self'   : la table porte directement la colonne cabinet (practitioner_id ou cabinet_id)
+ * - 'via'    : on filtre par sous-requête sur une table parente déjà cloisonnée
+ */
+const CABINET_SCOPE: Record<string, {
+  category: ShareCategory
+  column?: string
+  via?: { sql: (placeholders: string) => string }
+}> = {
+  patients: { category: 'patients', column: 'practitioner_id' },
+  consultations: { category: 'consultations', column: 'cabinet_id' },
+  invoices: { category: 'compta', column: 'cabinet_id' },
+  payments: {
+    category: 'compta',
+    via: { sql: (ph) => `invoice_id IN (SELECT id FROM invoices WHERE cabinet_id IN (${ph}))` },
+  },
+  medical_history_entries: {
+    category: 'patients',
+    via: { sql: (ph) => `patient_id IN (SELECT id FROM patients WHERE practitioner_id IN (${ph}))` },
+  },
+}
 
 interface Condition {
   type: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'is' | 'isNot' | 'like' | 'ilike' | 'in' | 'or'
@@ -552,10 +576,6 @@ export class QueryBuilder {
   }
 
   private buildWhereClause(): { sql: string; params: any[] } {
-    if (this._conditions.length === 0) {
-      return { sql: '', params: [] }
-    }
-
     const clauses: string[] = []
     const params: any[] = []
 
@@ -650,10 +670,34 @@ export class QueryBuilder {
       }
     }
 
+    // Cloisonnement par cabinet (multi-cabinet) — injecté automatiquement.
+    const scope = this.getScopeClause()
+    if (scope) {
+      clauses.push(scope.sql)
+      params.push(...scope.params)
+    }
+
     return {
       sql: clauses.length > 0 ? ` WHERE ${clauses.join(' AND ')}` : '',
       params,
     }
+  }
+
+  /**
+   * Construit la clause de cloisonnement cabinet pour la table courante.
+   * Renvoie null si la table n'est pas cloisonnée ou si aucun cabinet actif
+   * (ex. avant connexion) — dans ce cas, comportement inchangé (pas de scoping).
+   */
+  private getScopeClause(): { sql: string; params: any[] } | null {
+    const conf = CABINET_SCOPE[this._table]
+    if (!conf) return null
+    const ids = getScopeCabinetIds(conf.category)
+    if (ids.length === 0) return null
+    const placeholders = ids.map(() => '?').join(', ')
+    if (conf.via) {
+      return { sql: conf.via.sql(placeholders), params: ids }
+    }
+    return { sql: `${conf.column} IN (${placeholders})`, params: ids }
   }
 
   private executeSelect(db: any): { data: any; error: any; count?: number } {
@@ -724,6 +768,13 @@ export class QueryBuilder {
       // Set timestamps
       if (!row.created_at) {
         row.created_at = new Date().toISOString()
+      }
+
+      // Multi-cabinet : attribue automatiquement consultations/factures au
+      // cabinet actif si non précisé, pour permettre le cloisonnement.
+      if ((this._table === 'consultations' || this._table === 'invoices') && row.cabinet_id == null) {
+        const activeCabinet = getActiveCabinetId()
+        if (activeCabinet) row.cabinet_id = activeCabinet
       }
 
       const columns = Object.keys(row)

@@ -46,4 +46,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onLicenseExpired: (callback: (payload: { message: string; code: string }) => void) => {
     ipcRenderer.on('license-expired', (_event, payload) => callback(payload))
   },
+
+  // Backup reminder — fired when the user clicks the daily backup notification.
+  onOpenBackupReminder: (callback: () => void) => {
+    ipcRenderer.on('open-backup-reminder', () => callback())
+  },
 })

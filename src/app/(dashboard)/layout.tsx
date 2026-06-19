@@ -7,6 +7,7 @@ import { WhatsNewDialog } from '@/components/layout/whats-new-dialog'
 import { LicenseGuard } from '@/components/layout/license-guard'
 import { InactivityTimer } from '@/components/InactivityTimer'
 import { BackupReminderDialog } from '@/components/layout/backup-reminder-dialog'
+import { ChangeCabinetDialog } from '@/components/layout/change-cabinet-dialog'
 import { CguModal } from '@/components/legal/cgu-modal'
 import { TourWrapper } from '@/components/layout/tour-wrapper'
 import { SupportWidget } from '@/components/support/support-widget'
@@ -86,6 +87,7 @@ export default async function DashboardLayout({
         </div>
         <WhatsNewDialog />
         <BackupReminderDialog />
+        <ChangeCabinetDialog />
         <CguModal />
         <BroadcastModal />
         <LicenseGuard />
