@@ -67,6 +67,16 @@ function ProgressBar({ label, sublabel, actual, objective, showPatients, consult
     : formatEuro(objective)
 
   if (dark) {
+    const badgeCls = pct >= 100
+      ? 'bg-emerald-400 text-emerald-950'
+      : pct >= 75
+        ? 'bg-amber-300 text-amber-950'
+        : 'bg-white/20 text-white'
+    const barCls = pct >= 100
+      ? 'bg-emerald-400'
+      : pct >= 75
+        ? 'bg-amber-300'
+        : 'bg-white'
     return (
       <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-3.5 py-3">
         <div className="flex items-start justify-between mb-2.5 gap-2">
@@ -74,18 +84,14 @@ function ProgressBar({ label, sublabel, actual, objective, showPatients, consult
             <p className="text-sm font-semibold text-white truncate">{label}</p>
             <p className="text-[11px] text-white/70 truncate">{sublabel}</p>
           </div>
-          <span
-            className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-              isComplete ? 'bg-emerald-400 text-emerald-950' : 'bg-white/20 text-white'
-            }`}
-          >
+          <span className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full ${badgeCls}`}>
             {pct.toFixed(0)} %
           </span>
         </div>
         <div className="space-y-1.5">
           <div className="h-2 w-full rounded-full bg-white/15 overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-700 ${isComplete ? 'bg-emerald-400' : 'bg-white'}`}
+              className={`h-full rounded-full transition-all duration-700 ${barCls}`}
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -202,7 +208,7 @@ function AnnualProgressTimeline({ data, year, showPatients }: AnnualTimelineProp
           <h3 className="text-base font-semibold">Trajectoire annuelle {year}</h3>
           <div
             className={`flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full backdrop-blur-sm ${
-              isAhead ? 'bg-white/25' : 'bg-black/20'
+              isAhead ? 'bg-emerald-400/30 text-emerald-100' : 'bg-amber-400/25 text-amber-100'
             }`}
           >
             {isAhead ? '▲' : '▼'} {isAhead ? 'En avance' : 'En retard'} de {formatEuro(Math.abs(diff))}
@@ -265,13 +271,15 @@ function AnnualProgressTimeline({ data, year, showPatients }: AnnualTimelineProp
                 </div>
                 <p className="mt-0.5 text-2xl font-bold tracking-tight tabular-nums leading-tight">
                   {formatEuro(projected)}
-                  <span className="ml-2 text-sm font-semibold text-white/80">{projectedPct.toFixed(0)} %</span>
+                  <span className={`ml-2 text-sm font-semibold ${
+                    projectedPct >= 100 ? 'text-emerald-300' : projectedPct >= 75 ? 'text-amber-300' : 'text-white/80'
+                  }`}>{projectedPct.toFixed(0)} %</span>
                 </p>
               </div>
               <div className="flex flex-col items-end gap-1">
                 <div
                   className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
-                    onTrack ? 'bg-white/25' : 'bg-black/25'
+                    onTrack ? 'bg-emerald-400/30 text-emerald-100' : 'bg-amber-400/25 text-amber-100'
                   }`}
                 >
                   {onTrack ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
