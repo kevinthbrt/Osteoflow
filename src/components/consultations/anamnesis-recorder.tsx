@@ -20,7 +20,7 @@ interface PatientContext {
 }
 
 interface AnamnesisRecorderProps {
-  onApply: (data: { reason: string; anamnesis: string }) => void
+  onApply: (data: { reason: string; anamnesis: string; sections?: AnamnesisSection[] }) => void
   disabled?: boolean
   patientContext?: PatientContext
   patientId?: string
@@ -37,7 +37,7 @@ type RecorderState =
   | 'applied'
   | 'error'
 
-// ─── Web Speech API types ──────────────────────────────────────────────
+// ─── Web Speech API types ──────────────────────────────────────────────────────
 
 interface SpeechRecognitionEvent extends Event {
   resultIndex: number
@@ -74,7 +74,7 @@ function isElectron(): boolean {
   return typeof window !== 'undefined' && !!(window as any).electronAPI?.isDesktop
 }
 
-// ─── IndexedDB — cache audio blob (survie à la veille / erreur réseau) ────────
+// ─── IndexedDB — cache audio blob (survie à la veille / erreur réseau) ────────────────
 
 const IDB_NAME = 'osteoflow-audio'
 const IDB_STORE = 'drafts'
@@ -128,7 +128,7 @@ async function clearAudioBlob(): Promise<void> {
   } catch { /* silencieux */ }
 }
 
-interface AnamnesisSection {
+export interface AnamnesisSection {
   id: string
   label: string
   icon: string
@@ -137,7 +137,7 @@ interface AnamnesisSection {
   allClear?: boolean
 }
 
-const SECTION_STYLES: Record<AnamnesisSection['color'], { card: string; label: string; item: string }> = {
+export const SECTION_STYLES: Record<AnamnesisSection['color'], { card: string; label: string; item: string }> = {
   red:    { card: 'bg-red-50/60 border-red-200 dark:bg-red-950/20 dark:border-red-800', label: 'text-red-600 dark:text-red-400', item: 'text-red-900 dark:text-red-200' },
   amber:  { card: 'bg-amber-50/60 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800', label: 'text-amber-600 dark:text-amber-400', item: 'text-amber-900 dark:text-amber-200' },
   blue:   { card: 'bg-blue-50/60 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800', label: 'text-blue-600 dark:text-blue-400', item: 'text-blue-900 dark:text-blue-200' },
@@ -145,7 +145,7 @@ const SECTION_STYLES: Record<AnamnesisSection['color'], { card: string; label: s
   green:  { card: 'bg-green-50/60 border-green-200 dark:bg-green-950/20 dark:border-green-800', label: 'text-green-600 dark:text-green-400', item: 'text-green-900 dark:text-green-200' },
 }
 
-// ─── Composant ──────────────────────────────────────────────────────────────────
+// ─── Composant ────────────────────────────────────────────────────────────────────────────────
 
 export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId, onPatientFieldsDetected }: AnamnesisRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle')
@@ -160,19 +160,19 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
   const [elapsed, setElapsed] = useState(0)
   const [hasCachedAudio, setHasCachedAudio] = useState(false)
 
-  // ── Refs communs ─────────────────────────────────────────────────────────────────
+  // ── Refs communs ──────────────────────────────────────────────────────────────────────────────────────
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const finalTextRef = useRef('')
   const stateRef = useRef<RecorderState>('idle')
 
-  // ── Web Speech API ───────────────────────────────────────────────────────────
+  // ── Web Speech API ────────────────────────────────────────────────────────────────────────
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const restartCountRef = useRef(0)
   const intentionalStopRef = useRef(false)
   const SRRef = useRef<(new () => SpeechRecognitionInstance) | null>(null)
 
-  // ── MediaRecorder (Electron) ──────────────────────────────────────────────────
+  // ── MediaRecorder (Electron) ────────────────────────────────────────────────────────────────────────
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<BlobPart[]>([])
   const mediaStreamRef = useRef<MediaStream | null>(null)
@@ -180,7 +180,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
   // au lieu de le remplacer (utilisé pour la continuation après arrêt automatique).
   const isContinuingRef = useRef(false)
 
-  // ── Persistance localStorage (survie à la veille/rechargement) ────────────
+  // ── Persistance localStorage (survie à la veille/rechargement) ────────────────
   // Clé spécifique au patient : un brouillon dicté ne doit jamais « fuiter »
   // d'un patient vers un autre. Sans patientId on retombe sur l'ancienne clé.
   const DRAFT_KEY = patientId ? `osteoflow-anamnesis-draft-${patientId}` : 'osteoflow-anamnesis-draft'
@@ -225,7 +225,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
     if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null }
   }, [])
 
-  // ── Structuration Claude ──────────────────────────────────────────────────────
+  // ── Structuration Claude ──────────────────────────────────────────────────────────────────
 
   const handleStructure = useCallback(async () => {
     const text = finalTextRef.current.trim()
@@ -264,7 +264,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
     }
   }, [stopTimer, stopReconnectTimer])
 
-  // ── Réinitialisation ───────────────────────────────────────────────────────────
+  // ── Réinitialisation ─────────────────────────────────────────────────────────────────────────────
 
   const handleReset = useCallback(() => {
     intentionalStopRef.current = true
@@ -573,7 +573,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
     setState('idle')
   }, [stopTimer, stopReconnectTimer])
 
-  // ─── Handlers unifiés ────────────────────────────────────────────────────────────────
+  // ─── Handlers unifiés ──────────────────────────────────────────────────────────────────────────────────
 
   const startRecording = useCallback(() => {
     if (isElectron()) startMediaRecorder()
@@ -626,7 +626,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
     setDetectedFields(null)
   }, [detectedFields, onPatientFieldsDetected])
 
-  // ─── Rendu ────────────────────────────────────────────────────────────────────────────
+  // ─── Rendu ──────────────────────────────────────────────────────────────────────────────────────
 
   const hasTranscript = finalText.trim().length > 0
 
@@ -708,7 +708,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
           </p>
         )}
 
-        {(state !== 'idle' || hasTranscript || !!structured) && (
+        {(state !== 'idle' || hasTranscript || !!structured || state === 'applied') && (
           <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive hover:text-destructive" onClick={handleReset}>
             <RotateCcw className="h-3 w-3 mr-1" />
             Effacer
