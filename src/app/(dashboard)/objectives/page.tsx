@@ -156,30 +156,33 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
   const todayLabel = now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <CardTitle className="text-base">Trajectoire annuelle {year}</CardTitle>
+    <div className="relative overflow-hidden rounded-2xl gradient-primary text-white p-6 shadow-lg">
+      {/* Liquid glass sheen */}
+      <div className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full bg-white/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 -left-10 w-56 h-56 rounded-full bg-black/10 blur-3xl" />
+
+      <div className="relative">
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+          <h3 className="text-base font-semibold">Trajectoire annuelle {year}</h3>
           <div
-            className={`flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full ${
-              isAhead ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+            className={`flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full backdrop-blur-sm ${
+              isAhead ? 'bg-white/25' : 'bg-black/20'
             }`}
           >
             {isAhead ? '▲' : '▼'} {isAhead ? 'En avance' : 'En retard'} de {formatEuro(Math.abs(diff))}
             {isAhead && advanceDays > 0 && (
-              <span className="ml-1 font-normal text-emerald-600">
+              <span className="ml-1 font-normal text-white/80">
                 · ≈ {advanceDays} jour{advanceDays > 1 ? 's' : ''} de congés
               </span>
             )}
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="pt-4">
-        {/* Projection fin d'année — bloc en évidence (gradient liquid glass) */}
+
+        {/* Projection fin d'année — bloc en évidence */}
         {enoughData && (
-          <div className="relative overflow-hidden rounded-xl gradient-primary text-white px-4 py-3 mb-5">
-            <div className="pointer-events-none absolute -top-12 -right-12 w-40 h-40 rounded-full bg-white/15 blur-3xl" />
-            <div className="relative flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+          <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-4 py-3 mb-5">
+            <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
               <div>
                 <div className="flex items-center gap-1.5 text-white/80 text-xs font-medium">
                   <Sparkles className="h-3.5 w-3.5" />
@@ -192,8 +195,8 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
               </div>
               <div className="flex flex-col items-end gap-1">
                 <div
-                  className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm ${
-                    onTrack ? 'bg-white/25' : 'bg-black/20'
+                  className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                    onTrack ? 'bg-white/25' : 'bg-black/25'
                   }`}
                 >
                   {onTrack ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
@@ -219,7 +222,7 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
             className="absolute z-20 flex flex-col items-center"
             style={{ left: `${datePct}%`, top: 0, transform: 'translateX(-50%)' }}
           >
-            <div className="bg-foreground text-background text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap mb-1">
+            <div className="bg-white text-slate-900 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap mb-1 shadow">
               {todayLabel}
             </div>
             <div
@@ -227,18 +230,18 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
                 width: 0, height: 0,
                 borderLeft: '5px solid transparent',
                 borderRight: '5px solid transparent',
-                borderTop: '7px solid hsl(var(--foreground))',
+                borderTop: '7px solid white',
               }}
             />
           </div>
 
           {/* Bar */}
-          <div className="relative h-10 w-full rounded-full bg-muted overflow-hidden">
+          <div className="relative h-10 w-full rounded-full bg-white/15 overflow-hidden">
 
             {/* CA fill */}
             <div
               className={`absolute left-0 top-0 h-full transition-all duration-700 ${
-                isAhead ? 'bg-emerald-500' : 'bg-amber-500'
+                isAhead ? 'bg-emerald-400' : 'bg-amber-300'
               }`}
               style={{ width: `${caPct}%`, borderRadius: caPct >= 100 ? '9999px' : '9999px 0 0 9999px' }}
             />
@@ -247,21 +250,23 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
             {monthTicks.slice(1).map(({ month, pct }) => (
               <div
                 key={month}
-                className="absolute top-0 bottom-0 w-px bg-black z-10"
+                className="absolute top-0 bottom-0 w-px bg-white/30 z-10"
                 style={{ left: `${pct}%` }}
               />
             ))}
 
             {/* Today vertical line through bar */}
             <div
-              className="absolute top-0 bottom-0 w-0.5 bg-foreground/70 z-20"
+              className="absolute top-0 bottom-0 w-0.5 bg-white z-20"
               style={{ left: `${datePct}%`, transform: 'translateX(-50%)' }}
             />
 
             {/* CA value label inside fill */}
             {caPct > 10 && (
               <div
-                className="absolute top-1/2 text-xs font-bold text-white pointer-events-none z-10"
+                className={`absolute top-1/2 text-xs font-bold pointer-events-none z-10 ${
+                  isAhead ? 'text-emerald-950' : 'text-amber-950'
+                }`}
                 style={{
                   left: `${Math.min(caPct - 1, 96)}%`,
                   transform: 'translateY(-50%) translateX(-100%)',
@@ -278,7 +283,7 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
             {monthCenters.map((centerPct, i) => (
               <div
                 key={i}
-                className="absolute text-[11px] text-muted-foreground"
+                className="absolute text-[11px] text-white/70"
                 style={{ left: `${centerPct}%`, transform: 'translateX(-50%)', top: 0 }}
               >
                 {MONTHS_FR[i].slice(0, 3)}
@@ -288,24 +293,24 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
         </div>
 
         {/* Stats row */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t border-white/20 text-sm">
           <div>
-            <span className="text-muted-foreground">CA réel </span>
+            <span className="text-white/70">CA réel </span>
             <span className="font-semibold">{formatEuro(data.revenue.this_year)}</span>
-            <span className="text-muted-foreground ml-1">({caPct.toFixed(1)} %)</span>
+            <span className="text-white/70 ml-1">({caPct.toFixed(1)} %)</span>
           </div>
           <div>
-            <span className="text-muted-foreground">Attendu au {todayLabel} </span>
+            <span className="text-white/70">Attendu au {todayLabel} </span>
             <span className="font-semibold">{formatEuro(expectedRevenue)}</span>
-            <span className="text-muted-foreground ml-1">({datePct.toFixed(1)} %)</span>
+            <span className="text-white/70 ml-1">({datePct.toFixed(1)} %)</span>
           </div>
           <div>
-            <span className="text-muted-foreground">Objectif annuel </span>
+            <span className="text-white/70">Objectif annuel </span>
             <span className="font-semibold">{formatEuro(annualObj)}</span>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
