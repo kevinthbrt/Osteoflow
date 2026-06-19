@@ -95,18 +95,64 @@ export async function generateLetterPdf(data: LetterPDFData): Promise<Uint8Array
     gap()
   }
 
+  // Justified paragraph rendering: manually place each word at precise x
+  const drawJustifiedParagraph = (text: string) => {
+    const words = text.split(' ').filter((w) => w.length > 0)
+    if (words.length === 0) return
+
+    doc.font('Helvetica').fontSize(FONT_SIZE)
+    const spaceW = doc.widthOfString(' ')
+
+    // Build lines by measuring actual widths
+    const lines: string[][] = []
+    let cur: string[] = []
+    let curW = 0
+    for (const word of words) {
+      const ww = doc.widthOfString(word)
+      const needed = cur.length > 0 ? spaceW + ww : ww
+      if (cur.length > 0 && curW + needed > contentWidth + 0.5) {
+        lines.push(cur)
+        cur = [word]
+        curW = ww
+      } else {
+        cur.push(word)
+        curW += needed
+      }
+    }
+    if (cur.length > 0) lines.push(cur)
+
+    const maxY = pageHeight - margin / 2 - footerHeight
+    for (let li = 0; li < lines.length; li++) {
+      if (y + LINE_H > maxY) break
+      const lineWords = lines[li]
+      const isLast = li === lines.length - 1
+
+      if (isLast || lineWords.length === 1) {
+        // Last line: left-aligned
+        doc.font('Helvetica').fontSize(FONT_SIZE).fillColor('#1a1a1a')
+          .text(lineWords.join(' '), margin, y, { lineBreak: false })
+      } else {
+        // Distribute space between words
+        const totalWordW = lineWords.reduce((s, w) => s + doc.widthOfString(w), 0)
+        const gap = (contentWidth - totalWordW) / (lineWords.length - 1)
+        let x = margin
+        for (const word of lineWords) {
+          doc.font('Helvetica').fontSize(FONT_SIZE).fillColor('#1a1a1a')
+            .text(word, x, y, { lineBreak: false })
+          x += doc.widthOfString(word) + gap
+        }
+      }
+      y += LINE_H
+    }
+  }
+
   const maxBodyY = pageHeight - margin / 2 - footerHeight
   for (const paragraph of bodyText.split('\n')) {
     if (!paragraph.trim()) {
       gap()
     } else {
       if (y + LINE_H > maxBodyY) break
-      doc
-        .font('Helvetica')
-        .fontSize(FONT_SIZE)
-        .fillColor('#1a1a1a')
-        .text(paragraph, margin, y, { width: contentWidth, align: 'justify' })
-      y = doc.y
+      drawJustifiedParagraph(paragraph)
     }
   }
 
