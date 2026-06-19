@@ -50,9 +50,11 @@ interface ProgressBarProps {
   objective: number
   showPatients: boolean
   consultationPrice: number | null
+  /** Variante sur fond gradient sombre (texte blanc, panneau translucide) */
+  dark?: boolean
 }
 
-function ProgressBar({ label, sublabel, actual, objective, showPatients, consultationPrice }: ProgressBarProps) {
+function ProgressBar({ label, sublabel, actual, objective, showPatients, consultationPrice, dark }: ProgressBarProps) {
   const pct = objective > 0 ? Math.min(100, (actual / objective) * 100) : 0
   const isComplete = pct >= 100
 
@@ -63,6 +65,38 @@ function ProgressBar({ label, sublabel, actual, objective, showPatients, consult
   const displayObjective = showPatients && consultationPrice
     ? formatPatients(objective, consultationPrice)
     : formatEuro(objective)
+
+  if (dark) {
+    return (
+      <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-3.5 py-3">
+        <div className="flex items-start justify-between mb-2.5 gap-2">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white truncate">{label}</p>
+            <p className="text-[11px] text-white/70 truncate">{sublabel}</p>
+          </div>
+          <span
+            className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+              isComplete ? 'bg-emerald-400 text-emerald-950' : 'bg-white/20 text-white'
+            }`}
+          >
+            {pct.toFixed(0)} %
+          </span>
+        </div>
+        <div className="space-y-1.5">
+          <div className="h-2 w-full rounded-full bg-white/15 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${isComplete ? 'bg-emerald-400' : 'bg-white'}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-[11px] text-white/70">
+            <span className="font-medium text-white">{displayActual}</span>
+            <span>sur {displayObjective}</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <Card className={isComplete ? 'border-emerald-200 bg-emerald-50/50' : ''}>
@@ -100,9 +134,10 @@ function ProgressBar({ label, sublabel, actual, objective, showPatients, consult
 interface AnnualTimelineProps {
   data: ObjectivesData
   year: number
+  showPatients: boolean
 }
 
-function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
+function AnnualProgressTimeline({ data, year, showPatients }: AnnualTimelineProps) {
   const now = new Date()
   const startOfYear = new Date(year, 0, 1)
   const isLeap = (year % 400 === 0) || (year % 4 === 0 && year % 100 !== 0)
@@ -177,6 +212,46 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
               </span>
             )}
           </div>
+        </div>
+
+        {/* KPI : aujourd'hui / semaine / mois / année */}
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 mb-5">
+          <ProgressBar
+            dark
+            label="Aujourd'hui"
+            sublabel={now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            actual={data.revenue.today}
+            objective={data.computed.daily_objective}
+            showPatients={showPatients}
+            consultationPrice={data.settings.average_consultation_price}
+          />
+          <ProgressBar
+            dark
+            label="Cette semaine"
+            sublabel={`Objectif hebdo : ${formatEuro(data.computed.weekly_objective)}`}
+            actual={data.revenue.this_week}
+            objective={data.computed.weekly_objective}
+            showPatients={showPatients}
+            consultationPrice={data.settings.average_consultation_price}
+          />
+          <ProgressBar
+            dark
+            label={`${MONTHS_FR[now.getMonth()]}`}
+            sublabel={`Objectif mensuel : ${formatEuro(data.computed.monthly_objective)}`}
+            actual={data.revenue.this_month}
+            objective={data.computed.monthly_objective}
+            showPatients={showPatients}
+            consultationPrice={data.settings.average_consultation_price}
+          />
+          <ProgressBar
+            dark
+            label={`Année ${year}`}
+            sublabel={`Objectif annuel : ${formatEuro(annualObj)}`}
+            actual={data.revenue.this_year}
+            objective={annualObj}
+            showPatients={showPatients}
+            consultationPrice={data.settings.average_consultation_price}
+          />
         </div>
 
         {/* Projection fin d'année — bloc en évidence */}
@@ -558,43 +633,8 @@ export default function ObjectivesPage() {
       {/* Progress bars */}
       {hasObjective && data && (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <ProgressBar
-              label="Aujourd'hui"
-              sublabel={new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-              actual={data.revenue.today}
-              objective={data.computed.daily_objective}
-              showPatients={showPatients}
-              consultationPrice={data.settings.average_consultation_price}
-            />
-            <ProgressBar
-              label="Cette semaine"
-              sublabel={`Objectif hebdo : ${formatEuro(data.computed.weekly_objective)}`}
-              actual={data.revenue.this_week}
-              objective={data.computed.weekly_objective}
-              showPatients={showPatients}
-              consultationPrice={data.settings.average_consultation_price}
-            />
-            <ProgressBar
-              label={`${MONTHS_FR[new Date().getMonth()]}`}
-              sublabel={`Objectif mensuel : ${formatEuro(data.computed.monthly_objective)}`}
-              actual={data.revenue.this_month}
-              objective={data.computed.monthly_objective}
-              showPatients={showPatients}
-              consultationPrice={data.settings.average_consultation_price}
-            />
-            <ProgressBar
-              label={`Année ${currentYear}`}
-              sublabel={`Objectif annuel : ${formatEuro(data.settings.annual_revenue_objective!)}`}
-              actual={data.revenue.this_year}
-              objective={data.settings.annual_revenue_objective!}
-              showPatients={showPatients}
-              consultationPrice={data.settings.average_consultation_price}
-            />
-          </div>
-
-          {/* Annual timeline bar (inclut la projection fin d'année) */}
-          <AnnualProgressTimeline data={data} year={currentYear} />
+          {/* Carte gradient : KPI + projection + trajectoire annuelle */}
+          <AnnualProgressTimeline data={data} year={currentYear} showPatients={showPatients} />
 
           {/* Monthly bar chart */}
           <MonthlyBarChart
