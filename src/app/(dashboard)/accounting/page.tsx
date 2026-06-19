@@ -188,6 +188,9 @@ export default function AccountingPage() {
 
   // Set dates based on period
   useEffect(() => {
+    const toLocalStr = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
     const today = new Date()
     let start = new Date()
 
@@ -208,8 +211,8 @@ export default function AccountingPage() {
         return // Don't change dates for custom
     }
 
-    setStartDate(start.toISOString().split('T')[0])
-    setEndDate(today.toISOString().split('T')[0])
+    setStartDate(toLocalStr(start))
+    setEndDate(toLocalStr(today))
   }, [period])
 
   // Fetch data
@@ -631,6 +634,23 @@ export default function AccountingPage() {
             </SelectContent>
           </Select>
         </div>
+        {period !== 'day' && period !== 'week' && monthsInRange.length > 0 && practitionerId && (
+          <div className="space-y-1.5">
+            <Label className="text-xs opacity-0">Corrections</Label>
+            <Button
+              variant="outline"
+              className="h-9 gap-2"
+              onClick={() => setShowManualCorrections(!showManualCorrections)}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Corrections
+              {totalManual > 0 && (
+                <Badge variant="secondary" className="ml-0.5 text-xs">{formatCurrency(totalManual)}</Badge>
+              )}
+              <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${showManualCorrections ? 'rotate-180' : ''}`} />
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Hero gradient card: CA + KPIs + ventilation paiements */}
@@ -711,40 +731,23 @@ export default function AccountingPage() {
         </div>
       ) : null}
 
-      {/* Corrections manuelles — éditeur compact repliable */}
-      {period !== 'day' && period !== 'week' && monthsInRange.length > 0 && practitionerId && (
-        <div className="rounded-2xl glass-card overflow-hidden">
-          <button
-            onClick={() => setShowManualCorrections(!showManualCorrections)}
-            className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/30 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Pencil className="h-4 w-4 text-primary" />
-              <span className="text-sm font-semibold">Corrections manuelles du CA</span>
-              {totalManual > 0 && (
-                <Badge variant="secondary" className="ml-1">{formatCurrency(totalManual)}</Badge>
-              )}
-            </div>
-            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showManualCorrections ? 'rotate-180' : ''}`} />
-          </button>
-          {showManualCorrections && (
-            <div className="px-4 pb-4">
-              <p className="text-xs text-muted-foreground mb-3">
-                S&apos;ajoutent au CA facturé (ex. : CA réalisé avant l&apos;utilisation du logiciel). Cliquez sur un mois pour l&apos;éditer.
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                {monthsInRange.map(({ year, month }) => (
-                  <CompactMonthEditor
-                    key={`${year}-${month}`}
-                    year={year}
-                    month={month}
-                    value={manualEntries[`${year}-${month}`] ?? 0}
-                    onSaved={(key, value) => setManualEntries((prev) => ({ ...prev, [key]: value }))}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+      {/* Corrections manuelles — panneau dépliable sous la barre de filtres */}
+      {showManualCorrections && period !== 'day' && period !== 'week' && monthsInRange.length > 0 && practitionerId && (
+        <div className="rounded-2xl glass-card px-4 py-4">
+          <p className="text-xs text-muted-foreground mb-3">
+            S&apos;ajoutent au CA facturé (ex. : CA réalisé avant l&apos;utilisation du logiciel). Cliquez sur un mois pour l&apos;éditer.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+            {monthsInRange.map(({ year, month }) => (
+              <CompactMonthEditor
+                key={`${year}-${month}`}
+                year={year}
+                month={month}
+                value={manualEntries[`${year}-${month}`] ?? 0}
+                onSaved={(key, value) => setManualEntries((prev) => ({ ...prev, [key]: value }))}
+              />
+            ))}
+          </div>
         </div>
       )}
 
