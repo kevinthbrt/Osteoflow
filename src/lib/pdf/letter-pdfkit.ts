@@ -7,22 +7,17 @@ export interface LetterPDFData {
   body: string                   // letter body (may start with "Objet : …")
   closing?: string | null        // "Fait à City, le Date\n\nNom\nSpécialité"
   template_name?: string
+  stampUrl?: string | null       // absolute URL to stamp image
 }
 
 const FONT_SIZE = 10
 const LINE_H = 14     // pt per visual line
-const FOOTER_FONT_SIZE = 8
-const FOOTER_LINE_H = 11
 
 export async function generateLetterPdf(data: LetterPDFData): Promise<Uint8Array> {
   const pageWidth = 595.28
   const pageHeight = 841.89
   const margin = 65
   const contentWidth = pageWidth - margin * 2
-
-  // Reserve space at bottom for tampon footer
-  const footerLines = data.practitioner_lines.length
-  const footerHeight = FOOTER_LINE_H * footerLines + 16 // separator + lines
 
   const doc = new PDFDocument({ size: 'A4', margin })
   const stream = new PassThrough()
@@ -43,8 +38,7 @@ export async function generateLetterPdf(data: LetterPDFData): Promise<Uint8Array
     bold = false,
     opts: Record<string, unknown> = {},
   ) => {
-    const maxY = pageHeight - margin / 2 - footerHeight
-    if (y + LINE_H > maxY) return
+    if (y + LINE_H > pageHeight - margin / 2) return
     doc
       .font(bold ? 'Helvetica-Bold' : 'Helvetica')
       .fontSize(FONT_SIZE)
@@ -53,10 +47,9 @@ export async function generateLetterPdf(data: LetterPDFData): Promise<Uint8Array
     y += LINE_H
   }
 
-  // Right-aligned drawLine: computes x so text ends at right margin
+  // Right-aligned: computes x so text ends at right margin
   const drawLineRight = (text: string, bold = false) => {
-    const maxY = pageHeight - margin / 2 - footerHeight
-    if (y + LINE_H > maxY) return
+    if (y + LINE_H > pageHeight - margin / 2) return
     const font = bold ? 'Helvetica-Bold' : 'Helvetica'
     const tw = doc.font(font).fontSize(FONT_SIZE).widthOfString(text)
     const x = pageWidth - margin - tw
@@ -103,7 +96,6 @@ export async function generateLetterPdf(data: LetterPDFData): Promise<Uint8Array
     doc.font('Helvetica').fontSize(FONT_SIZE)
     const spaceW = doc.widthOfString(' ')
 
-    // Build lines by measuring actual widths
     const lines: string[][] = []
     let cur: string[] = []
     let curW = 0
@@ -121,37 +113,33 @@ export async function generateLetterPdf(data: LetterPDFData): Promise<Uint8Array
     }
     if (cur.length > 0) lines.push(cur)
 
-    const maxY = pageHeight - margin / 2 - footerHeight
     for (let li = 0; li < lines.length; li++) {
-      if (y + LINE_H > maxY) break
+      if (y + LINE_H > pageHeight - margin / 2) break
       const lineWords = lines[li]
       const isLast = li === lines.length - 1
 
       if (isLast || lineWords.length === 1) {
-        // Last line: left-aligned
         doc.font('Helvetica').fontSize(FONT_SIZE).fillColor('#1a1a1a')
           .text(lineWords.join(' '), margin, y, { lineBreak: false })
       } else {
-        // Distribute space between words
         const totalWordW = lineWords.reduce((s, w) => s + doc.widthOfString(w), 0)
-        const gap = (contentWidth - totalWordW) / (lineWords.length - 1)
+        const wordGap = (contentWidth - totalWordW) / (lineWords.length - 1)
         let x = margin
         for (const word of lineWords) {
           doc.font('Helvetica').fontSize(FONT_SIZE).fillColor('#1a1a1a')
             .text(word, x, y, { lineBreak: false })
-          x += doc.widthOfString(word) + gap
+          x += doc.widthOfString(word) + wordGap
         }
       }
       y += LINE_H
     }
   }
 
-  const maxBodyY = pageHeight - margin / 2 - footerHeight
   for (const paragraph of bodyText.split('\n')) {
     if (!paragraph.trim()) {
       gap()
     } else {
-      if (y + LINE_H > maxBodyY) break
+      if (y + LINE_H > pageHeight - margin / 2) break
       drawJustifiedParagraph(paragraph)
     }
   }
@@ -171,29 +159,22 @@ export async function generateLetterPdf(data: LetterPDFData): Promise<Uint8Array
     }
   }
 
-  // ── 5. TAMPON EN PIED DE PAGE ─────────────────────────────────────────────
-  const footerTop = pageHeight - margin / 2 - footerHeight
-  // Separator line
-  doc
-    .moveTo(margin, footerTop)
-    .lineTo(pageWidth - margin, footerTop)
-    .strokeColor('#cccccc')
-    .lineWidth(0.5)
-    .stroke()
-
-  // Practitioner info centered
-  data.practitioner_lines.forEach((line, i) => {
-    const font = i === 0 ? 'Helvetica-Bold' : 'Helvetica'
-    doc
-      .font(font)
-      .fontSize(FOOTER_FONT_SIZE)
-      .fillColor('#555555')
-      .text(line || ' ', margin, footerTop + 8 + i * FOOTER_LINE_H, {
-        width: contentWidth,
-        align: 'center',
-        lineBreak: false,
-      })
-  })
+  // ── 5. TAMPON (image, bas droite) ────────────────────────────────────────
+  if (data.stampUrl) {
+    try {
+      const response = await fetch(data.stampUrl)
+      if (response.ok) {
+        const arrayBuf = await response.arrayBuffer()
+        const buffer = Buffer.from(arrayBuf)
+        const stampWidth = 140
+        const stampX = pageWidth - margin - stampWidth
+        const stampY = pageHeight - margin - 100
+        doc.image(buffer, stampX, stampY, { width: stampWidth })
+      }
+    } catch (error) {
+      console.warn('Letter PDF: unable to load stamp image.', error)
+    }
+  }
 
   doc.end()
   return done

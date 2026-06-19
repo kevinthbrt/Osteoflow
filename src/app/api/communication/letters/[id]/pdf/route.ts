@@ -1,22 +1,32 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/db/server'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
     const { generateLetterPdf } = await import('@/lib/pdf/letter-pdfkit')
     const db = await createClient()
 
-    const { data: letter, error } = await db
-      .from('generated_letters')
-      .select('*')
-      .eq('id', id)
-      .single()
+    const { data: { user } } = await db.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+
+    const [{ data: letter, error }, { data: practitioner }] = await Promise.all([
+      db.from('generated_letters').select('*').eq('id', id).single(),
+      db.from('practitioners').select('stamp_url').eq('user_id', user.id).single(),
+    ])
 
     if (error || !letter) {
       return NextResponse.json({ error: 'Courrier non trouvé' }, { status: 404 })
+    }
+
+    let stampUrl: string | null = null
+    if (practitioner?.stamp_url) {
+      const raw = practitioner.stamp_url as string
+      stampUrl = raw.startsWith('/')
+        ? new URL(raw, req.nextUrl.origin).toString()
+        : raw
     }
 
     const recipientParts = [letter.recipient_title, letter.recipient_name].filter(Boolean)
@@ -27,6 +37,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       body: letter.body,
       closing: letter.closing ?? null,
       template_name: letter.template_name,
+      stampUrl,
     })
     const safeName = (letter.template_name ?? 'courrier').replace(/[^a-z0-9]/gi, '-').toLowerCase()
 

@@ -1,13 +1,31 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/db/server'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const { header, recipient_block, body, closing, template_name } = await req.json()
 
     if (!body) {
       return NextResponse.json({ error: 'body requis' }, { status: 400 })
+    }
+
+    const db = await createClient()
+    const { data: { user } } = await db.auth.getUser()
+    let stampUrl: string | null = null
+    if (user) {
+      const { data: practitioner } = await db
+        .from('practitioners')
+        .select('stamp_url')
+        .eq('user_id', user.id)
+        .single()
+      if (practitioner?.stamp_url) {
+        const raw = practitioner.stamp_url as string
+        stampUrl = raw.startsWith('/')
+          ? new URL(raw, req.nextUrl.origin).toString()
+          : raw
+      }
     }
 
     const { generateLetterPdf } = await import('@/lib/pdf/letter-pdfkit')
@@ -17,6 +35,7 @@ export async function POST(req: Request) {
       body: body || '',
       closing: closing || null,
       template_name,
+      stampUrl,
     })
     const safeName = ((template_name as string) ?? 'courrier').replace(/[^a-z0-9]/gi, '-').toLowerCase()
 
