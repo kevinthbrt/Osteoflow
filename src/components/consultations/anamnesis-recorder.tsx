@@ -36,7 +36,7 @@ type RecorderState =
   | 'done'
   | 'error'
 
-// ─── Web Speech API types ──────────────────────────────────────────────
+// ─── Web Speech API types ──────────────────────
 
 interface SpeechRecognitionEvent extends Event {
   resultIndex: number
@@ -127,14 +127,31 @@ async function clearAudioBlob(): Promise<void> {
   } catch { /* silencieux */ }
 }
 
-// ─── Composant ──────────────────────────────────────────────────────────────────
+interface AnamnesisSection {
+  id: string
+  label: string
+  icon: string
+  color: 'red' | 'amber' | 'blue' | 'purple' | 'green'
+  items: string[]
+  allClear?: boolean
+}
+
+const SECTION_STYLES: Record<AnamnesisSection['color'], { card: string; label: string; item: string }> = {
+  red:    { card: 'bg-red-50/60 border-red-200 dark:bg-red-950/20 dark:border-red-800', label: 'text-red-600 dark:text-red-400', item: 'text-red-900 dark:text-red-200' },
+  amber:  { card: 'bg-amber-50/60 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800', label: 'text-amber-600 dark:text-amber-400', item: 'text-amber-900 dark:text-amber-200' },
+  blue:   { card: 'bg-blue-50/60 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800', label: 'text-blue-600 dark:text-blue-400', item: 'text-blue-900 dark:text-blue-200' },
+  purple: { card: 'bg-purple-50/60 border-purple-200 dark:bg-purple-950/20 dark:border-purple-800', label: 'text-purple-600 dark:text-purple-400', item: 'text-purple-900 dark:text-purple-200' },
+  green:  { card: 'bg-green-50/60 border-green-200 dark:bg-green-950/20 dark:border-green-800', label: 'text-green-600 dark:text-green-400', item: 'text-green-900 dark:text-green-200' },
+}
+
+// ─── Composant ─────────────────────────────────────────────────────────────────────────────────
 
 export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId, onPatientFieldsDetected }: AnamnesisRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle')
   const [finalText, setFinalText] = useState('')
   const [interimText, setInterimText] = useState('')
   const [isElectronApp, setIsElectronApp] = useState(false)
-  const [structured, setStructured] = useState<{ reason: string; anamnesis: string } | null>(null)
+  const [structured, setStructured] = useState<{ reason: string; anamnesis: string; sections?: AnamnesisSection[] } | null>(null)
   const [detectedFields, setDetectedFields] = useState<PatientFieldsDetected | null>(null)
   const [detectionSkipped, setDetectionSkipped] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -142,19 +159,19 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
   const [elapsed, setElapsed] = useState(0)
   const [hasCachedAudio, setHasCachedAudio] = useState(false)
 
-  // ── Refs communs ─────────────────────────────────────────────────────────────────
+  // ── Refs communs ─────────────────────────────────────────────────────────────────────────────────────
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const finalTextRef = useRef('')
   const stateRef = useRef<RecorderState>('idle')
 
-  // ── Web Speech API ───────────────────────────────────────────────────────────
+  // ── Web Speech API ───────────────────────────────────────────
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const restartCountRef = useRef(0)
   const intentionalStopRef = useRef(false)
   const SRRef = useRef<(new () => SpeechRecognitionInstance) | null>(null)
 
-  // ── MediaRecorder (Electron) ──────────────────────────────────────────────────
+  // ── MediaRecorder (Electron) ──────────────────────────────────────────────
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<BlobPart[]>([])
   const mediaStreamRef = useRef<MediaStream | null>(null)
@@ -207,7 +224,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
     if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null }
   }, [])
 
-  // ── Structuration Claude ──────────────────────────────────────────────────────
+  // ── Structuration Claude ────────────────────────────────────────────
 
   const handleStructure = useCallback(async () => {
     const text = finalTextRef.current.trim()
@@ -234,7 +251,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
       })
       const data = await res.json()
       if (!res.ok) { setErrorMsg(data.error || 'Erreur lors de la structuration.'); setState('error'); return }
-      setStructured({ reason: data.reason, anamnesis: data.anamnesis })
+      setStructured({ reason: data.reason, anamnesis: data.anamnesis, sections: data.sections })
       if (data.patient_fields && Object.keys(data.patient_fields).length > 0) {
         setDetectedFields(data.patient_fields)
       }
@@ -246,7 +263,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
     }
   }, [stopTimer, stopReconnectTimer])
 
-  // ── Réinitialisation ───────────────────────────────────────────────────────────
+  // ── Réinitialisation ───────────────────────────────────────────────────
 
   const handleReset = useCallback(() => {
     intentionalStopRef.current = true
@@ -555,7 +572,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
     setState('idle')
   }, [stopTimer, stopReconnectTimer])
 
-  // ─── Handlers unifiés ────────────────────────────────────────────────────────────────
+  // ─── Handlers unifiés ────────────────────────────────────────────────────────────────────────────────
 
   const startRecording = useCallback(() => {
     if (isElectron()) startMediaRecorder()
@@ -615,7 +632,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
     setDetectedFields(null)
   }, [detectedFields, onPatientFieldsDetected])
 
-  // ─── Rendu ────────────────────────────────────────────────────────────────────────────
+  // ─── Rendu ─────────────────────────────────────────────────────────────────────────────────────
 
   const hasTranscript = finalText.trim().length > 0
 
@@ -732,25 +749,85 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
 
       {/* Résultat structuré */}
       {state === 'done' && structured && (
-        <div className="rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed max-h-[300px] overflow-y-auto">
+        <div className="space-y-2">
+          {/* Motif pill */}
           {structured.reason && (
-            <p className="font-semibold text-foreground mb-3">Motif : {structured.reason}</p>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-800 text-red-700 dark:text-red-300 text-xs font-semibold rounded-full px-3 py-1">
+                🎯 {structured.reason}
+              </span>
+            </div>
           )}
-          <div className="text-muted-foreground space-y-1">
-            {structured.anamnesis.split('\n').map((line, i) => {
-              if (!line.trim()) return <div key={i} className="h-1" />
-              const parts = line.split(/\*\*(.+?)\*\*/g)
-              return (
-                <p key={i} className="leading-relaxed">
-                  {parts.map((part, j) =>
-                    j % 2 === 1 ? (
-                      <strong key={j} className="font-semibold text-foreground">{part}</strong>
-                    ) : part
-                  )}
-                </p>
-              )
-            })}
-          </div>
+
+          {/* Cards sections */}
+          {structured.sections && structured.sections.length > 0 ? (
+            <div className="grid grid-cols-2 gap-1.5">
+              {structured.sections.map((section) => {
+                const styles = SECTION_STYLES[section.color] ?? SECTION_STYLES.blue
+                const isRedFlags = section.id === 'red_flags'
+                return (
+                  <div
+                    key={section.id}
+                    className={cn(
+                      'rounded-lg border px-2.5 py-2 text-xs',
+                      styles.card,
+                      isRedFlags && 'col-span-2'
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span>{section.icon}</span>
+                      <span className={cn('font-semibold uppercase tracking-wide text-[10px]', styles.label)}>
+                        {section.label}
+                      </span>
+                      {isRedFlags && section.allClear && (
+                        <span className="ml-auto flex items-center gap-1 text-[10px] font-medium text-green-600 dark:text-green-400">
+                          <Check className="h-3 w-3" /> Aucun identifié
+                        </span>
+                      )}
+                    </div>
+                    {isRedFlags && section.allClear ? (
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                        {section.items.filter(i => i !== '—').map((item, i) => (
+                          <span key={i} className={cn('flex items-center gap-1', styles.item)}>
+                            <Check className="h-2.5 w-2.5 text-green-500 shrink-0" />
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <ul className="space-y-0.5 list-none pl-0">
+                        {section.items.map((item, i) => (
+                          <li key={i} className={cn('leading-relaxed', item === '—' ? 'text-muted-foreground italic' : styles.item)}>
+                            {item !== '—' && <span className="mr-1 opacity-40">·</span>}
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            /* Fallback texte si pas de sections (réponse ancienne format) */
+            <div className="rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed max-h-[300px] overflow-y-auto">
+              <div className="text-muted-foreground space-y-1">
+                {structured.anamnesis.split('\n').map((line, i) => {
+                  if (!line.trim()) return <div key={i} className="h-1" />
+                  const parts = line.split(/\*\*(.+?)\*\*/g)
+                  return (
+                    <p key={i} className="leading-relaxed">
+                      {parts.map((part, j) =>
+                        j % 2 === 1 ? (
+                          <strong key={j} className="font-semibold text-foreground">{part}</strong>
+                        ) : part
+                      )}
+                    </p>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
