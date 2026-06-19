@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Target, Settings, Users, Euro, Check, Pencil, X } from 'lucide-react'
+import { Loader2, Target, Settings, Users, Euro, Check, Pencil, X, TrendingUp, TrendingDown, Sparkles } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 const MONTHS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
@@ -260,6 +260,190 @@ function AnnualProgressTimeline({ data, year }: AnnualTimelineProps) {
   )
 }
 
+interface ProjectionHeroProps {
+  data: ObjectivesData
+  year: number
+}
+
+/**
+ * Carte "hero" de projection — l'info la plus motivante de la page.
+ *
+ * Extrapole le CA de fin d'année à partir du rythme actuel (CA réel ÷ fraction
+ * d'année écoulée) et le compare à l'objectif annuel. Indique aussi combien il
+ * reste à réaliser par jour travaillé pour atteindre la cible.
+ */
+function ProjectionHero({ data, year }: ProjectionHeroProps) {
+  const now = new Date()
+  const startOfYear = new Date(year, 0, 1)
+  const isLeap = (year % 400 === 0) || (year % 4 === 0 && year % 100 !== 0)
+  const totalDays = isLeap ? 366 : 365
+  const dayOfYear = Math.max(1, Math.floor((now.getTime() - startOfYear.getTime()) / 86400000) + 1)
+  const elapsedFraction = Math.min(1, dayOfYear / totalDays)
+
+  const annualObj = data.settings.annual_revenue_objective!
+  const realYear = data.revenue.this_year
+
+  // Pas assez de recul en tout début d'année → projection trop bruitée
+  const enoughData = dayOfYear >= 14
+
+  const projected = enoughData && elapsedFraction > 0 ? realYear / elapsedFraction : realYear
+  const projectedPct = annualObj > 0 ? (projected / annualObj) * 100 : 0
+  const onTrack = projected >= annualObj
+
+  // Reste à réaliser et rythme requis sur les jours travaillés restants
+  const remaining = Math.max(0, annualObj - realYear)
+  const workingDaysElapsed = data.computed.working_days * elapsedFraction
+  const remainingWorkingDays = Math.max(0, data.computed.working_days - workingDaysElapsed)
+  const needPerDay = remainingWorkingDays > 0 ? remaining / remainingWorkingDays : 0
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl gradient-primary text-white p-6 shadow-lg">
+      {/* Liquid glass sheen */}
+      <div className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full bg-white/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 -left-10 w-56 h-56 rounded-full bg-black/10 blur-3xl" />
+
+      <div className="relative flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <div className="flex items-center gap-2 text-white/80 text-sm font-medium">
+            <Sparkles className="h-4 w-4" />
+            Projection fin {year}
+          </div>
+          {enoughData ? (
+            <>
+              <p className="mt-1 text-4xl font-bold tracking-tight tabular-nums">{formatEuro(projected)}</p>
+              <p className="mt-1 text-sm text-white/80">
+                au rythme actuel · <span className="font-semibold text-white">{projectedPct.toFixed(0)} %</span> de l&apos;objectif
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mt-1 text-2xl font-bold tracking-tight">Bientôt disponible</p>
+              <p className="mt-1 text-sm text-white/80">La projection s&apos;affine après deux semaines d&apos;activité.</p>
+            </>
+          )}
+        </div>
+
+        {enoughData && (
+          <div className="flex flex-col items-end gap-2">
+            <div
+              className={`flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full backdrop-blur-sm ${
+                onTrack ? 'bg-white/25' : 'bg-black/20'
+              }`}
+            >
+              {onTrack ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+              {onTrack
+                ? `+${formatEuro(projected - annualObj)} au-dessus`
+                : `${formatEuro(annualObj - projected)} sous l'objectif`}
+            </div>
+            {!onTrack && needPerDay > 0 && (
+              <p className="text-xs text-white/80 text-right">
+                Pour combler : <span className="font-semibold text-white">{formatEuro(needPerDay)}</span> / jour travaillé
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Mini barre objectif vs projection */}
+      {enoughData && (
+        <div className="relative mt-5">
+          <div className="h-2.5 w-full rounded-full bg-white/20 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-white transition-all duration-700"
+              style={{ width: `${Math.min(100, projectedPct)}%` }}
+            />
+          </div>
+          <div className="mt-1.5 flex justify-between text-xs text-white/70">
+            <span>Réalisé {formatEuro(realYear)}</span>
+            <span>Objectif {formatEuro(annualObj)}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface MonthlyBarChartProps {
+  breakdown: ObjectivesData['revenue']['monthly_breakdown']
+  monthlyObjective: number
+  currentMonth: number
+}
+
+/**
+ * Graphique en barres CA réalisé vs objectif mensuel (SVG/divs, sans lib).
+ * Ligne de référence pointillée = objectif mensuel. Mois en cours mis en
+ * valeur, mois futurs estompés.
+ */
+function MonthlyBarChart({ breakdown, monthlyObjective, currentMonth }: MonthlyBarChartProps) {
+  const maxVal = Math.max(monthlyObjective, ...breakdown.map((b) => b.total), 1)
+  const objPct = (monthlyObjective / maxVal) * 100
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Évolution mensuelle</CardTitle>
+        <CardDescription>CA réalisé par mois — la ligne pointillée marque l&apos;objectif mensuel.</CardDescription>
+      </CardHeader>
+      <CardContent className="pt-4">
+        <div className="relative h-44">
+          {/* Ligne d'objectif */}
+          <div
+            className="absolute left-0 right-0 border-t border-dashed border-foreground/30 z-10"
+            style={{ bottom: `${objPct}%` }}
+          >
+            <span className="absolute -top-2.5 right-0 bg-background px-1 text-[10px] text-muted-foreground">
+              {formatEuro(monthlyObjective)}
+            </span>
+          </div>
+
+          {/* Barres */}
+          <div className="absolute inset-0 flex items-end justify-between gap-1.5">
+            {breakdown.map((row) => {
+              const isFuture = row.month > currentMonth
+              const isCurrent = row.month === currentMonth
+              const hPct = (row.total / maxVal) * 100
+              const reached = row.total >= monthlyObjective && monthlyObjective > 0
+              return (
+                <div key={row.month} className="group relative flex-1 flex flex-col items-center justify-end h-full">
+                  {row.total > 0 && (
+                    <span className="absolute -top-0 text-[9px] font-medium text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity tabular-nums whitespace-nowrap">
+                      {formatEuro(row.total)}
+                    </span>
+                  )}
+                  <div
+                    className={`w-full max-w-[28px] rounded-t-md transition-all duration-500 ${
+                      isFuture
+                        ? 'bg-muted'
+                        : reached
+                          ? 'bg-emerald-500'
+                          : 'bg-primary'
+                    } ${isCurrent ? 'ring-2 ring-primary/40 ring-offset-1 ring-offset-background' : ''}`}
+                    style={{ height: `${Math.max(hPct, row.total > 0 ? 2 : 0)}%` }}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Labels mois */}
+        <div className="mt-2 flex justify-between gap-1.5">
+          {breakdown.map((row) => (
+            <div
+              key={row.month}
+              className={`flex-1 text-center text-[10px] ${
+                row.month === currentMonth ? 'font-semibold text-foreground' : 'text-muted-foreground'
+              }`}
+            >
+              {MONTHS_FR[row.month - 1].slice(0, 3)}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 interface EditableManualEntryProps {
   month: number
   year: number
@@ -423,6 +607,9 @@ export default function ObjectivesPage() {
       {/* Progress bars */}
       {hasObjective && data && (
         <>
+          {/* Projection fin d'année — hero */}
+          <ProjectionHero data={data} year={currentYear} />
+
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <ProgressBar
               label="Aujourd'hui"
@@ -460,6 +647,13 @@ export default function ObjectivesPage() {
 
           {/* Annual timeline bar */}
           <AnnualProgressTimeline data={data} year={currentYear} />
+
+          {/* Monthly bar chart */}
+          <MonthlyBarChart
+            breakdown={data.revenue.monthly_breakdown}
+            monthlyObjective={data.computed.monthly_objective}
+            currentMonth={currentMonth}
+          />
 
           {/* Summary chips */}
           <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
