@@ -41,7 +41,8 @@ import { EditPatientModal } from '@/components/patients/edit-patient-modal'
 import { TopographyPanel } from '@/components/consultations/topography-panel'
 import { LowBackPainTree } from '@/components/consultations/low-back-pain-tree'
 import { NeckPainTree } from '@/components/consultations/neck-pain-tree'
-import { AnamnesisRecorder } from '@/components/consultations/anamnesis-recorder'
+import { AnamnesisRecorder, type AnamnesisSection } from '@/components/consultations/anamnesis-recorder'
+import { AnamnesisCards } from '@/components/consultations/anamnesis-cards'
 import { MarkdownField } from '@/components/ui/markdown-field'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
@@ -116,6 +117,8 @@ export function ConsultationForm({
   const [prescriptionsRefreshKey, setPrescriptionsRefreshKey] = useState(0)
   const [showTestsSuggestions, setShowTestsSuggestions] = useState(false)
   const [showOrthoTestsPicker, setShowOrthoTestsPicker] = useState(false)
+  const [anamnesisCardSections, setAnamnesisCardSections] = useState<AnamnesisSection[] | null>(null)
+  const [anamnesisCardReason, setAnamnesisCardReason] = useState<string | undefined>(undefined)
   const [orthoPickerRegionFilter, setOrthoPickerRegionFilter] = useState<string | undefined>(undefined)
   const [techMentionRegion, setTechMentionRegion] = useState<string | null>(null)
   const [techItems, setTechItems] = useState<{ id: string; name: string; region: string | null; description: string | null; use_count: number }[]>([])
@@ -735,6 +738,10 @@ export function ConsultationForm({
                 onApply={(data) => {
                   if (data.reason) setValue('reason', data.reason, { shouldDirty: true })
                   if (data.anamnesis) setValue('anamnesis', data.anamnesis, { shouldDirty: true })
+                  if (data.sections && data.sections.length > 0) {
+                    setAnamnesisCardSections(data.sections)
+                    setAnamnesisCardReason(data.reason)
+                  }
                   // Sauvegarde immédiate — sans attendre le debounce de 3s
                   // car l'utilisateur peut mettre l'ordi en veille juste après.
                   setTimeout(saveDraftNow, 0)
@@ -801,14 +808,23 @@ export function ConsultationForm({
               />
               <div className="space-y-2">
                 <Label htmlFor="anamnesis">Anamnèse</Label>
-                <MarkdownField
-                  id="anamnesis"
-                  value={anamnesis || ''}
-                  onChange={(val) => setValue('anamnesis', val, { shouldDirty: true })}
-                  disabled={isLoading}
-                  placeholder="Histoire de la maladie, circonstances d'apparition, évolution..."
-                  rows={4}
-                />
+                {anamnesisCardSections ? (
+                  <AnamnesisCards
+                    reason={anamnesisCardReason}
+                    sections={anamnesisCardSections}
+                    disabled={isLoading}
+                    onEdit={() => setAnamnesisCardSections(null)}
+                  />
+                ) : (
+                  <MarkdownField
+                    id="anamnesis"
+                    value={anamnesis || ''}
+                    onChange={(val) => setValue('anamnesis', val, { shouldDirty: true })}
+                    disabled={isLoading}
+                    placeholder="Histoire de la maladie, circonstances d'apparition, évolution..."
+                    rows={4}
+                  />
+                )}
                 {errors.anamnesis && (
                   <p className="text-sm text-destructive">{errors.anamnesis.message}</p>
                 )}
