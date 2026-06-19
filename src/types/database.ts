@@ -236,6 +236,7 @@ export interface Database {
           date_time: string
           reason: string
           anamnesis: string | null
+          anamnesis_sections: string | null
           examination: string | null
           advice: string | null
           follow_up_7d: boolean
@@ -251,6 +252,7 @@ export interface Database {
           date_time?: string
           reason: string
           anamnesis?: string | null
+          anamnesis_sections?: string | null
           examination?: string | null
           advice?: string | null
           follow_up_7d?: boolean
@@ -266,6 +268,7 @@ export interface Database {
           date_time?: string
           reason?: string
           anamnesis?: string | null
+          anamnesis_sections?: string | null
           examination?: string | null
           advice?: string | null
           follow_up_7d?: boolean
