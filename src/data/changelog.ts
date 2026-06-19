@@ -33,6 +33,9 @@ export const changelog: ChangelogEntry[] = [
       // Courriers
       { type: 'improvement', text: 'Courriers générés : votre tampon (configuré dans les paramètres, comme sur les factures) est désormais apposé en bas à droite du PDF. Le pied de page texte qui faisait doublon a été retiré.' },
       { type: 'fix', text: 'Courriers générés : le corps justifié ne déborde plus de la page sur la droite et l\'alignement du bloc destinataire à droite est fiabilisé.' },
+      // Anamnèse
+      { type: 'improvement', text: 'Anamnèse structurée : une fois la dictée injectée, le contenu s\'affiche directement dans le champ Anamnèse sous forme de cartes thématiques claires (motif, antécédents, histoire de la plainte…) au lieu d\'un bloc de texte brut. Les sections sont conservées et réapparaissent sur les consultations enregistrées et passées.' },
+      { type: 'improvement', text: 'Anamnèse structurée : nouveau code couleur sémantique — le rouge et le vert sont désormais réservés aux drapeaux (red flags), le reste des sections adopte des teintes neutres pour ne pas noyer l\'information importante.' },
     ],
   },
   {
