@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import {
   type HypothesesPayload,
   type TestResult,
+  type ProbabilityEffect,
   recomputeProbabilities,
 } from '@/lib/hypotheses'
 
@@ -18,15 +19,41 @@ const RANK_BAR = ['bg-indigo-500', 'bg-sky-500', 'bg-teal-500']
 const RANK_TEXT = ['text-indigo-600 dark:text-indigo-400', 'text-sky-600 dark:text-sky-400', 'text-teal-600 dark:text-teal-400']
 
 export function HypothesesCard({ payload, onClose }: HypothesesCardProps) {
+  // Résultats des tests (par test_id) et réponses aux questions (par id → index de réponse).
   const [results, setResults] = useState<Record<string, TestResult>>({})
+  const [answers, setAnswers] = useState<Record<string, number | null>>({})
+
+  // Effets actifs combinés (tests cochés + réponses choisies).
+  const effects = useMemo<ProbabilityEffect[]>(() => {
+    const out: ProbabilityEffect[] = []
+    for (const t of payload.tests) {
+      const r = results[t.test_id]
+      if (r === 'positive') out.push({ targetId: t.targetId, delta: t.deltaPositive })
+      else if (r === 'negative') out.push({ targetId: t.targetId, delta: t.deltaNegative })
+    }
+    for (const q of payload.questions ?? []) {
+      const ai = answers[q.id]
+      if (ai != null && q.answers[ai]) out.push({ targetId: q.answers[ai].targetId, delta: q.answers[ai].delta })
+    }
+    return out
+  }, [payload, results, answers])
 
   const probs = useMemo(
-    () => recomputeProbabilities(payload.hypotheses, payload.tests, results),
-    [payload, results],
+    () => recomputeProbabilities(payload.hypotheses, effects),
+    [payload.hypotheses, effects],
+  )
+
+  // Re-classement en temps réel : la plus probable passe en tête.
+  const ranked = useMemo(
+    () => [...payload.hypotheses].sort((a, b) => (probs[b.id] ?? b.prior) - (probs[a.id] ?? a.prior)),
+    [payload.hypotheses, probs],
   )
 
   const setResult = (testId: string, value: TestResult) =>
     setResults(prev => ({ ...prev, [testId]: prev[testId] === value ? null : value }))
+
+  const setAnswer = (qid: string, idx: number) =>
+    setAnswers(prev => ({ ...prev, [qid]: prev[qid] === idx ? null : idx }))
 
   const labelById = (id: number) => payload.hypotheses.find(h => h.id === id)?.label ?? `Hypothèse ${id}`
 
@@ -57,9 +84,9 @@ export function HypothesesCard({ payload, onClose }: HypothesesCardProps) {
         </span>
       </div>
 
-      {/* Hypothèses avec probabilité en direct */}
+      {/* Hypothèses — classement et probabilités recalculés en direct */}
       <div className="space-y-2">
-        {payload.hypotheses.map((h, i) => {
+        {ranked.map((h, i) => {
           const p = probs[h.id] ?? h.prior
           return (
             <div key={h.id} className="space-y-1">
@@ -129,20 +156,37 @@ export function HypothesesCard({ payload, onClose }: HypothesesCardProps) {
         </div>
       )}
 
-      {/* Questions à poser pour compléter l'anamnèse */}
-      {payload.missing_questions && payload.missing_questions.length > 0 && (
-        <div className="space-y-1 pt-1">
+      {/* Questions à poser — chaque réponse fait évoluer le classement en direct */}
+      {payload.questions && payload.questions.length > 0 && (
+        <div className="space-y-1.5 pt-1">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
             <HelpCircle className="h-3 w-3" /> Questions à poser
           </p>
-          <ul className="space-y-0.5 list-none pl-0">
-            {payload.missing_questions.map((q, i) => (
-              <li key={i} className="text-xs leading-snug flex gap-1.5">
-                <span className="text-violet-500 shrink-0">•</span>
-                <span>{q}</span>
-              </li>
-            ))}
-          </ul>
+          {payload.questions.map((q) => {
+            const selected = answers[q.id] ?? null
+            return (
+              <div key={q.id} className="rounded-md border bg-background px-2.5 py-2 text-xs space-y-1.5">
+                <p className="font-medium leading-snug">{q.text}</p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {q.answers.map((a, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setAnswer(q.id, idx)}
+                      className={cn(
+                        'rounded px-2 py-0.5 text-[11px] font-medium border transition-colors',
+                        selected === idx
+                          ? 'bg-violet-600 text-white border-violet-600'
+                          : 'border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-400',
+                      )}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

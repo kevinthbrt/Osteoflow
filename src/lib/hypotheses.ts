@@ -26,33 +26,51 @@ export interface HypothesisTest {
   rationale: string
 }
 
+/** Une réponse possible à une question, avec son effet indicatif sur une hypothèse. */
+export interface QuestionAnswer {
+  label: string
+  targetId: number
+  delta: number
+}
+
+/** Question à poser au patient ; chaque réponse influence le classement en direct. */
+export interface ClinicalQuestion {
+  id: string
+  text: string
+  answers: QuestionAnswer[]
+}
+
 export interface HypothesesPayload {
   hypotheses: Hypothesis[]
   tests: HypothesisTest[]
-  /** 0–3 questions à poser au patient pour affiner le raisonnement (optionnel). */
-  missing_questions?: string[]
+  /** 0–3 questions interactives à poser au patient (optionnel). */
+  questions?: ClinicalQuestion[]
 }
 
 export type TestResult = 'positive' | 'negative' | null
 
+/** Un effet appliqué à une hypothèse (issu d'un test coché ou d'une réponse). */
+export interface ProbabilityEffect {
+  targetId: number
+  delta: number
+}
+
 /**
- * Recalcule les probabilités à partir des a priori et des résultats de tests cochés.
- * Heuristique simple et transparente : on applique le delta du test à l'hypothèse
- * ciblée, on borne chaque score à 1–99 %, puis on renormalise pour sommer à 100 %.
+ * Recalcule les probabilités à partir des a priori et des effets actifs (tests
+ * cochés + réponses aux questions). Heuristique simple et transparente : on applique
+ * chaque delta à l'hypothèse ciblée, on borne chaque score à 1–99 %, puis on
+ * renormalise pour sommer à 100 %.
  */
 export function recomputeProbabilities(
   hypotheses: Hypothesis[],
-  tests: HypothesisTest[],
-  results: Record<string, TestResult>,
+  effects: ProbabilityEffect[],
 ): Record<number, number> {
   const scores: Record<number, number> = {}
   for (const h of hypotheses) scores[h.id] = h.prior
 
-  for (const t of tests) {
-    const r = results[t.test_id]
-    if (!r) continue
-    if (scores[t.targetId] === undefined) continue
-    scores[t.targetId] += r === 'positive' ? t.deltaPositive : t.deltaNegative
+  for (const e of effects) {
+    if (scores[e.targetId] === undefined) continue
+    scores[e.targetId] += e.delta
   }
 
   for (const id of Object.keys(scores)) {
