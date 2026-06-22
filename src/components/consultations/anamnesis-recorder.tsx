@@ -787,7 +787,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
           {/* Motif pill */}
           {structured.reason && (
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-800 text-red-700 dark:text-red-300 text-xs font-semibold rounded-full px-3 py-1">
+              <span className="inline-flex items-center gap-1.5 max-w-full break-words bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-800 text-red-700 dark:text-red-300 text-xs font-semibold rounded-full px-3 py-1">
                 🎯 {structured.reason}
               </span>
             </div>
@@ -795,7 +795,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
 
           {/* Cards sections */}
           {structured.sections && structured.sections.length > 0 ? (
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               {structured.sections.map((section) => {
                 const isRedFlags = section.id === 'red_flags'
                 const effectiveColor = isRedFlags
@@ -806,14 +806,14 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
                   <div
                     key={section.id}
                     className={cn(
-                      'rounded-lg border px-2.5 py-2 text-xs',
+                      'rounded-lg border px-2.5 py-2 text-xs min-w-0',
                       styles.card,
-                      isRedFlags && 'col-span-2'
+                      isRedFlags && 'sm:col-span-2'
                     )}
                   >
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <span>{section.icon}</span>
-                      <span className={cn('font-semibold uppercase tracking-wide text-[10px]', styles.label)}>
+                    <div className="flex items-center gap-1.5 mb-1.5 min-w-0">
+                      <span className="shrink-0">{section.icon}</span>
+                      <span className={cn('font-semibold uppercase tracking-wide text-[10px] leading-tight break-words min-w-0', styles.label)}>
                         {section.label}
                       </span>
                       {isRedFlags && section.allClear && (
@@ -834,7 +834,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
                     ) : (
                       <ul className="space-y-0.5 list-none pl-0">
                         {section.items.map((item, i) => (
-                          <li key={i} className={cn('leading-relaxed', item === '—' ? 'text-muted-foreground italic' : styles.item)}>
+                          <li key={i} className={cn('leading-relaxed break-words', item === '—' ? 'text-muted-foreground italic' : styles.item)}>
                             {item !== '—' && <span className="mr-1 opacity-40">·</span>}
                             {item}
                           </li>
