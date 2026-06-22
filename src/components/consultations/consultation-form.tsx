@@ -45,6 +45,8 @@ import { AnamnesisRecorder, type AnamnesisSection } from '@/components/consultat
 import { AnamnesisCards } from '@/components/consultations/anamnesis-cards'
 import { AnamnesisDisplay } from '@/components/consultations/anamnesis-display'
 import { sectionsToMarkdown } from '@/lib/anamnesis'
+import { HypothesesCard } from '@/components/consultations/hypotheses-card'
+import type { HypothesesPayload } from '@/lib/hypotheses'
 import { MarkdownField } from '@/components/ui/markdown-field'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
@@ -129,6 +131,10 @@ export function ConsultationForm({
     return null
   })
   const [anamnesisCardReason, setAnamnesisCardReason] = useState<string | undefined>(consultation?.reason || undefined)
+  // Carte « Hypothèses cliniques » — éphémère (générée à la demande, non persistée).
+  const [hypotheses, setHypotheses] = useState<HypothesesPayload | null>(null)
+  const [hypothesesLoading, setHypothesesLoading] = useState(false)
+  const [hypothesesError, setHypothesesError] = useState<string | null>(null)
   const [orthoPickerRegionFilter, setOrthoPickerRegionFilter] = useState<string | undefined>(undefined)
   const [techMentionRegion, setTechMentionRegion] = useState<string | null>(null)
   const [techItems, setTechItems] = useState<{ id: string; name: string; region: string | null; description: string | null; use_count: number }[]>([])
@@ -623,6 +629,33 @@ export function ConsultationForm({
   const advice = watch('advice')
   const consultationFilled = !!(reason && (anamnesis || examination || advice))
 
+  const generateHypotheses = async () => {
+    if (!anamnesis?.trim()) return
+    setHypothesesLoading(true)
+    setHypothesesError(null)
+    try {
+      const res = await fetch('/api/ai/generate-hypotheses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ anamnesis, reason }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setHypothesesError(data.error || 'Erreur lors de la génération.')
+        return
+      }
+      if (!data.hypotheses || data.hypotheses.length === 0) {
+        setHypothesesError('Aucune hypothèse générée.')
+        return
+      }
+      setHypotheses(data as HypothesesPayload)
+    } catch {
+      setHypothesesError('Impossible de contacter le serveur.')
+    } finally {
+      setHypothesesLoading(false)
+    }
+  }
+
   // Auto-resize textareas when values are set programmatically (e.g. via decision tree)
   useEffect(() => {
     const textareas = document.querySelectorAll<HTMLTextAreaElement>('textarea[data-autoresize]')
@@ -856,6 +889,30 @@ export function ConsultationForm({
                 )}
                 {errors.anamnesis && (
                   <p className="text-sm text-destructive">{errors.anamnesis.message}</p>
+                )}
+
+                {!hypotheses && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={generateHypotheses}
+                    disabled={!anamnesis?.trim() || hypothesesLoading || isLoading}
+                    className="w-full"
+                  >
+                    {hypothesesLoading ? (
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                    ) : (
+                      <Stethoscope className="h-4 w-4 mr-1.5" />
+                    )}
+                    Hypothèses cliniques
+                  </Button>
+                )}
+                {hypothesesError && (
+                  <p className="text-sm text-destructive">{hypothesesError}</p>
+                )}
+                {hypotheses && (
+                  <HypothesesCard payload={hypotheses} onClose={() => setHypotheses(null)} />
                 )}
               </div>
 
