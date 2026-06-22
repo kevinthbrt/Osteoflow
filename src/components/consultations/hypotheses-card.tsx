@@ -107,6 +107,40 @@ export function HypothesesCard({ payload, onClose }: HypothesesCardProps) {
         })}
       </div>
 
+      {/* Questions à poser — chaque réponse fait évoluer le classement en direct */}
+      {payload.questions && payload.questions.length > 0 && (
+        <div className="space-y-1.5 pt-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+            <HelpCircle className="h-3 w-3" /> Questions à poser
+          </p>
+          {payload.questions.map((q) => {
+            const selected = answers[q.id] ?? null
+            return (
+              <div key={q.id} className="rounded-md border bg-background px-2.5 py-2 text-xs space-y-1.5">
+                <p className="font-medium leading-snug">{q.text}</p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {q.answers.map((a, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setAnswer(q.id, idx)}
+                      className={cn(
+                        'rounded px-2 py-0.5 text-[11px] font-medium border transition-colors',
+                        selected === idx
+                          ? 'bg-violet-600 text-white border-violet-600'
+                          : 'border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-400',
+                      )}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* Tests préconisés avec impact interactif */}
       {payload.tests.length > 0 && (
         <div className="space-y-1.5 pt-1">
@@ -149,40 +183,6 @@ export function HypothesesCard({ payload, onClose }: HypothesesCardProps) {
                   >
                     Négatif {t.deltaNegative}%
                   </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Questions à poser — chaque réponse fait évoluer le classement en direct */}
-      {payload.questions && payload.questions.length > 0 && (
-        <div className="space-y-1.5 pt-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-            <HelpCircle className="h-3 w-3" /> Questions à poser
-          </p>
-          {payload.questions.map((q) => {
-            const selected = answers[q.id] ?? null
-            return (
-              <div key={q.id} className="rounded-md border bg-background px-2.5 py-2 text-xs space-y-1.5">
-                <p className="font-medium leading-snug">{q.text}</p>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {q.answers.map((a, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setAnswer(q.id, idx)}
-                      className={cn(
-                        'rounded px-2 py-0.5 text-[11px] font-medium border transition-colors',
-                        selected === idx
-                          ? 'bg-violet-600 text-white border-violet-600'
-                          : 'border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-400',
-                      )}
-                    >
-                      {a.label}
-                    </button>
-                  ))}
                 </div>
               </div>
             )
