@@ -10,8 +10,8 @@ const FALLBACK_SECRET = 'a8c0fcc6aa558582564131768fd6aa6b0628b84ac0abe494948b088
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json() as { anamnesis: string; reason?: string }
-    const { anamnesis, reason } = body
+    const body = await req.json() as { anamnesis: string; reason?: string; patientContext?: unknown }
+    const { anamnesis, reason, patientContext } = body
 
     if (!anamnesis?.trim()) {
       return NextResponse.json({ error: 'Anamnèse vide' }, { status: 400 })
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
           'Content-Type': 'application/json',
           'x-osteoflow-secret': secret,
         },
-        body: JSON.stringify({ anamnesis, reason }),
+        body: JSON.stringify({ anamnesis, reason, patientContext }),
         // Under our own 60s cap, with headroom for the proxy (which times out
         // its Anthropic call at 45s) to return its real error before we abort.
         signal: AbortSignal.timeout(55000),

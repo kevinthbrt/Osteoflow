@@ -29,6 +29,8 @@ export interface HypothesisTest {
 export interface HypothesesPayload {
   hypotheses: Hypothesis[]
   tests: HypothesisTest[]
+  /** 0–3 questions à poser au patient pour affiner le raisonnement (optionnel). */
+  missing_questions?: string[]
 }
 
 export type TestResult = 'positive' | 'negative' | null

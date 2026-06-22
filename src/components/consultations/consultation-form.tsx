@@ -629,6 +629,30 @@ export function ConsultationForm({
   const advice = watch('advice')
   const consultationFilled = !!(reason && (anamnesis || examination || advice))
 
+  // Contexte patient transmis à l'IA (structuration + hypothèses) : démographie + ATCD.
+  const computeAge = (birthDate?: string | null): number | null => {
+    if (!birthDate) return null
+    const b = new Date(birthDate)
+    if (Number.isNaN(b.getTime())) return null
+    const now = new Date()
+    let age = now.getFullYear() - b.getFullYear()
+    const m = now.getMonth() - b.getMonth()
+    if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--
+    return age >= 0 && age < 130 ? age : null
+  }
+  const patientClinicalContext = {
+    age: computeAge(currentPatient.birth_date),
+    sex: currentPatient.gender === 'F' ? 'femme' : currentPatient.gender === 'M' ? 'homme' : null,
+    profession: currentPatient.profession,
+    sport_activity: currentPatient.sport_activity,
+    primary_physician: currentPatient.primary_physician,
+    pregnancy_due_date: currentPatient.pregnancy_due_date,
+    surgical_history: currentPatient.surgical_history,
+    trauma_history: currentPatient.trauma_history,
+    medical_history: currentPatient.medical_history,
+    family_history: currentPatient.family_history,
+  }
+
   const generateHypotheses = async () => {
     if (!anamnesis?.trim()) return
     setHypothesesLoading(true)
@@ -637,7 +661,7 @@ export function ConsultationForm({
       const res = await fetch('/api/ai/generate-hypotheses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ anamnesis, reason }),
+        body: JSON.stringify({ anamnesis, reason, patientContext: patientClinicalContext }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -796,12 +820,7 @@ export function ConsultationForm({
                   setTimeout(saveDraftNow, 0)
                 }}
                 disabled={isLoading}
-                patientContext={{
-                  profession: currentPatient.profession,
-                  sport_activity: currentPatient.sport_activity,
-                  primary_physician: currentPatient.primary_physician,
-                  pregnancy_due_date: currentPatient.pregnancy_due_date,
-                }}
+                patientContext={patientClinicalContext}
                 onPatientFieldsDetected={async (fields) => {
                   try {
                     // Flat patient fields (replace)

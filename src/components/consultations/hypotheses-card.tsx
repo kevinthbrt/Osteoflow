@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Stethoscope, X, AlertTriangle } from 'lucide-react'
+import { Stethoscope, X, AlertTriangle, HelpCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   type HypothesesPayload,
@@ -52,7 +52,7 @@ export function HypothesesCard({ payload, onClose }: HypothesesCardProps) {
         <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
         <span>
           Aide à la décision. Hypothèses et pourcentages <strong>indicatifs</strong>, non validés
-          cliniquement et basés sur le seul interrogatoire. L'examen, l'interprétation et la décision
+          cliniquement et basés sur le seul interrogatoire. L&apos;examen, l&apos;interprétation et la décision
           relèvent de la <strong>seule responsabilité du praticien</strong>.
         </span>
       </div>
@@ -126,6 +126,23 @@ export function HypothesesCard({ payload, onClose }: HypothesesCardProps) {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Questions à poser pour compléter l'anamnèse */}
+      {payload.missing_questions && payload.missing_questions.length > 0 && (
+        <div className="space-y-1 pt-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+            <HelpCircle className="h-3 w-3" /> Questions à poser
+          </p>
+          <ul className="space-y-0.5 list-none pl-0">
+            {payload.missing_questions.map((q, i) => (
+              <li key={i} className="text-xs leading-snug flex gap-1.5">
+                <span className="text-violet-500 shrink-0">•</span>
+                <span>{q}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

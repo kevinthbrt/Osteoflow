@@ -13,6 +13,8 @@ const PROXY_URL = 'https://osteoupgrade.vercel.app/api/osteoflow/ai'
 const PROXY_SECRET = 'a8c0fcc6aa558582564131768fd6aa6b0628b84ac0abe494948b088f086be1a6'
 
 interface CurrentPatientContext {
+  age?: number | null
+  sex?: string | null
   profession?: string | null
   sport_activity?: string | null
   primary_physician?: string | null

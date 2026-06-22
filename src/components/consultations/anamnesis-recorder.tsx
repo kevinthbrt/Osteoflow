@@ -10,6 +10,8 @@ import type { PatientFieldsDetected } from '@/types/ai'
 export type { PatientFieldsDetected }
 
 interface PatientContext {
+  age?: number | null
+  sex?: string | null
   profession?: string | null
   sport_activity?: string | null
   primary_physician?: string | null
@@ -206,6 +208,13 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
   // au lieu de le remplacer (utilisé pour la continuation après arrêt automatique).
   const isContinuingRef = useRef(false)
 
+  // ── Workflow automatique ──────────────────────────────────────────────────
+  // pendingStructure : on a arrêté la dictée et on veut structurer dès que le
+  // transcript est prêt. applied : le résultat structuré a déjà été injecté dans
+  // le formulaire (évite une double injection).
+  const pendingStructureRef = useRef(false)
+  const appliedRef = useRef(false)
+
   // ── Persistance localStorage (survie à la veille/rechargement) ────────────
   // Clé spécifique au patient : un brouillon dicté ne doit jamais « fuiter »
   // d'un patient vers un autre. Sans patientId on retombe sur l'ancienne clé.
@@ -299,6 +308,8 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
 
   const handleReset = useCallback(() => {
     intentionalStopRef.current = true
+    pendingStructureRef.current = false
+    appliedRef.current = false
     stopReconnectTimer()
     recognitionRef.current?.stop()
     recognitionRef.current = null
@@ -607,37 +618,59 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
   // ─── Handlers unifiés ────────────────────────────────────────────────────────────────
 
   const startRecording = useCallback(() => {
+    appliedRef.current = false
+    pendingStructureRef.current = false
     if (isElectron()) startMediaRecorder()
     else startSpeechRecognition()
   }, [startMediaRecorder, startSpeechRecognition])
 
   const stopRecording = useCallback(() => {
+    // Marque qu'on veut structurer automatiquement dès que le transcript est prêt.
+    pendingStructureRef.current = true
     if (isElectron()) stopMediaRecorder()
     else stopSpeechRecognition()
   }, [stopMediaRecorder, stopSpeechRecognition])
 
-  const handleApply = useCallback(() => {
-    if (!structured) return
-    onApply(structured)
-    if (detectedFields && onPatientFieldsDetected) {
-      onPatientFieldsDetected(detectedFields)
+  // Auto-structuration : dès que la dictée est arrêtée et le transcript prêt.
+  // Web uniquement (dictée continue). En Electron on garde le flux manuel pour
+  // permettre « Continuer la dictée » en plusieurs segments avant de structurer.
+  useEffect(() => {
+    if (
+      pendingStructureRef.current &&
+      !isElectron() &&
+      state === 'idle' &&
+      finalText.trim().length > 0 &&
+      !structured
+    ) {
+      pendingStructureRef.current = false
+      void handleStructure()
     }
-    // Réinitialise l'encadré de dictée : le résultat structuré vit désormais
-    // dans le champ Anamnèse (cartes), pas ici.
-    clearDraft()
-    clearAudioBlob()
-    setHasCachedAudio(false)
-    setState('idle')
-    setFinalText('')
-    setInterimText('')
-    setStructured(null)
-    setDetectedFields(null)
-    setDetectionSkipped(false)
-    setErrorMsg('')
-    setStatusMsg('')
-    setElapsed(0)
-    finalTextRef.current = ''
-  }, [structured, detectedFields, onApply, onPatientFieldsDetected, clearDraft])
+  }, [state, finalText, structured, handleStructure])
+
+  // Auto-injection : dès que la structuration est terminée, on injecte directement
+  // dans le champ Anamnèse (cartes éditables). On laisse ensuite l'éventuelle revue
+  // des infos patient détectées, puis on replie le bloc une fois tout traité.
+  useEffect(() => {
+    if (state !== 'done') return
+    if (structured && !appliedRef.current) {
+      appliedRef.current = true
+      onApply(structured)
+      clearDraft()
+      // Le résultat vit désormais dans le champ Anamnèse : on masque l'aperçu ici.
+      setStructured(null)
+      return
+    }
+    if (appliedRef.current && !structured && !detectedFields) {
+      clearAudioBlob()
+      setHasCachedAudio(false)
+      setState('idle')
+      setFinalText('')
+      setInterimText('')
+      setDetectionSkipped(false)
+      setElapsed(0)
+      finalTextRef.current = ''
+    }
+  }, [state, structured, detectedFields, onApply, clearDraft, clearAudioBlob])
 
   const acceptField = useCallback((key: keyof PatientFieldsDetected) => {
     if (!detectedFields || !onPatientFieldsDetected) return
@@ -976,18 +1009,10 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
         )}
 
         {state === 'recording' && (
-          <>
-            <Button type="button" size="sm" variant="destructive" onClick={stopRecording} className="gap-1.5">
-              <MicOff className="h-3.5 w-3.5" />
-              Arrêter
-            </Button>
-            {hasTranscript && !isElectron() && (
-              <Button type="button" size="sm" variant="outline" onClick={handleStructure} className="gap-1.5">
-                <Sparkles className="h-3.5 w-3.5" />
-                Structurer maintenant
-              </Button>
-            )}
-          </>
+          <Button type="button" size="sm" variant="destructive" onClick={stopRecording} className="gap-1.5">
+            <MicOff className="h-3.5 w-3.5" />
+            Arrêter
+          </Button>
         )}
 
         {state === 'reconnecting' && (
@@ -1019,14 +1044,6 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
           </Button>
         )}
 
-        {state === 'done' && (
-          <Button type="button" size="sm" onClick={handleApply} className="gap-1.5 bg-green-600 hover:bg-green-700">
-            <Check className="h-3.5 w-3.5" />
-            {detectedFields && onPatientFieldsDetected
-              ? 'Injecter et accepter tous les changements'
-              : 'Injecter dans la consultation'}
-          </Button>
-        )}
       </div>
     </div>
   )
