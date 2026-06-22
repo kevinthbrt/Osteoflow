@@ -1,7 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { Stethoscope, X, AlertTriangle, HelpCircle } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Stethoscope, X, AlertTriangle, HelpCircle, Smartphone } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 import { cn } from '@/lib/utils'
 import {
   type HypothesesPayload,
@@ -22,6 +23,61 @@ export function HypothesesCard({ payload, onClose }: HypothesesCardProps) {
   // Résultats des tests (par test_id) et réponses aux questions (par id → index de réponse).
   const [results, setResults] = useState<Record<string, TestResult>>({})
   const [answers, setAnswers] = useState<Record<string, number | null>>({})
+
+  // Synchronisation téléphone (QR) — jeton de session + garde anti-clignotement.
+  const [syncToken, setSyncToken] = useState<string | null>(null)
+  const lastWriteRef = useRef(0)
+  const appliedUpdatedAtRef = useRef<string | null>(null)
+
+  const pushState = useCallback((r: Record<string, TestResult>, a: Record<string, number | null>) => {
+    if (!syncToken) return
+    lastWriteRef.current = Date.now()
+    fetch('/api/ai/hypotheses-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: syncToken, state: { results: r, answers: a } }),
+    }).catch(() => { /* renvoyé au prochain changement */ })
+  }, [syncToken])
+
+  const enablePhone = useCallback(async () => {
+    // Jeton aléatoire long (capacité de session), non devinable.
+    const token = (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)) + Math.random().toString(36).slice(2)
+    setSyncToken(token)
+    try {
+      await fetch('/api/ai/hypotheses-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // On n'envoie QUE le raisonnement (hypothèses/tests/questions) — jamais le
+        // contexte patient ni d'identité.
+        body: JSON.stringify({ token, payload, state: { results, answers } }),
+      })
+    } catch { /* le téléphone re-tentera via polling */ }
+  }, [payload, results, answers])
+
+  // Polling de l'état distant (saisie depuis le téléphone).
+  useEffect(() => {
+    if (!syncToken) return
+    let alive = true
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/ai/hypotheses-sync?token=${encodeURIComponent(syncToken)}`, { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json() as { state: { results: Record<string, TestResult>; answers: Record<string, number | null> } | null; updated_at: string | null }
+        if (!alive) return
+        if (
+          data.state && data.updated_at &&
+          data.updated_at !== appliedUpdatedAtRef.current &&
+          Date.now() - lastWriteRef.current > 1500
+        ) {
+          appliedUpdatedAtRef.current = data.updated_at
+          setResults(data.state.results ?? {})
+          setAnswers(data.state.answers ?? {})
+        }
+      } catch { /* réessai au prochain tick */ }
+    }
+    const id = setInterval(tick, 1200)
+    return () => { alive = false; clearInterval(id) }
+  }, [syncToken])
 
   // Effets actifs combinés (tests cochés + réponses choisies).
   const effects = useMemo<ProbabilityEffect[]>(() => {
@@ -50,10 +106,18 @@ export function HypothesesCard({ payload, onClose }: HypothesesCardProps) {
   )
 
   const setResult = (testId: string, value: TestResult) =>
-    setResults(prev => ({ ...prev, [testId]: prev[testId] === value ? null : value }))
+    setResults(prev => {
+      const next = { ...prev, [testId]: prev[testId] === value ? null : value }
+      pushState(next, answers)
+      return next
+    })
 
   const setAnswer = (qid: string, idx: number) =>
-    setAnswers(prev => ({ ...prev, [qid]: prev[qid] === idx ? null : idx }))
+    setAnswers(prev => {
+      const next = { ...prev, [qid]: prev[qid] === idx ? null : idx }
+      pushState(results, next)
+      return next
+    })
 
   const labelById = (id: number) => payload.hypotheses.find(h => h.id === id)?.label ?? `Hypothèse ${id}`
 
@@ -73,6 +137,34 @@ export function HypothesesCard({ payload, onClose }: HypothesesCardProps) {
           </button>
         )}
       </div>
+
+      {/* Synchronisation téléphone (QR) */}
+      {!syncToken ? (
+        <button
+          type="button"
+          onClick={enablePhone}
+          className="flex items-center gap-1.5 text-xs font-medium text-violet-700 dark:text-violet-300 hover:underline"
+        >
+          <Smartphone className="h-3.5 w-3.5" /> Saisir sur téléphone (QR code)
+        </button>
+      ) : (
+        <div className="flex items-center gap-3 rounded-md border border-violet-200 dark:border-violet-800 bg-white dark:bg-violet-950/30 p-2">
+          <div className="bg-white p-1 rounded shrink-0">
+            <QRCodeSVG value={`https://osteoupgrade.vercel.app/m/hypotheses/${syncToken}`} size={88} />
+          </div>
+          <div className="text-[11px] leading-snug text-muted-foreground min-w-0">
+            <p className="font-medium text-violet-800 dark:text-violet-300">Scannez avec le téléphone</p>
+            <p>Saisissez les tests/réponses sur le téléphone : le classement se met à jour ici en direct.</p>
+            <button
+              type="button"
+              onClick={() => setSyncToken(null)}
+              className="mt-1 text-muted-foreground/70 hover:text-foreground underline"
+            >
+              Arrêter la synchro
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Avertissement de responsabilité */}
       <div className="flex gap-2 rounded-md bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800 px-2.5 py-1.5 text-[11px] leading-snug text-amber-800 dark:text-amber-300">
