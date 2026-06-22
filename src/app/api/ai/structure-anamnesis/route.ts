@@ -4,6 +4,10 @@ import type { PatientFieldsDetected } from '@/types/ai'
 export type { PatientFieldsDetected }
 
 export const dynamic = 'force-dynamic'
+// Must exceed the outer fetch timeout below (65s) so this function stays alive
+// long enough to surface the proxy's real response instead of being killed by
+// Vercel first (which would mask it as a generic 500).
+export const maxDuration = 70
 
 const PROXY_URL = 'https://osteoupgrade.vercel.app/api/osteoflow/ai'
 const PROXY_SECRET = 'a8c0fcc6aa558582564131768fd6aa6b0628b84ac0abe494948b088f086be1a6'
@@ -39,7 +43,10 @@ export async function POST(req: Request) {
           'x-osteoflow-secret': secret,
         },
         body: JSON.stringify({ transcript, patientContext: currentPatient ?? null }),
-        signal: AbortSignal.timeout(35000),
+        // Must exceed the upstream's own ceiling (maxDuration 60s) so we wait for
+        // osteoupgrade's response/error instead of aborting first and masking it
+        // as a generic failure.
+        signal: AbortSignal.timeout(65000),
       })
     } catch {
       return NextResponse.json({ error: 'Impossible de contacter le serveur.' }, { status: 500 })
