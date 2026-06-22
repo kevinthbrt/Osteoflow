@@ -1,9 +1,45 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { Check, FileText, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { type AnamnesisSection, SECTION_STYLES } from '@/components/consultations/anamnesis-recorder'
+
+/**
+ * Zone de texte qui grandit avec son contenu — pour éditer les lignes des cartes
+ * sans tronquer le texte (un <input> mono-ligne coupait les items longs).
+ */
+function GrowTextarea({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  className?: string
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [value])
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className={cn('resize-none overflow-hidden bg-transparent outline-none border-0 p-0', className)}
+    />
+  )
+}
+
 
 interface AnamnesisCardsProps {
   reason?: string
@@ -48,21 +84,23 @@ export function AnamnesisCards({ reason, sections, onEdit, disabled, onChange, o
   return (
     <div className="space-y-2 relative group">
       {(reason || editable) && (
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 max-w-full break-words bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-800 text-red-700 dark:text-red-300 text-xs font-semibold rounded-full px-3 py-1">
-            🎯
-            {editable && onReasonChange ? (
-              <input
-                value={reason ?? ''}
-                onChange={(e) => onReasonChange(e.target.value)}
-                placeholder="Motif principal"
-                className="bg-transparent outline-none border-0 p-0 text-xs font-semibold placeholder:text-red-400/70 min-w-[8rem]"
-              />
-            ) : (
-              reason
-            )}
-          </span>
-        </div>
+        editable && onReasonChange ? (
+          <div className="flex items-start gap-1.5 text-xs font-semibold text-red-700 dark:text-red-300">
+            <span className="shrink-0">🎯</span>
+            <GrowTextarea
+              value={reason ?? ''}
+              onChange={onReasonChange}
+              placeholder="Motif principal"
+              className="flex-1 text-xs font-semibold text-red-700 dark:text-red-300 placeholder:text-red-400/70"
+            />
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 max-w-full break-words bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-800 text-red-700 dark:text-red-300 text-xs font-semibold rounded-full px-3 py-1">
+              🎯 {reason}
+            </span>
+          </div>
+        )
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -102,21 +140,18 @@ export function AnamnesisCards({ reason, sections, onEdit, disabled, onChange, o
                 <div className="space-y-1">
                   {!(isRedFlags && section.allClear) &&
                     section.items.map((item, i) => (
-                      <div key={i} className="flex items-center gap-1">
-                        <span className="opacity-40 shrink-0">·</span>
-                        <input
+                      <div key={i} className="flex items-start gap-1">
+                        <span className="opacity-40 shrink-0 leading-relaxed">·</span>
+                        <GrowTextarea
                           value={item === '—' ? '' : item}
-                          onChange={(e) => setItem(si, i, e.target.value)}
+                          onChange={(v) => setItem(si, i, v)}
                           placeholder="—"
-                          className={cn(
-                            'flex-1 bg-transparent outline-none border-0 p-0 leading-relaxed placeholder:text-muted-foreground/50',
-                            styles.item,
-                          )}
+                          className={cn('flex-1 leading-relaxed placeholder:text-muted-foreground/50', styles.item)}
                         />
                         <button
                           type="button"
                           onClick={() => removeItem(si, i)}
-                          className="shrink-0 text-muted-foreground/50 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="shrink-0 mt-0.5 text-muted-foreground/50 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                           aria-label="Supprimer la ligne"
                         >
                           <X className="h-3 w-3" />
