@@ -44,6 +44,7 @@ import { NeckPainTree } from '@/components/consultations/neck-pain-tree'
 import { AnamnesisRecorder, type AnamnesisSection } from '@/components/consultations/anamnesis-recorder'
 import { AnamnesisCards } from '@/components/consultations/anamnesis-cards'
 import { AnamnesisDisplay } from '@/components/consultations/anamnesis-display'
+import { sectionsToMarkdown } from '@/lib/anamnesis'
 import { MarkdownField } from '@/components/ui/markdown-field'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
@@ -748,10 +749,14 @@ export function ConsultationForm({
                 patientId={currentPatient.id}
                 onApply={(data) => {
                   if (data.reason) setValue('reason', data.reason, { shouldDirty: true })
-                  if (data.anamnesis) setValue('anamnesis', data.anamnesis, { shouldDirty: true })
                   if (data.sections && data.sections.length > 0) {
                     setAnamnesisCardSections(data.sections)
                     setAnamnesisCardReason(data.reason)
+                    // Texte dérivé des cartes (source unique) pour lettres/exports/recherche.
+                    setValue('anamnesis', sectionsToMarkdown(data.sections), { shouldDirty: true })
+                  } else if (data.anamnesis) {
+                    // Repli : ancien format / échec de structuration.
+                    setValue('anamnesis', data.anamnesis, { shouldDirty: true })
                   }
                   // Sauvegarde immédiate — sans attendre le debounce de 3s
                   // car l'utilisateur peut mettre l'ordi en veille juste après.
@@ -824,7 +829,20 @@ export function ConsultationForm({
                     reason={anamnesisCardReason}
                     sections={anamnesisCardSections}
                     disabled={isLoading}
-                    onEdit={() => setAnamnesisCardSections(null)}
+                    onChange={(next) => {
+                      setAnamnesisCardSections(next)
+                      setValue('anamnesis', sectionsToMarkdown(next), { shouldDirty: true })
+                    }}
+                    onReasonChange={(r) => {
+                      setAnamnesisCardReason(r)
+                      setValue('reason', r, { shouldDirty: true })
+                    }}
+                    onEdit={() => {
+                      // Filet de sécurité : repasse en texte libre en partant du
+                      // contenu actuel des cartes.
+                      setValue('anamnesis', sectionsToMarkdown(anamnesisCardSections), { shouldDirty: true })
+                      setAnamnesisCardSections(null)
+                    }}
                   />
                 ) : (
                   <MarkdownField

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Mic, MicOff, Sparkles, Loader2, RotateCcw, Check, AlertCircle, WifiOff, Download, UserPen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { sectionsToMarkdown } from '@/lib/anamnesis'
 import type { PatientFieldsDetected } from '@/types/ai'
 
 export type { PatientFieldsDetected }
@@ -277,7 +278,12 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
       })
       const data = await res.json()
       if (!res.ok) { setErrorMsg(data.error || 'Erreur lors de la structuration.'); setState('error'); return }
-      setStructured({ reason: data.reason, anamnesis: data.anamnesis, sections: data.sections })
+      // Les cartes (sections) sont la source unique : le texte est dérivé d'elles.
+      // data.anamnesis n'est qu'un repli (ancien format / échec de structuration).
+      const anamnesisText = data.sections && data.sections.length > 0
+        ? sectionsToMarkdown(data.sections)
+        : (data.anamnesis ?? '')
+      setStructured({ reason: data.reason, anamnesis: anamnesisText, sections: data.sections })
       if (data.patient_fields && Object.keys(data.patient_fields).length > 0) {
         setDetectedFields(data.patient_fields)
       }
