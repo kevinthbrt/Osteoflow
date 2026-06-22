@@ -39,7 +39,13 @@ export async function POST(req: Request) {
     if (!proxyRes.ok) {
       const err = await proxyRes.text()
       console.error('[hypotheses proxy]', proxyRes.status, err)
-      return NextResponse.json({ error: `Erreur service (${proxyRes.status})` }, { status: 502 })
+      // Remonte le message précis du proxy quand il est disponible (diagnostic).
+      let message = `Erreur service (${proxyRes.status})`
+      try {
+        const parsed = JSON.parse(err)
+        if (parsed?.error) message = parsed.error
+      } catch { /* corps non-JSON : on garde le message générique */ }
+      return NextResponse.json({ error: message }, { status: 502 })
     }
 
     const data = await proxyRes.json()
