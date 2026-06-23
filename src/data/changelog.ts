@@ -19,6 +19,14 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.11.1',
+    date: '2026-06-23',
+    title: 'Correctif dictée vocale sur Mac',
+    changes: [
+      { type: 'fix', text: 'Dictée vocale : correction d\'un entitlement macOS incorrect qui rendait le microphone silencieux après la mise à jour v1.11.0 sur Mac (l\'application recevait un flux audio vide au lieu d\'une erreur explicite).' },
+    ],
+  },
+  {
     version: '1.11.0',
     date: '2026-06-23',
     title: 'Aide au diagnostic, amélioration interface consultation et mises à jour macOS',
