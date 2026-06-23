@@ -24,7 +24,13 @@ interface PatientContext {
 
 interface AnamnesisRecorderProps {
   onApply: (data: { reason: string; anamnesis: string; sections?: AnamnesisSection[] }) => void
+  /** Fired at the start of the parallel hypotheses fetch so the parent can show a loader. */
+  onHypothesesStart?: () => void
+  /** Fired when the parallel hypotheses fetch resolves. null means failure/no result. */
+  onHypothesesReady?: (payload: Record<string, unknown> | null) => void
   disabled?: boolean
+  /** Consultation reason forwarded to the parallel hypotheses call. */
+  reason?: string
   patientContext?: PatientContext
   patientId?: string
   onPatientFieldsDetected?: (fields: PatientFieldsDetected) => void
@@ -175,7 +181,7 @@ export const SECTION_STYLES: Record<AnamnesisSection['color'], { card: string; l
 
 // ─── Composant ───────────────────────────────────────────────────────────────
 
-export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId, onPatientFieldsDetected }: AnamnesisRecorderProps) {
+export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesReady, disabled, reason, patientContext, patientId, onPatientFieldsDetected }: AnamnesisRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle')
   const [finalText, setFinalText] = useState('')
   const [interimText, setInterimText] = useState('')
@@ -207,6 +213,14 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
   // Quand true, transcribeBlob ajoute le nouveau texte à la suite du texte existant
   // au lieu de le remplacer (utilisé pour la continuation après arrêt automatique).
   const isContinuingRef = useRef(false)
+
+  // Stable refs so the callbacks never appear in useCallback deps (avoids stale closures).
+  const onHypothesesStartRef = useRef(onHypothesesStart)
+  const onHypothesesReadyRef = useRef(onHypothesesReady)
+  const reasonRef = useRef(reason)
+  useEffect(() => { onHypothesesStartRef.current = onHypothesesStart }, [onHypothesesStart])
+  useEffect(() => { onHypothesesReadyRef.current = onHypothesesReady }, [onHypothesesReady])
+  useEffect(() => { reasonRef.current = reason }, [reason])
 
   // ── Workflow automatique ──────────────────────────────────────────────────
   // pendingStructure : on a arrêté la dictée et on veut structurer dès que le
@@ -279,6 +293,25 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
     setInterimText('')
     setStatusMsg('')
 
+    // Fire hypotheses in parallel with structuration — both only need the raw transcript.
+    // Use fire-and-forget so the structuration state machine isn't blocked by hypotheses latency.
+    if (onHypothesesReadyRef.current) {
+      onHypothesesStartRef.current?.()
+      fetch('/api/ai/generate-hypotheses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ anamnesis: text, reason: reasonRef.current, patientContext }),
+      })
+        .then(async (hRes) => {
+          if (!hRes.ok) { onHypothesesReadyRef.current?.(null); return }
+          const hData = await hRes.json()
+          onHypothesesReadyRef.current?.(
+            hData?.hypotheses?.length ? (hData as Record<string, unknown>) : null,
+          )
+        })
+        .catch(() => { onHypothesesReadyRef.current?.(null) })
+    }
+
     try {
       const res = await fetch('/api/ai/structure-anamnesis', {
         method: 'POST',
@@ -302,7 +335,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
       setErrorMsg('Impossible de contacter le serveur.')
       setState('error')
     }
-  }, [stopTimer, stopReconnectTimer])
+  }, [stopTimer, stopReconnectTimer, patientContext])
 
   // ── Réinitialisation ───────────────────────────────────────────────────────────
 

@@ -1172,6 +1172,18 @@ export function ConsultationForm({
               <AnamnesisRecorder
                 key={currentPatient.id}
                 patientId={currentPatient.id}
+                reason={reason}
+                onHypothesesStart={() => {
+                  setHypothesesLoading(true)
+                  setHypothesesError(null)
+                }}
+                onHypothesesReady={(payload) => {
+                  setHypothesesLoading(false)
+                  if (payload) {
+                    setHypotheses(payload as unknown as HypothesesPayload)
+                    setHypothesesState(undefined)
+                  }
+                }}
                 onApply={(data) => {
                   if (data.reason) setValue('reason', data.reason, { shouldDirty: true })
                   if (data.sections && data.sections.length > 0) {
