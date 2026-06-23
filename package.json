@@ -65,6 +65,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@electron/notarize": "^2.5.0",
     "@playwright/test": "^1.47.2",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^20",
@@ -108,6 +109,7 @@
       "node_modules/better-sqlite3/**"
     ],
     "npmRebuild": true,
+    "afterSign": "notarize.js",
     "publish": {
       "provider": "github",
       "owner": "kevinthbrt",

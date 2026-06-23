@@ -6,13 +6,10 @@ import { Button } from '@/components/ui/button'
 
 interface ElectronAPI {
   isDesktop: boolean
-  platform: string
-  arch: string
   onUpdateAvailable: (callback: (version: string) => void) => void
   onUpdateProgress: (callback: (percent: number) => void) => void
   onUpdateDownloaded: (callback: (version: string) => void) => void
   installUpdate: () => void
-  applyUpdateAndRelaunch: () => void
 }
 
 type UpdateState = 'idle' | 'downloading' | 'ready'
@@ -21,16 +18,11 @@ function getElectronAPI(): ElectronAPI | undefined {
   return (window as unknown as { electronAPI?: ElectronAPI }).electronAPI
 }
 
-function getMacArm64DmgUrl(version: string): string {
-  return `https://github.com/kevinthbrt/Osteoflow/releases/download/v${version}/Myosteoflow-${version}-arm64.dmg`
-}
-
 export function UpdateBanner() {
   const [state, setState] = useState<UpdateState>('idle')
   const [version, setVersion] = useState<string>('')
   const [progress, setProgress] = useState<number>(0)
   const [dismissed, setDismissed] = useState(false)
-  const [dmgDownloadClicked, setDmgDownloadClicked] = useState(false)
 
   useEffect(() => {
     const api = getElectronAPI()
@@ -56,108 +48,7 @@ export function UpdateBanner() {
   if (state === 'idle' || (state === 'downloading' && dismissed)) return null
 
   const api = getElectronAPI()
-  const isMacArm64 = api?.platform === 'darwin' && api?.arch === 'arm64'
 
-  // Mac ARM64 — étape 2 : le DMG est téléchargé, l'app doit se fermer
-  // avant que l'utilisateur puisse glisser la nouvelle version dans Applications.
-  if (state === 'ready' && isMacArm64 && dmgDownloadClicked) {
-    return (
-      <div className="relative z-50 border-b-2 border-emerald-400 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white px-4 py-4">
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex items-center gap-2 text-base font-semibold">
-            <CheckCircle className="h-5 w-5" />
-            DMG v{version} téléchargé — prêt à installer
-          </div>
-
-          <div className="flex flex-wrap justify-center items-center gap-2 text-sm text-emerald-100">
-            <span className="flex items-center gap-1.5 opacity-50 line-through">
-              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">1</span>
-              Téléchargé
-            </span>
-            <ArrowRight className="h-3 w-3 text-emerald-300" />
-            <span className="flex items-center gap-1.5 font-semibold">
-              <span className="w-5 h-5 rounded-full bg-white/30 flex items-center justify-center text-xs font-bold">2</span>
-              Quittez l&apos;app, puis glissez dans Applications
-            </span>
-            <ArrowRight className="h-3 w-3 text-emerald-300" />
-            <span className="flex items-center gap-1.5">
-              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">3</span>
-              Relancez manuellement
-            </span>
-          </div>
-
-          <Button
-            size="sm"
-            variant="secondary"
-            className="h-9 px-6 text-sm font-semibold shadow-lg"
-            onClick={() => api?.applyUpdateAndRelaunch()}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Quitter pour installer
-          </Button>
-
-          <p className="text-[10px] text-emerald-300">
-            L&apos;app va se fermer. Ouvrez le DMG, glissez dans Applications, puis relancez.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  // Mac ARM64 — étape 1 : proposer le téléchargement du bon DMG
-  if (state === 'ready' && isMacArm64) {
-    return (
-      <div className="relative z-50 border-b-2 border-emerald-400 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white px-4 py-4">
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex items-center gap-2 text-base font-semibold">
-            <CheckCircle className="h-5 w-5" />
-            Mise à jour v{version} disponible
-          </div>
-
-          <div className="flex flex-wrap justify-center items-center gap-2 text-sm text-emerald-100">
-            <span className="flex items-center gap-1.5">
-              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">1</span>
-              Téléchargez le nouveau DMG
-            </span>
-            <ArrowRight className="h-3 w-3 text-emerald-300" />
-            <span className="flex items-center gap-1.5">
-              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">2</span>
-              Cliquez &quot;Quitter pour installer&quot;
-            </span>
-            <ArrowRight className="h-3 w-3 text-emerald-300" />
-            <span className="flex items-center gap-1.5">
-              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">3</span>
-              Glissez dans Applications, relancez
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              className="h-9 px-6 text-sm font-semibold shadow-lg"
-              onClick={() => {
-                window.open(getMacArm64DmgUrl(version), '_blank')
-                setDmgDownloadClicked(true)
-              }}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Télécharger v{version} (Apple Silicon)
-            </Button>
-            <button
-              onClick={() => setDismissed(true)}
-              className="p-1.5 rounded hover:bg-white/20 transition-colors"
-              aria-label="Fermer"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Windows / Linux / Mac Intel : mise à jour automatique via redémarrage
   if (state === 'ready') {
     return (
       <div className="relative z-50 border-b-2 border-emerald-400 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white px-4 py-4">
@@ -198,7 +89,7 @@ export function UpdateBanner() {
     )
   }
 
-  // Téléchargement en cours (Windows/Linux/Mac Intel)
+  // Téléchargement en cours
   return (
     <div className="relative z-50 border-b bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-4 py-2.5">
       <div className="flex items-center justify-center gap-3 text-sm">

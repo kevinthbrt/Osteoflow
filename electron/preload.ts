@@ -26,9 +26,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   installUpdate: () => {
     ipcRenderer.send('install-update')
   },
-  applyUpdateAndRelaunch: () => {
-    ipcRenderer.send('apply-update-and-relaunch')
-  },
 
   // Survey sync events
   onSurveySynced: (callback: (count: number) => void) => {
