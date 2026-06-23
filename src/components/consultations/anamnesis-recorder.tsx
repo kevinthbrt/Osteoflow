@@ -229,6 +229,14 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
   const pendingStructureRef = useRef(false)
   const appliedRef = useRef(false)
 
+  // ── Question hypothèses ────────────────────────────────────────────────────
+  // Après la dictée, on demande explicitement si le praticien veut les hypothèses
+  // (sinon on ne dépense pas de tokens). La question s'affiche PENDANT la
+  // structuration : répondre « Oui » lance l'appel en parallèle (gain de latence),
+  // « Non » ne déclenche rien. Le transcript sert de base aux deux appels.
+  const [askHypotheses, setAskHypotheses] = useState<'hidden' | 'asking' | 'launched'>('hidden')
+  const hypoTextRef = useRef('')
+
   // ── Persistance localStorage (survie à la veille/rechargement) ────────────
   // Clé spécifique au patient : un brouillon dicté ne doit jamais « fuiter »
   // d'un patient vers un autre. Sans patientId on retombe sur l'ancienne clé.
@@ -293,23 +301,11 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
     setInterimText('')
     setStatusMsg('')
 
-    // Fire hypotheses in parallel with structuration — both only need the raw transcript.
-    // Use fire-and-forget so the structuration state machine isn't blocked by hypotheses latency.
+    // On propose les hypothèses (sans les lancer) : la question s'affiche pendant
+    // que la structuration tourne. Le praticien décide → pas de tokens gaspillés.
     if (onHypothesesReadyRef.current) {
-      onHypothesesStartRef.current?.()
-      fetch('/api/ai/generate-hypotheses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ anamnesis: text, reason: reasonRef.current, patientContext }),
-      })
-        .then(async (hRes) => {
-          if (!hRes.ok) { onHypothesesReadyRef.current?.(null); return }
-          const hData = await hRes.json()
-          onHypothesesReadyRef.current?.(
-            hData?.hypotheses?.length ? (hData as Record<string, unknown>) : null,
-          )
-        })
-        .catch(() => { onHypothesesReadyRef.current?.(null) })
+      hypoTextRef.current = text
+      setAskHypotheses('asking')
     }
 
     try {
@@ -337,6 +333,29 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
     }
   }, [stopTimer, stopReconnectTimer, patientContext])
 
+  // « Oui » à la question hypothèses : lance l'appel (en parallèle de la
+  // structuration encore en cours → latence masquée). Fire-and-forget : le
+  // résultat remonte au parent via onHypothesesReady.
+  const requestHypotheses = useCallback(() => {
+    const text = hypoTextRef.current.trim()
+    if (!text || !onHypothesesReadyRef.current) return
+    setAskHypotheses('launched')
+    onHypothesesStartRef.current?.()
+    fetch('/api/ai/generate-hypotheses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ anamnesis: text, reason: reasonRef.current, patientContext }),
+    })
+      .then(async (hRes) => {
+        if (!hRes.ok) { onHypothesesReadyRef.current?.(null); return }
+        const hData = await hRes.json()
+        onHypothesesReadyRef.current?.(
+          hData?.hypotheses?.length ? (hData as Record<string, unknown>) : null,
+        )
+      })
+      .catch(() => { onHypothesesReadyRef.current?.(null) })
+  }, [patientContext])
+
   // ── Réinitialisation ───────────────────────────────────────────────────────────
 
   const handleReset = useCallback(() => {
@@ -359,6 +378,7 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
     setStructured(null)
     setDetectedFields(null)
     setDetectionSkipped(false)
+    setAskHypotheses('hidden')
     setErrorMsg('')
     setStatusMsg('')
     setElapsed(0)
@@ -653,6 +673,7 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
   const startRecording = useCallback(() => {
     appliedRef.current = false
     pendingStructureRef.current = false
+    setAskHypotheses('hidden')
     if (isElectron()) startMediaRecorder()
     else startSpeechRecognition()
   }, [startMediaRecorder, startSpeechRecognition])
@@ -816,6 +837,32 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
           </Button>
         )}
       </div>
+
+      {/* Question hypothèses — affichée pendant la structuration. « Oui » lance
+          l'appel en parallèle (latence masquée), « Non » n'engage aucun token. */}
+      {askHypotheses === 'asking' && (state === 'processing' || state === 'done') && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-violet-200 bg-violet-50/70 px-3 py-2 dark:border-violet-800/50 dark:bg-violet-950/30">
+          <span className="flex items-center gap-1.5 text-sm font-medium text-violet-700 dark:text-violet-300">
+            <Sparkles className="h-3.5 w-3.5" />
+            Besoin des hypothèses de diagnostic ?
+          </span>
+          <div className="flex gap-2 shrink-0">
+            <Button type="button" size="sm" onClick={requestHypotheses} className="h-7 gap-1.5 bg-violet-600 hover:bg-violet-700 text-white">
+              <Sparkles className="h-3.5 w-3.5" />
+              Oui
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setAskHypotheses('hidden')} className="h-7 text-muted-foreground">
+              Non
+            </Button>
+          </div>
+        </div>
+      )}
+      {askHypotheses === 'launched' && (state === 'processing' || state === 'done') && (
+        <div className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50/70 px-3 py-2 text-sm font-medium text-violet-700 dark:border-violet-800/50 dark:bg-violet-950/30 dark:text-violet-300">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Génération des hypothèses en cours…
+        </div>
+      )}
 
       {/* Avertissement durée — à 9 min, arrêt automatique à 10 min */}
       {state === 'recording' && elapsed >= WARN_RECORD_SECONDS && (
