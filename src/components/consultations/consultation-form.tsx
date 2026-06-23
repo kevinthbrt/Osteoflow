@@ -189,6 +189,8 @@ export function ConsultationForm({
   })()
   const [hypotheses, setHypotheses] = useState<HypothesesPayload | null>(initialHypotheses.payload)
   const [hypothesesState, setHypothesesState] = useState<HypothesesState | undefined>(initialHypotheses.state)
+  const hypothesesRef = useRef(hypotheses)
+  const hypothesesStateRef = useRef(hypothesesState)
   const [hypothesesLoading, setHypothesesLoading] = useState(false)
   const [hypothesesError, setHypothesesError] = useState<string | null>(null)
   const [orthoPickerRegionFilter, setOrthoPickerRegionFilter] = useState<string | undefined>(undefined)
@@ -304,6 +306,8 @@ export function ConsultationForm({
 
   useEffect(() => { paymentsRef.current = payments }, [payments])
   useEffect(() => { anamnesisCardSectionsRef.current = anamnesisCardSections }, [anamnesisCardSections])
+  useEffect(() => { hypothesesRef.current = hypotheses }, [hypotheses])
+  useEffect(() => { hypothesesStateRef.current = hypothesesState }, [hypothesesState])
 
   // Exposé via ref pour être appelé immédiatement depuis onApply (sans debounce)
   const saveDraftNow = useCallback(() => {
@@ -312,7 +316,7 @@ export function ConsultationForm({
     fetch('/api/consultation/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined }),
+      body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
     }).catch(() => {})
   }, [mode, getValues])
 
@@ -326,7 +330,7 @@ export function ConsultationForm({
       fetch('/api/consultation/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined }),
+        body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
       }).catch(() => {})
     }
 
@@ -355,6 +359,15 @@ export function ConsultationForm({
                 if (draft.reason) setAnamnesisCardReason(draft.reason)
               }
             } catch { /* ignore malformed sections */ }
+          }
+          if (draft.clinical_hypotheses) {
+            try {
+              const parsed = JSON.parse(draft.clinical_hypotheses)
+              if (parsed?.payload) {
+                setHypotheses(parsed.payload as HypothesesPayload)
+                setHypothesesState(parsed.state as HypothesesState | undefined)
+              }
+            } catch { /* ignore malformed hypotheses */ }
           }
           if (!auto) toast({ title: 'Brouillon restauré', description: 'La consultation a été restaurée depuis votre dernière session.' })
         })
@@ -393,7 +406,7 @@ export function ConsultationForm({
         fetch('/api/consultation/draft', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined }),
+          body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
         }).catch(() => {})
       }, 3000)
     })
@@ -741,6 +754,8 @@ export function ConsultationForm({
       }
       setHypotheses(data as HypothesesPayload)
       setHypothesesState(undefined)
+      // Persiste aussitôt dans le brouillon (survie à la veille).
+      setTimeout(saveDraftNow, 0)
     } catch {
       setHypothesesError('Impossible de contacter le serveur.')
     } finally {
@@ -1193,6 +1208,9 @@ export function ConsultationForm({
                   if (payload) {
                     setHypotheses(payload as unknown as HypothesesPayload)
                     setHypothesesState(undefined)
+                    // Sauvegarde immédiate — les hypothèses doivent survivre à une
+                    // mise en veille qui surviendrait avant l'intervalle de 30s.
+                    setTimeout(saveDraftNow, 0)
                   }
                 }}
                 onApply={(data) => {

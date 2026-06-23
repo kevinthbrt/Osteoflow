@@ -354,6 +354,7 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
         )
       })
       .catch(() => { onHypothesesReadyRef.current?.(null) })
+      .finally(() => { setAskHypotheses('hidden') })
   }, [patientContext])
 
   // ── Réinitialisation ───────────────────────────────────────────────────────────
