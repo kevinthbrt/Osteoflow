@@ -1070,62 +1070,39 @@ export function ConsultationForm({
   const formContent = (
     <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
       <div className="space-y-6">
-          <Card className="overflow-hidden border-primary/15">
-            <div className="bg-gradient-to-br from-primary/10 via-primary/[0.04] to-transparent p-5 sm:p-6">
-              <div className="flex items-center gap-4">
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl gradient-primary text-lg font-semibold text-white shadow-sm">
-                  {getInitials(currentPatient.first_name, currentPatient.last_name)}
-                </span>
-                <div className="min-w-0">
-                  <h2 className="truncate text-xl font-semibold tracking-tight">
-                    {currentPatient.last_name} {currentPatient.first_name}
-                  </h2>
-                  <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                    {[
-                      currentPatient.gender ? (currentPatient.gender === 'M' ? 'Homme' : 'Femme') : null,
-                      currentPatient.birth_date ? `${calculateAge(currentPatient.birth_date)} ans` : null,
-                      currentPatient.profession,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ') || 'Patient'}
-                  </p>
-                </div>
+          <Card>
+            <CardContent className="grid gap-4 p-4 sm:grid-cols-[minmax(0,220px)_1fr] sm:p-5">
+              <div className="space-y-1.5">
+                <Label htmlFor="date_time" className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Date et heure *
+                </Label>
+                <Input
+                  id="date_time"
+                  type="datetime-local"
+                  {...register('date_time')}
+                  disabled={isLoading}
+                />
+                {errors.date_time && (
+                  <p className="text-sm text-destructive">{errors.date_time.message}</p>
+                )}
               </div>
 
-              <div className="mt-5 grid gap-4 sm:grid-cols-[minmax(0,220px)_1fr]">
-                <div className="space-y-1.5">
-                  <Label htmlFor="date_time" className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Date et heure *
-                  </Label>
-                  <Input
-                    id="date_time"
-                    type="datetime-local"
-                    className="bg-background/70"
-                    {...register('date_time')}
-                    disabled={isLoading}
-                  />
-                  {errors.date_time && (
-                    <p className="text-sm text-destructive">{errors.date_time.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="reason" className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Motif de consultation *
-                  </Label>
-                  <Input
-                    id="reason"
-                    className="bg-background/70 font-medium"
-                    {...register('reason')}
-                    disabled={isLoading}
-                    placeholder="Lombalgie, cervicalgie, suivi..."
-                  />
-                  {errors.reason && (
-                    <p className="text-sm text-destructive">{errors.reason.message}</p>
-                  )}
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="reason" className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Motif de consultation *
+                </Label>
+                <Input
+                  id="reason"
+                  className="font-medium"
+                  {...register('reason')}
+                  disabled={isLoading}
+                  placeholder="Lombalgie, cervicalgie, suivi..."
+                />
+                {errors.reason && (
+                  <p className="text-sm text-destructive">{errors.reason.message}</p>
+                )}
               </div>
-            </div>
+            </CardContent>
           </Card>
 
           <Card>
@@ -1694,6 +1671,18 @@ export function ConsultationForm({
                   <div className="flex items-center gap-2">
                     <Stethoscope className="h-3.5 w-3.5 shrink-0 opacity-60" />
                     <span className="truncate">{currentPatient.profession}</span>
+                  </div>
+                )}
+                {currentPatient.sport_activity && (
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                    <span className="truncate">{currentPatient.sport_activity}</span>
+                  </div>
+                )}
+                {currentPatient.primary_physician && (
+                  <div className="flex items-center gap-2">
+                    <Stethoscope className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                    <span className="truncate">Médecin traitant : {currentPatient.primary_physician}</span>
                   </div>
                 )}
                 {currentPatient.phone && (
