@@ -30,6 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Plus, Trash2, Stethoscope, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, MapPin, GitBranch, Dumbbell, Sparkles } from 'lucide-react'
@@ -85,9 +86,6 @@ const NAV_SECTIONS: NavSection[] = [
   { id: 'sec-hypotheses', label: 'Hypothèses' },
   { id: 'sec-examen', label: 'Examen' },
   { id: 'sec-conseils', label: 'Conseils' },
-  { id: 'sec-pieces', label: 'Pièces jointes' },
-  { id: 'sec-suivi', label: 'Suivi' },
-  { id: 'sec-facturation', label: 'Facturation' },
 ]
 
 export function ConsultationForm({
@@ -131,6 +129,7 @@ export function ConsultationForm({
   const [prescriptionsRefreshKey, setPrescriptionsRefreshKey] = useState(0)
   const [showTestsSuggestions, setShowTestsSuggestions] = useState(false)
   const [showOrthoTestsPicker, setShowOrthoTestsPicker] = useState(false)
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false)
   const [anamnesisCardSections, setAnamnesisCardSections] = useState<AnamnesisSection[] | null>(() => {
     if (consultation?.anamnesis_sections) {
       try {
@@ -709,6 +708,334 @@ export function ConsultationForm({
     })
   }, [anamnesis, examination, advice])
 
+  const attachmentsCard = (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <Paperclip className="h-5 w-5 text-primary" />
+          <CardTitle className="text-lg">Pièces jointes</CardTitle>
+        </div>
+        <CardDescription>Comptes rendus, radios, ordonnances, etc.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleFileDrop}
+          className={`relative border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
+            isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+          }`}
+          onClick={() => document.getElementById('attachment-input')?.click()}
+        >
+          <Upload className="h-7 w-7 mx-auto text-muted-foreground/50 mb-2" />
+          <p className="text-sm text-muted-foreground">
+            Glissez-déposez ou <span className="text-primary underline">parcourir</span>
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">PDF, images, documents (max 20 Mo)</p>
+          <input
+            id="attachment-input"
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFileSelect}
+            accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.dicom,.dcm"
+          />
+        </div>
+
+        {existingAttachments.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Fichiers existants</p>
+            {existingAttachments.map((att) => {
+              const Icon = getFileIcon(att.original_name)
+              return (
+                <div key={att.id} className="flex items-center justify-between rounded-lg border p-2.5">
+                  <a
+                    href={`/api/attachments/${att.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 min-w-0 flex-1 hover:underline"
+                  >
+                    <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                    <span className="text-sm truncate">{att.original_name}</span>
+                    {att.file_size && (
+                      <span className="text-xs text-muted-foreground flex-shrink-0">{formatFileSize(att.file_size)}</span>
+                    )}
+                  </a>
+                  <Button type="button" variant="ghost" size="icon" className="flex-shrink-0 h-8 w-8" onClick={() => handleDeleteAttachment(att.id)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {pendingFiles.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Fichiers à envoyer ({pendingFiles.length})</p>
+            {pendingFiles.map((file, index) => {
+              const Icon = getFileIcon(file.name)
+              return (
+                <div key={`${file.name}-${index}`} className="flex items-center justify-between rounded-lg border border-dashed p-2.5">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                    <span className="text-sm truncate">{file.name}</span>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">{formatFileSize(file.size)}</span>
+                  </div>
+                  <Button type="button" variant="ghost" size="icon" className="flex-shrink-0 h-8 w-8" onClick={() => removePendingFile(index)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+
+  const finalizeModal = (
+    <Dialog open={showFinalizeModal} onOpenChange={setShowFinalizeModal}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Finaliser la consultation</DialogTitle>
+          <DialogDescription>
+            Suivi du patient et facturation avant l&apos;enregistrement.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Suivi</h3>
+            </div>
+            <div className="flex items-center flex-wrap gap-x-2 gap-y-2">
+              <Checkbox
+                id="follow_up_7d"
+                checked={followUp7d}
+                onCheckedChange={(checked) => setValue('follow_up_7d', !!checked)}
+                disabled={isLoading}
+              />
+              <Label htmlFor="follow_up_7d" className="cursor-pointer">
+                Demander des nouvelles à J+
+              </Label>
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={followUpDays}
+                onChange={(e) => setFollowUpDays(Math.max(1, parseInt(e.target.value) || 1))}
+                disabled={isLoading || !followUp7d}
+                className="w-16 h-7 rounded-md border border-input bg-background px-2 text-sm text-center disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              <span className="text-sm text-muted-foreground">jours (email automatique)</span>
+            </div>
+            {followUp7d && !effectiveEmail && (
+              <p className="text-sm text-yellow-600">
+                Le patient n&apos;a pas d&apos;adresse email. L&apos;email de suivi ne pourra pas être envoyé.
+              </p>
+            )}
+            {mode === 'create' && (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="send_post_session_advice"
+                  checked={sendPostSessionAdvice}
+                  onCheckedChange={(checked) => setSendPostSessionAdvice(!!checked)}
+                  disabled={isLoading}
+                />
+                <Label htmlFor="send_post_session_advice" className="cursor-pointer">
+                  Envoyer des conseils post-séance par email (immédiat)
+                </Label>
+              </div>
+            )}
+            {sendPostSessionAdvice && !effectiveEmail && (
+              <p className="text-sm text-yellow-600">
+                Le patient n&apos;a pas d&apos;adresse email. L&apos;email ne pourra pas être envoyé.
+              </p>
+            )}
+            {shouldCollectEmail && (
+              <div className="space-y-2">
+                <Label htmlFor="contact_email">Adresse email du patient</Label>
+                <Input
+                  id="contact_email"
+                  type="email"
+                  placeholder="email@exemple.com"
+                  value={contactEmail}
+                  onChange={(event) => setContactEmail(event.target.value)}
+                  disabled={isLoading}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Indispensable pour l&apos;envoi des emails (suivi, conseils immédiats ou facture).
+                </p>
+              </div>
+            )}
+          </div>
+
+          {mode === 'create' && (
+            <div className="space-y-4">
+              <Separator />
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Facturation</h3>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="create_invoice"
+                  checked={createInvoice}
+                  onCheckedChange={(checked) => setCreateInvoice(!!checked)}
+                  disabled={isLoading}
+                />
+                <Label htmlFor="create_invoice" className="cursor-pointer">
+                  Créer une facture
+                </Label>
+              </div>
+
+              {createInvoice && (
+                <>
+                  <Separator />
+
+                  {sessionTypes.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Type de séance</Label>
+                      <Select
+                        value={selectedSessionTypeId || 'none'}
+                        onValueChange={handleSessionTypeChange}
+                        disabled={isLoading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner un type de séance" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Aucun</SelectItem>
+                          {sessionTypes.map((type) => (
+                            <SelectItem key={type.id} value={type.id}>
+                              {type.name} - {Number(type.price).toFixed(2)} €
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Affiché sur la facture à la place du motif.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Paiements</h4>
+                      <Button type="button" variant="outline" size="sm" onClick={addPayment}>
+                        <Plus className="mr-1 h-4 w-4" />
+                        Ajouter
+                      </Button>
+                    </div>
+
+                    {payments.map((payment) => (
+                      <div key={payment.id} className="flex items-end gap-2 p-3 border rounded-lg">
+                        <div className="flex-1 space-y-2">
+                          <Label>Montant</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={payment.amount}
+                            onChange={(e) =>
+                              updatePayment(payment.id, 'amount', parseFloat(e.target.value) || 0)
+                            }
+                          />
+                        </div>
+                        <div className="flex-1 space-y-2">
+                          <Label>Mode</Label>
+                          <Select
+                            value={payment.method}
+                            onValueChange={(value) => updatePayment(payment.id, 'method', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(paymentMethodLabels).map(([value, label]) => (
+                                <SelectItem key={value} value={value}>
+                                  {label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {payment.method === 'check' && (
+                          <div className="flex-1 space-y-2">
+                            <Label>N° chèque</Label>
+                            <Input
+                              type="text"
+                              placeholder="N° de chèque"
+                              value={payment.check_number || ''}
+                              onChange={(e) =>
+                                updatePayment(payment.id, 'check_number', e.target.value)
+                              }
+                            />
+                          </div>
+                        )}
+                        {payments.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removePayment(payment.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+
+                    <div className="flex justify-between items-center p-3 glass-inner">
+                      <span className="font-medium">Total</span>
+                      <span className="text-lg font-bold">{totalPayments.toFixed(2)} €</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowFinalizeModal(false)}
+            disabled={isLoading}
+          >
+            Continuer la consultation
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit(onSubmit, () => {
+              setShowFinalizeModal(false)
+              toast({
+                variant: 'destructive',
+                title: 'Informations manquantes',
+                description: 'Veuillez compléter les champs requis de la consultation avant de l’enregistrer.',
+              })
+            })}
+            disabled={isLoading}
+            className="gap-2"
+          >
+            {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {mode === 'create' ? (
+              <>
+                <Stethoscope className="h-4 w-4" />
+                Enregistrer la consultation
+              </>
+            ) : (
+              'Mettre à jour'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
   const formContent = (
     <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
       <ConsultationNav sections={NAV_SECTIONS} />
@@ -1083,338 +1410,6 @@ export function ConsultationForm({
             </CardContent>
           </Card>
 
-          <Card id="sec-pieces" className="scroll-mt-24">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Paperclip className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Pièces jointes</CardTitle>
-              </div>
-              <CardDescription>
-                Comptes rendus, radios, ordonnances, etc.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={handleFileDrop}
-                className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
-                  isDragging
-                    ? 'border-primary bg-primary/5'
-                    : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-                }`}
-                onClick={() => document.getElementById('attachment-input')?.click()}
-              >
-                <Upload className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  Glissez-déposez vos fichiers ici ou <span className="text-primary underline">parcourir</span>
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  PDF, images, documents (max 20 Mo par fichier)
-                </p>
-                <input
-                  id="attachment-input"
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileSelect}
-                  accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.dicom,.dcm"
-                />
-              </div>
-
-              {existingAttachments.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Fichiers existants</p>
-                  {existingAttachments.map((att) => {
-                    const Icon = getFileIcon(att.original_name)
-                    return (
-                      <div
-                        key={att.id}
-                        className="flex items-center justify-between rounded-lg border p-3"
-                      >
-                        <a
-                          href={`/api/attachments/${att.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-3 min-w-0 flex-1 hover:underline"
-                        >
-                          <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                          <span className="text-sm truncate">{att.original_name}</span>
-                          {att.file_size && (
-                            <span className="text-xs text-muted-foreground flex-shrink-0">
-                              {formatFileSize(att.file_size)}
-                            </span>
-                          )}
-                        </a>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="flex-shrink-0 h-8 w-8"
-                          onClick={() => handleDeleteAttachment(att.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {pendingFiles.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Fichiers à envoyer ({pendingFiles.length})
-                  </p>
-                  {pendingFiles.map((file, index) => {
-                    const Icon = getFileIcon(file.name)
-                    return (
-                      <div
-                        key={`${file.name}-${index}`}
-                        className="flex items-center justify-between rounded-lg border border-dashed p-3"
-                      >
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                          <span className="text-sm truncate">{file.name}</span>
-                          <span className="text-xs text-muted-foreground flex-shrink-0">
-                            {formatFileSize(file.size)}
-                          </span>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="flex-shrink-0 h-8 w-8"
-                          onClick={() => removePendingFile(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card id="sec-suivi" className="scroll-mt-24">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Suivi</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center flex-wrap gap-x-2 gap-y-2">
-                <Checkbox
-                  id="follow_up_7d"
-                  checked={followUp7d}
-                  onCheckedChange={(checked) => setValue('follow_up_7d', !!checked)}
-                  disabled={isLoading}
-                />
-                <Label htmlFor="follow_up_7d" className="cursor-pointer">
-                  Demander des nouvelles à J+
-                </Label>
-                <input
-                  type="number"
-                  min={1}
-                  max={365}
-                  value={followUpDays}
-                  onChange={(e) => setFollowUpDays(Math.max(1, parseInt(e.target.value) || 1))}
-                  disabled={isLoading || !followUp7d}
-                  className="w-16 h-7 rounded-md border border-input bg-background px-2 text-sm text-center disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                <span className="text-sm text-muted-foreground">jours (email automatique)</span>
-              </div>
-              {followUp7d && !effectiveEmail && (
-                <p className="text-sm text-yellow-600 mt-2">
-                  Le patient n&apos;a pas d&apos;adresse email. L&apos;email de suivi ne pourra pas être envoyé.
-                </p>
-              )}
-              {mode === 'create' && (
-                <div className="flex items-center space-x-2 mt-4">
-                  <Checkbox
-                    id="send_post_session_advice"
-                    checked={sendPostSessionAdvice}
-                    onCheckedChange={(checked) => setSendPostSessionAdvice(!!checked)}
-                    disabled={isLoading}
-                  />
-                  <Label htmlFor="send_post_session_advice" className="cursor-pointer">
-                    Envoyer des conseils post-séance par email (immédiat)
-                  </Label>
-                </div>
-              )}
-              {sendPostSessionAdvice && !effectiveEmail && (
-                <p className="text-sm text-yellow-600 mt-2">
-                  Le patient n&apos;a pas d&apos;adresse email. L&apos;email ne pourra pas être envoyé.
-                </p>
-              )}
-              {shouldCollectEmail && (
-                <div className="mt-4 space-y-2">
-                  <Label htmlFor="contact_email">Adresse email du patient</Label>
-                  <Input
-                    id="contact_email"
-                    type="email"
-                    placeholder="email@exemple.com"
-                    value={contactEmail}
-                    onChange={(event) => setContactEmail(event.target.value)}
-                    disabled={isLoading}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Indispensable pour l&apos;envoi des emails (suivi, conseils immédiats ou facture).
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {mode === 'create' && (
-            <Card id="sec-facturation" className="scroll-mt-24">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Facturation</CardTitle>
-                </div>
-                <CardDescription>
-                  Créez une facture pour cette consultation
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="create_invoice"
-                    checked={createInvoice}
-                    onCheckedChange={(checked) => setCreateInvoice(!!checked)}
-                    disabled={isLoading}
-                  />
-                  <Label htmlFor="create_invoice" className="cursor-pointer">
-                    Créer une facture
-                  </Label>
-                </div>
-
-                {createInvoice && (
-                  <>
-                    <Separator />
-
-                    {sessionTypes.length > 0 && (
-                      <div className="space-y-2">
-                        <Label>Type de séance</Label>
-                        <Select
-                          value={selectedSessionTypeId || 'none'}
-                          onValueChange={handleSessionTypeChange}
-                          disabled={isLoading}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Sélectionner un type de séance" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Aucun</SelectItem>
-                            {sessionTypes.map((type) => (
-                              <SelectItem key={type.id} value={type.id}>
-                                {type.name} - {Number(type.price).toFixed(2)} €
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                          Affiché sur la facture à la place du motif.
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">Paiements</h4>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={addPayment}
-                        >
-                          <Plus className="mr-1 h-4 w-4" />
-                          Ajouter
-                        </Button>
-                      </div>
-
-                      {payments.map((payment) => (
-                        <div
-                          key={payment.id}
-                          className="flex items-end gap-2 p-3 border rounded-lg"
-                        >
-                          <div className="flex-1 space-y-2">
-                            <Label>Montant</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={payment.amount}
-                              onChange={(e) =>
-                                updatePayment(
-                                  payment.id,
-                                  'amount',
-                                  parseFloat(e.target.value) || 0
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="flex-1 space-y-2">
-                            <Label>Mode</Label>
-                            <Select
-                              value={payment.method}
-                              onValueChange={(value) =>
-                                updatePayment(payment.id, 'method', value)
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Object.entries(paymentMethodLabels).map(([value, label]) => (
-                                  <SelectItem key={value} value={value}>
-                                    {label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          {payment.method === 'check' && (
-                            <div className="flex-1 space-y-2">
-                              <Label>N° chèque</Label>
-                              <Input
-                                type="text"
-                                placeholder="N° de chèque"
-                                value={payment.check_number || ''}
-                                onChange={(e) =>
-                                  updatePayment(payment.id, 'check_number', e.target.value)
-                                }
-                              />
-                            </div>
-                          )}
-                          {payments.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removePayment(payment.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-
-                      <div className="flex justify-between items-center p-3 glass-inner">
-                        <span className="font-medium">Total</span>
-                        <span className="text-lg font-bold">
-                          {totalPayments.toFixed(2)} €
-                        </span>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
       </div>
 
       <div className="sticky bottom-0 z-10 flex justify-end gap-4 pt-4 pb-2 -mx-1 px-1 bg-gradient-to-t from-background via-background to-transparent">
@@ -1426,16 +1421,15 @@ export function ConsultationForm({
         >
           Annuler
         </Button>
-        <Button key="submit" type="submit" disabled={isLoading} className="gap-2">
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {mode === 'create' ? (
-            <>
-              <Stethoscope className="h-4 w-4" />
-              Enregistrer la consultation
-            </>
-          ) : (
-            'Mettre à jour'
-          )}
+        <Button
+          key="finalize"
+          type="button"
+          onClick={() => setShowFinalizeModal(true)}
+          disabled={isLoading}
+          className="gap-2"
+        >
+          <CalendarCheck className="h-4 w-4" />
+          Terminer la consultation
         </Button>
       </div>
     </form>
@@ -1443,6 +1437,7 @@ export function ConsultationForm({
 
   const modals = (
     <>
+      {finalizeModal}
       <EditPatientModal
         open={showEditPatient}
         onOpenChange={setShowEditPatient}
@@ -1636,6 +1631,8 @@ export function ConsultationForm({
             refreshTrigger={medicalHistoryRefreshKey}
           />
 
+          {attachmentsCard}
+
           <Button
             type="button"
             variant="outline"
@@ -1736,5 +1733,11 @@ export function ConsultationForm({
     )
   }
 
-  return <>{formContent}{modals}</>
+  return (
+    <>
+      {formContent}
+      <div className="mt-6">{attachmentsCard}</div>
+      {modals}
+    </>
+  )
 }
