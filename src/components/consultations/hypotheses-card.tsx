@@ -11,18 +11,34 @@ import {
   recomputeProbabilities,
 } from '@/lib/hypotheses'
 
+export interface HypothesesState {
+  results: Record<string, TestResult>
+  answers: Record<string, number | null>
+}
+
 interface HypothesesCardProps {
   payload: HypothesesPayload
   onClose?: () => void
+  /** État initial (réponses/tests déjà saisis) pour réafficher une consultation enregistrée. */
+  initialState?: HypothesesState
+  /** Notifie chaque changement d'état pour persistance. */
+  onStateChange?: (state: HypothesesState) => void
 }
 
 const RANK_BAR = ['bg-indigo-500', 'bg-sky-500', 'bg-teal-500']
 const RANK_TEXT = ['text-indigo-600 dark:text-indigo-400', 'text-sky-600 dark:text-sky-400', 'text-teal-600 dark:text-teal-400']
 
-export function HypothesesCard({ payload, onClose }: HypothesesCardProps) {
+export function HypothesesCard({ payload, onClose, initialState, onStateChange }: HypothesesCardProps) {
   // Résultats des tests (par test_id) et réponses aux questions (par id → index de réponse).
-  const [results, setResults] = useState<Record<string, TestResult>>({})
-  const [answers, setAnswers] = useState<Record<string, number | null>>({})
+  const [results, setResults] = useState<Record<string, TestResult>>(initialState?.results ?? {})
+  const [answers, setAnswers] = useState<Record<string, number | null>>(initialState?.answers ?? {})
+
+  // Remonte l'état au parent (pour sauvegarde) à chaque changement.
+  const onStateChangeRef = useRef(onStateChange)
+  onStateChangeRef.current = onStateChange
+  useEffect(() => {
+    onStateChangeRef.current?.({ results, answers })
+  }, [results, answers])
 
   // Synchronisation téléphone (QR) — jeton de session + garde anti-clignotement.
   const [syncToken, setSyncToken] = useState<string | null>(null)
@@ -150,7 +166,7 @@ export function HypothesesCard({ payload, onClose }: HypothesesCardProps) {
       ) : (
         <div className="flex items-center gap-3 rounded-md border border-violet-200 dark:border-violet-800 bg-white dark:bg-violet-950/30 p-2">
           <div className="bg-white p-1 rounded shrink-0">
-            <QRCodeSVG value={`https://osteoupgrade.vercel.app/m/hypotheses/${syncToken}`} size={88} />
+            <QRCodeSVG value={`https://www.osteo-upgrade.fr/m/hypotheses/${syncToken}`} size={88} />
           </div>
           <div className="text-[11px] leading-snug text-muted-foreground min-w-0">
             <p className="font-medium text-violet-800 dark:text-violet-300">Scannez avec le téléphone</p>

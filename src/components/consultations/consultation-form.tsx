@@ -45,7 +45,7 @@ import { AnamnesisRecorder, type AnamnesisSection } from '@/components/consultat
 import { AnamnesisCards } from '@/components/consultations/anamnesis-cards'
 import { AnamnesisDisplay } from '@/components/consultations/anamnesis-display'
 import { sectionsToMarkdown } from '@/lib/anamnesis'
-import { HypothesesCard } from '@/components/consultations/hypotheses-card'
+import { HypothesesCard, type HypothesesState } from '@/components/consultations/hypotheses-card'
 import type { HypothesesPayload } from '@/lib/hypotheses'
 import { MarkdownField } from '@/components/ui/markdown-field'
 import { MarkdownText } from '@/components/ui/markdown-text'
@@ -131,8 +131,16 @@ export function ConsultationForm({
     return null
   })
   const [anamnesisCardReason, setAnamnesisCardReason] = useState<string | undefined>(consultation?.reason || undefined)
-  // Carte « Hypothèses cliniques » — éphémère (générée à la demande, non persistée).
-  const [hypotheses, setHypotheses] = useState<HypothesesPayload | null>(null)
+  // Carte « Hypothèses cliniques » — persistée avec la consultation (payload IA + réponses).
+  const initialHypotheses = (() => {
+    if (!consultation?.clinical_hypotheses) return { payload: null as HypothesesPayload | null, state: undefined as HypothesesState | undefined }
+    try {
+      const parsed = JSON.parse(consultation.clinical_hypotheses)
+      return { payload: (parsed?.payload ?? null) as HypothesesPayload | null, state: parsed?.state as HypothesesState | undefined }
+    } catch { return { payload: null as HypothesesPayload | null, state: undefined as HypothesesState | undefined } }
+  })()
+  const [hypotheses, setHypotheses] = useState<HypothesesPayload | null>(initialHypotheses.payload)
+  const [hypothesesState, setHypothesesState] = useState<HypothesesState | undefined>(initialHypotheses.state)
   const [hypothesesLoading, setHypothesesLoading] = useState(false)
   const [hypothesesError, setHypothesesError] = useState<string | null>(null)
   const [orthoPickerRegionFilter, setOrthoPickerRegionFilter] = useState<string | undefined>(undefined)
@@ -460,6 +468,7 @@ export function ConsultationForm({
             reason: data.reason,
             anamnesis: data.anamnesis || null,
             anamnesis_sections: anamnesisCardSections ? JSON.stringify(anamnesisCardSections) : null,
+            clinical_hypotheses: hypotheses ? JSON.stringify({ payload: hypotheses, state: hypothesesState }) : null,
             examination: data.examination || null,
             advice: data.advice || null,
             follow_up_7d: data.follow_up_7d,
@@ -583,6 +592,7 @@ export function ConsultationForm({
             reason: data.reason,
             anamnesis: data.anamnesis || null,
             anamnesis_sections: anamnesisCardSections ? JSON.stringify(anamnesisCardSections) : null,
+            clinical_hypotheses: hypotheses ? JSON.stringify({ payload: hypotheses, state: hypothesesState }) : null,
             examination: data.examination || null,
             advice: data.advice || null,
             follow_up_7d: data.follow_up_7d,
@@ -673,6 +683,7 @@ export function ConsultationForm({
         return
       }
       setHypotheses(data as HypothesesPayload)
+      setHypothesesState(undefined)
     } catch {
       setHypothesesError('Impossible de contacter le serveur.')
     } finally {
@@ -931,7 +942,12 @@ export function ConsultationForm({
                   <p className="text-sm text-destructive">{hypothesesError}</p>
                 )}
                 {hypotheses && (
-                  <HypothesesCard payload={hypotheses} onClose={() => setHypotheses(null)} />
+                  <HypothesesCard
+                    payload={hypotheses}
+                    initialState={hypothesesState}
+                    onStateChange={setHypothesesState}
+                    onClose={() => { setHypotheses(null); setHypothesesState(undefined) }}
+                  />
                 )}
               </div>
 
