@@ -119,6 +119,12 @@ const SECTION_TONES = {
   clinique: 'bg-primary/10 text-primary',
 } as const
 
+/** Teinte bleutée + relief pour les cartes de la page (contraste avec le fond). */
+const CARD_TINT = 'border-blue-100/80 shadow-[0_6px_20px_-10px_rgba(37,99,235,0.22)] dark:border-blue-900/40'
+
+/** Encart bleuté pour les sous-sections, afin de créer du relief dans une carte. */
+const ENCART = 'rounded-xl border border-blue-100/80 bg-blue-50/50 p-4 dark:border-blue-900/30 dark:bg-blue-950/20'
+
 export function ConsultationForm({
   patient,
   practitioner,
@@ -740,7 +746,7 @@ export function ConsultationForm({
   }, [anamnesis, examination, advice])
 
   const attachmentsCard = (
-    <Card>
+    <Card className={CARD_TINT}>
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <Paperclip className="h-5 w-5 text-primary" />
@@ -1070,7 +1076,7 @@ export function ConsultationForm({
   const formContent = (
     <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
       <div className="space-y-6">
-          <Card>
+          <Card className={CARD_TINT}>
             <CardContent className="grid gap-4 p-4 sm:grid-cols-[minmax(0,220px)_1fr] sm:p-5">
               <div className="space-y-1.5">
                 <Label htmlFor="date_time" className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -1105,7 +1111,7 @@ export function ConsultationForm({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={CARD_TINT}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -1235,7 +1241,7 @@ export function ConsultationForm({
                   }
                 }}
               />
-              <div id="sec-anamnese" className="space-y-3 scroll-mt-24">
+              <div id="sec-anamnese" className={cn('space-y-3 scroll-mt-24', ENCART)}>
                 <SectionHeading icon={FileText} title="Anamnèse" tone={SECTION_TONES.anamnese} />
                 {anamnesisCardSections ? (
                   <AnamnesisCards
@@ -1270,8 +1276,10 @@ export function ConsultationForm({
                 {errors.anamnesis && (
                   <p className="text-sm text-destructive">{errors.anamnesis.message}</p>
                 )}
+              </div>
 
-                <span id="sec-hypotheses" className="block scroll-mt-24" aria-hidden />
+              <div id="sec-hypotheses" className={cn('space-y-3 scroll-mt-24', ENCART)}>
+                <SectionHeading icon={Brain} title="Hypothèses cliniques" tone={SECTION_TONES.hypotheses} />
                 {!hypotheses && (
                   <Button
                     type="button"
@@ -1286,7 +1294,7 @@ export function ConsultationForm({
                     ) : (
                       <Brain className="h-4 w-4" />
                     )}
-                    Hypothèses cliniques
+                    Générer les hypothèses
                   </Button>
                 )}
                 {hypothesesError && (
@@ -1302,7 +1310,7 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div id="sec-examen" className="space-y-3 scroll-mt-24">
+              <div id="sec-examen" className={cn('space-y-3 scroll-mt-24', ENCART)}>
                 <SectionHeading
                   icon={Activity}
                   title="Examen clinique et traitement"
@@ -1424,7 +1432,7 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div id="sec-conseils" className="space-y-3 scroll-mt-24">
+              <div id="sec-conseils" className={cn('space-y-3 scroll-mt-24', ENCART)}>
                 <SectionHeading icon={Lightbulb} title="Conseils donnés" tone={SECTION_TONES.conseils} />
                 <Textarea
                   id="advice"
@@ -1618,7 +1626,7 @@ export function ConsultationForm({
     return (
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <div className="lg:sticky lg:top-6 self-start space-y-6">
-          <Card className="overflow-hidden">
+          <Card className={cn('overflow-hidden', CARD_TINT)}>
             <div className="flex items-start gap-3 bg-gradient-to-br from-primary/10 via-primary/[0.04] to-transparent p-4">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl gradient-primary text-base font-semibold text-white shadow-sm">
                 {getInitials(currentPatient.first_name, currentPatient.last_name)}
@@ -1724,7 +1732,7 @@ export function ConsultationForm({
           </Button>
 
           {pastConsultations && pastConsultations.length > 0 && (
-            <Card>
+            <Card className={CARD_TINT}>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg">Consultations passées</CardTitle>
                 <p className="text-xs text-muted-foreground">{pastConsultations.length} consultation{pastConsultations.length > 1 ? 's' : ''}</p>
