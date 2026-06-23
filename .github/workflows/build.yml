@@ -9,7 +9,25 @@ permissions:
   contents: write
 
 jobs:
+  # Create the GitHub release first so the parallel build jobs don't race
+  # each other trying to create it (which caused a 422 "already_exists").
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or reuse the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — reusing it."
+          else
+            gh release create "$TAG" --title "$TAG" --notes "MyOsteoFlow $TAG"
+          fi
+
   build-mac:
+    needs: create-release
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +57,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
   build-windows:
+    needs: create-release
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
