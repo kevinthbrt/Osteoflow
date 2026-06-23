@@ -32,8 +32,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, MapPin, GitBranch, Dumbbell, Sparkles } from 'lucide-react'
-import { generateInvoiceNumber, formatDateTime, formatDate, calculateAge } from '@/lib/utils'
+import { Loader2, Plus, Trash2, Stethoscope, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, MapPin, GitBranch, Dumbbell, Sparkles, Brain, Activity, Lightbulb } from 'lucide-react'
+import { generateInvoiceNumber, formatDateTime, formatDate, calculateAge, cn } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
@@ -79,6 +79,45 @@ interface CreatedInvoice {
   invoice_number: string
 }
 
+/** Initiales du patient pour l'avatar (ex. « Jean Dupont » → « JD »). */
+function getInitials(firstName?: string | null, lastName?: string | null): string {
+  const a = (firstName || '').trim().charAt(0)
+  const b = (lastName || '').trim().charAt(0)
+  return (b + a || a || b || '?').toUpperCase()
+}
+
+/** Pastille d'icône colorée + titre, pour rendre les sections scannables d'un coup d'œil. */
+function SectionHeading({
+  icon: Icon,
+  title,
+  tone,
+  action,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+  tone: string
+  action?: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2.5">
+        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', tone)}>
+          <Icon className="h-[18px] w-[18px]" />
+        </span>
+        <h3 className="text-base font-semibold tracking-tight">{title}</h3>
+      </div>
+      {action}
+    </div>
+  )
+}
+
+const SECTION_TONES = {
+  anamnese: 'bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300',
+  hypotheses: 'bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300',
+  examen: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300',
+  conseils: 'bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300',
+  clinique: 'bg-primary/10 text-primary',
+} as const
 
 export function ConsultationForm({
   patient,
@@ -1031,48 +1070,71 @@ export function ConsultationForm({
   const formContent = (
     <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
       <div className="space-y-6">
-          <Card id="sec-infos" className="scroll-mt-24">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <CalendarCheck className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Informations générales</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="date_time">Date et heure *</Label>
-                <Input
-                  id="date_time"
-                  type="datetime-local"
-                  {...register('date_time')}
-                  disabled={isLoading}
-                />
-                {errors.date_time && (
-                  <p className="text-sm text-destructive">{errors.date_time.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="reason">Motif de consultation *</Label>
-                <Input
-                  id="reason"
-                  {...register('reason')}
-                  disabled={isLoading}
-                  placeholder="Lombalgie, cervicalgie, suivi..."
-                />
-                {errors.reason && (
-                  <p className="text-sm text-destructive">{errors.reason.message}</p>
-                )}
+          <Card className="overflow-hidden border-primary/15">
+            <div className="bg-gradient-to-br from-primary/10 via-primary/[0.04] to-transparent p-5 sm:p-6">
+              <div className="flex items-center gap-4">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl gradient-primary text-lg font-semibold text-white shadow-sm">
+                  {getInitials(currentPatient.first_name, currentPatient.last_name)}
+                </span>
+                <div className="min-w-0">
+                  <h2 className="truncate text-xl font-semibold tracking-tight">
+                    {currentPatient.last_name} {currentPatient.first_name}
+                  </h2>
+                  <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                    {[
+                      currentPatient.gender ? (currentPatient.gender === 'M' ? 'Homme' : 'Femme') : null,
+                      currentPatient.birth_date ? `${calculateAge(currentPatient.birth_date)} ans` : null,
+                      currentPatient.profession,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || 'Patient'}
+                  </p>
+                </div>
               </div>
 
-            </CardContent>
+              <div className="mt-5 grid gap-4 sm:grid-cols-[minmax(0,220px)_1fr]">
+                <div className="space-y-1.5">
+                  <Label htmlFor="date_time" className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Date et heure *
+                  </Label>
+                  <Input
+                    id="date_time"
+                    type="datetime-local"
+                    className="bg-background/70"
+                    {...register('date_time')}
+                    disabled={isLoading}
+                  />
+                  {errors.date_time && (
+                    <p className="text-sm text-destructive">{errors.date_time.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="reason" className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Motif de consultation *
+                  </Label>
+                  <Input
+                    id="reason"
+                    className="bg-background/70 font-medium"
+                    {...register('reason')}
+                    disabled={isLoading}
+                    placeholder="Lombalgie, cervicalgie, suivi..."
+                  />
+                  {errors.reason && (
+                    <p className="text-sm text-destructive">{errors.reason.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
           </Card>
 
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Stethoscope className="h-5 w-5 text-primary" />
+                <div className="flex items-center gap-2.5">
+                  <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', SECTION_TONES.clinique)}>
+                    <Stethoscope className="h-[18px] w-[18px]" />
+                  </span>
                   <CardTitle className="text-lg">Contenu clinique</CardTitle>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1196,8 +1258,8 @@ export function ConsultationForm({
                   }
                 }}
               />
-              <div id="sec-anamnese" className="space-y-2 scroll-mt-24">
-                <Label htmlFor="anamnesis">Anamnèse</Label>
+              <div id="sec-anamnese" className="space-y-3 scroll-mt-24">
+                <SectionHeading icon={FileText} title="Anamnèse" tone={SECTION_TONES.anamnese} />
                 {anamnesisCardSections ? (
                   <AnamnesisCards
                     reason={anamnesisCardReason}
@@ -1240,12 +1302,12 @@ export function ConsultationForm({
                     size="sm"
                     onClick={generateHypotheses}
                     disabled={!anamnesis?.trim() || hypothesesLoading || isLoading}
-                    className="w-full"
+                    className="w-full gap-1.5 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-800/50 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/50"
                   >
                     {hypothesesLoading ? (
-                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Stethoscope className="h-4 w-4 mr-1.5" />
+                      <Brain className="h-4 w-4" />
                     )}
                     Hypothèses cliniques
                   </Button>
@@ -1263,20 +1325,24 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div id="sec-examen" className="space-y-2 scroll-mt-24">
-                <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor="examination">Examen clinique et traitement</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
-                    onClick={() => setShowOrthoTestsPicker(true)}
-                  >
-                    <Stethoscope className="h-4 w-4" />
-                    Tests orthos
-                  </Button>
-                </div>
+              <div id="sec-examen" className="space-y-3 scroll-mt-24">
+                <SectionHeading
+                  icon={Activity}
+                  title="Examen clinique et traitement"
+                  tone={SECTION_TONES.examen}
+                  action={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+                      onClick={() => setShowOrthoTestsPicker(true)}
+                    >
+                      <Stethoscope className="h-4 w-4" />
+                      Tests orthos
+                    </Button>
+                  }
+                />
                 <Textarea
                   id="examination"
                   data-autoresize
@@ -1381,8 +1447,8 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div id="sec-conseils" className="space-y-2 scroll-mt-24">
-                <Label htmlFor="advice">Conseils donnés</Label>
+              <div id="sec-conseils" className="space-y-3 scroll-mt-24">
+                <SectionHeading icon={Lightbulb} title="Conseils donnés" tone={SECTION_TONES.conseils} />
                 <Textarea
                   id="advice"
                   data-autoresize
@@ -1575,41 +1641,76 @@ export function ConsultationForm({
     return (
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <div className="lg:sticky lg:top-6 self-start space-y-6">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Patient</CardTitle>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowEditPatient(true)}
-                >
-                  <Pencil className="mr-1 h-3 w-3" />
-                  Modifier
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="text-sm space-y-1">
-              <p className="font-medium">{currentPatient.last_name} {currentPatient.first_name}</p>
-              {currentPatient.gender && (
-                <p className="text-muted-foreground">{currentPatient.gender === 'M' ? 'Homme' : 'Femme'}</p>
-              )}
-              {currentPatient.birth_date && (
-                <p className="text-muted-foreground">{formatDate(currentPatient.birth_date)} · {calculateAge(currentPatient.birth_date)} ans</p>
-              )}
-              {currentPatient.phone && <p className="text-muted-foreground">{currentPatient.phone}</p>}
-              {currentPatient.email && <p className="text-muted-foreground">{currentPatient.email}</p>}
-              {currentPatient.profession && <p className="text-muted-foreground">{currentPatient.profession}</p>}
-              {currentPatient.pregnancy_due_date && (
-                <p className="text-pink-600 font-medium">
-                  Grossesse — terme : {new Date(currentPatient.pregnancy_due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+          <Card className="overflow-hidden">
+            <div className="flex items-start gap-3 bg-gradient-to-br from-primary/10 via-primary/[0.04] to-transparent p-4">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl gradient-primary text-base font-semibold text-white shadow-sm">
+                {getInitials(currentPatient.first_name, currentPatient.last_name)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold leading-tight">{currentPatient.last_name} {currentPatient.first_name}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {[
+                    currentPatient.gender ? (currentPatient.gender === 'M' ? 'Homme' : 'Femme') : null,
+                    currentPatient.birth_date ? `${calculateAge(currentPatient.birth_date)} ans` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'Patient'}
                 </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-muted-foreground"
+                onClick={() => setShowEditPatient(true)}
+                aria-label="Modifier le patient"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </div>
+            <CardContent className="space-y-2.5 pt-4 text-sm">
+              {(currentPatient.pregnancy_due_date || currentPatient.birth_date) && (
+                <div className="flex flex-wrap gap-1.5">
+                  {currentPatient.pregnancy_due_date && (
+                    <span className="inline-flex items-center rounded-full bg-pink-100 px-2.5 py-0.5 text-xs font-medium text-pink-700 dark:bg-pink-950/50 dark:text-pink-300">
+                      Grossesse · terme {new Date(currentPatient.pregnancy_due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                    </span>
+                  )}
+                  {medicalHistoryEntries.length > 0 && (
+                    <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                      {medicalHistoryEntries.length} ATCD
+                    </span>
+                  )}
+                </div>
               )}
+              <dl className="space-y-1.5 text-muted-foreground">
+                {currentPatient.birth_date && (
+                  <div className="flex items-center gap-2">
+                    <CalendarCheck className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                    <span>{formatDate(currentPatient.birth_date)}</span>
+                  </div>
+                )}
+                {currentPatient.profession && (
+                  <div className="flex items-center gap-2">
+                    <Stethoscope className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                    <span className="truncate">{currentPatient.profession}</span>
+                  </div>
+                )}
+                {currentPatient.phone && (
+                  <div className="flex items-center gap-2">
+                    <span className="truncate">{currentPatient.phone}</span>
+                  </div>
+                )}
+                {currentPatient.email && (
+                  <div className="flex items-center gap-2">
+                    <span className="truncate">{currentPatient.email}</span>
+                  </div>
+                )}
+              </dl>
               {currentPatient.notes && (
-                <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md">
-                  <p className="text-xs font-medium text-amber-800 mb-1">Notes</p>
-                  <p className="text-xs text-amber-900 whitespace-pre-wrap">{currentPatient.notes}</p>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 dark:border-amber-900/50 dark:bg-amber-950/30">
+                  <p className="mb-1 text-xs font-medium text-amber-800 dark:text-amber-300">Notes</p>
+                  <p className="whitespace-pre-wrap text-xs text-amber-900 dark:text-amber-200">{currentPatient.notes}</p>
                 </div>
               )}
             </CardContent>
