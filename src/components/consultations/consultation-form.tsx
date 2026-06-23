@@ -44,6 +44,7 @@ import { NeckPainTree } from '@/components/consultations/neck-pain-tree'
 import { AnamnesisRecorder, type AnamnesisSection } from '@/components/consultations/anamnesis-recorder'
 import { AnamnesisCards } from '@/components/consultations/anamnesis-cards'
 import { AnamnesisDisplay } from '@/components/consultations/anamnesis-display'
+import { HypothesesDisplay } from '@/components/consultations/hypotheses-display'
 import { sectionsToMarkdown } from '@/lib/anamnesis'
 import { HypothesesCard, type HypothesesState } from '@/components/consultations/hypotheses-card'
 import type { HypothesesPayload } from '@/lib/hypotheses'
@@ -1786,6 +1787,15 @@ export function ConsultationForm({
                         />
                       </div>
                     )}
+                    {viewingConsultation.clinical_hypotheses && (
+                      <div>
+                        {(viewingConsultation.anamnesis || viewingConsultation.anamnesis_sections) && <Separator />}
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1 mt-3">
+                          Hypothèses cliniques
+                        </h4>
+                        <HypothesesDisplay clinicalHypotheses={viewingConsultation.clinical_hypotheses} />
+                      </div>
+                    )}
                     {viewingConsultation.examination && (
                       <div>
                         <Separator />
@@ -1804,7 +1814,7 @@ export function ConsultationForm({
                         <MarkdownText text={viewingConsultation.advice} />
                       </div>
                     )}
-                    {!viewingConsultation.anamnesis && !viewingConsultation.examination && !viewingConsultation.advice && (
+                    {!viewingConsultation.anamnesis && !viewingConsultation.examination && !viewingConsultation.advice && !viewingConsultation.clinical_hypotheses && (
                       <p className="text-sm text-muted-foreground italic">
                         Aucun contenu clinique renseigné
                       </p>

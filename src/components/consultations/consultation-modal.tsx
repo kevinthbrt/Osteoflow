@@ -31,6 +31,7 @@ import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels } from '@/lib/validations/invoice'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { AnamnesisDisplay } from '@/components/consultations/anamnesis-display'
+import { HypothesesDisplay } from '@/components/consultations/hypotheses-display'
 import { ConsultationPaymentEditor } from './consultation-payment-editor'
 import { ExercisePrescriptionSection } from '@/components/exercises/exercise-prescription-section'
 
@@ -150,7 +151,7 @@ export function ConsultationModal({ consultationId, onClose, onOpenInvoice }: Pr
                 </Card>
 
                 {/* Clinical content */}
-                {(consultation.anamnesis || consultation.examination || consultation.advice) && (
+                {(consultation.anamnesis || consultation.examination || consultation.advice || consultation.clinical_hypotheses) && (
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm">Contenu clinique</CardTitle>
@@ -166,16 +167,23 @@ export function ConsultationModal({ consultationId, onClose, onOpenInvoice }: Pr
                           />
                         </div>
                       )}
+                      {consultation.clinical_hypotheses && (
+                        <div>
+                          {(consultation.anamnesis || consultation.anamnesis_sections) && <Separator className="mb-4" />}
+                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Hypothèses cliniques</h4>
+                          <HypothesesDisplay clinicalHypotheses={consultation.clinical_hypotheses} />
+                        </div>
+                      )}
                       {consultation.examination && (
                         <div>
-                          {consultation.anamnesis && <Separator className="mb-4" />}
+                          {(consultation.anamnesis || consultation.clinical_hypotheses) && <Separator className="mb-4" />}
                           <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Examen clinique et manipulations</h4>
                           <MarkdownText text={consultation.examination} />
                         </div>
                       )}
                       {consultation.advice && (
                         <div>
-                          {(consultation.anamnesis || consultation.examination) && <Separator className="mb-4" />}
+                          {(consultation.anamnesis || consultation.clinical_hypotheses || consultation.examination) && <Separator className="mb-4" />}
                           <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Conseils donnés</h4>
                           <MarkdownText text={consultation.advice} />
                         </div>
