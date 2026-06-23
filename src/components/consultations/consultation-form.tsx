@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { ConsultationNav, type NavSection } from '@/components/consultations/consultation-nav'
 import { Separator } from '@/components/ui/separator'
 import {
   Dialog,
@@ -32,7 +32,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin, GitBranch, Dumbbell, Sparkles } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, MapPin, GitBranch, Dumbbell, Sparkles } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate, calculateAge } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
@@ -79,6 +79,17 @@ interface CreatedInvoice {
   invoice_number: string
 }
 
+const NAV_SECTIONS: NavSection[] = [
+  { id: 'sec-infos', label: 'Infos' },
+  { id: 'sec-anamnese', label: 'Anamnèse' },
+  { id: 'sec-hypotheses', label: 'Hypothèses' },
+  { id: 'sec-examen', label: 'Examen' },
+  { id: 'sec-conseils', label: 'Conseils' },
+  { id: 'sec-pieces', label: 'Pièces jointes' },
+  { id: 'sec-suivi', label: 'Suivi' },
+  { id: 'sec-facturation', label: 'Facturation' },
+]
+
 export function ConsultationForm({
   patient,
   practitioner,
@@ -105,7 +116,6 @@ export function ConsultationForm({
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [existingAttachments, setExistingAttachments] = useState<ConsultationAttachment[]>([])
   const [isDragging, setIsDragging] = useState(false)
-  const [activeTab, setActiveTab] = useState('consultation')
   const router = useRouter()
   const { toast } = useToast()
   const db = createClient()
@@ -241,7 +251,7 @@ export function ConsultationForm({
     if (errorKeys.length === 0) return
     const consultationFields = ['date_time', 'reason', 'anamnesis', 'examination', 'advice']
     if (errorKeys.some((k) => consultationFields.includes(k))) {
-      setActiveTab('consultation')
+      document.getElementById('sec-infos')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
   }, [errors])
 
@@ -637,7 +647,6 @@ export function ConsultationForm({
   const anamnesis = watch('anamnesis')
   const examination = watch('examination')
   const advice = watch('advice')
-  const consultationFilled = !!(reason && (anamnesis || examination || advice))
 
   // Contexte patient transmis à l'IA (structuration + hypothèses) : démographie + ATCD.
   const computeAge = (birthDate?: string | null): number | null => {
@@ -699,28 +708,13 @@ export function ConsultationForm({
       ta.style.height = `${ta.scrollHeight}px`
     })
   }, [anamnesis, examination, advice])
-  const suiviFacturationFilled = followUp7d || sendPostSessionAdvice || (createInvoice && totalPayments > 0)
 
   const formContent = (
     <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="consultation" className="gap-2">
-            <ClipboardList className="h-4 w-4" />
-            <span className="hidden sm:inline">Consultation</span>
-            <span className="sm:hidden">Consult.</span>
-            {consultationFilled && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
-          </TabsTrigger>
-          <TabsTrigger value="suivi-facturation" className="gap-2">
-            <CalendarCheck className="h-4 w-4" />
-            <span className="hidden sm:inline">Suivi et facturation</span>
-            <span className="sm:hidden">Suivi</span>
-            {suiviFacturationFilled && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
-          </TabsTrigger>
-        </TabsList>
+      <ConsultationNav sections={NAV_SECTIONS} />
 
-        <TabsContent value="consultation" forceMount className="data-[state=inactive]:hidden data-[state=active]:animate-fade-in mt-4 space-y-6">
-          <Card>
+      <div className="space-y-6">
+          <Card id="sec-infos" className="scroll-mt-24">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <CalendarCheck className="h-5 w-5 text-primary" />
@@ -885,7 +879,7 @@ export function ConsultationForm({
                   }
                 }}
               />
-              <div className="space-y-2">
+              <div id="sec-anamnese" className="space-y-2 scroll-mt-24">
                 <Label htmlFor="anamnesis">Anamnèse</Label>
                 {anamnesisCardSections ? (
                   <AnamnesisCards
@@ -921,6 +915,7 @@ export function ConsultationForm({
                   <p className="text-sm text-destructive">{errors.anamnesis.message}</p>
                 )}
 
+                <span id="sec-hypotheses" className="block scroll-mt-24" aria-hidden />
                 {!hypotheses && (
                   <Button
                     type="button"
@@ -951,7 +946,7 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div className="space-y-2">
+              <div id="sec-examen" className="space-y-2 scroll-mt-24">
                 <div className="flex items-center justify-between gap-2">
                   <Label htmlFor="examination">Examen clinique et traitement</Label>
                   <Button
@@ -1069,7 +1064,7 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div className="space-y-2">
+              <div id="sec-conseils" className="space-y-2 scroll-mt-24">
                 <Label htmlFor="advice">Conseils donnés</Label>
                 <Textarea
                   id="advice"
@@ -1088,7 +1083,7 @@ export function ConsultationForm({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="sec-pieces" className="scroll-mt-24">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Paperclip className="h-5 w-5 text-primary" />
@@ -1201,10 +1196,8 @@ export function ConsultationForm({
               )}
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="suivi-facturation" forceMount className="data-[state=inactive]:hidden data-[state=active]:animate-fade-in mt-4 space-y-6">
-          <Card>
+          <Card id="sec-suivi" className="scroll-mt-24">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Clock className="h-5 w-5 text-primary" />
@@ -1276,7 +1269,7 @@ export function ConsultationForm({
           </Card>
 
           {mode === 'create' && (
-            <Card>
+            <Card id="sec-facturation" className="scroll-mt-24">
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <CreditCard className="h-5 w-5 text-primary" />
@@ -1422,8 +1415,7 @@ export function ConsultationForm({
               </CardContent>
             </Card>
           )}
-        </TabsContent>
-      </Tabs>
+      </div>
 
       <div className="sticky bottom-0 z-10 flex justify-end gap-4 pt-4 pb-2 -mx-1 px-1 bg-gradient-to-t from-background via-background to-transparent">
         <Button
@@ -1434,24 +1426,17 @@ export function ConsultationForm({
         >
           Annuler
         </Button>
-        {activeTab === 'consultation' ? (
-          <Button key="next-tab" type="button" onClick={(e) => { e.preventDefault(); setActiveTab('suivi-facturation') }} className="gap-2">
-            Passer au suivi et à la facturation
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        ) : (
-          <Button key="submit" type="submit" disabled={isLoading} className="gap-2">
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {mode === 'create' ? (
-              <>
-                <Stethoscope className="h-4 w-4" />
-                Enregistrer la consultation
-              </>
-            ) : (
-              'Mettre à jour'
-            )}
-          </Button>
-        )}
+        <Button key="submit" type="submit" disabled={isLoading} className="gap-2">
+          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {mode === 'create' ? (
+            <>
+              <Stethoscope className="h-4 w-4" />
+              Enregistrer la consultation
+            </>
+          ) : (
+            'Mettre à jour'
+          )}
+        </Button>
       </div>
     </form>
   )
