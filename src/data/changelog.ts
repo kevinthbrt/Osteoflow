@@ -19,6 +19,18 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.11.0',
+    date: '2026-06-23',
+    title: 'Aide au diagnostic, amélioration interface consultation et mises à jour macOS',
+    changes: [
+      { type: 'feature', text: 'Aide au diagnostic : après la transcription de l\'anamnèse, l\'application propose de générer des hypothèses de diagnostic, des questions complémentaires et des tests cliniques suggérés. La génération se lance en parallèle de la structuration pour minimiser l\'attente.' },
+      { type: 'improvement', text: 'Interface consultation : refonte visuelle complète — mise en page fluide, encarts thématiques, en-tête allégé, fiche patient enrichie, pièces jointes en colonne latérale et suivi/facturation regroupés dans une modale de fin de séance.' },
+      { type: 'improvement', text: 'Brouillon enrichi : les cartes d\'anamnèse structurées et les hypothèses cliniques sont maintenant sauvegardées dans le brouillon — plus de perte après mise en veille de l\'ordinateur.' },
+      { type: 'fix', text: 'Le loader « Génération des hypothèses en cours… » ne restait plus bloqué à l\'écran après réception des résultats.' },
+      { type: 'improvement', text: 'Mises à jour macOS : signature du code et notarisation Apple activées — les mises à jour automatiques fonctionnent désormais sur Mac Apple Silicon (ARM64) et Intel, au même titre que Windows.' },
+    ],
+  },
+  {
     version: '1.10.0',
     date: '2026-06-19',
     title: 'Comptabilité repensée, objectifs en couleurs et tampon sur les courriers',
