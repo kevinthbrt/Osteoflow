@@ -4,11 +4,14 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Mic, MicOff, Sparkles, Loader2, RotateCcw, Check, AlertCircle, WifiOff, Download, UserPen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { sectionsToMarkdown } from '@/lib/anamnesis'
 import type { PatientFieldsDetected } from '@/types/ai'
 
 export type { PatientFieldsDetected }
 
 interface PatientContext {
+  age?: number | null
+  sex?: string | null
   profession?: string | null
   sport_activity?: string | null
   primary_physician?: string | null
@@ -21,7 +24,13 @@ interface PatientContext {
 
 interface AnamnesisRecorderProps {
   onApply: (data: { reason: string; anamnesis: string; sections?: AnamnesisSection[] }) => void
+  /** Fired at the start of the parallel hypotheses fetch so the parent can show a loader. */
+  onHypothesesStart?: () => void
+  /** Fired when the parallel hypotheses fetch resolves. null means failure/no result. */
+  onHypothesesReady?: (payload: Record<string, unknown> | null) => void
   disabled?: boolean
+  /** Consultation reason forwarded to the parallel hypotheses call. */
+  reason?: string
   patientContext?: PatientContext
   patientId?: string
   onPatientFieldsDetected?: (fields: PatientFieldsDetected) => void
@@ -172,7 +181,7 @@ export const SECTION_STYLES: Record<AnamnesisSection['color'], { card: string; l
 
 // ─── Composant ───────────────────────────────────────────────────────────────
 
-export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId, onPatientFieldsDetected }: AnamnesisRecorderProps) {
+export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesReady, disabled, reason, patientContext, patientId, onPatientFieldsDetected }: AnamnesisRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle')
   const [finalText, setFinalText] = useState('')
   const [interimText, setInterimText] = useState('')
@@ -204,6 +213,29 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
   // Quand true, transcribeBlob ajoute le nouveau texte à la suite du texte existant
   // au lieu de le remplacer (utilisé pour la continuation après arrêt automatique).
   const isContinuingRef = useRef(false)
+
+  // Stable refs so the callbacks never appear in useCallback deps (avoids stale closures).
+  const onHypothesesStartRef = useRef(onHypothesesStart)
+  const onHypothesesReadyRef = useRef(onHypothesesReady)
+  const reasonRef = useRef(reason)
+  useEffect(() => { onHypothesesStartRef.current = onHypothesesStart }, [onHypothesesStart])
+  useEffect(() => { onHypothesesReadyRef.current = onHypothesesReady }, [onHypothesesReady])
+  useEffect(() => { reasonRef.current = reason }, [reason])
+
+  // ── Workflow automatique ──────────────────────────────────────────────────
+  // pendingStructure : on a arrêté la dictée et on veut structurer dès que le
+  // transcript est prêt. applied : le résultat structuré a déjà été injecté dans
+  // le formulaire (évite une double injection).
+  const pendingStructureRef = useRef(false)
+  const appliedRef = useRef(false)
+
+  // ── Question hypothèses ────────────────────────────────────────────────────
+  // Après la dictée, on demande explicitement si le praticien veut les hypothèses
+  // (sinon on ne dépense pas de tokens). La question s'affiche PENDANT la
+  // structuration : répondre « Oui » lance l'appel en parallèle (gain de latence),
+  // « Non » ne déclenche rien. Le transcript sert de base aux deux appels.
+  const [askHypotheses, setAskHypotheses] = useState<'hidden' | 'asking' | 'launched'>('hidden')
+  const hypoTextRef = useRef('')
 
   // ── Persistance localStorage (survie à la veille/rechargement) ────────────
   // Clé spécifique au patient : un brouillon dicté ne doit jamais « fuiter »
@@ -269,6 +301,13 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
     setInterimText('')
     setStatusMsg('')
 
+    // On propose les hypothèses (sans les lancer) : la question s'affiche pendant
+    // que la structuration tourne. Le praticien décide → pas de tokens gaspillés.
+    if (onHypothesesReadyRef.current) {
+      hypoTextRef.current = text
+      setAskHypotheses('asking')
+    }
+
     try {
       const res = await fetch('/api/ai/structure-anamnesis', {
         method: 'POST',
@@ -277,7 +316,12 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
       })
       const data = await res.json()
       if (!res.ok) { setErrorMsg(data.error || 'Erreur lors de la structuration.'); setState('error'); return }
-      setStructured({ reason: data.reason, anamnesis: data.anamnesis, sections: data.sections })
+      // Les cartes (sections) sont la source unique : le texte est dérivé d'elles.
+      // data.anamnesis n'est qu'un repli (ancien format / échec de structuration).
+      const anamnesisText = data.sections && data.sections.length > 0
+        ? sectionsToMarkdown(data.sections)
+        : (data.anamnesis ?? '')
+      setStructured({ reason: data.reason, anamnesis: anamnesisText, sections: data.sections })
       if (data.patient_fields && Object.keys(data.patient_fields).length > 0) {
         setDetectedFields(data.patient_fields)
       }
@@ -287,12 +331,38 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
       setErrorMsg('Impossible de contacter le serveur.')
       setState('error')
     }
-  }, [stopTimer, stopReconnectTimer])
+  }, [stopTimer, stopReconnectTimer, patientContext])
+
+  // « Oui » à la question hypothèses : lance l'appel (en parallèle de la
+  // structuration encore en cours → latence masquée). Fire-and-forget : le
+  // résultat remonte au parent via onHypothesesReady.
+  const requestHypotheses = useCallback(() => {
+    const text = hypoTextRef.current.trim()
+    if (!text || !onHypothesesReadyRef.current) return
+    setAskHypotheses('launched')
+    onHypothesesStartRef.current?.()
+    fetch('/api/ai/generate-hypotheses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ anamnesis: text, reason: reasonRef.current, patientContext }),
+    })
+      .then(async (hRes) => {
+        if (!hRes.ok) { onHypothesesReadyRef.current?.(null); return }
+        const hData = await hRes.json()
+        onHypothesesReadyRef.current?.(
+          hData?.hypotheses?.length ? (hData as Record<string, unknown>) : null,
+        )
+      })
+      .catch(() => { onHypothesesReadyRef.current?.(null) })
+      .finally(() => { setAskHypotheses('hidden') })
+  }, [patientContext])
 
   // ── Réinitialisation ───────────────────────────────────────────────────────────
 
   const handleReset = useCallback(() => {
     intentionalStopRef.current = true
+    pendingStructureRef.current = false
+    appliedRef.current = false
     stopReconnectTimer()
     recognitionRef.current?.stop()
     recognitionRef.current = null
@@ -309,6 +379,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
     setStructured(null)
     setDetectedFields(null)
     setDetectionSkipped(false)
+    setAskHypotheses('hidden')
     setErrorMsg('')
     setStatusMsg('')
     setElapsed(0)
@@ -601,37 +672,60 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
   // ─── Handlers unifiés ────────────────────────────────────────────────────────────────
 
   const startRecording = useCallback(() => {
+    appliedRef.current = false
+    pendingStructureRef.current = false
+    setAskHypotheses('hidden')
     if (isElectron()) startMediaRecorder()
     else startSpeechRecognition()
   }, [startMediaRecorder, startSpeechRecognition])
 
   const stopRecording = useCallback(() => {
+    // Marque qu'on veut structurer automatiquement dès que le transcript est prêt.
+    pendingStructureRef.current = true
     if (isElectron()) stopMediaRecorder()
     else stopSpeechRecognition()
   }, [stopMediaRecorder, stopSpeechRecognition])
 
-  const handleApply = useCallback(() => {
-    if (!structured) return
-    onApply(structured)
-    if (detectedFields && onPatientFieldsDetected) {
-      onPatientFieldsDetected(detectedFields)
+  // Auto-structuration : dès que la dictée est arrêtée et le transcript prêt.
+  // Web uniquement (dictée continue). En Electron on garde le flux manuel pour
+  // permettre « Continuer la dictée » en plusieurs segments avant de structurer.
+  useEffect(() => {
+    if (
+      pendingStructureRef.current &&
+      !isElectron() &&
+      state === 'idle' &&
+      finalText.trim().length > 0 &&
+      !structured
+    ) {
+      pendingStructureRef.current = false
+      void handleStructure()
     }
-    // Réinitialise l'encadré de dictée : le résultat structuré vit désormais
-    // dans le champ Anamnèse (cartes), pas ici.
-    clearDraft()
-    clearAudioBlob()
-    setHasCachedAudio(false)
-    setState('idle')
-    setFinalText('')
-    setInterimText('')
-    setStructured(null)
-    setDetectedFields(null)
-    setDetectionSkipped(false)
-    setErrorMsg('')
-    setStatusMsg('')
-    setElapsed(0)
-    finalTextRef.current = ''
-  }, [structured, detectedFields, onApply, onPatientFieldsDetected, clearDraft])
+  }, [state, finalText, structured, handleStructure])
+
+  // Auto-injection : dès que la structuration est terminée, on injecte directement
+  // dans le champ Anamnèse (cartes éditables). On laisse ensuite l'éventuelle revue
+  // des infos patient détectées, puis on replie le bloc une fois tout traité.
+  useEffect(() => {
+    if (state !== 'done') return
+    if (structured && !appliedRef.current) {
+      appliedRef.current = true
+      onApply(structured)
+      clearDraft()
+      // Le résultat vit désormais dans le champ Anamnèse : on masque l'aperçu ici.
+      setStructured(null)
+      return
+    }
+    if (appliedRef.current && !structured && !detectedFields) {
+      clearAudioBlob()
+      setHasCachedAudio(false)
+      setState('idle')
+      setFinalText('')
+      setInterimText('')
+      setDetectionSkipped(false)
+      setElapsed(0)
+      finalTextRef.current = ''
+    }
+  }, [state, structured, detectedFields, onApply, clearDraft, clearAudioBlob])
 
   const acceptField = useCallback((key: keyof PatientFieldsDetected) => {
     if (!detectedFields || !onPatientFieldsDetected) return
@@ -745,6 +839,32 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
         )}
       </div>
 
+      {/* Question hypothèses — affichée pendant la structuration. « Oui » lance
+          l'appel en parallèle (latence masquée), « Non » n'engage aucun token. */}
+      {askHypotheses === 'asking' && (state === 'processing' || state === 'done') && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-violet-200 bg-violet-50/70 px-3 py-2 dark:border-violet-800/50 dark:bg-violet-950/30">
+          <span className="flex items-center gap-1.5 text-sm font-medium text-violet-700 dark:text-violet-300">
+            <Sparkles className="h-3.5 w-3.5" />
+            Besoin des hypothèses de diagnostic ?
+          </span>
+          <div className="flex gap-2 shrink-0">
+            <Button type="button" size="sm" onClick={requestHypotheses} className="h-7 gap-1.5 bg-violet-600 hover:bg-violet-700 text-white">
+              <Sparkles className="h-3.5 w-3.5" />
+              Oui
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setAskHypotheses('hidden')} className="h-7 text-muted-foreground">
+              Non
+            </Button>
+          </div>
+        </div>
+      )}
+      {askHypotheses === 'launched' && (state === 'processing' || state === 'done') && (
+        <div className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50/70 px-3 py-2 text-sm font-medium text-violet-700 dark:border-violet-800/50 dark:bg-violet-950/30 dark:text-violet-300">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Génération des hypothèses en cours…
+        </div>
+      )}
+
       {/* Avertissement durée — à 9 min, arrêt automatique à 10 min */}
       {state === 'recording' && elapsed >= WARN_RECORD_SECONDS && (
         <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-1.5">
@@ -781,7 +901,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
           {/* Motif pill */}
           {structured.reason && (
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-800 text-red-700 dark:text-red-300 text-xs font-semibold rounded-full px-3 py-1">
+              <span className="inline-flex items-center gap-1.5 max-w-full break-words bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-800 text-red-700 dark:text-red-300 text-xs font-semibold rounded-full px-3 py-1">
                 🎯 {structured.reason}
               </span>
             </div>
@@ -789,7 +909,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
 
           {/* Cards sections */}
           {structured.sections && structured.sections.length > 0 ? (
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               {structured.sections.map((section) => {
                 const isRedFlags = section.id === 'red_flags'
                 const effectiveColor = isRedFlags
@@ -800,14 +920,14 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
                   <div
                     key={section.id}
                     className={cn(
-                      'rounded-lg border px-2.5 py-2 text-xs',
+                      'rounded-lg border px-2.5 py-2 text-xs min-w-0',
                       styles.card,
-                      isRedFlags && 'col-span-2'
+                      isRedFlags && 'sm:col-span-2'
                     )}
                   >
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <span>{section.icon}</span>
-                      <span className={cn('font-semibold uppercase tracking-wide text-[10px]', styles.label)}>
+                    <div className="flex items-center gap-1.5 mb-1.5 min-w-0">
+                      <span className="shrink-0">{section.icon}</span>
+                      <span className={cn('font-semibold uppercase tracking-wide text-[10px] leading-tight break-words min-w-0', styles.label)}>
                         {section.label}
                       </span>
                       {isRedFlags && section.allClear && (
@@ -828,7 +948,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
                     ) : (
                       <ul className="space-y-0.5 list-none pl-0">
                         {section.items.map((item, i) => (
-                          <li key={i} className={cn('leading-relaxed', item === '—' ? 'text-muted-foreground italic' : styles.item)}>
+                          <li key={i} className={cn('leading-relaxed break-words', item === '—' ? 'text-muted-foreground italic' : styles.item)}>
                             {item !== '—' && <span className="mr-1 opacity-40">·</span>}
                             {item}
                           </li>
@@ -970,18 +1090,10 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
         )}
 
         {state === 'recording' && (
-          <>
-            <Button type="button" size="sm" variant="destructive" onClick={stopRecording} className="gap-1.5">
-              <MicOff className="h-3.5 w-3.5" />
-              Arrêter
-            </Button>
-            {hasTranscript && !isElectron() && (
-              <Button type="button" size="sm" variant="outline" onClick={handleStructure} className="gap-1.5">
-                <Sparkles className="h-3.5 w-3.5" />
-                Structurer maintenant
-              </Button>
-            )}
-          </>
+          <Button type="button" size="sm" variant="destructive" onClick={stopRecording} className="gap-1.5">
+            <MicOff className="h-3.5 w-3.5" />
+            Arrêter
+          </Button>
         )}
 
         {state === 'reconnecting' && (
@@ -995,7 +1107,7 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
           <>
             <Button type="button" size="sm" onClick={handleStructure} className="gap-1.5">
               <Sparkles className="h-3.5 w-3.5" />
-              Structurer l'anamnèse
+              Transcrire et structurer
             </Button>
             {isElectron() && state === 'idle' && (
               <Button type="button" size="sm" variant="outline" onClick={continueMediaRecorder} className="gap-1.5">
@@ -1013,14 +1125,6 @@ export function AnamnesisRecorder({ onApply, disabled, patientContext, patientId
           </Button>
         )}
 
-        {state === 'done' && (
-          <Button type="button" size="sm" onClick={handleApply} className="gap-1.5 bg-green-600 hover:bg-green-700">
-            <Check className="h-3.5 w-3.5" />
-            {detectedFields && onPatientFieldsDetected
-              ? 'Injecter et accepter tous les changements'
-              : 'Injecter dans la consultation'}
-          </Button>
-        )}
       </div>
     </div>
   )

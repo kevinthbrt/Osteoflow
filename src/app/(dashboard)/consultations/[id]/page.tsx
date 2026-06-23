@@ -10,6 +10,7 @@ import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { invoiceStatusLabels } from '@/lib/validations/invoice'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { AnamnesisDisplay } from '@/components/consultations/anamnesis-display'
+import { HypothesesDisplay } from '@/components/consultations/hypotheses-display'
 import { ConsultationPaymentEditor } from '@/components/consultations/consultation-payment-editor'
 import { ExercisePrescriptionSection } from '@/components/exercises/exercise-prescription-section'
 
@@ -154,6 +155,15 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
                   />
                 </div>
               )}
+              {consultation.clinical_hypotheses && (
+                <div>
+                  {(consultation.anamnesis || consultation.anamnesis_sections) && <Separator className="my-4" />}
+                  <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                    Hypothèses cliniques
+                  </h4>
+                  <HypothesesDisplay clinicalHypotheses={consultation.clinical_hypotheses} />
+                </div>
+              )}
               {consultation.examination && (
                 <div>
                   <Separator className="my-4" />
@@ -172,7 +182,7 @@ export default async function ConsultationPage({ params }: ConsultationPageProps
                   <MarkdownText text={consultation.advice} />
                 </div>
               )}
-              {!consultation.anamnesis && !consultation.examination && !consultation.advice && (
+              {!consultation.anamnesis && !consultation.examination && !consultation.advice && !consultation.clinical_hypotheses && (
                 <p className="text-sm text-muted-foreground italic">
                   Aucun contenu clinique renseigné
                 </p>

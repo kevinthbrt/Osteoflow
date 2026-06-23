@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS consultations (
   reason TEXT NOT NULL,
   anamnesis TEXT,
   anamnesis_sections TEXT,
+  clinical_hypotheses TEXT,
   examination TEXT,
   advice TEXT,
   follow_up_7d INTEGER DEFAULT 0,
@@ -466,6 +467,11 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   // sur les consultations passées sans repasser par l'IA.
   if (!consultCols.some((c) => c.name === 'anamnesis_sections')) {
     db.exec('ALTER TABLE consultations ADD COLUMN anamnesis_sections TEXT;')
+  }
+  // Hypothèses cliniques (JSON sérialisé : payload IA + réponses du praticien),
+  // pour réaffichage sur les consultations passées.
+  if (!consultCols.some((c) => c.name === 'clinical_hypotheses')) {
+    db.exec('ALTER TABLE consultations ADD COLUMN clinical_hypotheses TEXT;')
   }
 
   // Add status to practitioners

@@ -22,7 +22,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import {
   Dialog,
@@ -30,10 +29,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, ClipboardList, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, ArrowRight, MapPin, GitBranch, Dumbbell, Sparkles } from 'lucide-react'
-import { generateInvoiceNumber, formatDateTime, formatDate, calculateAge } from '@/lib/utils'
+import { Loader2, Plus, Trash2, Stethoscope, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, MapPin, GitBranch, Dumbbell, Sparkles, Brain, Activity, Lightbulb } from 'lucide-react'
+import { generateInvoiceNumber, formatDateTime, formatDate, calculateAge, cn } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
@@ -44,6 +44,10 @@ import { NeckPainTree } from '@/components/consultations/neck-pain-tree'
 import { AnamnesisRecorder, type AnamnesisSection } from '@/components/consultations/anamnesis-recorder'
 import { AnamnesisCards } from '@/components/consultations/anamnesis-cards'
 import { AnamnesisDisplay } from '@/components/consultations/anamnesis-display'
+import { HypothesesDisplay } from '@/components/consultations/hypotheses-display'
+import { sectionsToMarkdown } from '@/lib/anamnesis'
+import { HypothesesCard, type HypothesesState } from '@/components/consultations/hypotheses-card'
+import type { HypothesesPayload } from '@/lib/hypotheses'
 import { MarkdownField } from '@/components/ui/markdown-field'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
@@ -76,6 +80,52 @@ interface CreatedInvoice {
   invoice_number: string
 }
 
+/** Initiales du patient pour l'avatar (ex. « Jean Dupont » → « JD »). */
+function getInitials(firstName?: string | null, lastName?: string | null): string {
+  const a = (firstName || '').trim().charAt(0)
+  const b = (lastName || '').trim().charAt(0)
+  return (b + a || a || b || '?').toUpperCase()
+}
+
+/** Pastille d'icône colorée + titre, pour rendre les sections scannables d'un coup d'œil. */
+function SectionHeading({
+  icon: Icon,
+  title,
+  tone,
+  action,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+  tone: string
+  action?: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2.5">
+        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', tone)}>
+          <Icon className="h-[18px] w-[18px]" />
+        </span>
+        <h3 className="text-base font-semibold tracking-tight">{title}</h3>
+      </div>
+      {action}
+    </div>
+  )
+}
+
+const SECTION_TONES = {
+  anamnese: 'bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300',
+  hypotheses: 'bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300',
+  examen: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300',
+  conseils: 'bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300',
+  clinique: 'bg-primary/10 text-primary',
+} as const
+
+/** Teinte bleutée + relief pour les cartes de la page (contraste avec le fond). */
+const CARD_TINT = 'border-blue-100/80 shadow-[0_6px_20px_-10px_rgba(37,99,235,0.22)] dark:border-blue-900/40'
+
+/** Encart bleuté pour les sous-sections, afin de créer du relief dans une carte. */
+const ENCART = 'rounded-xl border border-blue-100/80 bg-blue-50/50 p-4 dark:border-blue-900/30 dark:bg-blue-950/20'
+
 export function ConsultationForm({
   patient,
   practitioner,
@@ -102,7 +152,6 @@ export function ConsultationForm({
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [existingAttachments, setExistingAttachments] = useState<ConsultationAttachment[]>([])
   const [isDragging, setIsDragging] = useState(false)
-  const [activeTab, setActiveTab] = useState('consultation')
   const router = useRouter()
   const { toast } = useToast()
   const db = createClient()
@@ -118,6 +167,7 @@ export function ConsultationForm({
   const [prescriptionsRefreshKey, setPrescriptionsRefreshKey] = useState(0)
   const [showTestsSuggestions, setShowTestsSuggestions] = useState(false)
   const [showOrthoTestsPicker, setShowOrthoTestsPicker] = useState(false)
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false)
   const [anamnesisCardSections, setAnamnesisCardSections] = useState<AnamnesisSection[] | null>(() => {
     if (consultation?.anamnesis_sections) {
       try {
@@ -128,6 +178,21 @@ export function ConsultationForm({
     return null
   })
   const [anamnesisCardReason, setAnamnesisCardReason] = useState<string | undefined>(consultation?.reason || undefined)
+  const anamnesisCardSectionsRef = useRef(anamnesisCardSections)
+  // Carte « Hypothèses cliniques » — persistée avec la consultation (payload IA + réponses).
+  const initialHypotheses = (() => {
+    if (!consultation?.clinical_hypotheses) return { payload: null as HypothesesPayload | null, state: undefined as HypothesesState | undefined }
+    try {
+      const parsed = JSON.parse(consultation.clinical_hypotheses)
+      return { payload: (parsed?.payload ?? null) as HypothesesPayload | null, state: parsed?.state as HypothesesState | undefined }
+    } catch { return { payload: null as HypothesesPayload | null, state: undefined as HypothesesState | undefined } }
+  })()
+  const [hypotheses, setHypotheses] = useState<HypothesesPayload | null>(initialHypotheses.payload)
+  const [hypothesesState, setHypothesesState] = useState<HypothesesState | undefined>(initialHypotheses.state)
+  const hypothesesRef = useRef(hypotheses)
+  const hypothesesStateRef = useRef(hypothesesState)
+  const [hypothesesLoading, setHypothesesLoading] = useState(false)
+  const [hypothesesError, setHypothesesError] = useState<string | null>(null)
   const [orthoPickerRegionFilter, setOrthoPickerRegionFilter] = useState<string | undefined>(undefined)
   const [techMentionRegion, setTechMentionRegion] = useState<string | null>(null)
   const [techItems, setTechItems] = useState<{ id: string; name: string; region: string | null; description: string | null; use_count: number }[]>([])
@@ -226,7 +291,7 @@ export function ConsultationForm({
     if (errorKeys.length === 0) return
     const consultationFields = ['date_time', 'reason', 'anamnesis', 'examination', 'advice']
     if (errorKeys.some((k) => consultationFields.includes(k))) {
-      setActiveTab('consultation')
+      document.getElementById('sec-infos')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
   }, [errors])
 
@@ -240,6 +305,9 @@ export function ConsultationForm({
   }, [])
 
   useEffect(() => { paymentsRef.current = payments }, [payments])
+  useEffect(() => { anamnesisCardSectionsRef.current = anamnesisCardSections }, [anamnesisCardSections])
+  useEffect(() => { hypothesesRef.current = hypotheses }, [hypotheses])
+  useEffect(() => { hypothesesStateRef.current = hypothesesState }, [hypothesesState])
 
   // Exposé via ref pour être appelé immédiatement depuis onApply (sans debounce)
   const saveDraftNow = useCallback(() => {
@@ -248,7 +316,7 @@ export function ConsultationForm({
     fetch('/api/consultation/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...values, payments: paymentsRef.current }),
+      body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
     }).catch(() => {})
   }, [mode, getValues])
 
@@ -262,7 +330,7 @@ export function ConsultationForm({
       fetch('/api/consultation/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...values, payments: paymentsRef.current }),
+        body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
       }).catch(() => {})
     }
 
@@ -283,6 +351,24 @@ export function ConsultationForm({
           if (draft.advice) setValue('advice', draft.advice)
           if (draft.date_time) setValue('date_time', draft.date_time)
           if (draft.payments) setPayments(draft.payments)
+          if (draft.anamnesis_sections) {
+            try {
+              const sections = JSON.parse(draft.anamnesis_sections)
+              if (Array.isArray(sections) && sections.length > 0) {
+                setAnamnesisCardSections(sections)
+                if (draft.reason) setAnamnesisCardReason(draft.reason)
+              }
+            } catch { /* ignore malformed sections */ }
+          }
+          if (draft.clinical_hypotheses) {
+            try {
+              const parsed = JSON.parse(draft.clinical_hypotheses)
+              if (parsed?.payload) {
+                setHypotheses(parsed.payload as HypothesesPayload)
+                setHypothesesState(parsed.state as HypothesesState | undefined)
+              }
+            } catch { /* ignore malformed hypotheses */ }
+          }
           if (!auto) toast({ title: 'Brouillon restauré', description: 'La consultation a été restaurée depuis votre dernière session.' })
         })
         .catch(() => {})
@@ -320,7 +406,7 @@ export function ConsultationForm({
         fetch('/api/consultation/draft', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...values, payments: paymentsRef.current }),
+          body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
         }).catch(() => {})
       }, 3000)
     })
@@ -453,6 +539,7 @@ export function ConsultationForm({
             reason: data.reason,
             anamnesis: data.anamnesis || null,
             anamnesis_sections: anamnesisCardSections ? JSON.stringify(anamnesisCardSections) : null,
+            clinical_hypotheses: hypotheses ? JSON.stringify({ payload: hypotheses, state: hypothesesState }) : null,
             examination: data.examination || null,
             advice: data.advice || null,
             follow_up_7d: data.follow_up_7d,
@@ -576,6 +663,7 @@ export function ConsultationForm({
             reason: data.reason,
             anamnesis: data.anamnesis || null,
             anamnesis_sections: anamnesisCardSections ? JSON.stringify(anamnesisCardSections) : null,
+            clinical_hypotheses: hypotheses ? JSON.stringify({ payload: hypotheses, state: hypothesesState }) : null,
             examination: data.examination || null,
             advice: data.advice || null,
             follow_up_7d: data.follow_up_7d,
@@ -620,7 +708,60 @@ export function ConsultationForm({
   const anamnesis = watch('anamnesis')
   const examination = watch('examination')
   const advice = watch('advice')
-  const consultationFilled = !!(reason && (anamnesis || examination || advice))
+
+  // Contexte patient transmis à l'IA (structuration + hypothèses) : démographie + ATCD.
+  const computeAge = (birthDate?: string | null): number | null => {
+    if (!birthDate) return null
+    const b = new Date(birthDate)
+    if (Number.isNaN(b.getTime())) return null
+    const now = new Date()
+    let age = now.getFullYear() - b.getFullYear()
+    const m = now.getMonth() - b.getMonth()
+    if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--
+    return age >= 0 && age < 130 ? age : null
+  }
+  const patientClinicalContext = {
+    age: computeAge(currentPatient.birth_date),
+    sex: currentPatient.gender === 'F' ? 'femme' : currentPatient.gender === 'M' ? 'homme' : null,
+    profession: currentPatient.profession,
+    sport_activity: currentPatient.sport_activity,
+    primary_physician: currentPatient.primary_physician,
+    pregnancy_due_date: currentPatient.pregnancy_due_date,
+    surgical_history: currentPatient.surgical_history,
+    trauma_history: currentPatient.trauma_history,
+    medical_history: currentPatient.medical_history,
+    family_history: currentPatient.family_history,
+  }
+
+  const generateHypotheses = async () => {
+    if (!anamnesis?.trim()) return
+    setHypothesesLoading(true)
+    setHypothesesError(null)
+    try {
+      const res = await fetch('/api/ai/generate-hypotheses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ anamnesis, reason, patientContext: patientClinicalContext }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setHypothesesError(data.error || 'Erreur lors de la génération.')
+        return
+      }
+      if (!data.hypotheses || data.hypotheses.length === 0) {
+        setHypothesesError('Aucune hypothèse générée.')
+        return
+      }
+      setHypotheses(data as HypothesesPayload)
+      setHypothesesState(undefined)
+      // Persiste aussitôt dans le brouillon (survie à la veille).
+      setTimeout(saveDraftNow, 0)
+    } catch {
+      setHypothesesError('Impossible de contacter le serveur.')
+    } finally {
+      setHypothesesLoading(false)
+    }
+  }
 
   // Auto-resize textareas when values are set programmatically (e.g. via decision tree)
   useEffect(() => {
@@ -630,37 +771,344 @@ export function ConsultationForm({
       ta.style.height = `${ta.scrollHeight}px`
     })
   }, [anamnesis, examination, advice])
-  const suiviFacturationFilled = followUp7d || sendPostSessionAdvice || (createInvoice && totalPayments > 0)
+
+  const attachmentsCard = (
+    <Card className={CARD_TINT}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <Paperclip className="h-5 w-5 text-primary" />
+          <CardTitle className="text-lg">Pièces jointes</CardTitle>
+        </div>
+        <CardDescription>Comptes rendus, radios, ordonnances, etc.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleFileDrop}
+          className={`relative border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
+            isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+          }`}
+          onClick={() => document.getElementById('attachment-input')?.click()}
+        >
+          <Upload className="h-7 w-7 mx-auto text-muted-foreground/50 mb-2" />
+          <p className="text-sm text-muted-foreground">
+            Glissez-déposez ou <span className="text-primary underline">parcourir</span>
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">PDF, images, documents (max 20 Mo)</p>
+          <input
+            id="attachment-input"
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFileSelect}
+            accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.dicom,.dcm"
+          />
+        </div>
+
+        {existingAttachments.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Fichiers existants</p>
+            {existingAttachments.map((att) => {
+              const Icon = getFileIcon(att.original_name)
+              return (
+                <div key={att.id} className="flex items-center justify-between rounded-lg border p-2.5">
+                  <a
+                    href={`/api/attachments/${att.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 min-w-0 flex-1 hover:underline"
+                  >
+                    <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                    <span className="text-sm truncate">{att.original_name}</span>
+                    {att.file_size && (
+                      <span className="text-xs text-muted-foreground flex-shrink-0">{formatFileSize(att.file_size)}</span>
+                    )}
+                  </a>
+                  <Button type="button" variant="ghost" size="icon" className="flex-shrink-0 h-8 w-8" onClick={() => handleDeleteAttachment(att.id)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {pendingFiles.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Fichiers à envoyer ({pendingFiles.length})</p>
+            {pendingFiles.map((file, index) => {
+              const Icon = getFileIcon(file.name)
+              return (
+                <div key={`${file.name}-${index}`} className="flex items-center justify-between rounded-lg border border-dashed p-2.5">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                    <span className="text-sm truncate">{file.name}</span>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">{formatFileSize(file.size)}</span>
+                  </div>
+                  <Button type="button" variant="ghost" size="icon" className="flex-shrink-0 h-8 w-8" onClick={() => removePendingFile(index)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+
+  const finalizeModal = (
+    <Dialog open={showFinalizeModal} onOpenChange={setShowFinalizeModal}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Finaliser la consultation</DialogTitle>
+          <DialogDescription>
+            Suivi du patient et facturation avant l&apos;enregistrement.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Suivi</h3>
+            </div>
+            <div className="flex items-center flex-wrap gap-x-2 gap-y-2">
+              <Checkbox
+                id="follow_up_7d"
+                checked={followUp7d}
+                onCheckedChange={(checked) => setValue('follow_up_7d', !!checked)}
+                disabled={isLoading}
+              />
+              <Label htmlFor="follow_up_7d" className="cursor-pointer">
+                Demander des nouvelles à J+
+              </Label>
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={followUpDays}
+                onChange={(e) => setFollowUpDays(Math.max(1, parseInt(e.target.value) || 1))}
+                disabled={isLoading || !followUp7d}
+                className="w-16 h-7 rounded-md border border-input bg-background px-2 text-sm text-center disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              <span className="text-sm text-muted-foreground">jours (email automatique)</span>
+            </div>
+            {followUp7d && !effectiveEmail && (
+              <p className="text-sm text-yellow-600">
+                Le patient n&apos;a pas d&apos;adresse email. L&apos;email de suivi ne pourra pas être envoyé.
+              </p>
+            )}
+            {mode === 'create' && (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="send_post_session_advice"
+                  checked={sendPostSessionAdvice}
+                  onCheckedChange={(checked) => setSendPostSessionAdvice(!!checked)}
+                  disabled={isLoading}
+                />
+                <Label htmlFor="send_post_session_advice" className="cursor-pointer">
+                  Envoyer des conseils post-séance par email (immédiat)
+                </Label>
+              </div>
+            )}
+            {sendPostSessionAdvice && !effectiveEmail && (
+              <p className="text-sm text-yellow-600">
+                Le patient n&apos;a pas d&apos;adresse email. L&apos;email ne pourra pas être envoyé.
+              </p>
+            )}
+            {shouldCollectEmail && (
+              <div className="space-y-2">
+                <Label htmlFor="contact_email">Adresse email du patient</Label>
+                <Input
+                  id="contact_email"
+                  type="email"
+                  placeholder="email@exemple.com"
+                  value={contactEmail}
+                  onChange={(event) => setContactEmail(event.target.value)}
+                  disabled={isLoading}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Indispensable pour l&apos;envoi des emails (suivi, conseils immédiats ou facture).
+                </p>
+              </div>
+            )}
+          </div>
+
+          {mode === 'create' && (
+            <div className="space-y-4">
+              <Separator />
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Facturation</h3>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="create_invoice"
+                  checked={createInvoice}
+                  onCheckedChange={(checked) => setCreateInvoice(!!checked)}
+                  disabled={isLoading}
+                />
+                <Label htmlFor="create_invoice" className="cursor-pointer">
+                  Créer une facture
+                </Label>
+              </div>
+
+              {createInvoice && (
+                <>
+                  <Separator />
+
+                  {sessionTypes.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Type de séance</Label>
+                      <Select
+                        value={selectedSessionTypeId || 'none'}
+                        onValueChange={handleSessionTypeChange}
+                        disabled={isLoading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner un type de séance" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Aucun</SelectItem>
+                          {sessionTypes.map((type) => (
+                            <SelectItem key={type.id} value={type.id}>
+                              {type.name} - {Number(type.price).toFixed(2)} €
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Affiché sur la facture à la place du motif.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Paiements</h4>
+                      <Button type="button" variant="outline" size="sm" onClick={addPayment}>
+                        <Plus className="mr-1 h-4 w-4" />
+                        Ajouter
+                      </Button>
+                    </div>
+
+                    {payments.map((payment) => (
+                      <div key={payment.id} className="flex items-end gap-2 p-3 border rounded-lg">
+                        <div className="flex-1 space-y-2">
+                          <Label>Montant</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={payment.amount}
+                            onChange={(e) =>
+                              updatePayment(payment.id, 'amount', parseFloat(e.target.value) || 0)
+                            }
+                          />
+                        </div>
+                        <div className="flex-1 space-y-2">
+                          <Label>Mode</Label>
+                          <Select
+                            value={payment.method}
+                            onValueChange={(value) => updatePayment(payment.id, 'method', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(paymentMethodLabels).map(([value, label]) => (
+                                <SelectItem key={value} value={value}>
+                                  {label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {payment.method === 'check' && (
+                          <div className="flex-1 space-y-2">
+                            <Label>N° chèque</Label>
+                            <Input
+                              type="text"
+                              placeholder="N° de chèque"
+                              value={payment.check_number || ''}
+                              onChange={(e) =>
+                                updatePayment(payment.id, 'check_number', e.target.value)
+                              }
+                            />
+                          </div>
+                        )}
+                        {payments.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removePayment(payment.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+
+                    <div className="flex justify-between items-center p-3 glass-inner">
+                      <span className="font-medium">Total</span>
+                      <span className="text-lg font-bold">{totalPayments.toFixed(2)} €</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowFinalizeModal(false)}
+            disabled={isLoading}
+          >
+            Continuer la consultation
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit(onSubmit, () => {
+              setShowFinalizeModal(false)
+              toast({
+                variant: 'destructive',
+                title: 'Informations manquantes',
+                description: 'Veuillez compléter les champs requis de la consultation avant de l’enregistrer.',
+              })
+            })}
+            disabled={isLoading}
+            className="gap-2"
+          >
+            {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {mode === 'create' ? (
+              <>
+                <Stethoscope className="h-4 w-4" />
+                Enregistrer la consultation
+              </>
+            ) : (
+              'Mettre à jour'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
 
   const formContent = (
     <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="consultation" className="gap-2">
-            <ClipboardList className="h-4 w-4" />
-            <span className="hidden sm:inline">Consultation</span>
-            <span className="sm:hidden">Consult.</span>
-            {consultationFilled && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
-          </TabsTrigger>
-          <TabsTrigger value="suivi-facturation" className="gap-2">
-            <CalendarCheck className="h-4 w-4" />
-            <span className="hidden sm:inline">Suivi et facturation</span>
-            <span className="sm:hidden">Suivi</span>
-            {suiviFacturationFilled && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="consultation" forceMount className="data-[state=inactive]:hidden data-[state=active]:animate-fade-in mt-4 space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <CalendarCheck className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Informations générales</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="date_time">Date et heure *</Label>
+      <div className="space-y-6">
+          <Card className={CARD_TINT}>
+            <CardContent className="grid gap-4 p-4 sm:grid-cols-[minmax(0,220px)_1fr] sm:p-5">
+              <div className="space-y-1.5">
+                <Label htmlFor="date_time" className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Date et heure *
+                </Label>
                 <Input
                   id="date_time"
                   type="datetime-local"
@@ -672,10 +1120,13 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="reason">Motif de consultation *</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="reason" className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Motif de consultation *
+                </Label>
                 <Input
                   id="reason"
+                  className="font-medium"
                   {...register('reason')}
                   disabled={isLoading}
                   placeholder="Lombalgie, cervicalgie, suivi..."
@@ -684,15 +1135,16 @@ export function ConsultationForm({
                   <p className="text-sm text-destructive">{errors.reason.message}</p>
                 )}
               </div>
-
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={CARD_TINT}>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Stethoscope className="h-5 w-5 text-primary" />
+                <div className="flex items-center gap-2.5">
+                  <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', SECTION_TONES.clinique)}>
+                    <Stethoscope className="h-[18px] w-[18px]" />
+                  </span>
                   <CardTitle className="text-lg">Contenu clinique</CardTitle>
                 </div>
                 <div className="flex items-center gap-2">
@@ -746,24 +1198,38 @@ export function ConsultationForm({
               <AnamnesisRecorder
                 key={currentPatient.id}
                 patientId={currentPatient.id}
+                reason={reason}
+                onHypothesesStart={() => {
+                  setHypothesesLoading(true)
+                  setHypothesesError(null)
+                }}
+                onHypothesesReady={(payload) => {
+                  setHypothesesLoading(false)
+                  if (payload) {
+                    setHypotheses(payload as unknown as HypothesesPayload)
+                    setHypothesesState(undefined)
+                    // Sauvegarde immédiate — les hypothèses doivent survivre à une
+                    // mise en veille qui surviendrait avant l'intervalle de 30s.
+                    setTimeout(saveDraftNow, 0)
+                  }
+                }}
                 onApply={(data) => {
                   if (data.reason) setValue('reason', data.reason, { shouldDirty: true })
-                  if (data.anamnesis) setValue('anamnesis', data.anamnesis, { shouldDirty: true })
                   if (data.sections && data.sections.length > 0) {
                     setAnamnesisCardSections(data.sections)
                     setAnamnesisCardReason(data.reason)
+                    // Texte dérivé des cartes (source unique) pour lettres/exports/recherche.
+                    setValue('anamnesis', sectionsToMarkdown(data.sections), { shouldDirty: true })
+                  } else if (data.anamnesis) {
+                    // Repli : ancien format / échec de structuration.
+                    setValue('anamnesis', data.anamnesis, { shouldDirty: true })
                   }
                   // Sauvegarde immédiate — sans attendre le debounce de 3s
                   // car l'utilisateur peut mettre l'ordi en veille juste après.
                   setTimeout(saveDraftNow, 0)
                 }}
                 disabled={isLoading}
-                patientContext={{
-                  profession: currentPatient.profession,
-                  sport_activity: currentPatient.sport_activity,
-                  primary_physician: currentPatient.primary_physician,
-                  pregnancy_due_date: currentPatient.pregnancy_due_date,
-                }}
+                patientContext={patientClinicalContext}
                 onPatientFieldsDetected={async (fields) => {
                   try {
                     // Flat patient fields (replace)
@@ -817,14 +1283,27 @@ export function ConsultationForm({
                   }
                 }}
               />
-              <div className="space-y-2">
-                <Label htmlFor="anamnesis">Anamnèse</Label>
+              <div id="sec-anamnese" className={cn('space-y-3 scroll-mt-24', ENCART)}>
+                <SectionHeading icon={FileText} title="Anamnèse" tone={SECTION_TONES.anamnese} />
                 {anamnesisCardSections ? (
                   <AnamnesisCards
                     reason={anamnesisCardReason}
                     sections={anamnesisCardSections}
                     disabled={isLoading}
-                    onEdit={() => setAnamnesisCardSections(null)}
+                    onChange={(next) => {
+                      setAnamnesisCardSections(next)
+                      setValue('anamnesis', sectionsToMarkdown(next), { shouldDirty: true })
+                    }}
+                    onReasonChange={(r) => {
+                      setAnamnesisCardReason(r)
+                      setValue('reason', r, { shouldDirty: true })
+                    }}
+                    onEdit={() => {
+                      // Filet de sécurité : repasse en texte libre en partant du
+                      // contenu actuel des cartes.
+                      setValue('anamnesis', sectionsToMarkdown(anamnesisCardSections), { shouldDirty: true })
+                      setAnamnesisCardSections(null)
+                    }}
                   />
                 ) : (
                   <MarkdownField
@@ -841,20 +1320,56 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor="examination">Examen clinique et traitement</Label>
+              <div id="sec-hypotheses" className={cn('space-y-3 scroll-mt-24', ENCART)}>
+                <SectionHeading icon={Brain} title="Hypothèses cliniques" tone={SECTION_TONES.hypotheses} />
+                {!hypotheses && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
-                    onClick={() => setShowOrthoTestsPicker(true)}
+                    onClick={generateHypotheses}
+                    disabled={!anamnesis?.trim() || hypothesesLoading || isLoading}
+                    className="w-full gap-1.5 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-800/50 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/50"
                   >
-                    <Stethoscope className="h-4 w-4" />
-                    Tests orthos
+                    {hypothesesLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Brain className="h-4 w-4" />
+                    )}
+                    Générer les hypothèses
                   </Button>
-                </div>
+                )}
+                {hypothesesError && (
+                  <p className="text-sm text-destructive">{hypothesesError}</p>
+                )}
+                {hypotheses && (
+                  <HypothesesCard
+                    payload={hypotheses}
+                    initialState={hypothesesState}
+                    onStateChange={setHypothesesState}
+                    onClose={() => { setHypotheses(null); setHypothesesState(undefined) }}
+                  />
+                )}
+              </div>
+
+              <div id="sec-examen" className={cn('space-y-3 scroll-mt-24', ENCART)}>
+                <SectionHeading
+                  icon={Activity}
+                  title="Examen clinique et traitement"
+                  tone={SECTION_TONES.examen}
+                  action={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+                      onClick={() => setShowOrthoTestsPicker(true)}
+                    >
+                      <Stethoscope className="h-4 w-4" />
+                      Tests orthos
+                    </Button>
+                  }
+                />
                 <Textarea
                   id="examination"
                   data-autoresize
@@ -959,8 +1474,8 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="advice">Conseils donnés</Label>
+              <div id="sec-conseils" className={cn('space-y-3 scroll-mt-24', ENCART)}>
+                <SectionHeading icon={Lightbulb} title="Conseils donnés" tone={SECTION_TONES.conseils} />
                 <Textarea
                   id="advice"
                   data-autoresize
@@ -978,342 +1493,7 @@ export function ConsultationForm({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Paperclip className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Pièces jointes</CardTitle>
-              </div>
-              <CardDescription>
-                Comptes rendus, radios, ordonnances, etc.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={handleFileDrop}
-                className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
-                  isDragging
-                    ? 'border-primary bg-primary/5'
-                    : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-                }`}
-                onClick={() => document.getElementById('attachment-input')?.click()}
-              >
-                <Upload className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  Glissez-déposez vos fichiers ici ou <span className="text-primary underline">parcourir</span>
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  PDF, images, documents (max 20 Mo par fichier)
-                </p>
-                <input
-                  id="attachment-input"
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileSelect}
-                  accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.dicom,.dcm"
-                />
-              </div>
-
-              {existingAttachments.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Fichiers existants</p>
-                  {existingAttachments.map((att) => {
-                    const Icon = getFileIcon(att.original_name)
-                    return (
-                      <div
-                        key={att.id}
-                        className="flex items-center justify-between rounded-lg border p-3"
-                      >
-                        <a
-                          href={`/api/attachments/${att.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-3 min-w-0 flex-1 hover:underline"
-                        >
-                          <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                          <span className="text-sm truncate">{att.original_name}</span>
-                          {att.file_size && (
-                            <span className="text-xs text-muted-foreground flex-shrink-0">
-                              {formatFileSize(att.file_size)}
-                            </span>
-                          )}
-                        </a>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="flex-shrink-0 h-8 w-8"
-                          onClick={() => handleDeleteAttachment(att.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {pendingFiles.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Fichiers à envoyer ({pendingFiles.length})
-                  </p>
-                  {pendingFiles.map((file, index) => {
-                    const Icon = getFileIcon(file.name)
-                    return (
-                      <div
-                        key={`${file.name}-${index}`}
-                        className="flex items-center justify-between rounded-lg border border-dashed p-3"
-                      >
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                          <span className="text-sm truncate">{file.name}</span>
-                          <span className="text-xs text-muted-foreground flex-shrink-0">
-                            {formatFileSize(file.size)}
-                          </span>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="flex-shrink-0 h-8 w-8"
-                          onClick={() => removePendingFile(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="suivi-facturation" forceMount className="data-[state=inactive]:hidden data-[state=active]:animate-fade-in mt-4 space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Suivi</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center flex-wrap gap-x-2 gap-y-2">
-                <Checkbox
-                  id="follow_up_7d"
-                  checked={followUp7d}
-                  onCheckedChange={(checked) => setValue('follow_up_7d', !!checked)}
-                  disabled={isLoading}
-                />
-                <Label htmlFor="follow_up_7d" className="cursor-pointer">
-                  Demander des nouvelles à J+
-                </Label>
-                <input
-                  type="number"
-                  min={1}
-                  max={365}
-                  value={followUpDays}
-                  onChange={(e) => setFollowUpDays(Math.max(1, parseInt(e.target.value) || 1))}
-                  disabled={isLoading || !followUp7d}
-                  className="w-16 h-7 rounded-md border border-input bg-background px-2 text-sm text-center disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                <span className="text-sm text-muted-foreground">jours (email automatique)</span>
-              </div>
-              {followUp7d && !effectiveEmail && (
-                <p className="text-sm text-yellow-600 mt-2">
-                  Le patient n&apos;a pas d&apos;adresse email. L&apos;email de suivi ne pourra pas être envoyé.
-                </p>
-              )}
-              {mode === 'create' && (
-                <div className="flex items-center space-x-2 mt-4">
-                  <Checkbox
-                    id="send_post_session_advice"
-                    checked={sendPostSessionAdvice}
-                    onCheckedChange={(checked) => setSendPostSessionAdvice(!!checked)}
-                    disabled={isLoading}
-                  />
-                  <Label htmlFor="send_post_session_advice" className="cursor-pointer">
-                    Envoyer des conseils post-séance par email (immédiat)
-                  </Label>
-                </div>
-              )}
-              {sendPostSessionAdvice && !effectiveEmail && (
-                <p className="text-sm text-yellow-600 mt-2">
-                  Le patient n&apos;a pas d&apos;adresse email. L&apos;email ne pourra pas être envoyé.
-                </p>
-              )}
-              {shouldCollectEmail && (
-                <div className="mt-4 space-y-2">
-                  <Label htmlFor="contact_email">Adresse email du patient</Label>
-                  <Input
-                    id="contact_email"
-                    type="email"
-                    placeholder="email@exemple.com"
-                    value={contactEmail}
-                    onChange={(event) => setContactEmail(event.target.value)}
-                    disabled={isLoading}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Indispensable pour l&apos;envoi des emails (suivi, conseils immédiats ou facture).
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {mode === 'create' && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Facturation</CardTitle>
-                </div>
-                <CardDescription>
-                  Créez une facture pour cette consultation
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="create_invoice"
-                    checked={createInvoice}
-                    onCheckedChange={(checked) => setCreateInvoice(!!checked)}
-                    disabled={isLoading}
-                  />
-                  <Label htmlFor="create_invoice" className="cursor-pointer">
-                    Créer une facture
-                  </Label>
-                </div>
-
-                {createInvoice && (
-                  <>
-                    <Separator />
-
-                    {sessionTypes.length > 0 && (
-                      <div className="space-y-2">
-                        <Label>Type de séance</Label>
-                        <Select
-                          value={selectedSessionTypeId || 'none'}
-                          onValueChange={handleSessionTypeChange}
-                          disabled={isLoading}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Sélectionner un type de séance" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Aucun</SelectItem>
-                            {sessionTypes.map((type) => (
-                              <SelectItem key={type.id} value={type.id}>
-                                {type.name} - {Number(type.price).toFixed(2)} €
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                          Affiché sur la facture à la place du motif.
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">Paiements</h4>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={addPayment}
-                        >
-                          <Plus className="mr-1 h-4 w-4" />
-                          Ajouter
-                        </Button>
-                      </div>
-
-                      {payments.map((payment) => (
-                        <div
-                          key={payment.id}
-                          className="flex items-end gap-2 p-3 border rounded-lg"
-                        >
-                          <div className="flex-1 space-y-2">
-                            <Label>Montant</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={payment.amount}
-                              onChange={(e) =>
-                                updatePayment(
-                                  payment.id,
-                                  'amount',
-                                  parseFloat(e.target.value) || 0
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="flex-1 space-y-2">
-                            <Label>Mode</Label>
-                            <Select
-                              value={payment.method}
-                              onValueChange={(value) =>
-                                updatePayment(payment.id, 'method', value)
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Object.entries(paymentMethodLabels).map(([value, label]) => (
-                                  <SelectItem key={value} value={value}>
-                                    {label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          {payment.method === 'check' && (
-                            <div className="flex-1 space-y-2">
-                              <Label>N° chèque</Label>
-                              <Input
-                                type="text"
-                                placeholder="N° de chèque"
-                                value={payment.check_number || ''}
-                                onChange={(e) =>
-                                  updatePayment(payment.id, 'check_number', e.target.value)
-                                }
-                              />
-                            </div>
-                          )}
-                          {payments.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removePayment(payment.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-
-                      <div className="flex justify-between items-center p-3 glass-inner">
-                        <span className="font-medium">Total</span>
-                        <span className="text-lg font-bold">
-                          {totalPayments.toFixed(2)} €
-                        </span>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+      </div>
 
       <div className="sticky bottom-0 z-10 flex justify-end gap-4 pt-4 pb-2 -mx-1 px-1 bg-gradient-to-t from-background via-background to-transparent">
         <Button
@@ -1324,30 +1504,23 @@ export function ConsultationForm({
         >
           Annuler
         </Button>
-        {activeTab === 'consultation' ? (
-          <Button key="next-tab" type="button" onClick={(e) => { e.preventDefault(); setActiveTab('suivi-facturation') }} className="gap-2">
-            Passer au suivi et à la facturation
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        ) : (
-          <Button key="submit" type="submit" disabled={isLoading} className="gap-2">
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {mode === 'create' ? (
-              <>
-                <Stethoscope className="h-4 w-4" />
-                Enregistrer la consultation
-              </>
-            ) : (
-              'Mettre à jour'
-            )}
-          </Button>
-        )}
+        <Button
+          key="finalize"
+          type="button"
+          onClick={() => setShowFinalizeModal(true)}
+          disabled={isLoading}
+          className="gap-2"
+        >
+          <CalendarCheck className="h-4 w-4" />
+          Terminer la consultation
+        </Button>
       </div>
     </form>
   )
 
   const modals = (
     <>
+      {finalizeModal}
       <EditPatientModal
         open={showEditPatient}
         onOpenChange={setShowEditPatient}
@@ -1495,41 +1668,88 @@ export function ConsultationForm({
     return (
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <div className="lg:sticky lg:top-6 self-start space-y-6">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Patient</CardTitle>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowEditPatient(true)}
-                >
-                  <Pencil className="mr-1 h-3 w-3" />
-                  Modifier
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="text-sm space-y-1">
-              <p className="font-medium">{currentPatient.last_name} {currentPatient.first_name}</p>
-              {currentPatient.gender && (
-                <p className="text-muted-foreground">{currentPatient.gender === 'M' ? 'Homme' : 'Femme'}</p>
-              )}
-              {currentPatient.birth_date && (
-                <p className="text-muted-foreground">{formatDate(currentPatient.birth_date)} · {calculateAge(currentPatient.birth_date)} ans</p>
-              )}
-              {currentPatient.phone && <p className="text-muted-foreground">{currentPatient.phone}</p>}
-              {currentPatient.email && <p className="text-muted-foreground">{currentPatient.email}</p>}
-              {currentPatient.profession && <p className="text-muted-foreground">{currentPatient.profession}</p>}
-              {currentPatient.pregnancy_due_date && (
-                <p className="text-pink-600 font-medium">
-                  Grossesse — terme : {new Date(currentPatient.pregnancy_due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+          <Card className={cn('overflow-hidden', CARD_TINT)}>
+            <div className="flex items-start gap-3 bg-gradient-to-br from-primary/10 via-primary/[0.04] to-transparent p-4">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl gradient-primary text-base font-semibold text-white shadow-sm">
+                {getInitials(currentPatient.first_name, currentPatient.last_name)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold leading-tight">{currentPatient.last_name} {currentPatient.first_name}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {[
+                    currentPatient.gender ? (currentPatient.gender === 'M' ? 'Homme' : 'Femme') : null,
+                    currentPatient.birth_date ? `${calculateAge(currentPatient.birth_date)} ans` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'Patient'}
                 </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-muted-foreground"
+                onClick={() => setShowEditPatient(true)}
+                aria-label="Modifier le patient"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </div>
+            <CardContent className="space-y-2.5 pt-4 text-sm">
+              {(currentPatient.pregnancy_due_date || currentPatient.birth_date) && (
+                <div className="flex flex-wrap gap-1.5">
+                  {currentPatient.pregnancy_due_date && (
+                    <span className="inline-flex items-center rounded-full bg-pink-100 px-2.5 py-0.5 text-xs font-medium text-pink-700 dark:bg-pink-950/50 dark:text-pink-300">
+                      Grossesse · terme {new Date(currentPatient.pregnancy_due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                    </span>
+                  )}
+                  {medicalHistoryEntries.length > 0 && (
+                    <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                      {medicalHistoryEntries.length} ATCD
+                    </span>
+                  )}
+                </div>
               )}
+              <dl className="space-y-1.5 text-muted-foreground">
+                {currentPatient.birth_date && (
+                  <div className="flex items-center gap-2">
+                    <CalendarCheck className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                    <span>{formatDate(currentPatient.birth_date)}</span>
+                  </div>
+                )}
+                {currentPatient.profession && (
+                  <div className="flex items-center gap-2">
+                    <Stethoscope className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                    <span className="truncate">{currentPatient.profession}</span>
+                  </div>
+                )}
+                {currentPatient.sport_activity && (
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                    <span className="truncate">{currentPatient.sport_activity}</span>
+                  </div>
+                )}
+                {currentPatient.primary_physician && (
+                  <div className="flex items-center gap-2">
+                    <Stethoscope className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                    <span className="truncate">Médecin traitant : {currentPatient.primary_physician}</span>
+                  </div>
+                )}
+                {currentPatient.phone && (
+                  <div className="flex items-center gap-2">
+                    <span className="truncate">{currentPatient.phone}</span>
+                  </div>
+                )}
+                {currentPatient.email && (
+                  <div className="flex items-center gap-2">
+                    <span className="truncate">{currentPatient.email}</span>
+                  </div>
+                )}
+              </dl>
               {currentPatient.notes && (
-                <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md">
-                  <p className="text-xs font-medium text-amber-800 mb-1">Notes</p>
-                  <p className="text-xs text-amber-900 whitespace-pre-wrap">{currentPatient.notes}</p>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 dark:border-amber-900/50 dark:bg-amber-950/30">
+                  <p className="mb-1 text-xs font-medium text-amber-800 dark:text-amber-300">Notes</p>
+                  <p className="whitespace-pre-wrap text-xs text-amber-900 dark:text-amber-200">{currentPatient.notes}</p>
                 </div>
               )}
             </CardContent>
@@ -1540,6 +1760,8 @@ export function ConsultationForm({
             initialEntries={medicalHistoryEntries}
             refreshTrigger={medicalHistoryRefreshKey}
           />
+
+          {attachmentsCard}
 
           <Button
             type="button"
@@ -1552,7 +1774,7 @@ export function ConsultationForm({
           </Button>
 
           {pastConsultations && pastConsultations.length > 0 && (
-            <Card>
+            <Card className={CARD_TINT}>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg">Consultations passées</CardTitle>
                 <p className="text-xs text-muted-foreground">{pastConsultations.length} consultation{pastConsultations.length > 1 ? 's' : ''}</p>
@@ -1606,6 +1828,15 @@ export function ConsultationForm({
                         />
                       </div>
                     )}
+                    {viewingConsultation.clinical_hypotheses && (
+                      <div>
+                        {(viewingConsultation.anamnesis || viewingConsultation.anamnesis_sections) && <Separator />}
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1 mt-3">
+                          Hypothèses cliniques
+                        </h4>
+                        <HypothesesDisplay clinicalHypotheses={viewingConsultation.clinical_hypotheses} />
+                      </div>
+                    )}
                     {viewingConsultation.examination && (
                       <div>
                         <Separator />
@@ -1624,7 +1855,7 @@ export function ConsultationForm({
                         <MarkdownText text={viewingConsultation.advice} />
                       </div>
                     )}
-                    {!viewingConsultation.anamnesis && !viewingConsultation.examination && !viewingConsultation.advice && (
+                    {!viewingConsultation.anamnesis && !viewingConsultation.examination && !viewingConsultation.advice && !viewingConsultation.clinical_hypotheses && (
                       <p className="text-sm text-muted-foreground italic">
                         Aucun contenu clinique renseigné
                       </p>
@@ -1641,5 +1872,11 @@ export function ConsultationForm({
     )
   }
 
-  return <>{formContent}{modals}</>
+  return (
+    <>
+      {formContent}
+      <div className="mt-6">{attachmentsCard}</div>
+      {modals}
+    </>
+  )
 }

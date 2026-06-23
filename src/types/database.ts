@@ -237,6 +237,7 @@ export interface Database {
           reason: string
           anamnesis: string | null
           anamnesis_sections: string | null
+          clinical_hypotheses: string | null
           examination: string | null
           advice: string | null
           follow_up_7d: boolean
@@ -253,6 +254,7 @@ export interface Database {
           reason: string
           anamnesis?: string | null
           anamnesis_sections?: string | null
+          clinical_hypotheses?: string | null
           examination?: string | null
           advice?: string | null
           follow_up_7d?: boolean
@@ -269,6 +271,7 @@ export interface Database {
           reason?: string
           anamnesis?: string | null
           anamnesis_sections?: string | null
+          clinical_hypotheses?: string | null
           examination?: string | null
           advice?: string | null
           follow_up_7d?: boolean

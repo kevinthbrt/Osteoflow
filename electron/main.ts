@@ -442,13 +442,6 @@ async function setupAutoUpdater(): Promise<void> {
       autoUpdater.quitAndInstall(true, true)
     })
 
-    // macOS ARM64 : l'app doit être fermée avant que l'utilisateur puisse
-    // glisser la nouvelle version dans Applications. On quitte simplement.
-    ipcMain.on('apply-update-and-relaunch', () => {
-      console.log('[Updater] Quitting for manual ARM64 install...')
-      app.quit()
-    })
-
     // Check for updates 5s after launch, then every 4 hours
     setTimeout(() => autoUpdater.checkForUpdates(), 5000)
     setInterval(() => autoUpdater.checkForUpdates(), 4 * 60 * 60 * 1000)
