@@ -178,6 +178,7 @@ export function ConsultationForm({
     return null
   })
   const [anamnesisCardReason, setAnamnesisCardReason] = useState<string | undefined>(consultation?.reason || undefined)
+  const anamnesisCardSectionsRef = useRef(anamnesisCardSections)
   // Carte « Hypothèses cliniques » — persistée avec la consultation (payload IA + réponses).
   const initialHypotheses = (() => {
     if (!consultation?.clinical_hypotheses) return { payload: null as HypothesesPayload | null, state: undefined as HypothesesState | undefined }
@@ -302,6 +303,7 @@ export function ConsultationForm({
   }, [])
 
   useEffect(() => { paymentsRef.current = payments }, [payments])
+  useEffect(() => { anamnesisCardSectionsRef.current = anamnesisCardSections }, [anamnesisCardSections])
 
   // Exposé via ref pour être appelé immédiatement depuis onApply (sans debounce)
   const saveDraftNow = useCallback(() => {
@@ -310,7 +312,7 @@ export function ConsultationForm({
     fetch('/api/consultation/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...values, payments: paymentsRef.current }),
+      body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined }),
     }).catch(() => {})
   }, [mode, getValues])
 
@@ -324,7 +326,7 @@ export function ConsultationForm({
       fetch('/api/consultation/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...values, payments: paymentsRef.current }),
+        body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined }),
       }).catch(() => {})
     }
 
@@ -345,6 +347,15 @@ export function ConsultationForm({
           if (draft.advice) setValue('advice', draft.advice)
           if (draft.date_time) setValue('date_time', draft.date_time)
           if (draft.payments) setPayments(draft.payments)
+          if (draft.anamnesis_sections) {
+            try {
+              const sections = JSON.parse(draft.anamnesis_sections)
+              if (Array.isArray(sections) && sections.length > 0) {
+                setAnamnesisCardSections(sections)
+                if (draft.reason) setAnamnesisCardReason(draft.reason)
+              }
+            } catch { /* ignore malformed sections */ }
+          }
           if (!auto) toast({ title: 'Brouillon restauré', description: 'La consultation a été restaurée depuis votre dernière session.' })
         })
         .catch(() => {})
@@ -382,7 +393,7 @@ export function ConsultationForm({
         fetch('/api/consultation/draft', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...values, payments: paymentsRef.current }),
+          body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined }),
         }).catch(() => {})
       }, 3000)
     })
