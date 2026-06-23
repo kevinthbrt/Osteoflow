@@ -22,7 +22,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { ConsultationNav, type NavSection } from '@/components/consultations/consultation-nav'
 import { Separator } from '@/components/ui/separator'
 import {
   Dialog,
@@ -80,13 +79,6 @@ interface CreatedInvoice {
   invoice_number: string
 }
 
-const NAV_SECTIONS: NavSection[] = [
-  { id: 'sec-infos', label: 'Infos' },
-  { id: 'sec-anamnese', label: 'Anamnèse' },
-  { id: 'sec-hypotheses', label: 'Hypothèses' },
-  { id: 'sec-examen', label: 'Examen' },
-  { id: 'sec-conseils', label: 'Conseils' },
-]
 
 export function ConsultationForm({
   patient,
@@ -1038,8 +1030,6 @@ export function ConsultationForm({
 
   const formContent = (
     <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
-      <ConsultationNav sections={NAV_SECTIONS} />
-
       <div className="space-y-6">
           <Card id="sec-infos" className="scroll-mt-24">
             <CardHeader>
