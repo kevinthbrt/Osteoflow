@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getOsteoflowAuthHeaders } from '@/lib/osteoupgrade/proxy-auth'
 import { getOsteoUpgradeEmail } from '@/lib/osteoupgrade/email'
 
 export const dynamic = 'force-dynamic'
@@ -21,6 +22,7 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: {
           authorization: `Bearer ${secret}`,
+          ...getOsteoflowAuthHeaders(),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ ...body, email }),

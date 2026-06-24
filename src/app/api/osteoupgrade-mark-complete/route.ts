@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getOsteoflowAuthHeaders } from '@/lib/osteoupgrade/proxy-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +18,7 @@ export async function POST(req: Request) {
         headers: {
           'Content-Type': 'application/json',
           'x-osteoflow-secret': secret,
+          ...getOsteoflowAuthHeaders(),
         },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(10000),

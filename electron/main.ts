@@ -214,34 +214,44 @@ async function startNextServer(): Promise<void> {
       // This bypasses NextServer's internal path resolution which can fail
       // in packaged Electron apps.
       if (reqUrl.startsWith('/_next/static/')) {
-        const relativePath = reqUrl.replace('/_next/static/', '').split('?')[0]
-        const filePath = path.join(realDir, '.next', 'static', relativePath)
-        try {
-          const data = fs.readFileSync(filePath)
-          const ext = path.extname(filePath)
-          res.setHeader('Content-Type', MIME_TYPES[ext] || 'application/octet-stream')
-          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
-          res.end(data)
-          return
-        } catch {
-          // File not found, fall through to NextServer
+        let relativePath = reqUrl.replace('/_next/static/', '').split('?')[0]
+        try { relativePath = decodeURIComponent(relativePath) } catch { /* keep raw */ }
+        const staticBase = path.join(realDir, '.next', 'static')
+        const filePath = path.join(staticBase, relativePath)
+        // Anti path-traversal : le chemin résolu doit rester sous .next/static
+        if (filePath === staticBase || filePath.startsWith(staticBase + path.sep)) {
+          try {
+            const data = fs.readFileSync(filePath)
+            const ext = path.extname(filePath)
+            res.setHeader('Content-Type', MIME_TYPES[ext] || 'application/octet-stream')
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+            res.end(data)
+            return
+          } catch {
+            // File not found, fall through to NextServer
+          }
         }
       }
 
       // Serve public/ static files directly (icon.png, etc.)
       // Next.js can't find them in packaged Electron apps without this.
-      const cleanUrl = reqUrl.split('?')[0]
+      let cleanUrl = reqUrl.split('?')[0]
+      try { cleanUrl = decodeURIComponent(cleanUrl) } catch { /* keep raw */ }
       if (!cleanUrl.startsWith('/_next/') && !cleanUrl.startsWith('/api/')) {
-        const publicPath = path.join(realDir, 'public', cleanUrl)
-        try {
-          const data = fs.readFileSync(publicPath)
-          const ext = path.extname(publicPath)
-          res.setHeader('Content-Type', MIME_TYPES[ext] || 'application/octet-stream')
-          res.setHeader('Cache-Control', 'public, max-age=3600')
-          res.end(data)
-          return
-        } catch {
-          // Not a public file, fall through to NextServer
+        const publicBase = path.join(realDir, 'public')
+        const publicPath = path.join(publicBase, cleanUrl)
+        // Anti path-traversal : le chemin résolu doit rester sous public/
+        if (publicPath === publicBase || publicPath.startsWith(publicBase + path.sep)) {
+          try {
+            const data = fs.readFileSync(publicPath)
+            const ext = path.extname(publicPath)
+            res.setHeader('Content-Type', MIME_TYPES[ext] || 'application/octet-stream')
+            res.setHeader('Cache-Control', 'public, max-age=3600')
+            res.end(data)
+            return
+          } catch {
+            // Not a public file, fall through to NextServer
+          }
         }
       }
 
@@ -261,8 +271,10 @@ async function startNextServer(): Promise<void> {
     nextServer.on('error', (err: NodeJS.ErrnoException) => {
       reject(err)
     })
-    nextServer.listen(PORT, () => {
-      console.log(`[Electron] Next.js server running on http://localhost:${PORT}`)
+    // Écoute UNIQUEMENT sur la boucle locale (127.0.0.1) — jamais 0.0.0.0.
+    // Sans cela, l'API (données patients) serait joignable depuis le réseau local.
+    nextServer.listen(PORT, '127.0.0.1', () => {
+      console.log(`[Electron] Next.js server running on http://127.0.0.1:${PORT}`)
       resolve()
     })
   })

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getOsteoflowAuthHeaders } from '@/lib/osteoupgrade/proxy-auth'
 import type { NextRequest } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
       proxyRes = await fetch(
         `${PROXY_URL}?formation_id=${encodeURIComponent(formationId)}&email=${encodeURIComponent(email)}`,
         {
-          headers: { 'x-osteoflow-secret': secret },
+          headers: { 'x-osteoflow-secret': secret, ...getOsteoflowAuthHeaders() },
           cache: 'no-store',
           signal: AbortSignal.timeout(10000),
         },

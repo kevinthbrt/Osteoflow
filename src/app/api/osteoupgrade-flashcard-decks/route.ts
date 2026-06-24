@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getOsteoflowAuthHeaders } from '@/lib/osteoupgrade/proxy-auth'
 import { getOsteoUpgradeEmail } from '@/lib/osteoupgrade/email'
 
 export const dynamic = 'force-dynamic'
@@ -17,7 +18,7 @@ export async function GET() {
     let res: Response
     try {
       res = await fetch(url, {
-        headers: { authorization: `Bearer ${secret}` },
+        headers: { authorization: `Bearer ${secret}`, ...getOsteoflowAuthHeaders() },
         cache: 'no-store',
         signal: AbortSignal.timeout(10000),
       })
