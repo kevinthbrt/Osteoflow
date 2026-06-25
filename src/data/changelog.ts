@@ -19,6 +19,24 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.11.5',
+    date: '2026-06-24',
+    title: 'Correctif tampon sur les factures et courriers',
+    changes: [
+      { type: 'fix', text: 'Le tampon (cachet et signature) configuré dans les paramètres réapparaît correctement en bas des factures et des courriers PDF — il avait disparu suite à la mise à jour précédente.' },
+    ],
+  },
+  {
+    version: '1.11.4',
+    date: '2026-06-24',
+    title: 'Sécurité renforcée',
+    changes: [
+      { type: 'improvement', text: 'Confidentialité renforcée : l\'accès à vos données de cabinet est désormais strictement limité à votre ordinateur et n\'est plus joignable depuis le réseau local.' },
+      { type: 'improvement', text: 'Sécurité : durcissement du service interne de l\'application (protection contre les accès non autorisés aux fichiers).' },
+      { type: 'improvement', text: 'Sécurité : les échanges avec votre compte OsteoUpgrade (e-learning, flashcards, support…) utilisent désormais une authentification par session personnelle.' },
+    ],
+  },
+  {
     version: '1.11.1',
     date: '2026-06-23',
     title: 'Correctif dictée vocale sur Mac',
