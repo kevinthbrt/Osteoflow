@@ -672,6 +672,37 @@ export function ConsultationForm({
 
         if (error) throw error
 
+        // Réconcilier la tâche de suivi (créer / mettre à jour / annuler) lors d'une édition.
+        // Sans ça, (ré)activer ou modifier le suivi sur une consultation enregistrée
+        // ne programmait aucun email.
+        await db
+          .from('scheduled_tasks')
+          .delete()
+          .eq('consultation_id', consultation.id)
+          .eq('type', 'follow_up_email')
+          .eq('status', 'pending')
+
+        if (data.follow_up_7d) {
+          // Ne pas reprogrammer si un suivi a déjà été envoyé pour cette consultation
+          const { data: alreadySent } = await db
+            .from('scheduled_tasks')
+            .select('id')
+            .eq('consultation_id', consultation.id)
+            .eq('type', 'follow_up_email')
+            .eq('status', 'completed')
+
+          if (!alreadySent || alreadySent.length === 0) {
+            const scheduledFor = new Date(data.date_time)
+            scheduledFor.setDate(scheduledFor.getDate() + followUpDays)
+            await db.from('scheduled_tasks').insert({
+              practitioner_id: practitioner.id,
+              type: 'follow_up_email',
+              consultation_id: consultation.id,
+              scheduled_for: scheduledFor.toISOString(),
+            })
+          }
+        }
+
         if (pendingFiles.length > 0) {
           await uploadAttachments(consultation.id)
         }

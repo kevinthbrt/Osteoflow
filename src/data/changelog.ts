@@ -19,6 +19,15 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.11.6',
+    date: '2026-06-24',
+    title: 'Suivi en édition de consultation et mises à jour Windows plus fluides',
+    changes: [
+      { type: 'fix', text: 'Suivi automatisé : il est désormais correctement programmé — ou annulé — lorsque vous l\'activez ou le modifiez en éditant une consultation déjà enregistrée. Auparavant, activer le suivi après coup restait sans effet (aucun email programmé). Le délai part de la date de la consultation.' },
+      { type: 'improvement', text: 'Windows : les mises à jour s\'installent désormais en silence et l\'application redémarre toute seule, comme sur Mac — fini l\'assistant d\'installation à dérouler à chaque mise à jour.' },
+    ],
+  },
+  {
     version: '1.11.5',
     date: '2026-06-24',
     title: 'Correctif tampon sur les factures et courriers',
