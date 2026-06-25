@@ -25,7 +25,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (practitioner?.stamp_url) {
       const raw = practitioner.stamp_url as string
       stampUrl = raw.startsWith('/')
-        ? new URL(raw, req.nextUrl.origin).toString()
+        ? new URL(raw, req.nextUrl.origin.replace('://localhost', '://127.0.0.1')).toString()
         : raw
     }
 

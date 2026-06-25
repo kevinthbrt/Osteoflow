@@ -68,7 +68,7 @@ export async function GET(
     if (pdfData.stampUrl && pdfData.stampUrl.startsWith('/')) {
       pdfData = {
         ...pdfData,
-        stampUrl: new URL(pdfData.stampUrl, request.nextUrl.origin).toString(),
+        stampUrl: new URL(pdfData.stampUrl, request.nextUrl.origin.replace('://localhost', '://127.0.0.1')).toString(),
       }
     }
     console.debug('Invoice PDF data (api/pdf):', {
