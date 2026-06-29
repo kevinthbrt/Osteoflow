@@ -19,6 +19,15 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.11.7',
+    date: '2026-06-29',
+    title: 'Import de patients conforme RGPD',
+    changes: [
+      { type: 'improvement', text: 'Import de données : l\'import de vos patients depuis un ancien logiciel se fait désormais entièrement sur votre poste. Votre fichier est lu et analysé dans votre navigateur, puis les patients et consultations sont enregistrés directement dans votre base — plus aucune donnée de santé n\'est envoyée par email à notre équipe. Vous restez seul responsable de traitement, conformément au RGPD.' },
+      { type: 'improvement', text: 'Import de données : nouvelle correspondance automatique des colonnes (nom, prénom, date de naissance, antécédents, consultations…) avec ajustement manuel et aperçu avant import.' },
+    ],
+  },
+  {
     version: '1.11.6',
     date: '2026-06-24',
     title: 'Suivi en édition de consultation et mises à jour Windows plus fluides',
