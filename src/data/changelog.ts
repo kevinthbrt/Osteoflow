@@ -19,6 +19,15 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.11.8',
+    date: '2026-07-01',
+    title: 'Fiche d\'exercices IA simplifiée & correctif injection des antécédents',
+    changes: [
+      { type: 'improvement', text: 'Fiche d\'exercices générée par IA : les trois boutons de fin (Sauvegarder, Télécharger et sauvegarder, Envoyer par mail) sont remplacés par deux boutons clairs — Imprimer et Envoyer par mail. Dans les deux cas, le programme est automatiquement sauvegardé dans le dossier du patient avant l\'action.' },
+      { type: 'fix', text: 'Anamnèse — détection IA des antécédents : cliquer sur "Valider tout" pouvait n\'injecter qu\'une partie des antécédents détectés (chirurgical, traumatique, médical, familial) avec un message d\'erreur générique, sans possibilité de réessayer les éléments manquants. Chaque antécédent est désormais traité indépendamment et les éléments en échec restent affichés pour être revalidés.' },
+    ],
+  },
+  {
     version: '1.11.7',
     date: '2026-06-29',
     title: 'Import de patients conforme RGPD',
