@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
-import { Sparkles, Loader2, ChevronLeft, Dumbbell, X, Download, Mail, ChevronDown, ChevronUp, Edit2 } from 'lucide-react'
+import { Sparkles, Loader2, ChevronLeft, X, Printer, Mail, ChevronDown, ChevronUp, Edit2 } from 'lucide-react'
 
 interface Patient {
   id: string
@@ -248,7 +248,7 @@ export function AiExerciseGenerationDialog({
   const [vigilancePoints, setVigilancePoints] = useState('')
   const [weeklyRoutine, setWeeklyRoutine] = useState('')
   const [items, setItems] = useState<EditableItem[]>([])
-  const [actionLoading, setActionLoading] = useState<'save' | 'pdf' | 'email' | null>(null)
+  const [actionLoading, setActionLoading] = useState<'print' | 'email' | null>(null)
   const savedIdRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -369,36 +369,18 @@ export function AiExerciseGenerationDialog({
     return id
   }
 
-  async function handleSave() {
-    setActionLoading('save')
+  async function handlePrint() {
+    setActionLoading('print')
     try {
       const id = await ensureSaved()
       if (!id) return
-      toast({ title: 'Programme sauvegardé' })
-      onClose()
-      setStep('config')
-      setDiagnostic('')
-    } catch {
-      toast({ title: 'Erreur réseau', variant: 'destructive' })
-    } finally {
-      setActionLoading(null)
-    }
-  }
-
-  async function handleExportPdf() {
-    setActionLoading('pdf')
-    try {
-      const id = await ensureSaved()
-      if (!id) return
-      toast({ title: 'Programme sauvegardé — génération du PDF…' })
       const res = await fetch(`/api/exercise-prescriptions/${id}/pdf`)
       if (!res.ok) { toast({ title: 'Erreur PDF', variant: 'destructive' }); return }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = 'programme-exercices.pdf'
-      document.body.appendChild(a); a.click()
-      document.body.removeChild(a); URL.revokeObjectURL(url)
+      window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 15000)
+      toast({ title: 'Programme sauvegardé dans le dossier patient' })
     } catch {
       toast({ title: 'Erreur réseau', variant: 'destructive' })
     } finally {
@@ -657,29 +639,25 @@ export function AiExerciseGenerationDialog({
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  onClick={handleExportPdf}
+                  onClick={handlePrint}
                   disabled={!!actionLoading || items.length === 0}
-                  title="Sauvegarder et télécharger le PDF"
+                  title="Sauvegarder et imprimer"
                 >
-                  {actionLoading === 'pdf'
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : <Download className="h-4 w-4" />}
+                  {actionLoading === 'print' ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Impression…</>
+                  ) : (
+                    <><Printer className="mr-2 h-4 w-4" />Imprimer</>
+                  )}
                 </Button>
                 <Button
-                  variant="outline"
                   onClick={handleSendEmail}
                   disabled={!!actionLoading || items.length === 0}
                   title="Sauvegarder et envoyer par email"
                 >
-                  {actionLoading === 'email'
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : <Mail className="h-4 w-4" />}
-                </Button>
-                <Button onClick={handleSave} disabled={!!actionLoading || items.length === 0}>
-                  {actionLoading === 'save' ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sauvegarde…</>
+                  {actionLoading === 'email' ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Envoi…</>
                   ) : (
-                    <><Dumbbell className="mr-2 h-4 w-4" />Sauvegarder</>
+                    <><Mail className="mr-2 h-4 w-4" />Envoyer par mail</>
                   )}
                 </Button>
               </div>

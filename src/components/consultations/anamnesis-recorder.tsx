@@ -33,7 +33,8 @@ interface AnamnesisRecorderProps {
   reason?: string
   patientContext?: PatientContext
   patientId?: string
-  onPatientFieldsDetected?: (fields: PatientFieldsDetected) => void
+  /** Applies the given fields; resolves with the keys that failed to apply (so they can stay visible for a retry). */
+  onPatientFieldsDetected?: (fields: PatientFieldsDetected) => Promise<(keyof PatientFieldsDetected)[]> | void
 }
 
 type RecorderState =
@@ -727,10 +728,12 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
     }
   }, [state, structured, detectedFields, onApply, clearDraft, clearAudioBlob])
 
-  const acceptField = useCallback((key: keyof PatientFieldsDetected) => {
+  const acceptField = useCallback(async (key: keyof PatientFieldsDetected) => {
     if (!detectedFields || !onPatientFieldsDetected) return
     const value = detectedFields[key]
-    if (value !== undefined) onPatientFieldsDetected({ [key]: value } as PatientFieldsDetected)
+    if (value === undefined) return
+    const failedKeys = (await onPatientFieldsDetected({ [key]: value } as PatientFieldsDetected)) || []
+    if (failedKeys.includes(key)) return // échec : on le laisse affiché pour permettre de réessayer
     setDetectedFields((prev) => {
       if (!prev) return null
       const next = { ...prev }
@@ -748,10 +751,22 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
     })
   }, [])
 
-  const acceptAllFields = useCallback(() => {
+  const acceptAllFields = useCallback(async () => {
     if (!detectedFields || !onPatientFieldsDetected) return
-    onPatientFieldsDetected(detectedFields)
-    setDetectedFields(null)
+    const failedKeys = (await onPatientFieldsDetected(detectedFields)) || []
+    if (failedKeys.length === 0) {
+      setDetectedFields(null)
+      return
+    }
+    // On ne garde affichés que les champs qui n'ont pas pu être appliqués, pour permettre de réessayer.
+    setDetectedFields((prev) => {
+      if (!prev) return null
+      const next: PatientFieldsDetected = {}
+      for (const key of failedKeys) {
+        if (prev[key] !== undefined) next[key] = prev[key]
+      }
+      return Object.keys(next).length > 0 ? next : null
+    })
   }, [detectedFields, onPatientFieldsDetected])
 
   // ─── Rendu ────────────────────────────────────────────────────────────────────────────

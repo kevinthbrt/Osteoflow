@@ -1262,56 +1262,73 @@ export function ConsultationForm({
                 disabled={isLoading}
                 patientContext={patientClinicalContext}
                 onPatientFieldsDetected={async (fields) => {
-                  try {
-                    // Flat patient fields (replace)
-                    const patientUpdates: Pick<Patient, 'profession' | 'sport_activity' | 'primary_physician' | 'pregnancy_due_date'> = {
-                      profession: currentPatient.profession,
-                      sport_activity: currentPatient.sport_activity,
-                      primary_physician: currentPatient.primary_physician,
-                      pregnancy_due_date: currentPatient.pregnancy_due_date,
-                    }
-                    let hasPatientUpdate = false
-                    if (fields.profession !== undefined) { patientUpdates.profession = fields.profession; hasPatientUpdate = true }
-                    if (fields.sport_activity !== undefined) { patientUpdates.sport_activity = fields.sport_activity; hasPatientUpdate = true }
-                    if (fields.primary_physician !== undefined) { patientUpdates.primary_physician = fields.primary_physician; hasPatientUpdate = true }
-                    if (fields.pregnancy_due_date !== undefined) { patientUpdates.pregnancy_due_date = fields.pregnancy_due_date; hasPatientUpdate = true }
-                    if (hasPatientUpdate) {
+                  const failedKeys: (keyof typeof fields)[] = []
+
+                  // Flat patient fields (replace) — indépendant des antécédents ci-dessous.
+                  const patientUpdates: Pick<Patient, 'profession' | 'sport_activity' | 'primary_physician' | 'pregnancy_due_date'> = {
+                    profession: currentPatient.profession,
+                    sport_activity: currentPatient.sport_activity,
+                    primary_physician: currentPatient.primary_physician,
+                    pregnancy_due_date: currentPatient.pregnancy_due_date,
+                  }
+                  const patientFieldKeys: (keyof typeof fields)[] = ['profession', 'sport_activity', 'primary_physician', 'pregnancy_due_date']
+                  let hasPatientUpdate = false
+                  for (const key of patientFieldKeys) {
+                    if (fields[key] !== undefined) { (patientUpdates as Record<string, unknown>)[key] = fields[key]; hasPatientUpdate = true }
+                  }
+                  if (hasPatientUpdate) {
+                    try {
                       await db.from('patients').update(patientUpdates).eq('id', currentPatient.id)
                       setCurrentPatient((prev) => ({ ...prev, ...patientUpdates }))
+                    } catch {
+                      failedKeys.push(...patientFieldKeys.filter((key) => fields[key] !== undefined))
                     }
-
-                    // History fields → insert into medical_history_entries
-                    const historyMap: { field: keyof typeof fields; type: MedicalHistoryType }[] = [
-                      { field: 'surgical_history', type: 'surgical' },
-                      { field: 'trauma_history', type: 'traumatic' },
-                      { field: 'medical_history', type: 'medical' },
-                      { field: 'family_history', type: 'family' },
-                    ]
-                    let historyInserted = false
-                    for (const { field, type } of historyMap) {
-                      const value = fields[field]
-                      if (value !== undefined) {
-                        const { error } = await db.from('medical_history_entries').insert({
-                          patient_id: currentPatient.id,
-                          history_type: type,
-                          description: value,
-                          onset_date: null,
-                          onset_age: null,
-                          onset_duration_value: null,
-                          onset_duration_unit: null,
-                          is_vigilance: false,
-                          note: null,
-                        })
-                        if (error) throw new Error(error.message)
-                        historyInserted = true
-                      }
-                    }
-                    if (historyInserted) setMedicalHistoryRefreshKey((k) => k + 1)
-
-                    toast({ title: 'Dossier patient mis à jour', variant: 'success' })
-                  } catch {
-                    toast({ title: 'Erreur lors de la mise à jour', variant: 'destructive' })
                   }
+
+                  // History fields → insert into medical_history_entries.
+                  // Chaque antécédent est traité indépendamment : l'échec de l'un ne doit pas
+                  // empêcher l'injection des suivants (sinon "Valider tout" s'arrête au premier échec).
+                  const historyMap: { field: keyof typeof fields; type: MedicalHistoryType }[] = [
+                    { field: 'surgical_history', type: 'surgical' },
+                    { field: 'trauma_history', type: 'traumatic' },
+                    { field: 'medical_history', type: 'medical' },
+                    { field: 'family_history', type: 'family' },
+                  ]
+                  let historyInserted = false
+                  for (const { field, type } of historyMap) {
+                    const value = fields[field]
+                    if (value === undefined) continue
+                    try {
+                      const { error } = await db.from('medical_history_entries').insert({
+                        patient_id: currentPatient.id,
+                        history_type: type,
+                        description: value,
+                        onset_date: null,
+                        onset_age: null,
+                        onset_duration_value: null,
+                        onset_duration_unit: null,
+                        is_vigilance: false,
+                        note: null,
+                      })
+                      if (error) throw new Error(error.message)
+                      historyInserted = true
+                    } catch {
+                      failedKeys.push(field)
+                    }
+                  }
+                  if (historyInserted) setMedicalHistoryRefreshKey((k) => k + 1)
+
+                  if (failedKeys.length === 0) {
+                    toast({ title: 'Dossier patient mis à jour', variant: 'success' })
+                  } else {
+                    toast({
+                      title: failedKeys.length === Object.keys(fields).length
+                        ? 'Erreur lors de la mise à jour'
+                        : `Dossier mis à jour partiellement (${failedKeys.length} élément(s) en échec)`,
+                      variant: 'destructive',
+                    })
+                  }
+                  return failedKeys
                 }}
               />
               <div id="sec-anamnese" className={cn('space-y-3 scroll-mt-24', ENCART)}>
