@@ -45,6 +45,8 @@ import { AnamnesisRecorder, type AnamnesisSection } from '@/components/consultat
 import { AnamnesisCards } from '@/components/consultations/anamnesis-cards'
 import { AnamnesisDisplay } from '@/components/consultations/anamnesis-display'
 import { HypothesesDisplay } from '@/components/consultations/hypotheses-display'
+import { BodyChart } from '@/components/consultations/body-chart'
+import type { PainPoint } from '@/types/pain-points'
 import { sectionsToMarkdown } from '@/lib/anamnesis'
 import { HypothesesCard, type HypothesesState } from '@/components/consultations/hypotheses-card'
 import type { HypothesesPayload } from '@/lib/hypotheses'
@@ -179,6 +181,18 @@ export function ConsultationForm({
   })
   const [anamnesisCardReason, setAnamnesisCardReason] = useState<string | undefined>(consultation?.reason || undefined)
   const anamnesisCardSectionsRef = useRef(anamnesisCardSections)
+  const [painPoints, setPainPoints] = useState<PainPoint[] | null>(() => {
+    if (consultation?.pain_points) {
+      try {
+        const parsed = JSON.parse(consultation.pain_points)
+        return Array.isArray(parsed) && parsed.length > 0 ? parsed : null
+      } catch { return null }
+    }
+    return null
+  })
+  // Bodychart si des points existent déjà (consultation existante), sinon mode classique par défaut.
+  const [anamnesisMode, setAnamnesisMode] = useState<'classic' | 'bodychart'>(painPoints ? 'bodychart' : 'classic')
+  const painPointsRef = useRef(painPoints)
   // Carte « Hypothèses cliniques » — persistée avec la consultation (payload IA + réponses).
   const initialHypotheses = (() => {
     if (!consultation?.clinical_hypotheses) return { payload: null as HypothesesPayload | null, state: undefined as HypothesesState | undefined }
@@ -306,6 +320,7 @@ export function ConsultationForm({
 
   useEffect(() => { paymentsRef.current = payments }, [payments])
   useEffect(() => { anamnesisCardSectionsRef.current = anamnesisCardSections }, [anamnesisCardSections])
+  useEffect(() => { painPointsRef.current = painPoints }, [painPoints])
   useEffect(() => { hypothesesRef.current = hypotheses }, [hypotheses])
   useEffect(() => { hypothesesStateRef.current = hypothesesState }, [hypothesesState])
 
@@ -316,7 +331,7 @@ export function ConsultationForm({
     fetch('/api/consultation/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
+      body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, pain_points: painPointsRef.current ? JSON.stringify(painPointsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
     }).catch(() => {})
   }, [mode, getValues])
 
@@ -330,7 +345,7 @@ export function ConsultationForm({
       fetch('/api/consultation/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
+        body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, pain_points: painPointsRef.current ? JSON.stringify(painPointsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
       }).catch(() => {})
     }
 
@@ -369,6 +384,15 @@ export function ConsultationForm({
               }
             } catch { /* ignore malformed hypotheses */ }
           }
+          if (draft.pain_points) {
+            try {
+              const points = JSON.parse(draft.pain_points)
+              if (Array.isArray(points) && points.length > 0) {
+                setPainPoints(points)
+                setAnamnesisMode('bodychart')
+              }
+            } catch { /* ignore malformed pain points */ }
+          }
           if (!auto) toast({ title: 'Brouillon restauré', description: 'La consultation a été restaurée depuis votre dernière session.' })
         })
         .catch(() => {})
@@ -406,7 +430,7 @@ export function ConsultationForm({
         fetch('/api/consultation/draft', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
+          body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, pain_points: painPointsRef.current ? JSON.stringify(painPointsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
         }).catch(() => {})
       }, 3000)
     })
@@ -539,6 +563,7 @@ export function ConsultationForm({
             reason: data.reason,
             anamnesis: data.anamnesis || null,
             anamnesis_sections: anamnesisCardSections ? JSON.stringify(anamnesisCardSections) : null,
+            pain_points: painPoints ? JSON.stringify(painPoints) : null,
             clinical_hypotheses: hypotheses ? JSON.stringify({ payload: hypotheses, state: hypothesesState }) : null,
             examination: data.examination || null,
             advice: data.advice || null,
@@ -663,6 +688,7 @@ export function ConsultationForm({
             reason: data.reason,
             anamnesis: data.anamnesis || null,
             anamnesis_sections: anamnesisCardSections ? JSON.stringify(anamnesisCardSections) : null,
+            pain_points: painPoints ? JSON.stringify(painPoints) : null,
             clinical_hypotheses: hypotheses ? JSON.stringify({ payload: hypotheses, state: hypothesesState }) : null,
             examination: data.examination || null,
             advice: data.advice || null,
@@ -1255,6 +1281,10 @@ export function ConsultationForm({
                     // Repli : ancien format / échec de structuration.
                     setValue('anamnesis', data.anamnesis, { shouldDirty: true })
                   }
+                  if (data.pain_points && data.pain_points.length > 0) {
+                    setPainPoints(data.pain_points)
+                    setAnamnesisMode('bodychart')
+                  }
                   // Sauvegarde immédiate — sans attendre le debounce de 3s
                   // car l'utilisateur peut mettre l'ordi en veille juste après.
                   setTimeout(saveDraftNow, 0)
@@ -1332,8 +1362,36 @@ export function ConsultationForm({
                 }}
               />
               <div id="sec-anamnese" className={cn('space-y-3 scroll-mt-24', ENCART)}>
-                <SectionHeading icon={FileText} title="Anamnèse" tone={SECTION_TONES.anamnese} />
-                {anamnesisCardSections ? (
+                <SectionHeading
+                  icon={FileText}
+                  title="Anamnèse"
+                  tone={SECTION_TONES.anamnese}
+                  action={
+                    <div className="flex items-center rounded-lg border bg-muted/40 p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setAnamnesisMode('classic')}
+                        className={cn('px-2.5 py-1 text-xs font-medium rounded-md transition-colors', anamnesisMode === 'classic' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+                      >
+                        Classique
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAnamnesisMode('bodychart')}
+                        className={cn('px-2.5 py-1 text-xs font-medium rounded-md transition-colors', anamnesisMode === 'bodychart' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+                      >
+                        Bodychart
+                      </button>
+                    </div>
+                  }
+                />
+                {anamnesisMode === 'bodychart' ? (
+                  <BodyChart
+                    points={painPoints ?? []}
+                    onChange={(next) => setPainPoints(next.length > 0 ? next : null)}
+                    availableHypotheses={hypotheses?.hypotheses}
+                  />
+                ) : anamnesisCardSections ? (
                   <AnamnesisCards
                     reason={anamnesisCardReason}
                     sections={anamnesisCardSections}
@@ -1876,6 +1934,22 @@ export function ConsultationForm({
                         />
                       </div>
                     )}
+                    {viewingConsultation.pain_points && (
+                      <div>
+                        {(viewingConsultation.anamnesis || viewingConsultation.anamnesis_sections) && <Separator />}
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1 mt-3">
+                          Bodychart
+                        </h4>
+                        {(() => {
+                          try {
+                            const points = JSON.parse(viewingConsultation.pain_points) as PainPoint[]
+                            return Array.isArray(points) && points.length > 0
+                              ? <BodyChart points={points} readOnly />
+                              : null
+                          } catch { return null }
+                        })()}
+                      </div>
+                    )}
                     {viewingConsultation.clinical_hypotheses && (
                       <div>
                         {(viewingConsultation.anamnesis || viewingConsultation.anamnesis_sections) && <Separator />}
@@ -1903,7 +1977,7 @@ export function ConsultationForm({
                         <MarkdownText text={viewingConsultation.advice} />
                       </div>
                     )}
-                    {!viewingConsultation.anamnesis && !viewingConsultation.examination && !viewingConsultation.advice && !viewingConsultation.clinical_hypotheses && (
+                    {!viewingConsultation.anamnesis && !viewingConsultation.anamnesis_sections && !viewingConsultation.pain_points && !viewingConsultation.examination && !viewingConsultation.advice && !viewingConsultation.clinical_hypotheses && (
                       <p className="text-sm text-muted-foreground italic">
                         Aucun contenu clinique renseigné
                       </p>

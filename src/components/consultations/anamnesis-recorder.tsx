@@ -6,6 +6,7 @@ import { Mic, MicOff, Sparkles, Loader2, RotateCcw, Check, AlertCircle, WifiOff,
 import { cn } from '@/lib/utils'
 import { sectionsToMarkdown } from '@/lib/anamnesis'
 import type { PatientFieldsDetected } from '@/types/ai'
+import type { PainPoint } from '@/types/pain-points'
 
 export type { PatientFieldsDetected }
 
@@ -23,7 +24,7 @@ interface PatientContext {
 }
 
 interface AnamnesisRecorderProps {
-  onApply: (data: { reason: string; anamnesis: string; sections?: AnamnesisSection[] }) => void
+  onApply: (data: { reason: string; anamnesis: string; sections?: AnamnesisSection[]; pain_points?: PainPoint[] }) => void
   /** Fired at the start of the parallel hypotheses fetch so the parent can show a loader. */
   onHypothesesStart?: () => void
   /** Fired when the parallel hypotheses fetch resolves. null means failure/no result. */
@@ -187,7 +188,7 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
   const [finalText, setFinalText] = useState('')
   const [interimText, setInterimText] = useState('')
   const [isElectronApp, setIsElectronApp] = useState(false)
-  const [structured, setStructured] = useState<{ reason: string; anamnesis: string; sections?: AnamnesisSection[] } | null>(null)
+  const [structured, setStructured] = useState<{ reason: string; anamnesis: string; sections?: AnamnesisSection[]; pain_points?: PainPoint[] } | null>(null)
   const [detectedFields, setDetectedFields] = useState<PatientFieldsDetected | null>(null)
   const [detectionSkipped, setDetectionSkipped] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -322,7 +323,10 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
       const anamnesisText = data.sections && data.sections.length > 0
         ? sectionsToMarkdown(data.sections)
         : (data.anamnesis ?? '')
-      setStructured({ reason: data.reason, anamnesis: anamnesisText, sections: data.sections })
+      const painPoints: PainPoint[] | undefined = Array.isArray(data.pain_points) && data.pain_points.length > 0
+        ? data.pain_points
+        : undefined
+      setStructured({ reason: data.reason, anamnesis: anamnesisText, sections: data.sections, pain_points: painPoints })
       if (data.patient_fields && Object.keys(data.patient_fields).length > 0) {
         setDetectedFields(data.patient_fields)
       }
