@@ -46,27 +46,28 @@
   }
 
   .dark {
-    /* Bleu nuit plutôt que noir quasi-pur : plus de lumière et de
-       séparation entre le fond, les cartes et les surfaces imbriquées. */
-    --background: 222 26% 13%;
-    --foreground: 220 20% 95%;
-    --card: 222 24% 18%;
-    --card-foreground: 220 15% 95%;
-    --popover: 222 24% 18%;
-    --popover-foreground: 220 15% 95%;
-    --primary: 224 90% 66%;
+    /* Bleu nuit plutôt que noir quasi-pur, avec un écart plus marqué entre
+       le fond et les cartes/surfaces (fond légèrement rabaissé, cartes
+       nettement remontées) pour que le relief se voie vraiment. */
+    --background: 222 28% 10%;
+    --foreground: 220 20% 96%;
+    --card: 222 22% 21%;
+    --card-foreground: 220 15% 96%;
+    --popover: 222 22% 21%;
+    --popover-foreground: 220 15% 96%;
+    --primary: 224 90% 67%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 222 20% 23%;
-    --secondary-foreground: 220 15% 95%;
-    --muted: 222 20% 23%;
-    --muted-foreground: 220 14% 68%;
-    --accent: 221 40% 28%;
-    --accent-foreground: 221 90% 80%;
-    --destructive: 0 65% 55%;
+    --secondary: 222 18% 27%;
+    --secondary-foreground: 220 15% 96%;
+    --muted: 222 18% 27%;
+    --muted-foreground: 220 14% 71%;
+    --accent: 221 38% 32%;
+    --accent-foreground: 221 90% 83%;
+    --destructive: 0 68% 57%;
     --destructive-foreground: 0 0% 100%;
-    --border: 222 18% 27%;
-    --input: 222 18% 27%;
-    --ring: 224 90% 66%;
+    --border: 222 16% 32%;
+    --input: 222 16% 32%;
+    --ring: 224 90% 67%;
 
     --gradient-start: 224 90% 66%;
     --gradient-end: 262 78% 68%;
@@ -97,7 +98,7 @@
 @layer components {
   /* Crisp liquid glass card — lighter blur, prominent border */
   .glass-card {
-    @apply bg-white/80 dark:bg-slate-800/75 backdrop-blur-md border border-white/60 dark:border-white/10;
+    @apply bg-white/80 dark:bg-[hsl(var(--card)/0.9)] backdrop-blur-md border border-white/60 dark:border-white/[0.12];
     box-shadow: 0 1px 3px rgba(15,23,42,0.06), 0 8px 24px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.8);
   }
 
@@ -107,8 +108,8 @@
     --tw-bg-opacity: 0.65;
   }
   .dark .glass-surface {
-    background-color: rgb(30 41 59 / 0.6);
-    border-color: rgb(255 255 255 / 0.1);
+    background-color: hsl(var(--card) / 0.7);
+    border-color: rgb(255 255 255 / 0.12);
   }
 
   /* Gradient backgrounds */
@@ -139,8 +140,8 @@
   }
 
   .dark .stat-card {
-    background: rgba(30, 41, 59, 0.7);
-    border-color: rgba(255, 255, 255, 0.1);
+    background: hsl(var(--card) / 0.8);
+    border-color: rgba(255, 255, 255, 0.12);
   }
 
   .stat-card:hover {
@@ -163,8 +164,8 @@
     @apply bg-white/50 border border-white/40 rounded-xl;
   }
   .dark .glass-inner {
-    background-color: rgb(51 65 85 / 0.55);
-    border-color: rgb(255 255 255 / 0.1);
+    background-color: hsl(var(--secondary) / 0.75);
+    border-color: rgb(255 255 255 / 0.12);
   }
 
   /* Quick action button */
@@ -172,7 +173,7 @@
     @apply flex flex-col items-center gap-2 p-4 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/40 transition-all duration-300 cursor-pointer;
   }
   .dark .quick-action {
-    background-color: rgb(51 65 85 / 0.55);
+    background-color: hsl(var(--secondary) / 0.65);
   }
   .quick-action:hover {
     @apply -translate-y-0.5 shadow-md;
@@ -180,7 +181,7 @@
     border-color: hsl(var(--primary) / 0.2);
   }
   .dark .quick-action:hover {
-    background-color: rgb(51 65 85 / 0.8);
+    background-color: hsl(var(--secondary) / 0.9);
   }
 
   /* Timeline */
