@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { LiteratureReviewModal } from './literature-review-modal'
 import {
   BookOpen,
   GraduationCap,
@@ -50,6 +51,8 @@ export function ReviewWidget({
   loading: boolean
   onRefresh: () => void
 }) {
+  const [modalOpen, setModalOpen] = useState(false)
+
   return (
     <Card className="border-border/30 h-full flex flex-col">
       <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between shrink-0">
@@ -76,40 +79,46 @@ export function ReviewWidget({
             <div className="h-3 bg-muted/40 rounded animate-pulse w-1/2" />
           </div>
         ) : review ? (
-          <a
-            href={`${OSTEOUPGRADE_URL}/elearning/revue-litterature`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex flex-col gap-1.5"
-          >
-            {review.image_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={review.image_url}
-                alt={review.title}
-                className="w-full h-24 object-cover rounded-md"
-              />
-            )}
-            <p className="text-sm font-medium leading-snug group-hover:text-primary transition-colors line-clamp-2">
-              {review.title}
-            </p>
-            {review.published_date && (
-              <Badge variant="outline" className="text-xs w-fit">
-                {new Date(review.published_date).toLocaleDateString('fr-FR', {
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </Badge>
-            )}
-            {review.summary && (
-              <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
-                {review.summary}
+          <>
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="group flex flex-col gap-1.5 text-left"
+            >
+              {review.image_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={review.image_url}
+                  alt={review.title}
+                  className="w-full h-24 object-cover rounded-md"
+                />
+              )}
+              <p className="text-sm font-medium leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                {review.title}
               </p>
-            )}
-            <span className="text-xs text-primary flex items-center gap-1 pt-1">
-              Lire sur OsteoUpgrade <ExternalLink className="h-2.5 w-2.5" />
-            </span>
-          </a>
+              {review.published_date && (
+                <Badge variant="outline" className="text-xs w-fit">
+                  {new Date(review.published_date).toLocaleDateString('fr-FR', {
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </Badge>
+              )}
+              {review.summary && (
+                <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                  {review.summary}
+                </p>
+              )}
+              <span className="text-xs text-primary flex items-center gap-1 pt-1">
+                Lire l&apos;article <ChevronRight className="h-3 w-3" />
+              </span>
+            </button>
+            <LiteratureReviewModal
+              reviewId={review.id}
+              open={modalOpen}
+              onOpenChange={setModalOpen}
+            />
+          </>
         ) : (
           <p className="text-xs text-muted-foreground py-2">Aucun article disponible</p>
         )}
