@@ -181,8 +181,8 @@ export function Header({ user, practitioner }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 relative border-b border-white/40 dark:border-white/10 bg-gradient-to-r from-primary/[0.08] via-white/85 to-violet-500/[0.08] dark:from-primary/15 dark:via-slate-900/85 dark:to-violet-500/15 backdrop-blur-xl">
-      <div className="absolute inset-x-0 bottom-0 h-[2px] bg-gradient-to-r from-primary via-violet-500 to-sky-400 opacity-70" />
+    <header className="sticky top-0 z-30 relative border-b border-white/40 dark:border-white/10 bg-gradient-to-r from-primary/[0.18] via-white/75 to-violet-600/[0.18] dark:from-primary/30 dark:via-slate-900/80 dark:to-violet-600/30 backdrop-blur-xl">
+      <div className="absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-primary via-violet-600 to-sky-500" />
       <div className="flex h-16 items-center gap-4 px-6 lg:px-8">
         {/* Spacer for mobile menu button */}
         <div className="w-10 lg:hidden" />
