@@ -6,26 +6,27 @@
 
 @layer base {
   :root {
-    /* Liquid glass — cool blue palette (closer to Osteoupgrade) */
-    --background: 220 30% 98%;
-    --foreground: 222 25% 12%;
-    --card: 0 0% 100%;
+    /* Liquid glass — richer blue palette, more contrast than the previous
+       near-white version (less pale, still light/professional). */
+    --background: 220 38% 95%;
+    --foreground: 222 30% 11%;
+    --card: 220 45% 99%;
     --card-foreground: 222 25% 12%;
-    --popover: 0 0% 100%;
+    --popover: 220 45% 99%;
     --popover-foreground: 222 25% 12%;
-    --primary: 221 83% 53%;
+    --primary: 224 88% 56%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 20% 94%;
+    --secondary: 220 26% 92%;
     --secondary-foreground: 222 25% 12%;
-    --muted: 220 15% 95%;
-    --muted-foreground: 220 12% 46%;
-    --accent: 221 60% 93%;
-    --accent-foreground: 221 83% 40%;
+    --muted: 220 22% 93%;
+    --muted-foreground: 220 14% 40%;
+    --accent: 221 70% 90%;
+    --accent-foreground: 221 83% 38%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 15% 89%;
-    --input: 220 15% 89%;
-    --ring: 221 83% 53%;
+    --border: 220 22% 84%;
+    --input: 220 22% 84%;
+    --ring: 224 88% 56%;
     --radius: 0.75rem;
 
     --success: 152 69% 41%;
@@ -35,23 +36,23 @@
     --info: 217 91% 60%;
     --info-foreground: 0 0% 100%;
 
-    --gradient-start: 221 83% 53%;
-    --gradient-end: 262 72% 58%;
+    --gradient-start: 224 88% 56%;
+    --gradient-end: 262 75% 58%;
 
     /* Mesh gradient blobs */
-    --blob-1: 221 83% 53%;
-    --blob-2: 262 72% 58%;
-    --blob-3: 190 80% 50%;
+    --blob-1: 224 88% 56%;
+    --blob-2: 262 75% 58%;
+    --blob-3: 199 85% 52%;
   }
 
   .dark {
-    --background: 222 25% 7%;
+    --background: 222 28% 6%;
     --foreground: 220 15% 93%;
-    --card: 222 25% 10%;
+    --card: 222 28% 9%;
     --card-foreground: 220 15% 93%;
-    --popover: 222 25% 10%;
+    --popover: 222 28% 9%;
     --popover-foreground: 220 15% 93%;
-    --primary: 221 83% 60%;
+    --primary: 224 88% 62%;
     --primary-foreground: 0 0% 100%;
     --secondary: 222 20% 15%;
     --secondary-foreground: 220 15% 93%;
@@ -63,10 +64,10 @@
     --destructive-foreground: 0 0% 100%;
     --border: 222 20% 17%;
     --input: 222 20% 17%;
-    --ring: 221 83% 60%;
+    --ring: 224 88% 62%;
 
-    --gradient-start: 221 83% 60%;
-    --gradient-end: 262 72% 63%;
+    --gradient-start: 224 88% 62%;
+    --gradient-end: 262 75% 64%;
   }
 }
 
@@ -84,9 +85,9 @@
     font-feature-settings: "rlig" 1, "calt" 1;
     /* Liquid glass mesh gradient background — fixed so it doesn't scroll */
     background-image:
-      radial-gradient(ellipse 90% 70% at 10% -10%, hsl(var(--blob-1) / 0.10) 0%, transparent 55%),
-      radial-gradient(ellipse 70% 90% at 90% 110%, hsl(var(--blob-2) / 0.08) 0%, transparent 55%),
-      radial-gradient(ellipse 60% 60% at 50% 50%, hsl(var(--blob-3) / 0.04) 0%, transparent 60%);
+      radial-gradient(ellipse 90% 70% at 10% -10%, hsl(var(--blob-1) / 0.18) 0%, transparent 55%),
+      radial-gradient(ellipse 70% 90% at 90% 110%, hsl(var(--blob-2) / 0.14) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 60% at 50% 50%, hsl(var(--blob-3) / 0.09) 0%, transparent 60%);
     background-attachment: fixed;
   }
 }
@@ -94,14 +95,14 @@
 @layer components {
   /* Crisp liquid glass card — lighter blur, prominent border */
   .glass-card {
-    @apply bg-white/75 dark:bg-slate-900/75 backdrop-blur-md border border-white/50 dark:border-white/10;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.8);
+    @apply bg-white/80 dark:bg-slate-900/75 backdrop-blur-md border border-white/60 dark:border-white/10;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.06), 0 8px 24px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.8);
   }
 
   /* Subtle glass surface for page sections */
   .glass-surface {
-    @apply bg-white/60 backdrop-blur-sm border border-white/40;
-    --tw-bg-opacity: 0.6;
+    @apply bg-white/65 backdrop-blur-sm border border-white/45;
+    --tw-bg-opacity: 0.65;
   }
   .dark .glass-surface {
     background-color: rgb(15 23 42 / 0.6);
@@ -129,10 +130,10 @@
   /* Stat card — glass style */
   .stat-card {
     @apply relative overflow-hidden rounded-2xl p-6 transition-all duration-300;
-    background: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.75);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.9);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow: 0 1px 3px rgba(15,23,42,0.06), 0 8px 24px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9);
   }
 
   .dark .stat-card {
@@ -141,7 +142,7 @@
   }
 
   .stat-card:hover {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+    box-shadow: 0 2px 6px rgba(15,23,42,0.08), 0 12px 28px rgba(15,23,42,0.1), inset 0 1px 0 rgba(255,255,255,0.9);
     transform: translateY(-2px);
   }
 
