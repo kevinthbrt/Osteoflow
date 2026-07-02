@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { MarkdownContent } from './markdown-content'
+import { TrustScore } from './trust-score'
 import { Calendar, ExternalLink, Loader2 } from 'lucide-react'
 
 const OSTEOUPGRADE_URL = process.env.NEXT_PUBLIC_OSTEOUPGRADE_URL || 'https://osteo-upgrade.fr'
@@ -32,6 +33,8 @@ type FullReview = {
   images?: ReviewImage[]
   study_url?: string | null
   published_date: string | null
+  thrust_score?: 'A' | 'B' | 'C' | 'D' | 'E' | null
+  thrust_score_explanation?: string | null
   tags?: ReviewTag[]
 }
 
@@ -181,6 +184,13 @@ export function LiteratureReviewModal({
                 </div>
               )}
             </div>
+
+            {review.thrust_score && (
+              <div>
+                <h4 className="font-semibold mb-2 text-sm">Indice de confiance</h4>
+                <TrustScore score={review.thrust_score} explanation={review.thrust_score_explanation} />
+              </div>
+            )}
 
             {review.study_url && (
               <a
