@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { NotificationBell } from '@/components/layout/notification-bell'
 import { BackupButton } from '@/components/layout/backup-button'
 import { HeaderWeather } from '@/components/layout/header-weather'
+import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { useTour } from '@/contexts/tour-context'
 
 interface LocalUser {
@@ -258,6 +259,9 @@ export function Header({ user, practitioner }: HeaderProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-1">
+          {/* Thème clair / sombre / système */}
+          <ThemeToggle />
+
           {/* Help button */}
           <Button
             variant="ghost"
