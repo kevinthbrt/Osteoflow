@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { NotificationBell } from '@/components/layout/notification-bell'
 import { BackupButton } from '@/components/layout/backup-button'
 import { HeaderWeather } from '@/components/layout/header-weather'
+import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { useTour } from '@/contexts/tour-context'
 
 interface LocalUser {
@@ -181,14 +182,15 @@ export function Header({ user, practitioner }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-white/40 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 relative border-b border-white/40 dark:border-white/10 bg-gradient-to-r from-primary/[0.18] via-white/75 to-violet-600/[0.18] dark:from-primary/30 dark:via-slate-800/80 dark:to-violet-600/30 backdrop-blur-xl">
+      <div className="absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-primary via-violet-600 to-sky-500" />
       <div className="flex h-16 items-center gap-4 px-6 lg:px-8">
         {/* Spacer for mobile menu button */}
         <div className="w-10 lg:hidden" />
 
         {/* Page title */}
         <div className="hidden lg:block min-w-0">
-          <h1 className="text-lg font-semibold text-foreground leading-tight">{currentPage.title}</h1>
+          <h1 className="text-lg font-semibold leading-tight text-gradient">{currentPage.title}</h1>
           <p className="text-xs text-muted-foreground">{currentPage.description}</p>
         </div>
 
@@ -257,6 +259,9 @@ export function Header({ user, practitioner }: HeaderProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-1">
+          {/* Thème clair / sombre / système */}
+          <ThemeToggle />
+
           {/* Help button */}
           <Button
             variant="ghost"

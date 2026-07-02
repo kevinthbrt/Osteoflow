@@ -3,6 +3,7 @@ import { Playfair_Display } from 'next/font/google'
 import '@/styles/globals.css'
 import { Toaster } from '@/components/ui/toaster'
 import { QueryProvider } from '@/components/providers/query-provider'
+import { THEME_INIT_SCRIPT } from '@/lib/theme'
 
 const playfairDisplay = Playfair_Display({
   subsets: ['latin'],
@@ -21,8 +22,14 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="fr">
-      <body className={`font-sans antialiased ${playfairDisplay.variable}`}>
+    <html lang="fr" suppressHydrationWarning>
+      <head>
+        {/* Applique la classe `dark` avant l'hydratation React pour éviter
+            un flash clair→sombre au démarrage (le rendu serveur ne connaît
+            pas la préférence stockée en localStorage). */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
+      <body className={`font-sans antialiased ${playfairDisplay.variable}`} suppressHydrationWarning>
         <QueryProvider>
           {children}
           <Toaster />

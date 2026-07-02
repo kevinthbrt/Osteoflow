@@ -67,6 +67,46 @@ export function ConsultationPaymentEditor({
     try {
       const { error } = await db.from('invoices').update({ amount: parsed }).eq('id', invoiceId)
       if (error) throw error
+
+      // Garde les paiements en phase avec le nouveau total, sinon la comptabilité
+      // et les statistiques (qui se basent sur payments.amount) restent sur l'ancien montant.
+      if (entries.length === 1) {
+        const { error: paymentError } = await db
+          .from('payments')
+          .update({ amount: parsed })
+          .eq('id', entries[0].id)
+        if (paymentError) throw paymentError
+        setEntries((prev) => prev.map((p) => ({ ...p, amount: parsed })))
+      } else if (entries.length > 1) {
+        const currentTotal = entries.reduce((sum, p) => sum + Number(p.amount), 0)
+        if (currentTotal > 0) {
+          const ratio = parsed / currentTotal
+          const updated = entries.map((p) => ({
+            id: p.id,
+            amount: Math.round(Number(p.amount) * ratio * 100) / 100,
+          }))
+          const roundingDiff =
+            Math.round((parsed - updated.reduce((sum, p) => sum + p.amount, 0)) * 100) / 100
+          if (roundingDiff !== 0) {
+            updated[updated.length - 1].amount =
+              Math.round((updated[updated.length - 1].amount + roundingDiff) * 100) / 100
+          }
+          for (const p of updated) {
+            const { error: paymentError } = await db
+              .from('payments')
+              .update({ amount: p.amount })
+              .eq('id', p.id)
+            if (paymentError) throw paymentError
+          }
+          setEntries((prev) =>
+            prev.map((entry) => {
+              const match = updated.find((u) => u.id === entry.id)
+              return match ? { ...entry, amount: match.amount } : entry
+            })
+          )
+        }
+      }
+
       toast({ variant: 'success', title: 'Montant mis à jour', description: 'Le montant de la consultation a été mis à jour.' })
       router.refresh()
     } catch {

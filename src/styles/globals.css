@@ -6,26 +6,27 @@
 
 @layer base {
   :root {
-    /* Liquid glass — cool blue palette (closer to Osteoupgrade) */
-    --background: 220 30% 98%;
-    --foreground: 222 25% 12%;
-    --card: 0 0% 100%;
+    /* Liquid glass — richer blue palette, more contrast than the previous
+       near-white version (less pale, still light/professional). */
+    --background: 220 38% 95%;
+    --foreground: 222 30% 11%;
+    --card: 220 45% 99%;
     --card-foreground: 222 25% 12%;
-    --popover: 0 0% 100%;
+    --popover: 220 45% 99%;
     --popover-foreground: 222 25% 12%;
-    --primary: 221 83% 53%;
+    --primary: 224 88% 56%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 20% 94%;
+    --secondary: 220 26% 92%;
     --secondary-foreground: 222 25% 12%;
-    --muted: 220 15% 95%;
-    --muted-foreground: 220 12% 46%;
-    --accent: 221 60% 93%;
-    --accent-foreground: 221 83% 40%;
+    --muted: 220 22% 93%;
+    --muted-foreground: 220 14% 40%;
+    --accent: 221 70% 90%;
+    --accent-foreground: 221 83% 38%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 15% 89%;
-    --input: 220 15% 89%;
-    --ring: 221 83% 53%;
+    --border: 220 22% 84%;
+    --input: 220 22% 84%;
+    --ring: 224 88% 56%;
     --radius: 0.75rem;
 
     --success: 152 69% 41%;
@@ -35,38 +36,41 @@
     --info: 217 91% 60%;
     --info-foreground: 0 0% 100%;
 
-    --gradient-start: 221 83% 53%;
-    --gradient-end: 262 72% 58%;
+    --gradient-start: 224 88% 56%;
+    --gradient-end: 262 75% 58%;
 
     /* Mesh gradient blobs */
-    --blob-1: 221 83% 53%;
-    --blob-2: 262 72% 58%;
-    --blob-3: 190 80% 50%;
+    --blob-1: 224 88% 56%;
+    --blob-2: 262 75% 58%;
+    --blob-3: 199 85% 52%;
   }
 
   .dark {
-    --background: 222 25% 7%;
-    --foreground: 220 15% 93%;
-    --card: 222 25% 10%;
-    --card-foreground: 220 15% 93%;
-    --popover: 222 25% 10%;
-    --popover-foreground: 220 15% 93%;
-    --primary: 221 83% 60%;
+    /* Bleu nuit plutôt que noir quasi-pur, avec un écart plus marqué entre
+       le fond et les cartes/surfaces (fond légèrement rabaissé, cartes
+       nettement remontées) pour que le relief se voie vraiment. */
+    --background: 222 28% 10%;
+    --foreground: 220 20% 96%;
+    --card: 222 22% 21%;
+    --card-foreground: 220 15% 96%;
+    --popover: 222 22% 21%;
+    --popover-foreground: 220 15% 96%;
+    --primary: 224 90% 67%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 222 20% 15%;
-    --secondary-foreground: 220 15% 93%;
-    --muted: 222 20% 15%;
-    --muted-foreground: 220 12% 58%;
-    --accent: 221 40% 20%;
-    --accent-foreground: 221 83% 75%;
-    --destructive: 0 62% 45%;
+    --secondary: 222 18% 27%;
+    --secondary-foreground: 220 15% 96%;
+    --muted: 222 18% 27%;
+    --muted-foreground: 220 14% 71%;
+    --accent: 221 38% 32%;
+    --accent-foreground: 221 90% 83%;
+    --destructive: 0 68% 57%;
     --destructive-foreground: 0 0% 100%;
-    --border: 222 20% 17%;
-    --input: 222 20% 17%;
-    --ring: 221 83% 60%;
+    --border: 222 16% 32%;
+    --input: 222 16% 32%;
+    --ring: 224 90% 67%;
 
-    --gradient-start: 221 83% 60%;
-    --gradient-end: 262 72% 63%;
+    --gradient-start: 224 90% 66%;
+    --gradient-end: 262 78% 68%;
   }
 }
 
@@ -84,9 +88,9 @@
     font-feature-settings: "rlig" 1, "calt" 1;
     /* Liquid glass mesh gradient background — fixed so it doesn't scroll */
     background-image:
-      radial-gradient(ellipse 90% 70% at 10% -10%, hsl(var(--blob-1) / 0.10) 0%, transparent 55%),
-      radial-gradient(ellipse 70% 90% at 90% 110%, hsl(var(--blob-2) / 0.08) 0%, transparent 55%),
-      radial-gradient(ellipse 60% 60% at 50% 50%, hsl(var(--blob-3) / 0.04) 0%, transparent 60%);
+      radial-gradient(ellipse 90% 70% at 10% -10%, hsl(var(--blob-1) / 0.18) 0%, transparent 55%),
+      radial-gradient(ellipse 70% 90% at 90% 110%, hsl(var(--blob-2) / 0.14) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 60% at 50% 50%, hsl(var(--blob-3) / 0.09) 0%, transparent 60%);
     background-attachment: fixed;
   }
 }
@@ -94,18 +98,18 @@
 @layer components {
   /* Crisp liquid glass card — lighter blur, prominent border */
   .glass-card {
-    @apply bg-white/75 dark:bg-slate-900/75 backdrop-blur-md border border-white/50 dark:border-white/10;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.8);
+    @apply bg-white/80 dark:bg-[hsl(var(--card)/0.9)] backdrop-blur-md border border-white/60 dark:border-white/[0.12];
+    box-shadow: 0 1px 3px rgba(15,23,42,0.06), 0 8px 24px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.8);
   }
 
   /* Subtle glass surface for page sections */
   .glass-surface {
-    @apply bg-white/60 backdrop-blur-sm border border-white/40;
-    --tw-bg-opacity: 0.6;
+    @apply bg-white/65 backdrop-blur-sm border border-white/45;
+    --tw-bg-opacity: 0.65;
   }
   .dark .glass-surface {
-    background-color: rgb(15 23 42 / 0.6);
-    border-color: rgb(255 255 255 / 0.08);
+    background-color: hsl(var(--card) / 0.7);
+    border-color: rgb(255 255 255 / 0.12);
   }
 
   /* Gradient backgrounds */
@@ -129,19 +133,19 @@
   /* Stat card — glass style */
   .stat-card {
     @apply relative overflow-hidden rounded-2xl p-6 transition-all duration-300;
-    background: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.75);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.9);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow: 0 1px 3px rgba(15,23,42,0.06), 0 8px 24px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.9);
   }
 
   .dark .stat-card {
-    background: rgba(15, 23, 42, 0.7);
-    border-color: rgba(255, 255, 255, 0.06);
+    background: hsl(var(--card) / 0.8);
+    border-color: rgba(255, 255, 255, 0.12);
   }
 
   .stat-card:hover {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+    box-shadow: 0 2px 6px rgba(15,23,42,0.08), 0 12px 28px rgba(15,23,42,0.1), inset 0 1px 0 rgba(255,255,255,0.9);
     transform: translateY(-2px);
   }
 
@@ -160,8 +164,8 @@
     @apply bg-white/50 border border-white/40 rounded-xl;
   }
   .dark .glass-inner {
-    background-color: rgb(30 41 59 / 0.5);
-    border-color: rgb(255 255 255 / 0.08);
+    background-color: hsl(var(--secondary) / 0.75);
+    border-color: rgb(255 255 255 / 0.12);
   }
 
   /* Quick action button */
@@ -169,7 +173,7 @@
     @apply flex flex-col items-center gap-2 p-4 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/40 transition-all duration-300 cursor-pointer;
   }
   .dark .quick-action {
-    background-color: rgb(30 41 59 / 0.6);
+    background-color: hsl(var(--secondary) / 0.65);
   }
   .quick-action:hover {
     @apply -translate-y-0.5 shadow-md;
@@ -177,7 +181,7 @@
     border-color: hsl(var(--primary) / 0.2);
   }
   .dark .quick-action:hover {
-    background-color: rgb(30 41 59 / 0.8);
+    background-color: hsl(var(--secondary) / 0.9);
   }
 
   /* Timeline */

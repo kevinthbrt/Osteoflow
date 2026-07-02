@@ -19,6 +19,16 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.11.9',
+    date: '2026-07-02',
+    title: 'Revue de littérature en modale, thème modernisé et correctif facturation',
+    changes: [
+      { type: 'improvement', text: 'Revue de littérature (tableau de bord) : cliquer sur l\'article l\'ouvre désormais directement dans une fenêtre, avec le contenu complet (contexte, méthodologie, résultats, implications, points clés) et l\'indice de confiance T(H)rust Score — plus besoin de repasser par OsteoUpgrade.' },
+      { type: 'fix', text: 'Modifier le montant d\'un paiement depuis la fiche patient ou consultation ne mettait à jour que le total de la facture, pas le paiement associé : la comptabilité et les statistiques (réparties par mode de paiement) restaient sur l\'ancien montant. Les deux sont désormais synchronisés.' },
+      { type: 'improvement', text: 'Thème visuel modernisé : moins de blanc, couleurs plus présentes, bandeau du haut avec un dégradé bleu/violet, et un vrai bouton pour activer le mode sombre (clair / sombre / système) — le mode sombre a lui aussi été revu pour ne plus tirer sur le noir.' },
+    ],
+  },
+  {
     version: '1.11.8',
     date: '2026-07-01',
     title: 'Fiche d\'exercices IA simplifiée & correctif injection des antécédents',
