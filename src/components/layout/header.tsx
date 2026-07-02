@@ -181,14 +181,15 @@ export function Header({ user, practitioner }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-white/40 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 relative border-b border-white/40 dark:border-white/10 bg-gradient-to-r from-primary/[0.08] via-white/85 to-violet-500/[0.08] dark:from-primary/15 dark:via-slate-900/85 dark:to-violet-500/15 backdrop-blur-xl">
+      <div className="absolute inset-x-0 bottom-0 h-[2px] bg-gradient-to-r from-primary via-violet-500 to-sky-400 opacity-70" />
       <div className="flex h-16 items-center gap-4 px-6 lg:px-8">
         {/* Spacer for mobile menu button */}
         <div className="w-10 lg:hidden" />
 
         {/* Page title */}
         <div className="hidden lg:block min-w-0">
-          <h1 className="text-lg font-semibold text-foreground leading-tight">{currentPage.title}</h1>
+          <h1 className="text-lg font-semibold leading-tight text-gradient">{currentPage.title}</h1>
           <p className="text-xs text-muted-foreground">{currentPage.description}</p>
         </div>
 
