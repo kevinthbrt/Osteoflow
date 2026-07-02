@@ -3,7 +3,15 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Sun, Moon, Monitor } from 'lucide-react'
-import { applyTheme, getStoredThemeMode, THEME_STORAGE_KEY, type ThemeMode } from '@/lib/theme'
+import {
+  applyTheme,
+  getStoredThemeMode,
+  isThemeToggleHintSeen,
+  markThemeToggleHintSeen,
+  THEME_STORAGE_KEY,
+  type ThemeMode,
+} from '@/lib/theme'
+import { cn } from '@/lib/utils'
 
 const MODES: ThemeMode[] = ['light', 'dark', 'system']
 
@@ -21,11 +29,13 @@ const LABELS: Record<ThemeMode, string> = {
 
 export function ThemeToggle() {
   const [mode, setMode] = useState<ThemeMode>('system')
+  const [showHint, setShowHint] = useState(false)
 
   // Lit la préférence stockée seulement après le montage (évite un
   // mismatch d'hydratation, le rendu serveur ne connaît pas localStorage).
   useEffect(() => {
     setMode(getStoredThemeMode())
+    setShowHint(!isThemeToggleHintSeen())
   }, [])
 
   useEffect(() => {
@@ -41,6 +51,10 @@ export function ThemeToggle() {
     const next = MODES[(MODES.indexOf(mode) + 1) % MODES.length]
     setMode(next)
     window.localStorage.setItem(THEME_STORAGE_KEY, next)
+    if (showHint) {
+      setShowHint(false)
+      markThemeToggleHintSeen()
+    }
   }
 
   const Icon = ICONS[mode]
@@ -50,8 +64,11 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={cycle}
-      className="hidden sm:flex rounded-full text-muted-foreground hover:text-foreground h-9 w-9"
-      title={LABELS[mode]}
+      className={cn(
+        'hidden sm:flex rounded-full text-muted-foreground hover:text-foreground h-9 w-9',
+        showHint && 'pulse-dot'
+      )}
+      title={showHint ? 'Nouveau : activez le mode sombre ici !' : LABELS[mode]}
     >
       <Icon className="h-4 w-4" />
     </Button>
