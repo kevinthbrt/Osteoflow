@@ -53,6 +53,7 @@ export function NewConversationModal({
 
   // Broadcast state
   const [showBroadcast, setShowBroadcast] = useState(false)
+  const [broadcastSubject, setBroadcastSubject] = useState('')
   const [broadcastContent, setBroadcastContent] = useState('')
   const [broadcastActiveSinceDate, setBroadcastActiveSinceDate] = useState('')
   const [broadcastIncludeBookingButton, setBroadcastIncludeBookingButton] = useState(false)
@@ -95,6 +96,7 @@ export function NewConversationModal({
       setManualMessage('')
       setActiveTab('patient')
       setShowBroadcast(false)
+      setBroadcastSubject('')
       setBroadcastContent('')
       setBroadcastActiveSinceDate('')
       setBroadcastIncludeBookingButton(false)
@@ -458,6 +460,7 @@ export function NewConversationModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          subject: broadcastSubject.trim() || null,
           content: broadcastContent,
           activeSinceDate: broadcastActiveSinceDate || null,
           includeBookingButton: broadcastIncludeBookingButton,
@@ -535,6 +538,19 @@ export function NewConversationModal({
                 <Sparkles className="h-4 w-4 mr-1" />
                 Modèles
               </Button>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="broadcast-subject" className="text-xs font-normal text-muted-foreground">
+                Objet de l&apos;email
+              </Label>
+              <Input
+                id="broadcast-subject"
+                placeholder="Message de votre cabinet"
+                value={broadcastSubject}
+                onChange={(e) => setBroadcastSubject(e.target.value)}
+                disabled={isBroadcasting}
+              />
             </div>
 
             <Textarea

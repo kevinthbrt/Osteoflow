@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     const { groupPatientsByEmail } = await import('@/lib/email/recipient-grouping')
     const { getBroadcastRecipients } = await import('@/lib/patients/broadcast-recipients')
 
-    const { content, activeSinceDate, includeBookingButton } = await request.json()
+    const { subject: customSubject, content, activeSinceDate, includeBookingButton } = await request.json()
 
     if (!content) {
       return NextResponse.json(
@@ -61,7 +61,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const subject = `Message de ${practitioner.practice_name || `${practitioner.first_name} ${practitioner.last_name}`}`
+    const subject = (typeof customSubject === 'string' && customSubject.trim())
+      || `Message de ${practitioner.practice_name || `${practitioner.first_name} ${practitioner.last_name}`}`
 
     // Patients sharing the same address (e.g. a parent's email used for
     // several children) get grouped so only one physical email is sent per
