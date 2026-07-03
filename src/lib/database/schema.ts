@@ -561,6 +561,13 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     db.exec('ALTER TABLE practitioners ADD COLUMN booking_url TEXT;')
   }
 
+  // Floor date for patient relaunch candidates — set after a change of
+  // practice/cabinet so patients whose last visit predates the move aren't
+  // relaunched to come back to a location that's no longer valid.
+  if (!practCols.some((c) => c.name === 'relaunch_since_date')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN relaunch_since_date TEXT;')
+  }
+
   // Patient relaunch tracking ("patients non vus depuis longtemps").
   // last_relaunch_sent_at is compared against the patient's latest consultation
   // date to derive whether they're "awaiting return" — no separate reset needed,

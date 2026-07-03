@@ -34,6 +34,7 @@ export interface Database {
           accountant_email: string | null
           google_review_url: string | null
           booking_url: string | null
+          relaunch_since_date: string | null
           address: string | null
           city: string | null
           postal_code: string | null
@@ -69,6 +70,7 @@ export interface Database {
           accountant_email?: string | null
           google_review_url?: string | null
           booking_url?: string | null
+          relaunch_since_date?: string | null
           address?: string | null
           city?: string | null
           postal_code?: string | null
@@ -104,6 +106,7 @@ export interface Database {
           accountant_email?: string | null
           google_review_url?: string | null
           booking_url?: string | null
+          relaunch_since_date?: string | null
           address?: string | null
           city?: string | null
           postal_code?: string | null

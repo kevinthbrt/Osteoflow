@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const candidates = getRelaunchCandidates(practitioner.id, monthsValue)
+    const candidates = getRelaunchCandidates(practitioner.id, monthsValue, practitioner.relaunch_since_date)
 
     if (candidates.length === 0) {
       return NextResponse.json({ error: 'Aucun patient à relancer sur cette période' }, { status: 400 })

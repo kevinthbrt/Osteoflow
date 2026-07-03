@@ -10,12 +10,13 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Users, Send, Loader2, Clock, History, UserX } from 'lucide-react'
+import { Users, Send, Loader2, Clock, History, UserX, Search, X, CalendarClock } from 'lucide-react'
 import { getInitials, formatDate } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 
@@ -62,6 +63,12 @@ const PERIOD_OPTIONS = [
   { value: '12', label: '1 an' },
 ]
 
+function matchesSearch(patient: { first_name: string; last_name: string }, query: string): boolean {
+  if (!query.trim()) return true
+  const q = query.trim().toLowerCase()
+  return `${patient.first_name} ${patient.last_name}`.toLowerCase().includes(q)
+}
+
 export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
   const [months, setMonths] = useState('3')
   const [activeTab, setActiveTab] = useState('not-seen')
@@ -71,6 +78,9 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
   const [sendingPatientId, setSendingPatientId] = useState<string | null>(null)
   const [isBulkSending, setIsBulkSending] = useState(false)
   const [campaign, setCampaign] = useState<CampaignStatus | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sinceDate, setSinceDate] = useState('')
+  const [isSavingSinceDate, setIsSavingSinceDate] = useState(false)
   const { toast } = useToast()
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -82,6 +92,7 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
       if (res.ok) {
         setNotSeen(data.notSeen || [])
         setRelaunched(data.relaunched || [])
+        setSinceDate(data.sinceDate || '')
       }
     } catch (error) {
       console.error('Error fetching relaunch candidates:', error)
@@ -93,6 +104,35 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
   useEffect(() => {
     if (open) fetchCandidates()
   }, [open, fetchCandidates])
+
+  useEffect(() => {
+    if (!open) setSearchQuery('')
+  }, [open])
+
+  const filteredNotSeen = notSeen.filter((p) => matchesSearch(p, searchQuery))
+  const filteredRelaunched = relaunched.filter((p) => matchesSearch(p, searchQuery))
+
+  const handleSinceDateChange = async (value: string) => {
+    setSinceDate(value)
+    setIsSavingSinceDate(true)
+    try {
+      const res = await fetch('/api/messages/relaunch/candidates', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sinceDate: value || null }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        toast({ variant: 'destructive', title: 'Erreur', description: data.error || 'Impossible d\'enregistrer la date' })
+        return
+      }
+      fetchCandidates()
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible d\'enregistrer la date' })
+    } finally {
+      setIsSavingSinceDate(false)
+    }
+  }
 
   useEffect(() => {
     return () => {
@@ -184,6 +224,44 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
           </DialogDescription>
         </DialogHeader>
 
+        <div className="space-y-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher un patient par nom..."
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="flex items-center gap-2 text-sm">
+            <CalendarClock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <span className="text-muted-foreground whitespace-nowrap">Ignorer les patients vus avant le</span>
+            <Input
+              type="date"
+              value={sinceDate}
+              onChange={(e) => handleSinceDateChange(e.target.value)}
+              className="w-40 h-8"
+              disabled={isSavingSinceDate}
+            />
+            {sinceDate && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2"
+                onClick={() => handleSinceDateChange('')}
+                disabled={isSavingSinceDate}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Utile après un changement de cabinet, pour ne pas relancer des patients d&apos;une adresse précédente. Ce réglage est mémorisé.
+          </p>
+        </div>
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="not-seen" className="flex items-center gap-2">
@@ -245,13 +323,13 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
                 <div className="p-2 space-y-2">
                   {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
                 </div>
-              ) : notSeen.length === 0 ? (
+              ) : filteredNotSeen.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-muted-foreground text-sm py-12">
-                  Aucun patient non vu sur cette période
+                  {notSeen.length === 0 ? 'Aucun patient non vu sur cette période' : 'Aucun patient ne correspond à la recherche'}
                 </div>
               ) : (
                 <div className="p-1">
-                  {notSeen.map((patient) => (
+                  {filteredNotSeen.map((patient) => (
                     <div key={patient.id} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
                       <Avatar className="h-10 w-10 flex-shrink-0">
                         <AvatarFallback className="bg-primary/10 text-primary">
@@ -296,13 +374,13 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
                 <div className="p-2 space-y-2">
                   {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
                 </div>
-              ) : relaunched.length === 0 ? (
+              ) : filteredRelaunched.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-muted-foreground text-sm py-12">
-                  Aucun patient en attente de retour
+                  {relaunched.length === 0 ? 'Aucun patient en attente de retour' : 'Aucun patient ne correspond à la recherche'}
                 </div>
               ) : (
                 <div className="p-1">
-                  {relaunched.map((patient) => (
+                  {filteredRelaunched.map((patient) => (
                     <div key={patient.id} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
                       <Avatar className="h-10 w-10 flex-shrink-0">
                         <AvatarFallback className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">

@@ -36,8 +36,18 @@ function daysBetween(fromIso: string, toIso: string): number {
 /**
  * Patients not seen since `months` months ago, who aren't currently
  * "awaiting return" from a previous relaunch, ordered by longest absence first.
+ *
+ * `sinceDate` (optional) is a floor on the last consultation date — useful
+ * after a change of practice/cabinet, so patients whose last visit predates
+ * the move aren't nudged to come back to a location that's no longer valid.
+ * A patient who visited both before and after the move is still included,
+ * since their most recent visit is what's compared against the floor.
  */
-export function getRelaunchCandidates(practitionerId: string, months: number): RelaunchCandidate[] {
+export function getRelaunchCandidates(
+  practitionerId: string,
+  months: number,
+  sinceDate?: string | null
+): RelaunchCandidate[] {
   const db = getDatabase()
   const cutoff = new Date()
   cutoff.setMonth(cutoff.getMonth() - months)
@@ -56,9 +66,10 @@ export function getRelaunchCandidates(practitionerId: string, months: number): R
        GROUP BY p.id
        HAVING MAX(c.date_time) <= ?
           AND (p.last_relaunch_sent_at IS NULL OR p.last_relaunch_sent_at <= MAX(c.date_time))
+          AND (? IS NULL OR MAX(c.date_time) >= ?)
        ORDER BY last_consultation_date ASC`
     )
-    .all(practitionerId, cutoffIso) as Array<{
+    .all(practitionerId, cutoffIso, sinceDate || null, sinceDate || null) as Array<{
     id: string
     first_name: string
     last_name: string
@@ -80,7 +91,7 @@ export function getRelaunchCandidates(practitionerId: string, months: number): R
  * Patients currently "awaiting return": relaunched more recently than their
  * last consultation (or never seen since), and not yet returned.
  */
-export function getRelaunchedPatients(practitionerId: string): RelaunchedPatient[] {
+export function getRelaunchedPatients(practitionerId: string, sinceDate?: string | null): RelaunchedPatient[] {
   const db = getDatabase()
   const nowIso = new Date().toISOString()
 
@@ -96,9 +107,14 @@ export function getRelaunchedPatients(practitionerId: string): RelaunchedPatient
            (SELECT MAX(c.date_time) FROM consultations c WHERE c.patient_id = p.id AND c.archived_at IS NULL) IS NULL
            OR p.last_relaunch_sent_at > (SELECT MAX(c.date_time) FROM consultations c WHERE c.patient_id = p.id AND c.archived_at IS NULL)
          )
+         AND (
+           ? IS NULL
+           OR (SELECT MAX(c.date_time) FROM consultations c WHERE c.patient_id = p.id AND c.archived_at IS NULL) IS NULL
+           OR (SELECT MAX(c.date_time) FROM consultations c WHERE c.patient_id = p.id AND c.archived_at IS NULL) >= ?
+         )
        ORDER BY p.last_relaunch_sent_at DESC`
     )
-    .all(practitionerId) as Array<{
+    .all(practitionerId, sinceDate || null, sinceDate || null) as Array<{
     id: string
     first_name: string
     last_name: string
