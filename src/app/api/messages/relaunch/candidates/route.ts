@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function GET(request: NextRequest) {
   try {
     const { createClient } = await import('@/lib/db/server')
-    const { getRelaunchCandidates, getRelaunchedPatients } = await import('@/lib/patients/relaunch')
+    const { getRelaunchCandidates, getRelaunchedPatients, getScheduledRelaunches } = await import('@/lib/patients/relaunch')
     const { DAILY_SEND_LIMIT } = await import('@/lib/email/campaign-processor')
 
     const db = await createClient()
@@ -27,8 +27,9 @@ export async function GET(request: NextRequest) {
 
     const notSeen = getRelaunchCandidates(practitioner.id, months, sinceDate)
     const relaunched = getRelaunchedPatients(practitioner.id, sinceDate)
+    const scheduled = getScheduledRelaunches(practitioner.id)
 
-    return NextResponse.json({ notSeen, relaunched, months, sinceDate, dailyLimit: DAILY_SEND_LIMIT })
+    return NextResponse.json({ notSeen, relaunched, scheduled, months, sinceDate, dailyLimit: DAILY_SEND_LIMIT })
   } catch (error) {
     console.error('Error fetching relaunch candidates:', error)
     return NextResponse.json({ error: 'Erreur lors de la récupération des patients' }, { status: 500 })

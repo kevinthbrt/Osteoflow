@@ -31,6 +31,16 @@ export interface RelaunchedPatient {
   daysSinceRelaunch: number
 }
 
+export interface ScheduledRelaunch {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  nextRelaunchDueAt: string
+  scheduledMonths: number | null
+  daysUntilDue: number
+}
+
 function daysBetween(fromIso: string, toIso: string): number {
   return Math.floor((new Date(toIso).getTime() - new Date(fromIso).getTime()) / 86400000)
 }
@@ -150,5 +160,45 @@ export function getRelaunchedPatients(practitionerId: string, sinceDate?: string
     lastRelaunchSentAt: r.last_relaunch_sent_at,
     relaunchCount: r.relaunch_count || 0,
     daysSinceRelaunch: daysBetween(r.last_relaunch_sent_at, nowIso),
+  }))
+}
+
+/**
+ * Relaunches scheduled from the end-of-consultation wizard that aren't due
+ * yet — lets the practitioner see what's coming up, and cancel or trigger
+ * one early if they choose. Once due, these move into getRelaunchCandidates
+ * instead (see there).
+ */
+export function getScheduledRelaunches(practitionerId: string): ScheduledRelaunch[] {
+  const db = getDatabase()
+  const nowIso = new Date().toISOString()
+
+  const rows = db
+    .prepare(
+      `SELECT id, first_name, last_name, email, next_relaunch_due_at, next_relaunch_months
+       FROM patients
+       WHERE practitioner_id = ?
+         AND archived_at IS NULL
+         AND next_relaunch_due_at IS NOT NULL
+         AND next_relaunch_due_at > ?
+       ORDER BY next_relaunch_due_at ASC`
+    )
+    .all(practitionerId, nowIso) as Array<{
+    id: string
+    first_name: string
+    last_name: string
+    email: string
+    next_relaunch_due_at: string
+    next_relaunch_months: number | null
+  }>
+
+  return rows.map((r) => ({
+    id: r.id,
+    first_name: r.first_name,
+    last_name: r.last_name,
+    email: r.email,
+    nextRelaunchDueAt: r.next_relaunch_due_at,
+    scheduledMonths: r.next_relaunch_months,
+    daysUntilDue: daysBetween(nowIso, r.next_relaunch_due_at),
   }))
 }

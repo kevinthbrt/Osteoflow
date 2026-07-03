@@ -47,6 +47,16 @@ interface RelaunchedPatient {
   daysSinceRelaunch: number
 }
 
+interface ScheduledPatient {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  nextRelaunchDueAt: string
+  scheduledMonths: number | null
+  daysUntilDue: number
+}
+
 interface CampaignStatus {
   id: string
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
@@ -77,8 +87,10 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
   const [activeTab, setActiveTab] = useState('not-seen')
   const [notSeen, setNotSeen] = useState<NotSeenPatient[]>([])
   const [relaunched, setRelaunched] = useState<RelaunchedPatient[]>([])
+  const [scheduled, setScheduled] = useState<ScheduledPatient[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [sendingPatientId, setSendingPatientId] = useState<string | null>(null)
+  const [cancellingPatientId, setCancellingPatientId] = useState<string | null>(null)
   const [isBulkSending, setIsBulkSending] = useState(false)
   const [campaign, setCampaign] = useState<CampaignStatus | null>(null)
   const [deduplicated, setDeduplicated] = useState(0)
@@ -97,6 +109,7 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
       if (res.ok) {
         setNotSeen(data.notSeen || [])
         setRelaunched(data.relaunched || [])
+        setScheduled(data.scheduled || [])
         setSinceDate(data.sinceDate || '')
         if (data.dailyLimit) setDailyLimit(data.dailyLimit)
       }
@@ -117,6 +130,7 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
 
   const filteredNotSeen = notSeen.filter((p) => matchesSearch(p, searchQuery))
   const filteredRelaunched = relaunched.filter((p) => matchesSearch(p, searchQuery))
+  const filteredScheduled = scheduled.filter((p) => matchesSearch(p, searchQuery))
 
   const handleSinceDateChange = async (value: string) => {
     setSinceDate(value)
@@ -196,6 +210,28 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible d\'envoyer la relance' })
     } finally {
       setSendingPatientId(null)
+    }
+  }
+
+  const handleCancelSchedule = async (patientId: string) => {
+    setCancellingPatientId(patientId)
+    try {
+      const res = await fetch('/api/messages/relaunch/cancel-schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patientId }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        toast({ variant: 'destructive', title: 'Erreur', description: data.error || "Erreur lors de l'annulation" })
+      } else {
+        toast({ title: 'Relance programmée annulée' })
+        fetchCandidates()
+      }
+    } catch {
+      toast({ variant: 'destructive', title: 'Erreur', description: "Impossible d'annuler la relance programmée" })
+    } finally {
+      setCancellingPatientId(null)
     }
   }
 
@@ -308,10 +344,14 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="not-seen" className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
               À relancer ({notSeen.length})
+            </TabsTrigger>
+            <TabsTrigger value="scheduled" className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4" />
+              Programmées ({scheduled.length})
             </TabsTrigger>
             <TabsTrigger value="relaunched" className="flex items-center gap-2">
               <History className="h-4 w-4" />
@@ -429,6 +469,75 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
                           <>
                             <Send className="h-4 w-4 mr-1" />
                             Relancer
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="scheduled" className="flex-1 flex flex-col min-h-0 mt-4">
+            <div className="flex-1 overflow-y-auto border rounded-lg min-h-[16rem]">
+              {isLoading ? (
+                <div className="p-2 space-y-2">
+                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
+                </div>
+              ) : filteredScheduled.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm py-12">
+                  {scheduled.length === 0 ? 'Aucune relance programmée pour le moment' : 'Aucun patient ne correspond à la recherche'}
+                </div>
+              ) : (
+                <div className="p-1">
+                  {filteredScheduled.map((patient) => (
+                    <div key={patient.id} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
+                      <Avatar className="h-10 w-10 flex-shrink-0">
+                        <AvatarFallback className="bg-primary/10 text-primary">
+                          {getInitials(patient.first_name, patient.last_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium truncate">{patient.first_name} {patient.last_name}</p>
+                          {patient.scheduledMonths && (
+                            <Badge variant="secondary" className="flex-shrink-0 text-xs">
+                              {patient.scheduledMonths} mois
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate">
+                          Prévue le {formatDate(patient.nextRelaunchDueAt)} · dans {patient.daysUntilDue} jours
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleCancelSchedule(patient.id)}
+                        disabled={cancellingPatientId === patient.id}
+                        className="flex-shrink-0"
+                        title="Annuler cette relance programmée"
+                      >
+                        {cancellingPatientId === patient.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <X className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleSendOne(patient.id)}
+                        disabled={sendingPatientId === patient.id || isBulkSending}
+                        className="flex-shrink-0"
+                      >
+                        {sendingPatientId === patient.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4 mr-1" />
+                            Relancer maintenant
                           </>
                         )}
                       </Button>
