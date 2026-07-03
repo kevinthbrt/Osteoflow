@@ -23,12 +23,14 @@ let inboxInterval: NodeJS.Timeout | null = null
 let surveySyncInterval: NodeJS.Timeout | null = null
 let licenseInterval: NodeJS.Timeout | null = null
 let backupReminderInterval: NodeJS.Timeout | null = null
+let campaignInterval: NodeJS.Timeout | null = null
 
 const FOLLOW_UP_INTERVAL    = 15 * 60 * 1000  // 15 minutes
 const INBOX_INTERVAL        =  5 * 60 * 1000  //  5 minutes
 const SURVEY_SYNC_INTERVAL  = 10 * 60 * 1000  // 10 minutes
 const LICENSE_CHECK_INTERVAL = 30 * 60 * 1000 // 30 minutes
 const BACKUP_CHECK_INTERVAL  =      60 * 1000 //  1 minute (vérifie l'heure du rappel)
+const CAMPAIGN_INTERVAL      =      20 * 1000 // 20 secondes (diffusions/relances en masse)
 
 // Date (YYYY-MM-DD) du dernier rappel de sauvegarde affiché — évite de notifier
 // plusieurs fois le même jour. Réinitialisé au redémarrage de l'application.
@@ -114,11 +116,19 @@ export function startCronJobs(port: number): void {
     backupReminderInterval = setInterval(() => runBackupReminder(port), BACKUP_CHECK_INTERVAL)
   }, 45_000)
 
+  // Email campaigns (broadcast/relance) — drains pending recipients quickly
+  // so mass sends to thousands of patients don't wait on the 15min follow-up tick.
+  setTimeout(() => {
+    runCampaignProcessing(port)
+    campaignInterval = setInterval(() => runCampaignProcessing(port), CAMPAIGN_INTERVAL)
+  }, 20_000)
+
   console.log(
     `[Cron] Follow-up: ${FOLLOW_UP_INTERVAL / 60000}min | ` +
     `Inbox: ${INBOX_INTERVAL / 60000}min | ` +
     `Survey sync: ${SURVEY_SYNC_INTERVAL / 60000}min | ` +
-    `License: ${LICENSE_CHECK_INTERVAL / 60000}min`
+    `License: ${LICENSE_CHECK_INTERVAL / 60000}min | ` +
+    `Campaigns: ${CAMPAIGN_INTERVAL / 1000}s`
   )
 }
 
@@ -131,6 +141,7 @@ export function stopCronJobs(): void {
   if (surveySyncInterval){ clearInterval(surveySyncInterval);surveySyncInterval= null }
   if (licenseInterval)   { clearInterval(licenseInterval);   licenseInterval   = null }
   if (backupReminderInterval) { clearInterval(backupReminderInterval); backupReminderInterval = null }
+  if (campaignInterval)  { clearInterval(campaignInterval);  campaignInterval  = null }
   console.log('[Cron] Background tasks stopped')
 }
 
@@ -148,6 +159,19 @@ async function runFollowUp(port: number): Promise<void> {
     if (data.sent > 0) console.log(`[Cron] Sent ${data.sent} follow-up email(s)`)
   } catch (error) {
     console.error('[Cron] Follow-up error:', error instanceof Error ? error.message : error)
+  }
+}
+
+async function runCampaignProcessing(port: number): Promise<void> {
+  try {
+    const { status, body } = await localRequest(port, 'POST', '/api/messages/campaigns/process', {
+      'Authorization': 'Bearer local-desktop-cron',
+    })
+    if (status >= 400) { console.error(`[Cron] Campaign processing failed (HTTP ${status}):`, body); return }
+    const data = JSON.parse(body)
+    if (data.processed > 0) console.log(`[Cron] Processed ${data.processed} campaign recipient(s)`)
+  } catch (error) {
+    console.error('[Cron] Campaign processing error:', error instanceof Error ? error.message : error)
   }
 }
 

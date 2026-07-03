@@ -13,7 +13,7 @@ export interface EmailSettings {
   smtp_secure: boolean
   smtp_user: string
   smtp_password: string
-  from_name?: string
+  from_name?: string | null
   from_email: string
 }
 
@@ -92,6 +92,96 @@ export async function sendEmail(
   } finally {
     transporter.close()
   }
+}
+
+export interface BulkRecipient {
+  to: string
+  html: string
+}
+
+export interface BulkSendResult {
+  to: string
+  success: boolean
+  messageId?: string
+  error?: string
+}
+
+/**
+ * Send many emails over a single pooled SMTP connection, with limited
+ * concurrency and a small stagger between sends.
+ *
+ * Opening a fresh SMTP connection per email (as a naive loop would) is what
+ * makes mass sends to thousands of patients slow and prone to hitting the
+ * provider's connection-rate limits. Pooling + concurrency caps keep a mass
+ * send well-behaved regardless of list size — callers should still send in
+ * batches (see campaign-processor.ts) so a single request never has to wait
+ * for thousands of sends before returning.
+ */
+export async function sendBulkEmails(
+  settings: EmailSettings,
+  subject: string,
+  recipients: BulkRecipient[],
+  options?: { concurrency?: number; delayMs?: number }
+): Promise<BulkSendResult[]> {
+  if (recipients.length === 0) return []
+
+  const concurrency = Math.max(1, options?.concurrency ?? 4)
+  const delayMs = options?.delayMs ?? 150
+
+  const transporter = nodemailer.createTransport({
+    host: settings.smtp_host,
+    port: settings.smtp_port,
+    secure: settings.smtp_secure,
+    auth: {
+      user: settings.smtp_user,
+      pass: settings.smtp_password,
+    },
+    pool: true,
+    maxConnections: concurrency,
+    maxMessages: Infinity,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 30000,
+  })
+
+  const fromAddress = settings.from_name
+    ? `"${settings.from_name}" <${settings.from_email}>`
+    : settings.from_email
+
+  const results: BulkSendResult[] = new Array(recipients.length)
+
+  try {
+    let cursor = 0
+    const worker = async () => {
+      while (cursor < recipients.length) {
+        const index = cursor++
+        const recipient = recipients[index]
+        try {
+          const info = await transporter.sendMail({
+            from: fromAddress,
+            to: recipient.to,
+            subject,
+            html: recipient.html,
+            replyTo: settings.from_email,
+          })
+          results[index] = { to: recipient.to, success: true, messageId: info.messageId }
+        } catch (error) {
+          results[index] = {
+            to: recipient.to,
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          }
+        }
+        if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs))
+      }
+    }
+
+    await Promise.all(Array.from({ length: Math.min(concurrency, recipients.length) }, worker))
+  } finally {
+    transporter.close()
+  }
+
+  return results
 }
 
 /**

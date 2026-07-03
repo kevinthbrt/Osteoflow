@@ -83,6 +83,7 @@ export async function GET() {
   if (!notEmpty(p.city)) practiceMissing.push('Ville')
   if (!notEmpty(p.postal_code)) practiceMissing.push('Code postal')
   if (!notEmpty(p.siret)) practiceMissing.push('SIRET')
+  if (!notEmpty(p.booking_url)) practiceMissing.push('Lien de prise de rendez-vous en ligne')
 
   // --- Facturation ---
   const billingMissing: string[] = []

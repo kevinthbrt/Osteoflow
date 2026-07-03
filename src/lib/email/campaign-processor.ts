@@ -1,0 +1,230 @@
+/**
+ * Background processor for email campaigns (mass broadcast / patient relaunch).
+ *
+ * Recipients are sent in small batches instead of all at once so that:
+ *  - creating a campaign for thousands of patients returns instantly (no HTTP
+ *    request ever waits on the actual sending)
+ *  - a single pooled SMTP connection is reused per batch instead of opening
+ *    and closing one connection per email
+ *  - the cron can call this repeatedly (see server-cron.ts / electron/cron.ts)
+ *    until every recipient has been processed
+ */
+
+import { randomUUID } from 'crypto'
+import { getDatabase } from '@/lib/database/connection'
+import { getDecryptedEmailSettings } from './get-email-settings'
+import { sendBulkEmails, createHtmlEmail } from './smtp-service'
+import { createPatientRelaunchHtmlEmail, replaceTemplateVariables } from './templates'
+import { getProfessionLabel } from '@/lib/practitioner/profession'
+
+const BATCH_SIZE = 25
+
+interface CampaignRow {
+  id: string
+  practitioner_id: string
+  type: 'broadcast' | 'relaunch'
+  subject: string
+  content: string
+  status: string
+}
+
+interface RecipientRow {
+  id: string
+  patient_id: string
+  email: string
+}
+
+/**
+ * Process one batch (up to BATCH_SIZE recipients) for every campaign that
+ * still has pending recipients. Safe to call repeatedly/concurrently — each
+ * call only claims recipients that are still 'pending' at read time.
+ */
+export async function processCampaignBatch(): Promise<{ processed: number }> {
+  const db = getDatabase()
+
+  const activeCampaigns = db
+    .prepare(`SELECT * FROM email_campaigns WHERE status IN ('pending', 'processing') ORDER BY created_at ASC`)
+    .all() as CampaignRow[]
+
+  let totalProcessed = 0
+
+  for (const campaign of activeCampaigns) {
+    const pending = db
+      .prepare(`SELECT id, patient_id, email FROM email_campaign_recipients WHERE campaign_id = ? AND status = 'pending' ORDER BY created_at ASC LIMIT ?`)
+      .all(campaign.id, BATCH_SIZE) as RecipientRow[]
+
+    if (pending.length === 0) {
+      finalizeCampaignIfDone(db, campaign.id)
+      continue
+    }
+
+    if (campaign.status === 'pending') {
+      db.prepare(`UPDATE email_campaigns SET status = 'processing' WHERE id = ?`).run(campaign.id)
+    }
+
+    const practitioner = db.prepare(`SELECT * FROM practitioners WHERE id = ?`).get(campaign.practitioner_id) as
+      | Record<string, unknown>
+      | undefined
+
+    if (!practitioner) {
+      failCampaign(db, campaign.id, 'Praticien introuvable')
+      continue
+    }
+
+    const emailSettings = await getDecryptedEmailSettings(campaign.practitioner_id)
+    if (!emailSettings || !emailSettings.is_verified) {
+      failCampaign(db, campaign.id, 'Aucun paramètre email vérifié')
+      continue
+    }
+
+    const practitionerName = `${practitioner.first_name} ${practitioner.last_name}`
+    const specialty = getProfessionLabel(
+      practitioner.profession as string | null | undefined,
+      practitioner.specialty as string | null | undefined
+    )
+
+    const patientNames = new Map<string, string>()
+    if (campaign.type === 'relaunch') {
+      const ids = pending.map((r) => r.patient_id)
+      const placeholders = ids.map(() => '?').join(',')
+      const rows = db
+        .prepare(`SELECT id, first_name FROM patients WHERE id IN (${placeholders})`)
+        .all(...ids) as Array<{ id: string; first_name: string }>
+      for (const row of rows) patientNames.set(row.id, row.first_name)
+    }
+
+    const sendItems = pending.map((recipient) => {
+      if (campaign.type === 'relaunch') {
+        const bodyText = replaceTemplateVariables(campaign.content, {
+          patient_first_name: patientNames.get(recipient.patient_id) || '',
+        })
+        const html = createPatientRelaunchHtmlEmail({
+          bodyText,
+          practitionerName,
+          practiceName: practitioner.practice_name as string | null,
+          specialty,
+          primaryColor: (practitioner.primary_color as string) || '#2563eb',
+          bookingUrl: practitioner.booking_url as string | null,
+          contactEmail: practitioner.email as string | null,
+          contactPhone: practitioner.phone as string | null,
+        })
+        return { recipient, html, textContent: bodyText }
+      }
+
+      const html = createHtmlEmail(campaign.content, practitioner as Record<string, string | undefined>)
+      return { recipient, html, textContent: campaign.content }
+    })
+
+    const results = await sendBulkEmails(
+      {
+        smtp_host: emailSettings.smtp_host,
+        smtp_port: emailSettings.smtp_port,
+        smtp_secure: emailSettings.smtp_secure,
+        smtp_user: emailSettings.smtp_user,
+        smtp_password: emailSettings.smtp_password,
+        from_name: emailSettings.from_name || undefined,
+        from_email: emailSettings.from_email,
+      },
+      campaign.subject,
+      sendItems.map((item) => ({ to: item.recipient.email, html: item.html }))
+    )
+
+    let batchSent = 0
+    let batchFailed = 0
+    const nowIso = new Date().toISOString()
+
+    for (let i = 0; i < sendItems.length; i++) {
+      const { recipient, textContent } = sendItems[i]
+      const result = results[i]
+
+      if (result.success) {
+        batchSent++
+
+        let conversationId: string
+        const existingConv = db
+          .prepare(`SELECT id FROM conversations WHERE practitioner_id = ? AND patient_id = ? LIMIT 1`)
+          .get(campaign.practitioner_id, recipient.patient_id) as { id: string } | undefined
+
+        if (existingConv) {
+          conversationId = existingConv.id
+        } else {
+          conversationId = randomUUID()
+          db.prepare(`INSERT INTO conversations (id, practitioner_id, patient_id, subject) VALUES (?, ?, ?, ?)`).run(
+            conversationId,
+            campaign.practitioner_id,
+            recipient.patient_id,
+            campaign.type === 'relaunch' ? 'Relance patient' : 'Diffusion'
+          )
+        }
+
+        const messageId = randomUUID()
+        db.prepare(
+          `INSERT INTO messages (id, conversation_id, content, direction, channel, status, sent_at, email_subject, email_message_id, to_email, from_email)
+           VALUES (?, ?, ?, 'outgoing', 'email', 'sent', ?, ?, ?, ?, ?)`
+        ).run(
+          messageId,
+          conversationId,
+          textContent,
+          nowIso,
+          campaign.subject,
+          result.messageId || null,
+          recipient.email,
+          emailSettings.from_email
+        )
+
+        db.prepare(`UPDATE conversations SET last_message_at = ? WHERE id = ?`).run(nowIso, conversationId)
+
+        db.prepare(`UPDATE email_campaign_recipients SET status = 'sent', sent_at = ?, message_id = ? WHERE id = ?`).run(
+          nowIso,
+          messageId,
+          recipient.id
+        )
+
+        if (campaign.type === 'relaunch') {
+          db.prepare(
+            `UPDATE patients SET last_relaunch_sent_at = ?, relaunch_count = COALESCE(relaunch_count, 0) + 1 WHERE id = ?`
+          ).run(nowIso, recipient.patient_id)
+        }
+      } else {
+        batchFailed++
+        db.prepare(`UPDATE email_campaign_recipients SET status = 'failed', error_message = ? WHERE id = ?`).run(
+          result.error || 'Erreur inconnue',
+          recipient.id
+        )
+      }
+    }
+
+    db.prepare(`UPDATE email_campaigns SET sent_count = sent_count + ?, failed_count = failed_count + ? WHERE id = ?`).run(
+      batchSent,
+      batchFailed,
+      campaign.id
+    )
+
+    totalProcessed += pending.length
+    finalizeCampaignIfDone(db, campaign.id)
+  }
+
+  return { processed: totalProcessed }
+}
+
+function finalizeCampaignIfDone(db: ReturnType<typeof getDatabase>, campaignId: string): void {
+  const remaining = db
+    .prepare(`SELECT COUNT(*) as c FROM email_campaign_recipients WHERE campaign_id = ? AND status = 'pending'`)
+    .get(campaignId) as { c: number }
+  if (remaining.c === 0) {
+    db.prepare(`UPDATE email_campaigns SET status = 'completed', completed_at = datetime('now') WHERE id = ? AND status != 'completed'`).run(
+      campaignId
+    )
+  }
+}
+
+function failCampaign(db: ReturnType<typeof getDatabase>, campaignId: string, message: string): void {
+  db.prepare(`UPDATE email_campaigns SET status = 'failed', error_message = ?, completed_at = datetime('now') WHERE id = ?`).run(
+    message,
+    campaignId
+  )
+  db.prepare(`UPDATE email_campaign_recipients SET status = 'failed', error_message = ? WHERE campaign_id = ? AND status = 'pending'`).run(
+    message,
+    campaignId
+  )
+}

@@ -376,6 +376,7 @@ function SettingsPageInner() {
           setSettingsValue('practice_name', practitionerData.practice_name || '')
           setSettingsValue('specialty', practitionerData.specialty || '')
           setSettingsValue('google_review_url', practitionerData.google_review_url || '')
+          setSettingsValue('booking_url', (practitionerData as any).booking_url || '')
           setSettingsValue('address', practitionerData.address || '')
           setSettingsValue('city', practitionerData.city || '')
           setSettingsValue('postal_code', practitionerData.postal_code || '')
@@ -474,6 +475,7 @@ function SettingsPageInner() {
           practice_name: data.practice_name || null,
           specialty: data.specialty || null,
           google_review_url: data.google_review_url || null,
+          booking_url: data.booking_url || null,
           address: data.address || null,
           city: data.city || null,
           postal_code: data.postal_code || null,
@@ -1063,6 +1065,24 @@ function SettingsPageInner() {
                   )}
                   <p className="text-xs text-muted-foreground">
                     Ce lien sera proposé aux patients lors de l'envoi des factures.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="booking_url">Lien de prise de rendez-vous en ligne</Label>
+                  <Input
+                    id="booking_url"
+                    type="url"
+                    {...registerSettings('booking_url')}
+                    placeholder="https://www.doctolib.fr/votre-cabinet"
+                  />
+                  {settingsErrors.booking_url && (
+                    <p className="text-sm text-destructive">
+                      {settingsErrors.booking_url.message}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Proposé aux patients dans les emails de relance (&laquo; Prenez soin de vous &raquo;).
                   </p>
                 </div>
 

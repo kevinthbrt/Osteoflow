@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Progress } from '@/components/ui/progress'
 import { Search, MessageCircle, Loader2, Mail, User, Send, Users, ArrowLeft, Sparkles } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
 import { buildSearchOrFilters } from '@/lib/utils/search'
@@ -54,9 +55,22 @@ export function NewConversationModal({
   const [broadcastContent, setBroadcastContent] = useState('')
   const [isBroadcasting, setIsBroadcasting] = useState(false)
   const [showQuickReplies, setShowQuickReplies] = useState(false)
+  const [broadcastCampaign, setBroadcastCampaign] = useState<{
+    status: string
+    total: number
+    sent: number
+    failed: number
+  } | null>(null)
 
   const { toast } = useToast()
   const dbRef = useRef(createClient())
+  const broadcastPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (broadcastPollRef.current) clearInterval(broadcastPollRef.current)
+    }
+  }, [])
 
   // Reset form when modal closes
   useEffect(() => {
@@ -70,6 +84,8 @@ export function NewConversationModal({
       setShowBroadcast(false)
       setBroadcastContent('')
       setShowQuickReplies(false)
+      setBroadcastCampaign(null)
+      if (broadcastPollRef.current) clearInterval(broadcastPollRef.current)
     }
   }, [open])
 
@@ -325,9 +341,41 @@ export function NewConversationModal({
     }
   }
 
+  const pollBroadcastCampaign = (campaignId: string) => {
+    if (broadcastPollRef.current) clearInterval(broadcastPollRef.current)
+    broadcastPollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/messages/campaigns/${campaignId}`)
+        const data = await res.json()
+        if (!res.ok) return
+        setBroadcastCampaign(data)
+        if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
+          if (broadcastPollRef.current) clearInterval(broadcastPollRef.current)
+          setIsBroadcasting(false)
+          if (data.status === 'completed') {
+            toast({
+              variant: 'success',
+              title: 'Diffusion terminée',
+              description: `${data.sent}/${data.total} email(s) envoyé(s)${data.failed ? `, ${data.failed} échec(s)` : ''}`,
+            })
+          } else if (data.status === 'failed') {
+            toast({
+              variant: 'destructive',
+              title: 'Diffusion échouée',
+              description: data.errorMessage || 'Erreur lors de la diffusion',
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Error polling broadcast campaign:', error)
+      }
+    }, 1500)
+  }
+
   const handleBroadcast = async () => {
     if (!broadcastContent.trim()) return
     setIsBroadcasting(true)
+    setBroadcastCampaign(null)
     try {
       const res = await fetch('/api/messages/broadcast', {
         method: 'POST',
@@ -341,21 +389,20 @@ export function NewConversationModal({
           title: 'Erreur',
           description: data.error || 'Erreur lors de la diffusion',
         })
-      } else {
-        toast({
-          variant: 'success',
-          title: 'Diffusion envoyée',
-          description: `${data.sent}/${data.total} email(s) envoyé(s)`,
-        })
-        onOpenChange(false)
+        setIsBroadcasting(false)
+        return
       }
+
+      // Sending happens in the background — poll for progress instead of
+      // waiting on a single request that could take minutes for large lists.
+      setBroadcastCampaign({ status: 'pending', total: data.total, sent: 0, failed: 0 })
+      pollBroadcastCampaign(data.campaignId)
     } catch {
       toast({
         variant: 'destructive',
         title: 'Erreur',
         description: 'Impossible de diffuser le message',
       })
-    } finally {
       setIsBroadcasting(false)
     }
   }
@@ -413,13 +460,37 @@ export function NewConversationModal({
               disabled={isBroadcasting}
             />
 
+            {broadcastCampaign && (
+              <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
+                <div className="flex items-center justify-between text-sm">
+                  <span>
+                    {broadcastCampaign.status === 'completed'
+                      ? 'Diffusion terminée'
+                      : broadcastCampaign.status === 'failed'
+                      ? 'Échec de la diffusion'
+                      : 'Envoi en cours en arrière-plan…'}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {broadcastCampaign.sent}/{broadcastCampaign.total}
+                  </span>
+                </div>
+                <Progress
+                  value={broadcastCampaign.total > 0 ? (broadcastCampaign.sent / broadcastCampaign.total) * 100 : 0}
+                />
+                {isBroadcasting && (
+                  <p className="text-xs text-muted-foreground">
+                    Vous pouvez fermer cette fenêtre, l&apos;envoi continue en arrière-plan.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => setShowBroadcast(false)}
-                disabled={isBroadcasting}
+                onClick={() => (isBroadcasting ? onOpenChange(false) : setShowBroadcast(false))}
               >
-                Retour
+                {isBroadcasting ? 'Fermer' : 'Retour'}
               </Button>
               <Button
                 onClick={handleBroadcast}

@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 
 export async function POST(request: Request) {
   try {
     const { createClient } = await import('@/lib/db/server')
-    const { sendEmail, createHtmlEmail } = await import('@/lib/email/smtp-service')
+    const { getDatabase } = await import('@/lib/database/connection')
 
     const { content } = await request.json()
 
@@ -31,7 +32,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Praticien non trouvé' }, { status: 404 })
     }
 
-    // Get email settings
     const { data: emailSettings } = await db
       .from('email_settings')
       .select('*')
@@ -46,7 +46,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get all active patients with email
     const { data: patients, error: patientsError } = await db
       .from('patients')
       .select('id, first_name, last_name, email')
@@ -60,7 +59,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const patientsWithEmail = (patients || []).filter((p: any) => p.email)
+    const patientsWithEmail = (patients || []).filter((p: { email?: string | null }) => p.email)
 
     if (patientsWithEmail.length === 0) {
       return NextResponse.json(
@@ -70,89 +69,41 @@ export async function POST(request: Request) {
     }
 
     const subject = `Message de ${practitioner.practice_name || `${practitioner.first_name} ${practitioner.last_name}`}`
-    let sentCount = 0
-    const errors: string[] = []
 
-    for (const patient of patientsWithEmail) {
-      try {
-        const emailContent = content
-        const htmlEmail = createHtmlEmail(emailContent, practitioner)
+    // Sending happens in the background (see campaign-processor.ts, triggered by
+    // the app's cron every ~20s) so this request returns instantly regardless of
+    // list size — a synchronous loop over thousands of patients would otherwise
+    // time out and hammer the SMTP server with one connection per email.
+    const rawDb = getDatabase()
+    const campaignId = randomUUID()
+    const nowIso = new Date().toISOString()
 
-        const result = await sendEmail(
-          {
-            smtp_host: emailSettings.smtp_host,
-            smtp_port: emailSettings.smtp_port,
-            smtp_secure: emailSettings.smtp_secure,
-            smtp_user: emailSettings.smtp_user,
-            smtp_password: emailSettings.smtp_password,
-            from_name: emailSettings.from_name,
-            from_email: emailSettings.from_email,
-          },
-          { to: patient.email, subject, html: htmlEmail }
-        )
+    const insertCampaign = rawDb.prepare(
+      `INSERT INTO email_campaigns (id, practitioner_id, type, subject, content, status, total_recipients, created_at)
+       VALUES (?, ?, 'broadcast', ?, ?, 'pending', ?, ?)`
+    )
+    const insertRecipient = rawDb.prepare(
+      `INSERT INTO email_campaign_recipients (id, campaign_id, patient_id, email, status, created_at) VALUES (?, ?, ?, ?, 'pending', ?)`
+    )
 
-        if (!result.success) {
-          errors.push(`${patient.first_name} ${patient.last_name}: ${result.error}`)
-          continue
-        }
-
-        // Get or create conversation
-        let conversationId: string | null = null
-        const { data: existingConv } = await db
-          .from('conversations')
-          .select('id')
-          .eq('practitioner_id', practitioner.id)
-          .eq('patient_id', patient.id)
-          .limit(1)
-          .single()
-
-        if (existingConv) {
-          conversationId = existingConv.id
-        } else {
-          const { data: newConv } = await db
-            .from('conversations')
-            .insert({
-              practitioner_id: practitioner.id,
-              patient_id: patient.id,
-              subject: 'Diffusion',
-            })
-            .select('id')
-            .single()
-          conversationId = newConv?.id || null
-        }
-
-        if (conversationId) {
-          await db.from('messages').insert({
-            conversation_id: conversationId,
-            content,
-            direction: 'outgoing',
-            channel: 'email',
-            status: 'sent',
-            sent_at: new Date().toISOString(),
-            email_subject: subject,
-            email_message_id: result.messageId,
-            to_email: patient.email,
-            from_email: emailSettings.from_email,
-          })
-
-          await db
-            .from('conversations')
-            .update({ last_message_at: new Date().toISOString() })
-            .eq('id', conversationId)
-        }
-
-        sentCount++
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Erreur inconnue'
-        errors.push(`${patient.first_name} ${patient.last_name}: ${msg}`)
+    const tx = rawDb.transaction(() => {
+      insertCampaign.run(campaignId, practitioner.id, subject, content, patientsWithEmail.length, nowIso)
+      for (const patient of patientsWithEmail) {
+        insertRecipient.run(randomUUID(), campaignId, patient.id, patient.email, nowIso)
       }
-    }
+    })
+    tx()
+
+    // Kick off the first batch immediately instead of waiting for the next
+    // cron tick, without blocking this response on the actual sending.
+    import('@/lib/email/campaign-processor')
+      .then(({ processCampaignBatch }) => processCampaignBatch())
+      .catch((e) => console.error('[Broadcast] Immediate processing kick failed:', e))
 
     return NextResponse.json({
       success: true,
-      sent: sentCount,
+      campaignId,
       total: patientsWithEmail.length,
-      errors: errors.length > 0 ? errors : undefined,
     })
   } catch (error) {
     console.error('Error in broadcast:', error)

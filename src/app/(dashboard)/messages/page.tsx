@@ -37,12 +37,14 @@ import {
   FileText,
   Image,
   RefreshCw,
+  UserX,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { getInitials } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { NewConversationModal } from '@/components/messages/new-conversation-modal'
+import { RelaunchPanel } from '@/components/messages/relaunch-panel'
 import { QuickReplies } from '@/components/messages/quick-replies'
 import type { Patient } from '@/types/database'
 
@@ -115,6 +117,7 @@ export default function MessagesPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [showNewModal, setShowNewModal] = useState(false)
+  const [showRelaunchPanel, setShowRelaunchPanel] = useState(false)
   const [isMobileView, setIsMobileView] = useState(false)
   const { toast } = useToast()
   const dbRef = useRef(createClient())
@@ -431,6 +434,15 @@ export default function MessagesPage() {
             >
               <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowRelaunchPanel(true)}
+              title="Relancer les patients non vus depuis longtemps"
+              className="px-2"
+            >
+              <UserX className="h-4 w-4" />
+            </Button>
             <Button size="sm" onClick={() => setShowNewModal(true)}>
               <Plus className="h-4 w-4 mr-1" />
               Nouveau
@@ -617,6 +629,8 @@ export default function MessagesPage() {
           setSelectedConversation(conv as Conversation)
         }}
       />
+
+      <RelaunchPanel open={showRelaunchPanel} onOpenChange={setShowRelaunchPanel} />
 
     </div>
   )

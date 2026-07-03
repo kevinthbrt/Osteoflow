@@ -3,9 +3,10 @@ import { NextResponse } from 'next/server'
 export async function POST(request: Request) {
   try {
     const { Resend } = await import('resend')
-    const { createClient, createServiceClient } = await import('@/lib/db/server')
+    const { createClient } = await import('@/lib/db/server')
     const { sendEmail, createHtmlEmail } = await import('@/lib/email/smtp-service')
     const { getDatabase } = await import('@/lib/database/connection')
+    const { getDecryptedEmailSettings } = await import('@/lib/email/get-email-settings')
     const getResend = () => new Resend(process.env.RESEND_API_KEY)
 
     // Support both JSON (no attachments) and multipart/form-data (with attachments)
@@ -56,14 +57,10 @@ export async function POST(request: Request) {
     const subject = `Message de ${practitioner.practice_name || `${practitioner.first_name} ${practitioner.last_name}`}`
     let emailMessageId: string | undefined
 
-    // Check if practitioner has custom email settings
-    const serviceClient = await createServiceClient()
-    const { data: emailSettings } = await serviceClient
-      .from('email_settings')
-      .select('*')
-      .eq('practitioner_id', practitioner.id)
-      .eq('is_verified', true)
-      .single()
+    // Check if practitioner has custom, verified email settings (decrypted —
+    // smtp_password is stored encrypted at rest via encryptValue()).
+    const decryptedSettings = await getDecryptedEmailSettings(practitioner.id)
+    const emailSettings = decryptedSettings?.is_verified ? decryptedSettings : null
 
     // Load attachment buffers once (used both for SMTP and DB storage)
     const attachmentBuffers = await Promise.all(

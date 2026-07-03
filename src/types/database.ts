@@ -33,6 +33,7 @@ export interface Database {
           specialty: string | null
           accountant_email: string | null
           google_review_url: string | null
+          booking_url: string | null
           address: string | null
           city: string | null
           postal_code: string | null
@@ -67,6 +68,7 @@ export interface Database {
           specialty?: string | null
           accountant_email?: string | null
           google_review_url?: string | null
+          booking_url?: string | null
           address?: string | null
           city?: string | null
           postal_code?: string | null
@@ -101,6 +103,7 @@ export interface Database {
           specialty?: string | null
           accountant_email?: string | null
           google_review_url?: string | null
+          booking_url?: string | null
           address?: string | null
           city?: string | null
           postal_code?: string | null
@@ -175,6 +178,8 @@ export interface Database {
           referred_by_patient_id: string | null
           referred_by_source: string | null
           pregnancy_due_date: string | null
+          last_relaunch_sent_at: string | null
+          relaunch_count: number
           created_at: string
           updated_at: string
           archived_at: string | null
@@ -199,6 +204,8 @@ export interface Database {
           referred_by_patient_id?: string | null
           referred_by_source?: string | null
           pregnancy_due_date?: string | null
+          last_relaunch_sent_at?: string | null
+          relaunch_count?: number
           created_at?: string
           updated_at?: string
           archived_at?: string | null
@@ -223,6 +230,8 @@ export interface Database {
           referred_by_patient_id?: string | null
           referred_by_source?: string | null
           pregnancy_due_date?: string | null
+          last_relaunch_sent_at?: string | null
+          relaunch_count?: number
           created_at?: string
           updated_at?: string
           archived_at?: string | null

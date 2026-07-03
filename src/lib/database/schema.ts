@@ -555,6 +555,62 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     db.exec('ALTER TABLE practitioners ADD COLUMN rne TEXT;')
   }
 
+  // Booking link, used in the "relance patient" email and flagged on the
+  // dashboard completion widget when missing.
+  if (!practCols.some((c) => c.name === 'booking_url')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN booking_url TEXT;')
+  }
+
+  // Patient relaunch tracking ("patients non vus depuis longtemps").
+  // last_relaunch_sent_at is compared against the patient's latest consultation
+  // date to derive whether they're "awaiting return" — no separate reset needed,
+  // a new consultation after the relaunch date naturally clears the state.
+  const patientRelaunchCols = db.pragma('table_info(patients)') as Array<{ name: string }>
+  if (!patientRelaunchCols.some((c) => c.name === 'last_relaunch_sent_at')) {
+    db.exec('ALTER TABLE patients ADD COLUMN last_relaunch_sent_at TEXT;')
+  }
+  if (!patientRelaunchCols.some((c) => c.name === 'relaunch_count')) {
+    db.exec('ALTER TABLE patients ADD COLUMN relaunch_count INTEGER DEFAULT 0;')
+  }
+
+  // Email campaigns — background-processed mass sends (broadcast to all
+  // patients, or bulk relaunch of patients not seen in a while). Recipients
+  // are processed in small batches by the cron so sending to thousands of
+  // patients never blocks an HTTP request or exhausts SMTP rate limits.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS email_campaigns (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+      type TEXT NOT NULL CHECK (type IN ('broadcast', 'relaunch')),
+      subject TEXT NOT NULL,
+      content TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'cancelled')),
+      total_recipients INTEGER NOT NULL DEFAULT 0,
+      sent_count INTEGER NOT NULL DEFAULT 0,
+      failed_count INTEGER NOT NULL DEFAULT 0,
+      error_message TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      completed_at TEXT
+    );
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_email_campaigns_practitioner ON email_campaigns(practitioner_id);`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_email_campaigns_status ON email_campaigns(status);`)
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS email_campaign_recipients (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      campaign_id TEXT NOT NULL REFERENCES email_campaigns(id) ON DELETE CASCADE,
+      patient_id TEXT NOT NULL REFERENCES patients(id),
+      email TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'failed')),
+      error_message TEXT,
+      sent_at TEXT,
+      message_id TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_campaign_recipients_campaign ON email_campaign_recipients(campaign_id, status);`)
+
   // Message attachments — files attached to sent/received messages
   db.exec(`
     CREATE TABLE IF NOT EXISTS message_attachments (
