@@ -183,6 +183,9 @@ export interface Database {
           pregnancy_due_date: string | null
           last_relaunch_sent_at: string | null
           relaunch_count: number
+          preferred_invoice_delivery: string | null
+          next_relaunch_due_at: string | null
+          next_relaunch_months: number | null
           created_at: string
           updated_at: string
           archived_at: string | null
@@ -209,6 +212,9 @@ export interface Database {
           pregnancy_due_date?: string | null
           last_relaunch_sent_at?: string | null
           relaunch_count?: number
+          preferred_invoice_delivery?: string | null
+          next_relaunch_due_at?: string | null
+          next_relaunch_months?: number | null
           created_at?: string
           updated_at?: string
           archived_at?: string | null
@@ -235,6 +241,9 @@ export interface Database {
           pregnancy_due_date?: string | null
           last_relaunch_sent_at?: string | null
           relaunch_count?: number
+          preferred_invoice_delivery?: string | null
+          next_relaunch_due_at?: string | null
+          next_relaunch_months?: number | null
           created_at?: string
           updated_at?: string
           archived_at?: string | null

@@ -579,6 +579,20 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   if (!patientRelaunchCols.some((c) => c.name === 'relaunch_count')) {
     db.exec('ALTER TABLE patients ADD COLUMN relaunch_count INTEGER DEFAULT 0;')
   }
+  // Remembers how the patient likes to receive their invoice (email / print /
+  // download / skip), pre-filled at the next consultation to save a click.
+  if (!patientRelaunchCols.some((c) => c.name === 'preferred_invoice_delivery')) {
+    db.exec('ALTER TABLE patients ADD COLUMN preferred_invoice_delivery TEXT;')
+  }
+  // A relaunch explicitly scheduled from the end-of-consultation wizard
+  // ("relancer dans 3/6/12 mois"), independent of the dynamic "not seen since
+  // X months" list — surfaces in the relaunch candidates once due.
+  if (!patientRelaunchCols.some((c) => c.name === 'next_relaunch_due_at')) {
+    db.exec('ALTER TABLE patients ADD COLUMN next_relaunch_due_at TEXT;')
+  }
+  if (!patientRelaunchCols.some((c) => c.name === 'next_relaunch_months')) {
+    db.exec('ALTER TABLE patients ADD COLUMN next_relaunch_months INTEGER;')
+  }
 
   // Email campaigns — background-processed mass sends (broadcast to all
   // patients, or bulk relaunch of patients not seen in a while). Recipients

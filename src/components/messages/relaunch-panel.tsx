@@ -32,6 +32,8 @@ interface NotSeenPatient {
   email: string
   lastConsultationDate: string | null
   daysSinceLastConsultation: number | null
+  isScheduled?: boolean
+  scheduledMonths?: number | null
 }
 
 interface RelaunchedPatient {
@@ -399,7 +401,14 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{patient.first_name} {patient.last_name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium truncate">{patient.first_name} {patient.last_name}</p>
+                          {patient.isScheduled && (
+                            <Badge variant="secondary" className="flex-shrink-0 text-xs">
+                              Relance programmée{patient.scheduledMonths ? ` (${patient.scheduledMonths} mois)` : ''}
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground truncate">
                           Vu(e) le {patient.lastConsultationDate ? formatDate(patient.lastConsultationDate) : '—'}
                           {patient.daysSinceLastConsultation != null && (

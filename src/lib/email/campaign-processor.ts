@@ -254,7 +254,7 @@ export async function processCampaignBatch(): Promise<{ processed: number }> {
 
           if (campaign.type === 'relaunch') {
             db.prepare(
-              `UPDATE patients SET last_relaunch_sent_at = ?, relaunch_count = COALESCE(relaunch_count, 0) + 1 WHERE id = ?`
+              `UPDATE patients SET last_relaunch_sent_at = ?, relaunch_count = COALESCE(relaunch_count, 0) + 1, next_relaunch_due_at = NULL, next_relaunch_months = NULL WHERE id = ?`
             ).run(nowIso, patientId)
           }
         }

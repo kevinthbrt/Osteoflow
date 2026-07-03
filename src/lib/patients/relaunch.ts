@@ -16,6 +16,8 @@ export interface RelaunchCandidate {
   email: string
   lastConsultationDate: string | null
   daysSinceLastConsultation: number | null
+  isScheduled: boolean
+  scheduledMonths: number | null
 }
 
 export interface RelaunchedPatient {
@@ -42,6 +44,11 @@ function daysBetween(fromIso: string, toIso: string): number {
  * the move aren't nudged to come back to a location that's no longer valid.
  * A patient who visited both before and after the move is still included,
  * since their most recent visit is what's compared against the floor.
+ *
+ * Also includes patients with an explicitly scheduled relaunch ("relancer
+ * dans 3/6/12 mois", set at the end of a consultation) once that date is
+ * due, regardless of the `months` threshold — a deliberate per-patient
+ * schedule takes priority over the generic "not seen since" filter.
  */
 export function getRelaunchCandidates(
   practitionerId: string,
@@ -56,7 +63,7 @@ export function getRelaunchCandidates(
 
   const rows = db
     .prepare(
-      `SELECT p.id, p.first_name, p.last_name, p.email,
+      `SELECT p.id, p.first_name, p.last_name, p.email, p.next_relaunch_due_at, p.next_relaunch_months,
               MAX(c.date_time) AS last_consultation_date
        FROM patients p
        INNER JOIN consultations c ON c.patient_id = p.id AND c.archived_at IS NULL
@@ -64,27 +71,37 @@ export function getRelaunchCandidates(
          AND p.archived_at IS NULL
          AND p.email IS NOT NULL AND p.email != ''
        GROUP BY p.id
-       HAVING MAX(c.date_time) <= ?
+       HAVING (
+              MAX(c.date_time) <= ?
+              OR (p.next_relaunch_due_at IS NOT NULL AND p.next_relaunch_due_at <= ?)
+            )
           AND (p.last_relaunch_sent_at IS NULL OR p.last_relaunch_sent_at <= MAX(c.date_time))
           AND (? IS NULL OR MAX(c.date_time) >= ?)
        ORDER BY last_consultation_date ASC`
     )
-    .all(practitionerId, cutoffIso, sinceDate || null, sinceDate || null) as Array<{
+    .all(practitionerId, cutoffIso, nowIso, sinceDate || null, sinceDate || null) as Array<{
     id: string
     first_name: string
     last_name: string
     email: string
+    next_relaunch_due_at: string | null
+    next_relaunch_months: number | null
     last_consultation_date: string
   }>
 
-  return rows.map((r) => ({
-    id: r.id,
-    first_name: r.first_name,
-    last_name: r.last_name,
-    email: r.email,
-    lastConsultationDate: r.last_consultation_date,
-    daysSinceLastConsultation: daysBetween(r.last_consultation_date, nowIso),
-  }))
+  return rows.map((r) => {
+    const isScheduled = Boolean(r.next_relaunch_due_at && r.next_relaunch_due_at <= nowIso)
+    return {
+      id: r.id,
+      first_name: r.first_name,
+      last_name: r.last_name,
+      email: r.email,
+      lastConsultationDate: r.last_consultation_date,
+      daysSinceLastConsultation: daysBetween(r.last_consultation_date, nowIso),
+      isScheduled,
+      scheduledMonths: isScheduled ? r.next_relaunch_months : null,
+    }
+  })
 }
 
 /**

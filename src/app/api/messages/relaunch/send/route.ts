@@ -126,7 +126,14 @@ export async function POST(request: Request) {
 
     await db
       .from('patients')
-      .update({ last_relaunch_sent_at: nowIso, relaunch_count: (patient.relaunch_count || 0) + 1 })
+      .update({
+        last_relaunch_sent_at: nowIso,
+        relaunch_count: (patient.relaunch_count || 0) + 1,
+        // Clears a due "relancer dans X mois" schedule now that it's fired —
+        // avoids it lingering as "due" if a later consultation doesn't set a new one.
+        next_relaunch_due_at: null,
+        next_relaunch_months: null,
+      })
       .eq('id', patient.id)
 
     return NextResponse.json({ success: true })
