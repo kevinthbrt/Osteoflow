@@ -64,6 +64,12 @@ export function NewConversationModal({
     dailyLimitReached?: boolean
   } | null>(null)
   const [broadcastDeduplicated, setBroadcastDeduplicated] = useState(0)
+  const [broadcastPreview, setBroadcastPreview] = useState<{
+    totalPatients: number
+    totalEmails: number
+    deduplicated: number
+  } | null>(null)
+  const [isLoadingBroadcastPreview, setIsLoadingBroadcastPreview] = useState(false)
 
   const { toast } = useToast()
   const dbRef = useRef(createClient())
@@ -90,9 +96,31 @@ export function NewConversationModal({
       setShowQuickReplies(false)
       setBroadcastCampaign(null)
       setBroadcastDeduplicated(0)
+      setBroadcastPreview(null)
       if (broadcastPollRef.current) clearInterval(broadcastPollRef.current)
     }
   }, [open])
+
+  // Live preview of how many emails a broadcast will actually send —
+  // recomputed whenever the "active since" filter changes.
+  useEffect(() => {
+    if (!showBroadcast) return
+    let cancelled = false
+    setIsLoadingBroadcastPreview(true)
+    const params = broadcastActiveSinceDate ? `?activeSinceDate=${broadcastActiveSinceDate}` : ''
+    fetch(`/api/messages/broadcast/recipient-count${params}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setBroadcastPreview(data)
+      })
+      .catch((error) => console.error('Error fetching broadcast preview:', error))
+      .finally(() => {
+        if (!cancelled) setIsLoadingBroadcastPreview(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [showBroadcast, broadcastActiveSinceDate])
 
   const searchPatients = useDebouncedCallback(async (query: string) => {
     if (!query.trim()) {
@@ -495,6 +523,32 @@ export function NewConversationModal({
               </p>
             </div>
 
+            <div className="rounded-lg border p-3 text-sm bg-muted/30">
+              {isLoadingBroadcastPreview ? (
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Calcul du nombre de destinataires…
+                </span>
+              ) : broadcastPreview ? (
+                broadcastPreview.totalEmails === 0 ? (
+                  <span className="text-muted-foreground">Aucun patient ne correspond à ce filtre.</span>
+                ) : (
+                  <div className="space-y-0.5">
+                    <p className="font-medium">
+                      Ce message sera envoyé à{' '}
+                      <span className="text-primary">{broadcastPreview.totalEmails} email{broadcastPreview.totalEmails > 1 ? 's' : ''}</span>
+                      {' '}({broadcastPreview.totalPatients} patient{broadcastPreview.totalPatients > 1 ? 's' : ''})
+                    </p>
+                    {broadcastPreview.deduplicated > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {broadcastPreview.deduplicated} patient{broadcastPreview.deduplicated > 1 ? 's' : ''} partage{broadcastPreview.deduplicated > 1 ? 'nt' : ''} une adresse avec un autre — un seul email envoyé par adresse.
+                      </p>
+                    )}
+                  </div>
+                )
+              ) : null}
+            </div>
+
             {broadcastCampaign && (
               <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
                 <div className="flex items-center justify-between text-sm">
@@ -541,7 +595,12 @@ export function NewConversationModal({
               </Button>
               <Button
                 onClick={handleBroadcast}
-                disabled={isBroadcasting || hasUnfinishedBroadcast || !broadcastContent.trim()}
+                disabled={
+                  isBroadcasting ||
+                  hasUnfinishedBroadcast ||
+                  !broadcastContent.trim() ||
+                  broadcastPreview?.totalEmails === 0
+                }
               >
                 {isBroadcasting ? (
                   <>
@@ -551,7 +610,7 @@ export function NewConversationModal({
                 ) : (
                   <>
                     <Send className="h-4 w-4 mr-1" />
-                    Envoyer à tous
+                    Envoyer à tous{broadcastPreview ? ` (${broadcastPreview.totalEmails})` : ''}
                   </>
                 )}
               </Button>

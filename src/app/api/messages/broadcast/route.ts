@@ -6,6 +6,7 @@ export async function POST(request: Request) {
     const { createClient } = await import('@/lib/db/server')
     const { getDatabase } = await import('@/lib/database/connection')
     const { groupPatientsByEmail } = await import('@/lib/email/recipient-grouping')
+    const { getBroadcastRecipients } = await import('@/lib/patients/broadcast-recipients')
 
     const { content, activeSinceDate } = await request.json()
 
@@ -51,43 +52,7 @@ export async function POST(request: Request) {
       )
     }
 
-    let patientsWithEmail: Array<{ id: string; first_name: string; last_name: string; email: string }>
-
-    if (activeSinceDate) {
-      // Only patients seen since the given date — excludes patients who came
-      // once a long time ago and never returned, so the diffusion doesn't
-      // reach out to essentially former patients.
-      const rawDb = getDatabase()
-      patientsWithEmail = rawDb
-        .prepare(
-          `SELECT p.id, p.first_name, p.last_name, p.email
-           FROM patients p
-           INNER JOIN consultations c ON c.patient_id = p.id AND c.archived_at IS NULL
-           WHERE p.practitioner_id = ?
-             AND p.archived_at IS NULL
-             AND p.email IS NOT NULL AND p.email != ''
-           GROUP BY p.id
-           HAVING MAX(c.date_time) >= ?`
-        )
-        .all(practitioner.id, activeSinceDate) as typeof patientsWithEmail
-    } else {
-      const { data: patients, error: patientsError } = await db
-        .from('patients')
-        .select('id, first_name, last_name, email')
-        .eq('practitioner_id', practitioner.id)
-        .is('archived_at', null)
-
-      if (patientsError) {
-        return NextResponse.json(
-          { error: 'Erreur lors de la récupération des patients' },
-          { status: 500 }
-        )
-      }
-
-      patientsWithEmail = (patients || []).filter(
-        (p: { email?: string | null }): p is { id: string; first_name: string; last_name: string; email: string } => Boolean(p.email)
-      )
-    }
+    const patientsWithEmail = getBroadcastRecipients(practitioner.id, activeSinceDate)
 
     if (patientsWithEmail.length === 0) {
       return NextResponse.json(
