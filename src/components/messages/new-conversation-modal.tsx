@@ -53,6 +53,7 @@ export function NewConversationModal({
   // Broadcast state
   const [showBroadcast, setShowBroadcast] = useState(false)
   const [broadcastContent, setBroadcastContent] = useState('')
+  const [broadcastActiveSinceDate, setBroadcastActiveSinceDate] = useState('')
   const [isBroadcasting, setIsBroadcasting] = useState(false)
   const [showQuickReplies, setShowQuickReplies] = useState(false)
   const [broadcastCampaign, setBroadcastCampaign] = useState<{
@@ -85,6 +86,7 @@ export function NewConversationModal({
       setActiveTab('patient')
       setShowBroadcast(false)
       setBroadcastContent('')
+      setBroadcastActiveSinceDate('')
       setShowQuickReplies(false)
       setBroadcastCampaign(null)
       setBroadcastDeduplicated(0)
@@ -395,7 +397,7 @@ export function NewConversationModal({
       const res = await fetch('/api/messages/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: broadcastContent }),
+        body: JSON.stringify({ content: broadcastContent, activeSinceDate: broadcastActiveSinceDate || null }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -475,6 +477,23 @@ export function NewConversationModal({
               rows={6}
               disabled={isBroadcasting}
             />
+
+            <div className="space-y-1.5">
+              <Label htmlFor="broadcast-active-since" className="text-xs font-normal text-muted-foreground">
+                Envoyer uniquement aux patients actifs depuis le (optionnel)
+              </Label>
+              <Input
+                id="broadcast-active-since"
+                type="date"
+                value={broadcastActiveSinceDate}
+                onChange={(e) => setBroadcastActiveSinceDate(e.target.value)}
+                disabled={isBroadcasting}
+                className="w-40 h-8"
+              />
+              <p className="text-xs text-muted-foreground">
+                Pour éviter de contacter d&apos;anciens patients non revus depuis longtemps.
+              </p>
+            </div>
 
             {broadcastCampaign && (
               <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
