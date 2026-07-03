@@ -454,9 +454,11 @@ async function setupAutoUpdater(): Promise<void> {
       autoUpdater.quitAndInstall(true, true)
     })
 
-    // Check for updates 5s after launch, then every 4 hours
+    // Check for updates 5s after launch, then every 15 minutes.
+    // Cheap to check often: the manifest is served from GitHub Releases,
+    // not our own infrastructure.
     setTimeout(() => autoUpdater.checkForUpdates(), 5000)
-    setInterval(() => autoUpdater.checkForUpdates(), 4 * 60 * 60 * 1000)
+    setInterval(() => autoUpdater.checkForUpdates(), 15 * 60 * 1000)
   } catch (error) {
     console.error('[Updater] Failed to initialize:', error)
   }
