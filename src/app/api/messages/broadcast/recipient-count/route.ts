@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     const { data: practitioner } = await db
       .from('practitioners')
-      .select('id')
+      .select('id, booking_url')
       .eq('user_id', user.id)
       .single()
 
@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
       totalEmails: groups.length,
       deduplicated: patients.length - groups.length,
       dailyLimit: DAILY_SEND_LIMIT,
+      hasBookingUrl: Boolean(practitioner.booking_url),
     })
   } catch (error) {
     console.error('Error computing broadcast recipient count:', error)

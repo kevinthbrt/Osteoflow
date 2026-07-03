@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Search, MessageCircle, Loader2, Mail, User, Send, Users, ArrowLeft, Sparkles } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
 import { buildSearchOrFilters } from '@/lib/utils/search'
@@ -54,6 +55,7 @@ export function NewConversationModal({
   const [showBroadcast, setShowBroadcast] = useState(false)
   const [broadcastContent, setBroadcastContent] = useState('')
   const [broadcastActiveSinceDate, setBroadcastActiveSinceDate] = useState('')
+  const [broadcastIncludeBookingButton, setBroadcastIncludeBookingButton] = useState(false)
   const [isBroadcasting, setIsBroadcasting] = useState(false)
   const [showQuickReplies, setShowQuickReplies] = useState(false)
   const [broadcastCampaign, setBroadcastCampaign] = useState<{
@@ -69,6 +71,7 @@ export function NewConversationModal({
     totalEmails: number
     deduplicated: number
     dailyLimit: number
+    hasBookingUrl: boolean
   } | null>(null)
   const [isLoadingBroadcastPreview, setIsLoadingBroadcastPreview] = useState(false)
 
@@ -94,6 +97,7 @@ export function NewConversationModal({
       setShowBroadcast(false)
       setBroadcastContent('')
       setBroadcastActiveSinceDate('')
+      setBroadcastIncludeBookingButton(false)
       setShowQuickReplies(false)
       setBroadcastCampaign(null)
       setBroadcastDeduplicated(0)
@@ -426,7 +430,11 @@ export function NewConversationModal({
       const res = await fetch('/api/messages/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: broadcastContent, activeSinceDate: broadcastActiveSinceDate || null }),
+        body: JSON.stringify({
+          content: broadcastContent,
+          activeSinceDate: broadcastActiveSinceDate || null,
+          includeBookingButton: broadcastIncludeBookingButton,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -458,7 +466,7 @@ export function NewConversationModal({
   if (showBroadcast) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Button
@@ -477,7 +485,10 @@ export function NewConversationModal({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          {/* Scrollable body — kept separate from the header/footer so a long
+              message (the Textarea auto-grows with its content) scrolls
+              internally instead of pushing the dialog past the viewport. */}
+          <div className="space-y-4 flex-1 overflow-y-auto min-h-0 pr-1">
             {showQuickReplies && (
               <QuickReplies
                 onSelect={(content) => {
@@ -522,6 +533,26 @@ export function NewConversationModal({
               <p className="text-xs text-muted-foreground">
                 Pour éviter de contacter d&apos;anciens patients non revus depuis longtemps.
               </p>
+            </div>
+
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="broadcast-booking-button"
+                checked={broadcastIncludeBookingButton}
+                onCheckedChange={(checked) => setBroadcastIncludeBookingButton(checked === true)}
+                disabled={isBroadcasting}
+                className="mt-0.5"
+              />
+              <div>
+                <Label htmlFor="broadcast-booking-button" className="text-sm font-normal cursor-pointer">
+                  Inclure un bouton &laquo; Prendre rendez-vous &raquo;
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {broadcastPreview?.hasBookingUrl
+                    ? 'Utilise votre lien de prise de rendez-vous configuré dans les paramètres.'
+                    : 'Aucun lien configuré : le bouton renverra vers votre email/téléphone. Vous pouvez ajouter un lien de prise de RDV dans les paramètres.'}
+                </p>
+              </div>
             </div>
 
             <div className="rounded-lg border p-3 text-sm bg-muted/30">
@@ -592,36 +623,37 @@ export function NewConversationModal({
                 )}
               </div>
             )}
+          </div>
 
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => (isBroadcasting || hasUnfinishedBroadcast ? onOpenChange(false) : setShowBroadcast(false))}
-              >
-                {isBroadcasting || hasUnfinishedBroadcast ? 'Fermer' : 'Retour'}
-              </Button>
-              <Button
-                onClick={handleBroadcast}
-                disabled={
-                  isBroadcasting ||
-                  hasUnfinishedBroadcast ||
-                  !broadcastContent.trim() ||
-                  broadcastPreview?.totalEmails === 0
-                }
-              >
-                {isBroadcasting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    Envoi en cours...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-1" />
-                    Envoyer à tous{broadcastPreview ? ` (${broadcastPreview.totalEmails})` : ''}
-                  </>
-                )}
-              </Button>
-            </div>
+          {/* Pinned footer — stays visible even when the body above scrolls. */}
+          <div className="flex justify-end gap-2 pt-3 border-t">
+            <Button
+              variant="outline"
+              onClick={() => (isBroadcasting || hasUnfinishedBroadcast ? onOpenChange(false) : setShowBroadcast(false))}
+            >
+              {isBroadcasting || hasUnfinishedBroadcast ? 'Fermer' : 'Retour'}
+            </Button>
+            <Button
+              onClick={handleBroadcast}
+              disabled={
+                isBroadcasting ||
+                hasUnfinishedBroadcast ||
+                !broadcastContent.trim() ||
+                broadcastPreview?.totalEmails === 0
+              }
+            >
+              {isBroadcasting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  Envoi en cours...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-1" />
+                  Envoyer à tous{broadcastPreview ? ` (${broadcastPreview.totalEmails})` : ''}
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -630,7 +662,7 @@ export function NewConversationModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MessageCircle className="h-5 w-5 text-primary" />
@@ -641,7 +673,10 @@ export function NewConversationModal({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        {/* Scrollable body — the manual-message Textarea auto-grows with its
+            content, so it must scroll internally rather than push the
+            dialog past the viewport. */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 overflow-y-auto min-h-0 pr-1">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="patient" className="flex items-center gap-2">
               <User className="h-4 w-4" />

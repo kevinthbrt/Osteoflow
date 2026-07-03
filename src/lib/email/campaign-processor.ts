@@ -16,6 +16,7 @@ import { getDecryptedEmailSettings } from './get-email-settings'
 import { sendBulkEmails, createHtmlEmail } from './smtp-service'
 import { createPatientRelaunchHtmlEmail, replaceTemplateVariables } from './templates'
 import { joinNames } from './recipient-grouping'
+import { resolveBookingCta } from './contact-cta'
 import { getProfessionLabel } from '@/lib/practitioner/profession'
 
 const BATCH_SIZE = 25
@@ -34,6 +35,7 @@ interface CampaignRow {
   subject: string
   content: string
   status: string
+  include_booking_button: number
 }
 
 interface RecipientRow {
@@ -174,7 +176,14 @@ export async function processCampaignBatch(): Promise<{ processed: number }> {
         return { recipient, html, textContent: bodyText }
       }
 
-      const html = createHtmlEmail(campaign.content, practitioner as Record<string, string | undefined>)
+      const cta = campaign.include_booking_button
+        ? resolveBookingCta({
+            booking_url: practitioner.booking_url as string | null,
+            email: practitioner.email as string | null,
+            phone: practitioner.phone as string | null,
+          }) || undefined
+        : undefined
+      const html = createHtmlEmail(campaign.content, practitioner as Record<string, string | undefined>, { cta })
       return { recipient, html, textContent: campaign.content }
     })
 

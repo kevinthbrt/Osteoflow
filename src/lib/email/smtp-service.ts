@@ -236,13 +236,26 @@ export function createHtmlEmail(
     postal_code?: string
     phone?: string
     email?: string
+    primary_color?: string
   },
   options?: {
     includeFooter?: boolean
+    cta?: { label: string; url: string }
   }
 ): string {
   const htmlContent = textToHtml(content)
   const includeFooter = options?.includeFooter ?? true
+  const primaryColor = practitioner?.primary_color || '#2563eb'
+
+  const ctaSection = options?.cta
+    ? `
+      <div style="margin-top: 24px; text-align: center;">
+        <a href="${options.cta.url}" style="display: inline-block; padding: 14px 32px; background-color: ${primaryColor}; color: #ffffff; text-decoration: none; border-radius: 999px; font-weight: 600; font-size: 15px;">
+          ${options.cta.label}
+        </a>
+      </div>
+    `
+    : ''
 
   let footer = ''
   if (practitioner && includeFooter) {
@@ -273,6 +286,7 @@ export function createHtmlEmail(
         <div style="max-width: 600px; margin: 0 auto; padding: 32px 16px;">
           <div style="background-color: white; padding: 32px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
             ${htmlContent}
+            ${ctaSection}
             ${footer}
           </div>
           <p style="text-align: center; margin-top: 16px; color: #9ca3af; font-size: 12px;">

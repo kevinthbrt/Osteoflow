@@ -627,6 +627,12 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     db.exec('ALTER TABLE email_campaign_recipients ADD COLUMN linked_patient_ids TEXT;')
   }
 
+  // Optional "prendre rendez-vous" button on a broadcast email.
+  const campaignCols = db.pragma('table_info(email_campaigns)') as Array<{ name: string }>
+  if (!campaignCols.some((c) => c.name === 'include_booking_button')) {
+    db.exec('ALTER TABLE email_campaigns ADD COLUMN include_booking_button INTEGER DEFAULT 0;')
+  }
+
   // Message attachments — files attached to sent/received messages
   db.exec(`
     CREATE TABLE IF NOT EXISTS message_attachments (

@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     const { groupPatientsByEmail } = await import('@/lib/email/recipient-grouping')
     const { getBroadcastRecipients } = await import('@/lib/patients/broadcast-recipients')
 
-    const { content, activeSinceDate } = await request.json()
+    const { content, activeSinceDate, includeBookingButton } = await request.json()
 
     if (!content) {
       return NextResponse.json(
@@ -78,8 +78,8 @@ export async function POST(request: Request) {
     const nowIso = new Date().toISOString()
 
     const insertCampaign = rawDb.prepare(
-      `INSERT INTO email_campaigns (id, practitioner_id, type, subject, content, status, total_recipients, created_at)
-       VALUES (?, ?, 'broadcast', ?, ?, 'pending', ?, ?)`
+      `INSERT INTO email_campaigns (id, practitioner_id, type, subject, content, status, total_recipients, include_booking_button, created_at)
+       VALUES (?, ?, 'broadcast', ?, ?, 'pending', ?, ?, ?)`
     )
     const insertRecipient = rawDb.prepare(
       `INSERT INTO email_campaign_recipients (id, campaign_id, patient_id, email, status, linked_patient_ids, created_at)
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     )
 
     const tx = rawDb.transaction(() => {
-      insertCampaign.run(campaignId, practitioner.id, subject, content, recipientGroups.length, nowIso)
+      insertCampaign.run(campaignId, practitioner.id, subject, content, recipientGroups.length, includeBookingButton ? 1 : 0, nowIso)
       for (const group of recipientGroups) {
         insertRecipient.run(
           randomUUID(),
