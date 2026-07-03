@@ -55,6 +55,12 @@ import { PatientPrescriptionsListDialog } from '@/components/exercises/patient-p
 import { TestsSuggestionsPanel } from '@/components/consultations/tests-suggestions-panel'
 import { OrthoTestsPickerDialog } from '@/components/consultations/ortho-tests-picker-dialog'
 import { AtMentionDropdown } from '@/components/consultations/at-mention-dropdown'
+import {
+  POST_SESSION_ADVICE_OPTIONS,
+  ADVICE_CATEGORY_LABELS,
+  DEFAULT_ADVICE_IDS,
+  type AdviceCategory,
+} from '@/lib/consultations/post-session-advice-options'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment, MedicalHistoryType } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -138,6 +144,7 @@ export function ConsultationForm({
     { id: crypto.randomUUID(), amount: practitioner.default_rate, method: 'card' },
   ])
   const [sendPostSessionAdvice, setSendPostSessionAdvice] = useState(false)
+  const [selectedAdviceIds, setSelectedAdviceIds] = useState<string[]>(DEFAULT_ADVICE_IDS)
   const [followUpDays, setFollowUpDays] = useState<number>((practitioner as any).follow_up_delay_days ?? 7)
   const [contactEmail, setContactEmail] = useState(currentPatient.email || '')
   const [medicalHistoryRefreshKey, setMedicalHistoryRefreshKey] = useState(0)
@@ -325,6 +332,7 @@ export function ConsultationForm({
         (remembered as 'email' | 'print' | 'download' | 'skip' | undefined) || (currentPatient.email ? 'email' : 'print')
       )
       setScheduledRelaunchMonths(undefined)
+      setSelectedAdviceIds(DEFAULT_ADVICE_IDS)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showFinalizeModal])
@@ -642,7 +650,7 @@ export function ConsultationForm({
             await fetch('/api/emails/post-session-advice', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ consultationId: newConsultation.id }),
+              body: JSON.stringify({ consultationId: newConsultation.id, adviceIds: selectedAdviceIds }),
             })
           } catch (e) {
             console.error('Error sending post-session advice:', e)
@@ -1211,12 +1219,47 @@ export function ConsultationForm({
                 </Label>
               </div>
               <p className="text-xs text-muted-foreground">
-                Utilise le modèle standard de conseils après séance d&apos;ostéopathie (mouvement, hydratation, reprise progressive…), envoyé immédiatement à l&apos;adresse du patient.
+                Cochez les conseils adaptés à ce patient : ils formeront le contenu de l&apos;email envoyé immédiatement à son adresse.
               </p>
               {sendPostSessionAdvice && !effectiveEmail && (
                 <p className="text-sm text-yellow-600">
                   Le patient n&apos;a pas d&apos;adresse email. L&apos;email ne pourra pas être envoyé.
                 </p>
+              )}
+              {sendPostSessionAdvice && (
+                <div className="space-y-4 rounded-lg border p-4">
+                  {(['general', 'acute', 'chronic', 'redflags'] as AdviceCategory[]).map((category) => {
+                    const items = POST_SESSION_ADVICE_OPTIONS.filter((o) => o.category === category)
+                    return (
+                      <div key={category} className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {ADVICE_CATEGORY_LABELS[category]}
+                        </p>
+                        <div className="space-y-2">
+                          {items.map((item) => (
+                            <div key={item.id} className="flex items-start space-x-2">
+                              <Checkbox
+                                id={`advice_${item.id}`}
+                                checked={selectedAdviceIds.includes(item.id)}
+                                onCheckedChange={(checked) => {
+                                  setSelectedAdviceIds((prev) =>
+                                    checked ? [...prev, item.id] : prev.filter((id) => id !== item.id)
+                                  )
+                                }}
+                                disabled={isLoading}
+                                className="mt-0.5"
+                              />
+                              <Label htmlFor={`advice_${item.id}`} className="cursor-pointer font-normal leading-snug">
+                                <span className="font-medium">{item.title}</span>
+                                <span className="text-muted-foreground"> — {item.text}</span>
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </div>
           )}

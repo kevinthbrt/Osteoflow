@@ -127,12 +127,7 @@ Je vous souhaite une excellente continuation.`,
     subject: 'Conseils post-séance - {{practice_name}}',
     body: `Bonjour {{patient_first_name}},
 
-Merci pour votre visite. Voici quelques conseils pour optimiser les bienfaits de votre séance :
-
-Bougez régulièrement et privilégiez la marche.
-Hydratez-vous bien dans les prochains jours.
-Reprenez vos activités physiques de manière progressive.
-Il est possible de ressentir quelques courbatures ou une légère fatigue dans les 24 à 48h. C'est tout à fait normal.
+Merci pour votre visite. Voici quelques conseils adaptés à votre situation pour optimiser les bienfaits de votre séance :
 
 N'hésitez pas à me contacter si vous avez la moindre question.
 
@@ -340,9 +335,24 @@ export function createFollowUpHtmlEmail({
   `
 }
 
+// Tinted background per accent color used by post-session advice cards
+// (src/lib/consultations/post-session-advice-options.ts), matching the
+// left-border accent color of each card.
+const ADVICE_CARD_BACKGROUNDS: Record<string, string> = {
+  '#22c55e': '#f0fdf4',
+  '#3b82f6': '#eff6ff',
+  '#eab308': '#fefce8',
+  '#a855f7': '#faf5ff',
+  '#f43f5e': '#fff1f2',
+  '#f97316': '#fff7ed',
+}
+
 /**
  * Create a beautiful HTML email for post-session advice.
- * Includes standard osteopathy aftercare tips in French.
+ * The advice cards shown are chosen by the practitioner per patient (see
+ * src/lib/consultations/post-session-advice-options.ts) rather than fixed,
+ * so the email content reflects the patient's actual situation (acute pain,
+ * chronic pain, general aftercare...).
  */
 export function createPostSessionAdviceHtmlEmail({
   bodyText,
@@ -351,6 +361,7 @@ export function createPostSessionAdviceHtmlEmail({
   specialty,
   primaryColor = '#2563eb',
   googleReviewUrl,
+  adviceItems,
 }: {
   bodyText: string
   practitionerName: string
@@ -358,8 +369,19 @@ export function createPostSessionAdviceHtmlEmail({
   specialty?: string | null
   primaryColor?: string
   googleReviewUrl?: string | null
+  adviceItems: Array<{ title: string; text: string; color: string }>
 }): string {
   const bodyHtml = textToHtml(bodyText)
+  const adviceCardsHtml = adviceItems
+    .map(
+      (item, index) => `
+                <div style="padding: 16px 20px; border-radius: 12px; background-color: ${ADVICE_CARD_BACKGROUNDS[item.color] || '#f8fafc'}; border-left: 4px solid ${item.color}; margin-bottom: ${index === adviceItems.length - 1 ? '0' : '12px'};">
+                  <p style="margin: 0; font-size: 14px; color: #334155;">
+                    <strong>${item.title} :</strong> ${item.text}
+                  </p>
+                </div>`
+    )
+    .join('')
   const reviewSection = googleReviewUrl
     ? `
       <div style="margin-top: 28px; padding: 20px; border-radius: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; text-align: center;">
@@ -403,33 +425,11 @@ export function createPostSessionAdviceHtmlEmail({
               </div>
 
               <!-- Advice cards -->
+              ${adviceItems.length > 0 ? `
               <div style="margin-top: 28px;">
-                <div style="padding: 16px 20px; border-radius: 12px; background-color: #f0fdf4; border-left: 4px solid #22c55e; margin-bottom: 12px;">
-                  <p style="margin: 0; font-size: 14px; color: #166534;">
-                    <strong>Bougez régulièrement :</strong> évitez de rester immobile trop longtemps, privilégiez la marche et les mouvements doux.
-                  </p>
-                </div>
-                <div style="padding: 16px 20px; border-radius: 12px; background-color: #eff6ff; border-left: 4px solid #3b82f6; margin-bottom: 12px;">
-                  <p style="margin: 0; font-size: 14px; color: #1e40af;">
-                    <strong>Hydratez-vous :</strong> buvez suffisamment d'eau dans les jours qui suivent votre séance.
-                  </p>
-                </div>
-                <div style="padding: 16px 20px; border-radius: 12px; background-color: #fefce8; border-left: 4px solid #eab308; margin-bottom: 12px;">
-                  <p style="margin: 0; font-size: 14px; color: #854d0e;">
-                    <strong>Reprise progressive :</strong> reprenez vos activités physiques de manière progressive.
-                  </p>
-                </div>
-                <div style="padding: 16px 20px; border-radius: 12px; background-color: #faf5ff; border-left: 4px solid #a855f7; margin-bottom: 12px;">
-                  <p style="margin: 0; font-size: 14px; color: #6b21a8;">
-                    <strong>Réactions normales :</strong> il est possible de ressentir quelques courbatures ou une légère fatigue dans les 24 à 48 heures suivant la séance. C'est tout à fait normal.
-                  </p>
-                </div>
-                <div style="padding: 16px 20px; border-radius: 12px; background-color: #fff1f2; border-left: 4px solid #f43f5e; margin-bottom: 0;">
-                  <p style="margin: 0; font-size: 14px; color: #9f1239;">
-                    <strong>Écoutez votre corps :</strong> en cas de douleur persistante ou inhabituelle, n'hésitez pas à me contacter.
-                  </p>
-                </div>
+                ${adviceCardsHtml}
               </div>
+              ` : ''}
 
               ${reviewSection}
             </div>
