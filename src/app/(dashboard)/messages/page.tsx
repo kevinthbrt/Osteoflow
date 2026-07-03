@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -107,6 +108,15 @@ interface Message {
 }
 
 export default function MessagesPage() {
+  return (
+    <Suspense>
+      <MessagesPageInner />
+    </Suspense>
+  )
+}
+
+function MessagesPageInner() {
+  const searchParams = useSearchParams()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -123,6 +133,14 @@ export default function MessagesPage() {
   const { toast } = useToast()
   const dbRef = useRef(createClient())
   const hasLoadedRef = useRef(false)
+
+  // Deep link from the dashboard widget: /messages?panel=relaunch
+  useEffect(() => {
+    if (searchParams.get('panel') === 'relaunch') {
+      setShowRelaunchPanel(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Check for mobile view
   useEffect(() => {

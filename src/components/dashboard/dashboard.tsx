@@ -18,6 +18,7 @@ import { VideoWidget } from './widgets/video-widget'
 import { ProgressWidget } from './widgets/progress-widget'
 import { ReviewWidget, FeaturedFormationWidget, type WidgetsData } from './widgets/osteoupgrade-widgets'
 import { FlashcardsWidget } from './widgets/flashcards-widget'
+import { RelaunchWidget } from './widgets/relaunch-widget'
 import { BannerWeather } from './banner-weather'
 import { ProfileCompletionWidget } from './profile-completion-widget'
 
@@ -143,9 +144,10 @@ export function Dashboard({
           <VideoWidget />
         </div>
 
-        {/* Droite : OsteoFlash */}
-        <div className="lg:col-span-1">
+        {/* Droite : OsteoFlash + Relances */}
+        <div className="lg:col-span-1 flex flex-col gap-4">
           <FlashcardsWidget />
+          <RelaunchWidget />
         </div>
       </div>
 
