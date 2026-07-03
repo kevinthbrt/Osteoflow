@@ -32,10 +32,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, MapPin, GitBranch, Dumbbell, Sparkles, Brain, Activity, Lightbulb } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, MapPin, GitBranch, Dumbbell, Sparkles, Brain, Activity, Lightbulb, Mail, Printer, Download, ArrowLeft, ArrowRight, CalendarClock, HeartPulse } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate, calculateAge, cn } from '@/lib/utils'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
-import { InvoiceActionModal } from '@/components/invoices/invoice-action-modal'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 import { EditPatientModal } from '@/components/patients/edit-patient-modal'
 import { TopographyPanel } from '@/components/consultations/topography-panel'
@@ -56,6 +55,12 @@ import { PatientPrescriptionsListDialog } from '@/components/exercises/patient-p
 import { TestsSuggestionsPanel } from '@/components/consultations/tests-suggestions-panel'
 import { OrthoTestsPickerDialog } from '@/components/consultations/ortho-tests-picker-dialog'
 import { AtMentionDropdown } from '@/components/consultations/at-mention-dropdown'
+import {
+  POST_SESSION_ADVICE_OPTIONS,
+  ADVICE_CATEGORY_LABELS,
+  DEFAULT_ADVICE_IDS,
+  type AdviceCategory,
+} from '@/lib/consultations/post-session-advice-options'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment, MedicalHistoryType } from '@/types/database'
 
 interface ConsultationFormProps {
@@ -73,11 +78,6 @@ interface PaymentEntry {
   method: 'card' | 'cash' | 'check' | 'transfer' | 'other'
   check_number?: string
   notes?: string
-}
-
-interface CreatedInvoice {
-  id: string
-  invoice_number: string
 }
 
 /** Initiales du patient pour l'avatar (ex. « Jean Dupont » → « JD »). */
@@ -143,9 +143,8 @@ export function ConsultationForm({
   const [payments, setPayments] = useState<PaymentEntry[]>([
     { id: crypto.randomUUID(), amount: practitioner.default_rate, method: 'card' },
   ])
-  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
-  const [createdInvoice, setCreatedInvoice] = useState<CreatedInvoice | null>(null)
   const [sendPostSessionAdvice, setSendPostSessionAdvice] = useState(false)
+  const [selectedAdviceIds, setSelectedAdviceIds] = useState<string[]>(DEFAULT_ADVICE_IDS)
   const [followUpDays, setFollowUpDays] = useState<number>((practitioner as any).follow_up_delay_days ?? 7)
   const [contactEmail, setContactEmail] = useState(currentPatient.email || '')
   const [medicalHistoryRefreshKey, setMedicalHistoryRefreshKey] = useState(0)
@@ -168,6 +167,19 @@ export function ConsultationForm({
   const [showTestsSuggestions, setShowTestsSuggestions] = useState(false)
   const [showOrthoTestsPicker, setShowOrthoTestsPicker] = useState(false)
   const [showFinalizeModal, setShowFinalizeModal] = useState(false)
+  // "Finaliser la consultation" wizard (create mode only) — one deliberate
+  // step at a time so nothing gets skipped: facturation, envoi de la
+  // facture, conseils post-séance, suivi J+X, relance à venir.
+  const [finalizeStepId, setFinalizeStepId] = useState<
+    'invoice' | 'delivery' | 'advice' | 'followup' | 'relaunch'
+  >('invoice')
+  const [invoiceDeliveryChoice, setInvoiceDeliveryChoice] = useState<
+    'email' | 'print' | 'download' | 'skip'
+  >('email')
+  // undefined = practitioner hasn't touched this step (leave any existing
+  // schedule untouched) ; null = explicitly "no relaunch" (clears it) ;
+  // 3/6/12 = schedule a relaunch that many months out.
+  const [scheduledRelaunchMonths, setScheduledRelaunchMonths] = useState<number | null | undefined>(undefined)
   const [anamnesisCardSections, setAnamnesisCardSections] = useState<AnamnesisSection[] | null>(() => {
     if (consultation?.anamnesis_sections) {
       try {
@@ -308,6 +320,22 @@ export function ConsultationForm({
   useEffect(() => { anamnesisCardSectionsRef.current = anamnesisCardSections }, [anamnesisCardSections])
   useEffect(() => { hypothesesRef.current = hypotheses }, [hypotheses])
   useEffect(() => { hypothesesStateRef.current = hypothesesState }, [hypothesesState])
+
+  // Reset the finalize wizard to its first step each time it opens, and
+  // default the invoice delivery choice to whatever this patient chose last
+  // time (falls back to email if they have one, print otherwise).
+  useEffect(() => {
+    if (showFinalizeModal) {
+      setFinalizeStepId('invoice')
+      const remembered = (currentPatient as unknown as { preferred_invoice_delivery?: string | null }).preferred_invoice_delivery
+      setInvoiceDeliveryChoice(
+        (remembered as 'email' | 'print' | 'download' | 'skip' | undefined) || (currentPatient.email ? 'email' : 'print')
+      )
+      setScheduledRelaunchMonths(undefined)
+      setSelectedAdviceIds(DEFAULT_ADVICE_IDS)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showFinalizeModal])
 
   // Exposé via ref pour être appelé immédiatement depuis onApply (sans debounce)
   const saveDraftNow = useCallback(() => {
@@ -622,11 +650,39 @@ export function ConsultationForm({
             await fetch('/api/emails/post-session-advice', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ consultationId: newConsultation.id }),
+              body: JSON.stringify({ consultationId: newConsultation.id, adviceIds: selectedAdviceIds }),
             })
           } catch (e) {
             console.error('Error sending post-session advice:', e)
           }
+        }
+
+        // Persist wizard choices for next time: how this patient likes to
+        // receive their invoice, and whether a future relaunch was scheduled.
+        const patientUpdates: Record<string, unknown> = {}
+        if (invoiceId) {
+          patientUpdates.preferred_invoice_delivery = invoiceDeliveryChoice
+        }
+        if (scheduledRelaunchMonths !== undefined) {
+          if (scheduledRelaunchMonths === null) {
+            patientUpdates.next_relaunch_due_at = null
+            patientUpdates.next_relaunch_months = null
+          } else {
+            const dueDate = new Date(data.date_time)
+            dueDate.setMonth(dueDate.getMonth() + scheduledRelaunchMonths)
+            patientUpdates.next_relaunch_due_at = dueDate.toISOString()
+            patientUpdates.next_relaunch_months = scheduledRelaunchMonths
+          }
+        } else if (newConsultation) {
+          // The practitioner didn't touch the "Relance à venir" step for this
+          // new consultation — any relaunch scheduled from a previous visit
+          // is now stale (the patient just came back on their own) and must
+          // not keep counting down to send an unwanted "come back" email.
+          patientUpdates.next_relaunch_due_at = null
+          patientUpdates.next_relaunch_months = null
+        }
+        if (Object.keys(patientUpdates).length > 0) {
+          await db.from('patients').update(patientUpdates).eq('id', currentPatient.id)
         }
 
         submittedRef.current = true
@@ -634,17 +690,42 @@ export function ConsultationForm({
           await fetch('/api/consultation/draft', { method: 'DELETE' })
         } catch {}
 
+        // The delivery method was already decided in the wizard (step
+        // "Envoi de la facture") — act on it directly instead of asking again.
         if (invoiceId && invoiceNumber) {
-          setCreatedInvoice({
-            id: invoiceId,
-            invoice_number: invoiceNumber,
-          })
-          setShowInvoiceModal(true)
-          setIsLoading(false)
-          // Rafraîchit pour que le banner « brouillon » disparaisse même
-          // lorsqu'une facture est créée (sortie anticipée avant le refresh final).
-          router.refresh()
-          return
+          try {
+            if (invoiceDeliveryChoice === 'email' && resolvedEmail) {
+              const emailRes = await fetch('/api/emails/invoice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ invoiceId }),
+              })
+              if (!emailRes.ok) throw new Error('Échec de l\'envoi de la facture par email')
+              toast({ variant: 'success', title: 'Facture envoyée', description: `Envoyée à ${resolvedEmail}` })
+            } else if (invoiceDeliveryChoice === 'print') {
+              window.open(`/api/invoices/${invoiceId}/pdf`, '_blank')
+              toast({ title: 'PDF ouvert', description: 'Utilisez Ctrl/Cmd + P pour imprimer' })
+            } else if (invoiceDeliveryChoice === 'download') {
+              const pdfResponse = await fetch(`/api/invoices/${invoiceId}/pdf`)
+              const pdfBlob = await pdfResponse.blob()
+              const blobUrl = URL.createObjectURL(pdfBlob)
+              const link = document.createElement('a')
+              link.href = blobUrl
+              link.download = `facture_${invoiceNumber}.pdf`
+              document.body.appendChild(link)
+              link.click()
+              document.body.removeChild(link)
+              URL.revokeObjectURL(blobUrl)
+              toast({ variant: 'success', title: 'Téléchargement terminé', description: `facture_${invoiceNumber}.pdf` })
+            }
+          } catch (deliveryError) {
+            console.error('Error delivering invoice:', deliveryError)
+            toast({
+              variant: 'destructive',
+              title: 'Facture non transmise',
+              description: 'La consultation est enregistrée, mais l\'envoi de la facture a échoué. Vous pouvez réessayer depuis la fiche patient.',
+            })
+          }
         }
 
         toast({
@@ -889,87 +970,73 @@ export function ConsultationForm({
     </Card>
   )
 
+  // Steps shown for a new consultation — "delivery" only applies when an
+  // invoice is actually being created. Edit mode keeps the old single-screen
+  // dialog (billing/relance aren't relevant when editing a past session).
+  type FinalizeStep = 'invoice' | 'delivery' | 'advice' | 'followup' | 'relaunch'
+  const wizardSteps: FinalizeStep[] =
+    mode === 'create'
+      ? ['invoice', ...(createInvoice ? (['delivery'] as const) : []), 'advice', 'followup', 'relaunch']
+      : ['followup']
+  const currentStepIndex = Math.max(0, wizardSteps.indexOf(finalizeStepId))
+  const isFirstWizardStep = currentStepIndex === 0
+  const isLastWizardStep = currentStepIndex === wizardSteps.length - 1
+  const goToNextStep = () => {
+    if (currentStepIndex < wizardSteps.length - 1) setFinalizeStepId(wizardSteps[currentStepIndex + 1])
+  }
+  const goToPrevStep = () => {
+    if (currentStepIndex > 0) setFinalizeStepId(wizardSteps[currentStepIndex - 1])
+  }
+  const stepLabels: Record<string, string> = {
+    invoice: 'Facturation',
+    delivery: 'Envoi de la facture',
+    advice: 'Conseils post-séance',
+    followup: 'Suivi',
+    relaunch: 'Relance à venir',
+  }
+
   const finalizeModal = (
     <Dialog open={showFinalizeModal} onOpenChange={setShowFinalizeModal}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Finaliser la consultation</DialogTitle>
-          <DialogDescription>
-            Suivi du patient et facturation avant l&apos;enregistrement.
-          </DialogDescription>
+          <DialogDescription>{stepLabels[finalizeStepId] || 'Suivi du patient et facturation avant l’enregistrement.'}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-semibold">Suivi</h3>
-            </div>
-            <div className="flex items-center flex-wrap gap-x-2 gap-y-2">
-              <Checkbox
-                id="follow_up_7d"
-                checked={followUp7d}
-                onCheckedChange={(checked) => setValue('follow_up_7d', !!checked)}
+        {wizardSteps.length > 1 && (
+          <div className="flex items-center gap-1.5">
+            {wizardSteps.map((step, i) => (
+              <div
+                key={step}
+                className={cn(
+                  'h-1.5 flex-1 rounded-full transition-colors',
+                  i <= currentStepIndex ? 'bg-primary' : 'bg-muted'
+                )}
+              />
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-6 min-h-[220px]">
+          {shouldCollectEmail && (
+            <div className="space-y-2 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5">
+              <Label htmlFor="contact_email">Adresse email du patient</Label>
+              <Input
+                id="contact_email"
+                type="email"
+                placeholder="email@exemple.com"
+                value={contactEmail}
+                onChange={(event) => setContactEmail(event.target.value)}
                 disabled={isLoading}
               />
-              <Label htmlFor="follow_up_7d" className="cursor-pointer">
-                Demander des nouvelles à J+
-              </Label>
-              <input
-                type="number"
-                min={1}
-                max={365}
-                value={followUpDays}
-                onChange={(e) => setFollowUpDays(Math.max(1, parseInt(e.target.value) || 1))}
-                disabled={isLoading || !followUp7d}
-                className="w-16 h-7 rounded-md border border-input bg-background px-2 text-sm text-center disabled:opacity-50 disabled:cursor-not-allowed"
-              />
-              <span className="text-sm text-muted-foreground">jours (email automatique)</span>
+              <p className="text-xs text-muted-foreground">
+                Indispensable pour l&apos;envoi des emails (suivi, conseils immédiats ou facture).
+              </p>
             </div>
-            {followUp7d && !effectiveEmail && (
-              <p className="text-sm text-yellow-600">
-                Le patient n&apos;a pas d&apos;adresse email. L&apos;email de suivi ne pourra pas être envoyé.
-              </p>
-            )}
-            {mode === 'create' && (
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="send_post_session_advice"
-                  checked={sendPostSessionAdvice}
-                  onCheckedChange={(checked) => setSendPostSessionAdvice(!!checked)}
-                  disabled={isLoading}
-                />
-                <Label htmlFor="send_post_session_advice" className="cursor-pointer">
-                  Envoyer des conseils post-séance par email (immédiat)
-                </Label>
-              </div>
-            )}
-            {sendPostSessionAdvice && !effectiveEmail && (
-              <p className="text-sm text-yellow-600">
-                Le patient n&apos;a pas d&apos;adresse email. L&apos;email ne pourra pas être envoyé.
-              </p>
-            )}
-            {shouldCollectEmail && (
-              <div className="space-y-2">
-                <Label htmlFor="contact_email">Adresse email du patient</Label>
-                <Input
-                  id="contact_email"
-                  type="email"
-                  placeholder="email@exemple.com"
-                  value={contactEmail}
-                  onChange={(event) => setContactEmail(event.target.value)}
-                  disabled={isLoading}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Indispensable pour l&apos;envoi des emails (suivi, conseils immédiats ou facture).
-                </p>
-              </div>
-            )}
-          </div>
+          )}
 
-          {mode === 'create' && (
+          {finalizeStepId === 'invoice' && (
             <div className="space-y-4">
-              <Separator />
               <div className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5 text-primary" />
                 <h3 className="text-lg font-semibold">Facturation</h3>
@@ -1092,6 +1159,192 @@ export function ConsultationForm({
               )}
             </div>
           )}
+
+          {finalizeStepId === 'delivery' && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Envoi de la facture</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Comment le patient souhaite-t-il recevoir sa facture ?
+              </p>
+              <div className="grid gap-2">
+                {(
+                  [
+                    { id: 'email', icon: Mail, title: 'Par email', description: effectiveEmail ? `Envoyer à ${effectiveEmail}` : 'Aucun email renseigné', disabled: !effectiveEmail },
+                    { id: 'print', icon: Printer, title: 'Imprimer', description: 'Ouvrir le PDF pour impression', disabled: false },
+                    { id: 'download', icon: Download, title: 'Télécharger', description: 'Télécharger le PDF sur cet ordinateur', disabled: false },
+                    { id: 'skip', icon: X, title: 'Ne rien faire', description: 'Gérer la facture plus tard', disabled: false },
+                  ] as const
+                ).map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    disabled={option.disabled || isLoading}
+                    onClick={() => setInvoiceDeliveryChoice(option.id)}
+                    className={cn(
+                      'flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-colors',
+                      invoiceDeliveryChoice === option.id ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-primary/40',
+                      option.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                    )}
+                  >
+                    <div className={cn(
+                      'w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0',
+                      invoiceDeliveryChoice === option.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                    )}>
+                      <option.icon className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm">{option.title}</p>
+                      <p className="text-xs text-muted-foreground truncate">{option.description}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Ce choix sera mémorisé pour ce patient et proposé par défaut la prochaine fois.
+              </p>
+            </div>
+          )}
+
+          {finalizeStepId === 'advice' && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <HeartPulse className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Conseils post-séance</h3>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="send_post_session_advice"
+                  checked={sendPostSessionAdvice}
+                  onCheckedChange={(checked) => setSendPostSessionAdvice(!!checked)}
+                  disabled={isLoading}
+                />
+                <Label htmlFor="send_post_session_advice" className="cursor-pointer">
+                  Envoyer des conseils post-séance par email (immédiat)
+                </Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Cochez les conseils adaptés à ce patient : ils formeront le contenu de l&apos;email envoyé immédiatement à son adresse.
+              </p>
+              {sendPostSessionAdvice && !effectiveEmail && (
+                <p className="text-sm text-yellow-600">
+                  Le patient n&apos;a pas d&apos;adresse email. L&apos;email ne pourra pas être envoyé.
+                </p>
+              )}
+              {sendPostSessionAdvice && (
+                <div className="space-y-4 rounded-lg border p-4">
+                  {(['general', 'acute', 'chronic', 'redflags'] as AdviceCategory[]).map((category) => {
+                    const items = POST_SESSION_ADVICE_OPTIONS.filter((o) => o.category === category)
+                    return (
+                      <div key={category} className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {ADVICE_CATEGORY_LABELS[category]}
+                        </p>
+                        <div className="space-y-2">
+                          {items.map((item) => (
+                            <div key={item.id} className="flex items-start space-x-2">
+                              <Checkbox
+                                id={`advice_${item.id}`}
+                                checked={selectedAdviceIds.includes(item.id)}
+                                onCheckedChange={(checked) => {
+                                  setSelectedAdviceIds((prev) =>
+                                    checked ? [...prev, item.id] : prev.filter((id) => id !== item.id)
+                                  )
+                                }}
+                                disabled={isLoading}
+                                className="mt-0.5"
+                              />
+                              <Label htmlFor={`advice_${item.id}`} className="cursor-pointer font-normal leading-snug">
+                                <span className="font-medium">{item.title}</span>
+                                <span className="text-muted-foreground"> — {item.text}</span>
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {finalizeStepId === 'followup' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Suivi</h3>
+              </div>
+              <div className="flex items-center flex-wrap gap-x-2 gap-y-2">
+                <Checkbox
+                  id="follow_up_7d"
+                  checked={followUp7d}
+                  onCheckedChange={(checked) => setValue('follow_up_7d', !!checked)}
+                  disabled={isLoading}
+                />
+                <Label htmlFor="follow_up_7d" className="cursor-pointer">
+                  Demander des nouvelles à J+
+                </Label>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={followUpDays}
+                  onChange={(e) => setFollowUpDays(Math.max(1, parseInt(e.target.value) || 1))}
+                  disabled={isLoading || !followUp7d}
+                  className="w-16 h-7 rounded-md border border-input bg-background px-2 text-sm text-center disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <span className="text-sm text-muted-foreground">jours (email automatique)</span>
+              </div>
+              {followUp7d && !effectiveEmail && (
+                <p className="text-sm text-yellow-600">
+                  Le patient n&apos;a pas d&apos;adresse email. L&apos;email de suivi ne pourra pas être envoyé.
+                </p>
+              )}
+            </div>
+          )}
+
+          {finalizeStepId === 'relaunch' && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <CalendarClock className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Relance à venir</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Souhaitez-vous relancer {currentPatient.first_name} pour une consultation dans les mois à venir ?
+                Il/elle apparaîtra automatiquement dans les relances patients à l&apos;échéance choisie.
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[3, 6, 12].map((months) => (
+                  <Button
+                    key={months}
+                    type="button"
+                    variant={scheduledRelaunchMonths === months ? 'default' : 'outline'}
+                    onClick={() => setScheduledRelaunchMonths(months)}
+                    disabled={isLoading}
+                  >
+                    {months} mois
+                  </Button>
+                ))}
+                <Button
+                  type="button"
+                  variant={scheduledRelaunchMonths === null ? 'default' : 'outline'}
+                  onClick={() => setScheduledRelaunchMonths(null)}
+                  disabled={isLoading}
+                  className="col-span-2 sm:col-span-1"
+                >
+                  Non
+                </Button>
+              </div>
+              {!effectiveEmail && scheduledRelaunchMonths && (
+                <p className="text-sm text-yellow-600">
+                  Le patient n&apos;a pas d&apos;adresse email. La relance ne pourra pas être envoyée le moment venu.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
@@ -1103,6 +1356,19 @@ export function ConsultationForm({
           >
             Continuer la consultation
           </Button>
+          {!isFirstWizardStep && (
+            <Button type="button" variant="outline" onClick={goToPrevStep} disabled={isLoading} className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Précédent
+            </Button>
+          )}
+          {!isLastWizardStep && (
+            <Button type="button" onClick={goToNextStep} disabled={isLoading} className="gap-2">
+              Suivant
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
+          {isLastWizardStep && (
           <Button
             type="button"
             onClick={handleSubmit(onSubmit, () => {
@@ -1126,6 +1392,7 @@ export function ConsultationForm({
               'Mettre à jour'
             )}
           </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1578,20 +1845,6 @@ export function ConsultationForm({
           setContactEmail(updatedPatient.email || '')
         }}
       />
-      {createdInvoice && (
-        <InvoiceActionModal
-          open={showInvoiceModal}
-          onOpenChange={setShowInvoiceModal}
-          invoiceId={createdInvoice.id}
-          invoiceNumber={createdInvoice.invoice_number}
-          patientEmail={effectiveEmail || undefined}
-          patientName={`${currentPatient.last_name} ${currentPatient.first_name}`}
-          onComplete={() => {
-            router.push(`/patients/${currentPatient.id}`)
-            router.refresh()
-          }}
-        />
-      )}
       <TopographyPanel open={showTopography} onClose={() => setShowTopography(false)} />
 
       <OrthoTestsPickerDialog

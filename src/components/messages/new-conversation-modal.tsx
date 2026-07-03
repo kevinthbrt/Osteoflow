@@ -16,6 +16,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Progress } from '@/components/ui/progress'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Search, MessageCircle, Loader2, Mail, User, Send, Users, ArrowLeft, Sparkles } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
 import { buildSearchOrFilters } from '@/lib/utils/search'
@@ -51,12 +53,38 @@ export function NewConversationModal({
 
   // Broadcast state
   const [showBroadcast, setShowBroadcast] = useState(false)
+  const [broadcastSubject, setBroadcastSubject] = useState('')
   const [broadcastContent, setBroadcastContent] = useState('')
+  const [broadcastActiveSinceDate, setBroadcastActiveSinceDate] = useState('')
+  const [broadcastIncludeBookingButton, setBroadcastIncludeBookingButton] = useState(false)
   const [isBroadcasting, setIsBroadcasting] = useState(false)
   const [showQuickReplies, setShowQuickReplies] = useState(false)
+  const [broadcastCampaign, setBroadcastCampaign] = useState<{
+    status: string
+    total: number
+    sent: number
+    failed: number
+    dailyLimitReached?: boolean
+  } | null>(null)
+  const [broadcastDeduplicated, setBroadcastDeduplicated] = useState(0)
+  const [broadcastPreview, setBroadcastPreview] = useState<{
+    totalPatients: number
+    totalEmails: number
+    deduplicated: number
+    dailyLimit: number
+    hasBookingUrl: boolean
+  } | null>(null)
+  const [isLoadingBroadcastPreview, setIsLoadingBroadcastPreview] = useState(false)
 
   const { toast } = useToast()
   const dbRef = useRef(createClient())
+  const broadcastPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (broadcastPollRef.current) clearInterval(broadcastPollRef.current)
+    }
+  }, [])
 
   // Reset form when modal closes
   useEffect(() => {
@@ -68,10 +96,38 @@ export function NewConversationModal({
       setManualMessage('')
       setActiveTab('patient')
       setShowBroadcast(false)
+      setBroadcastSubject('')
       setBroadcastContent('')
+      setBroadcastActiveSinceDate('')
+      setBroadcastIncludeBookingButton(false)
       setShowQuickReplies(false)
+      setBroadcastCampaign(null)
+      setBroadcastDeduplicated(0)
+      setBroadcastPreview(null)
+      if (broadcastPollRef.current) clearInterval(broadcastPollRef.current)
     }
   }, [open])
+
+  // Live preview of how many emails a broadcast will actually send —
+  // recomputed whenever the "active since" filter changes.
+  useEffect(() => {
+    if (!showBroadcast) return
+    let cancelled = false
+    setIsLoadingBroadcastPreview(true)
+    const params = broadcastActiveSinceDate ? `?activeSinceDate=${broadcastActiveSinceDate}` : ''
+    fetch(`/api/messages/broadcast/recipient-count${params}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setBroadcastPreview(data)
+      })
+      .catch((error) => console.error('Error fetching broadcast preview:', error))
+      .finally(() => {
+        if (!cancelled) setIsLoadingBroadcastPreview(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [showBroadcast, broadcastActiveSinceDate])
 
   const searchPatients = useDebouncedCallback(async (query: string) => {
     if (!query.trim()) {
@@ -325,14 +381,90 @@ export function NewConversationModal({
     }
   }
 
+  const pollBroadcastCampaign = (campaignId: string) => {
+    if (broadcastPollRef.current) clearInterval(broadcastPollRef.current)
+    broadcastPollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/messages/campaigns/${campaignId}`)
+        const data = await res.json()
+        if (!res.ok) return
+        setBroadcastCampaign(data)
+        if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
+          if (broadcastPollRef.current) clearInterval(broadcastPollRef.current)
+          setIsBroadcasting(false)
+          if (data.status === 'completed') {
+            toast({
+              variant: 'success',
+              title: 'Diffusion terminée',
+              description: `${data.sent}/${data.total} email(s) envoyé(s)${data.failed ? `, ${data.failed} échec(s)` : ''}`,
+            })
+          } else if (data.status === 'failed') {
+            toast({
+              variant: 'destructive',
+              title: 'Diffusion échouée',
+              description: data.errorMessage || 'Erreur lors de la diffusion',
+            })
+          }
+        } else if (data.dailyLimitReached) {
+          // Gmail's daily cap is reached — stop polling for now, sending
+          // resumes automatically tomorrow via the background cron.
+          if (broadcastPollRef.current) clearInterval(broadcastPollRef.current)
+          setIsBroadcasting(false)
+        }
+      } catch (error) {
+        console.error('Error polling broadcast campaign:', error)
+      }
+    }, 1500)
+  }
+
+  // On opening the broadcast view, check whether a campaign is already in
+  // flight (e.g. paused for the day, from before a page reload/app restart)
+  // — otherwise the compose form looks empty and a fresh click could start
+  // a duplicate campaign on top of the one still running server-side.
+  useEffect(() => {
+    if (!showBroadcast) return
+    let cancelled = false
+    fetch('/api/messages/campaigns/active')
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return
+        const active = data.campaign
+        if (active && active.type === 'broadcast') {
+          setBroadcastCampaign(active)
+          if (!active.dailyLimitReached) {
+            setIsBroadcasting(true)
+            pollBroadcastCampaign(active.id)
+          }
+        }
+      })
+      .catch((error) => console.error('Error checking active broadcast:', error))
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showBroadcast])
+
+  // A campaign paused for the day (Gmail's daily cap) is no longer "isBroadcasting"
+  // (polling stopped) but still has recipients left — don't let a fresh click
+  // start a second, duplicate campaign on top of it.
+  const hasUnfinishedBroadcast = Boolean(
+    broadcastCampaign && !['completed', 'failed', 'cancelled'].includes(broadcastCampaign.status)
+  )
+
   const handleBroadcast = async () => {
     if (!broadcastContent.trim()) return
     setIsBroadcasting(true)
+    setBroadcastCampaign(null)
     try {
       const res = await fetch('/api/messages/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: broadcastContent }),
+        body: JSON.stringify({
+          subject: broadcastSubject.trim() || null,
+          content: broadcastContent,
+          activeSinceDate: broadcastActiveSinceDate || null,
+          includeBookingButton: broadcastIncludeBookingButton,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -341,21 +473,21 @@ export function NewConversationModal({
           title: 'Erreur',
           description: data.error || 'Erreur lors de la diffusion',
         })
-      } else {
-        toast({
-          variant: 'success',
-          title: 'Diffusion envoyée',
-          description: `${data.sent}/${data.total} email(s) envoyé(s)`,
-        })
-        onOpenChange(false)
+        setIsBroadcasting(false)
+        return
       }
+
+      // Sending happens in the background — poll for progress instead of
+      // waiting on a single request that could take minutes for large lists.
+      setBroadcastCampaign({ status: 'pending', total: data.total, sent: 0, failed: 0 })
+      setBroadcastDeduplicated(data.deduplicated || 0)
+      pollBroadcastCampaign(data.campaignId)
     } catch {
       toast({
         variant: 'destructive',
         title: 'Erreur',
         description: 'Impossible de diffuser le message',
       })
-    } finally {
       setIsBroadcasting(false)
     }
   }
@@ -364,7 +496,7 @@ export function NewConversationModal({
   if (showBroadcast) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Button
@@ -383,7 +515,10 @@ export function NewConversationModal({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          {/* Scrollable body — kept separate from the header/footer so a long
+              message (the Textarea auto-grows with its content) scrolls
+              internally instead of pushing the dialog past the viewport. */}
+          <div className="space-y-4 flex-1 overflow-y-auto min-h-0 pr-1">
             {showQuickReplies && (
               <QuickReplies
                 onSelect={(content) => {
@@ -405,6 +540,19 @@ export function NewConversationModal({
               </Button>
             </div>
 
+            <div className="space-y-1.5">
+              <Label htmlFor="broadcast-subject" className="text-xs font-normal text-muted-foreground">
+                Objet de l&apos;email
+              </Label>
+              <Input
+                id="broadcast-subject"
+                placeholder="Message de votre cabinet"
+                value={broadcastSubject}
+                onChange={(e) => setBroadcastSubject(e.target.value)}
+                disabled={isBroadcasting}
+              />
+            </div>
+
             <Textarea
               placeholder="Votre message..."
               value={broadcastContent}
@@ -413,31 +561,142 @@ export function NewConversationModal({
               disabled={isBroadcasting}
             />
 
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowBroadcast(false)}
+            <div className="space-y-1.5">
+              <Label htmlFor="broadcast-active-since" className="text-xs font-normal text-muted-foreground">
+                Envoyer uniquement aux patients actifs depuis le (optionnel)
+              </Label>
+              <Input
+                id="broadcast-active-since"
+                type="date"
+                value={broadcastActiveSinceDate}
+                onChange={(e) => setBroadcastActiveSinceDate(e.target.value)}
                 disabled={isBroadcasting}
-              >
-                Retour
-              </Button>
-              <Button
-                onClick={handleBroadcast}
-                disabled={isBroadcasting || !broadcastContent.trim()}
-              >
-                {isBroadcasting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    Envoi en cours...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-1" />
-                    Envoyer à tous
-                  </>
-                )}
-              </Button>
+                className="w-40 h-8"
+              />
+              <p className="text-xs text-muted-foreground">
+                Pour éviter de contacter d&apos;anciens patients non revus depuis longtemps.
+              </p>
             </div>
+
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="broadcast-booking-button"
+                checked={broadcastIncludeBookingButton}
+                onCheckedChange={(checked) => setBroadcastIncludeBookingButton(checked === true)}
+                disabled={isBroadcasting}
+                className="mt-0.5"
+              />
+              <div>
+                <Label htmlFor="broadcast-booking-button" className="text-sm font-normal cursor-pointer">
+                  Inclure un bouton &laquo; Prendre rendez-vous &raquo;
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {broadcastPreview?.hasBookingUrl
+                    ? 'Utilise votre lien de prise de rendez-vous configuré dans les paramètres.'
+                    : 'Aucun lien configuré : le bouton renverra vers votre email/téléphone. Vous pouvez ajouter un lien de prise de RDV dans les paramètres.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border p-3 text-sm bg-muted/30">
+              {isLoadingBroadcastPreview ? (
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Calcul du nombre de destinataires…
+                </span>
+              ) : broadcastPreview ? (
+                broadcastPreview.totalEmails === 0 ? (
+                  <span className="text-muted-foreground">Aucun patient ne correspond à ce filtre.</span>
+                ) : (
+                  <div className="space-y-0.5">
+                    <p className="font-medium">
+                      Ce message sera envoyé à{' '}
+                      <span className="text-primary">{broadcastPreview.totalEmails} email{broadcastPreview.totalEmails > 1 ? 's' : ''}</span>
+                      {' '}({broadcastPreview.totalPatients} patient{broadcastPreview.totalPatients > 1 ? 's' : ''})
+                    </p>
+                    {broadcastPreview.deduplicated > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {broadcastPreview.deduplicated} patient{broadcastPreview.deduplicated > 1 ? 's' : ''} partage{broadcastPreview.deduplicated > 1 ? 'nt' : ''} une adresse avec un autre — un seul email envoyé par adresse.
+                      </p>
+                    )}
+                    {broadcastPreview.totalEmails > broadcastPreview.dailyLimit && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        Gmail limite l&apos;envoi à {broadcastPreview.dailyLimit} emails par jour : l&apos;envoi prendra environ{' '}
+                        {Math.ceil(broadcastPreview.totalEmails / broadcastPreview.dailyLimit)} jours. Pensez à garder l&apos;application ouverte chaque jour pour que l&apos;envoi progresse.
+                      </p>
+                    )}
+                  </div>
+                )
+              ) : null}
+            </div>
+
+            {broadcastCampaign && (
+              <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
+                <div className="flex items-center justify-between text-sm">
+                  <span>
+                    {broadcastCampaign.status === 'completed'
+                      ? 'Diffusion terminée'
+                      : broadcastCampaign.status === 'failed'
+                      ? 'Échec de la diffusion'
+                      : broadcastCampaign.dailyLimitReached
+                      ? 'En pause — limite quotidienne atteinte'
+                      : 'Envoi en cours en arrière-plan…'}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {broadcastCampaign.sent}/{broadcastCampaign.total}
+                  </span>
+                </div>
+                <Progress
+                  value={broadcastCampaign.total > 0 ? (broadcastCampaign.sent / broadcastCampaign.total) * 100 : 0}
+                />
+                {broadcastCampaign.dailyLimitReached && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Gmail limite l&apos;envoi à 450 emails par jour. Il reste {broadcastCampaign.total - broadcastCampaign.sent - broadcastCampaign.failed} patient(s) à contacter — l&apos;envoi reprendra automatiquement demain jusqu&apos;à ce que tout le monde soit contacté.
+                  </p>
+                )}
+                {broadcastDeduplicated > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {broadcastDeduplicated} patient{broadcastDeduplicated > 1 ? 's' : ''} partage{broadcastDeduplicated > 1 ? 'nt' : ''} une adresse email avec un autre — un seul email envoyé par adresse.
+                  </p>
+                )}
+                {isBroadcasting && (
+                  <p className="text-xs text-muted-foreground">
+                    Vous pouvez fermer cette fenêtre, l&apos;envoi continue en arrière-plan.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Pinned footer — stays visible even when the body above scrolls. */}
+          <div className="flex justify-end gap-2 pt-3 border-t">
+            <Button
+              variant="outline"
+              onClick={() => (isBroadcasting || hasUnfinishedBroadcast ? onOpenChange(false) : setShowBroadcast(false))}
+            >
+              {isBroadcasting || hasUnfinishedBroadcast ? 'Fermer' : 'Retour'}
+            </Button>
+            <Button
+              onClick={handleBroadcast}
+              disabled={
+                isBroadcasting ||
+                hasUnfinishedBroadcast ||
+                !broadcastContent.trim() ||
+                broadcastPreview?.totalEmails === 0
+              }
+            >
+              {isBroadcasting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  Envoi en cours...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-1" />
+                  Envoyer à tous{broadcastPreview ? ` (${broadcastPreview.totalEmails})` : ''}
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -446,7 +705,7 @@ export function NewConversationModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MessageCircle className="h-5 w-5 text-primary" />
@@ -457,7 +716,10 @@ export function NewConversationModal({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        {/* Scrollable body — the manual-message Textarea auto-grows with its
+            content, so it must scroll internally rather than push the
+            dialog past the viewport. */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 overflow-y-auto min-h-0 pr-1">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="patient" className="flex items-center gap-2">
               <User className="h-4 w-4" />

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,12 +38,15 @@ import {
   FileText,
   Image,
   RefreshCw,
+  UserX,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { getInitials } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { NewConversationModal } from '@/components/messages/new-conversation-modal'
+import { RelaunchPanel } from '@/components/messages/relaunch-panel'
+import { ActiveCampaignBanner } from '@/components/messages/active-campaign-banner'
 import { QuickReplies } from '@/components/messages/quick-replies'
 import type { Patient } from '@/types/database'
 
@@ -104,6 +108,15 @@ interface Message {
 }
 
 export default function MessagesPage() {
+  return (
+    <Suspense>
+      <MessagesPageInner />
+    </Suspense>
+  )
+}
+
+function MessagesPageInner() {
+  const searchParams = useSearchParams()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -115,10 +128,19 @@ export default function MessagesPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [showNewModal, setShowNewModal] = useState(false)
+  const [showRelaunchPanel, setShowRelaunchPanel] = useState(false)
   const [isMobileView, setIsMobileView] = useState(false)
   const { toast } = useToast()
   const dbRef = useRef(createClient())
   const hasLoadedRef = useRef(false)
+
+  // Deep link from the dashboard widget: /messages?panel=relaunch
+  useEffect(() => {
+    if (searchParams.get('panel') === 'relaunch') {
+      setShowRelaunchPanel(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Check for mobile view
   useEffect(() => {
@@ -431,7 +453,19 @@ export default function MessagesPage() {
             >
               <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
             </Button>
-            <Button size="sm" onClick={() => setShowNewModal(true)}>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowRelaunchPanel(true)}
+              title="Voir les patients non vus depuis longtemps et les relancer"
+              className="flex-1"
+            >
+              <UserX className="h-4 w-4 mr-1" />
+              Patients inactifs
+            </Button>
+            <Button size="sm" onClick={() => setShowNewModal(true)} className="flex-1">
               <Plus className="h-4 w-4 mr-1" />
               Nouveau
             </Button>
@@ -446,6 +480,8 @@ export default function MessagesPage() {
             />
           </div>
         </div>
+
+        <ActiveCampaignBanner />
 
         {/* Conversation list */}
         <div className="flex-1 overflow-y-auto">
@@ -617,6 +653,8 @@ export default function MessagesPage() {
           setSelectedConversation(conv as Conversation)
         }}
       />
+
+      <RelaunchPanel open={showRelaunchPanel} onOpenChange={setShowRelaunchPanel} />
 
     </div>
   )

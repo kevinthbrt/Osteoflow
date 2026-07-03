@@ -10,6 +10,7 @@ import http from 'http'
 
 const FOLLOW_UP_INTERVAL = 15 * 60 * 1000 // 15 minutes
 const INBOX_INTERVAL = 5 * 60 * 1000 // 5 minutes
+const CAMPAIGN_INTERVAL = 20 * 1000 // 20 seconds — mass sends (broadcast/relance) need fast draining
 const STARTUP_DELAY = 15_000 // 15 seconds after init
 const PORT = 3456
 
@@ -69,8 +70,12 @@ export function initServerCron(): void {
     runInboxSync()
     setInterval(runInboxSync, INBOX_INTERVAL)
 
+    // Email campaigns (broadcast/relance) - first run then every 20s
+    runCampaignProcessing()
+    setInterval(runCampaignProcessing, CAMPAIGN_INTERVAL)
+
     console.log(
-      `[ServerCron] Follow-up: every ${FOLLOW_UP_INTERVAL / 60000}min | Inbox: every ${INBOX_INTERVAL / 60000}min`
+      `[ServerCron] Follow-up: every ${FOLLOW_UP_INTERVAL / 60000}min | Inbox: every ${INBOX_INTERVAL / 60000}min | Campaigns: every ${CAMPAIGN_INTERVAL / 1000}s`
     )
   }, STARTUP_DELAY)
 }
@@ -100,6 +105,33 @@ async function runFollowUp(): Promise<void> {
   } catch (error) {
     console.error(
       '[ServerCron] Follow-up error:',
+      error instanceof Error ? error.message : error
+    )
+  }
+}
+
+async function runCampaignProcessing(): Promise<void> {
+  try {
+    const { status, body } = await localRequest('POST', '/api/messages/campaigns/process', {
+      Authorization: 'Bearer local-desktop-cron',
+    })
+
+    if (status >= 400) {
+      console.error(`[ServerCron] Campaign processing failed (HTTP ${status}):`, body)
+      return
+    }
+
+    try {
+      const data = JSON.parse(body)
+      if (data.processed && data.processed > 0) {
+        console.log(`[ServerCron] Processed ${data.processed} campaign recipient(s)`)
+      }
+    } catch {
+      // Ignore parse errors, non-critical
+    }
+  } catch (error) {
+    console.error(
+      '[ServerCron] Campaign processing error:',
       error instanceof Error ? error.message : error
     )
   }

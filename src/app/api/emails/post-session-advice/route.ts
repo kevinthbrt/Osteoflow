@@ -7,8 +7,9 @@ export async function POST(request: NextRequest) {
     const { sendEmail } = await import('@/lib/email/smtp-service')
     const { formatDate } = await import('@/lib/utils')
     const { getProfessionLabel } = await import('@/lib/practitioner/profession')
+    const { getAdviceOptionsByIds, DEFAULT_ADVICE_IDS } = await import('@/lib/consultations/post-session-advice-options')
 
-    const { consultationId } = await request.json()
+    const { consultationId, adviceIds } = await request.json()
 
     if (!consultationId) {
       return NextResponse.json(
@@ -60,6 +61,9 @@ export async function POST(request: NextRequest) {
     const practitionerName = `${practitioner.first_name} ${practitioner.last_name}`
     const bodyText = `Bonjour ${patient.first_name},\n\nMerci pour votre confiance lors de votre séance du ${formatDate(consultation.date_time)}.\n\nVoici quelques conseils pour optimiser les bienfaits de votre consultation :`
 
+    const selectedIds: string[] = Array.isArray(adviceIds) && adviceIds.length > 0 ? adviceIds : DEFAULT_ADVICE_IDS
+    const adviceItems = getAdviceOptionsByIds(selectedIds).map((o) => ({ title: o.title, text: o.text, color: o.color }))
+
     const htmlContent = createPostSessionAdviceHtmlEmail({
       bodyText,
       practitionerName,
@@ -67,6 +71,7 @@ export async function POST(request: NextRequest) {
       specialty: getProfessionLabel(practitioner.profession, practitioner.specialty),
       primaryColor: practitioner.primary_color || '#2563eb',
       googleReviewUrl: practitioner.google_review_url,
+      adviceItems,
     })
 
     const subject = `Conseils post-séance - ${practitioner.practice_name || practitionerName}`

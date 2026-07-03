@@ -37,6 +37,11 @@ export const practitionerSettingsSchema = z.object({
     .url('Le lien Google doit être une URL valide')
     .optional()
     .or(z.literal('')),
+  booking_url: z
+    .string()
+    .url('Le lien de prise de rendez-vous doit être une URL valide')
+    .optional()
+    .or(z.literal('')),
   address: z
     .string()
     .max(500, 'L\'adresse ne peut pas dépasser 500 caractères')
