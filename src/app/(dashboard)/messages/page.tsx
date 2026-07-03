@@ -434,16 +434,19 @@ export default function MessagesPage() {
             >
               <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
             </Button>
+          </div>
+          <div className="flex items-center gap-2">
             <Button
               size="sm"
               variant="outline"
               onClick={() => setShowRelaunchPanel(true)}
-              title="Relancer les patients non vus depuis longtemps"
-              className="px-2"
+              title="Voir les patients non vus depuis longtemps et les relancer"
+              className="flex-1"
             >
-              <UserX className="h-4 w-4" />
+              <UserX className="h-4 w-4 mr-1" />
+              Patients inactifs
             </Button>
-            <Button size="sm" onClick={() => setShowNewModal(true)}>
+            <Button size="sm" onClick={() => setShowNewModal(true)} className="flex-1">
               <Plus className="h-4 w-4 mr-1" />
               Nouveau
             </Button>
