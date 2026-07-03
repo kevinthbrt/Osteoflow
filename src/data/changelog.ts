@@ -19,6 +19,30 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.12.0',
+    date: '2026-07-03',
+    title: 'Relance des patients non vus et diffusion fiabilisée',
+    changes: [
+      // Relance patients
+      { type: 'feature', text: 'Nouveau panneau « Patients inactifs » dans la Messagerie : liste les patients non revus depuis une période choisie (1 mois à 1 an), avec relance en un clic pour un patient précis ou envoi groupé pour tous. Email dédié et personnalisé ; les patients relancés apparaissent ensuite dans une liste « Déjà relancés » jusqu\'à leur retour, avec possibilité de les relancer à nouveau.' },
+      { type: 'feature', text: 'Lien de prise de rendez-vous configurable dans les paramètres : proposé dans les emails de relance et, en option, dans la diffusion à tous les patients. Signalé sur le tableau de bord tant qu\'il n\'est pas renseigné.' },
+      { type: 'improvement', text: 'Filtre « patients actifs depuis telle date » pour la relance et la diffusion — utile après un changement de cabinet pour ne pas relancer d\'anciens patients d\'une adresse précédente. Réglage mémorisé pour la relance.' },
+      { type: 'improvement', text: 'Recherche par nom dans le panneau de relance pour retrouver rapidement un patient précis.' },
+      { type: 'feature', text: 'Nouveau widget « Relances patients » sur le tableau de bord, avec accès direct au panneau de relance.' },
+      // Diffusion à tous les patients
+      { type: 'improvement', text: 'Diffusion à tous les patients : le nombre exact d\'emails qui seront envoyés s\'affiche avant l\'envoi (mis à jour avec les filtres), avec un champ objet personnalisable et un bouton optionnel « Prendre rendez-vous ».' },
+      { type: 'improvement', text: 'Les patients partageant la même adresse email (par exemple plusieurs enfants avec l\'email d\'un parent) ne reçoivent plus qu\'un seul email au lieu d\'un par patient, pour la diffusion comme pour la relance.' },
+      { type: 'fix', text: 'Correction d\'un bug empêchant l\'envoi d\'email (individuel et diffusion) pour tout praticien ayant configuré ses paramètres SMTP : le mot de passe, chiffré en base, n\'était jamais déchiffré avant l\'envoi, ce qui faisait systématiquement échouer l\'authentification.' },
+      // Fiabilité de l'envoi en masse
+      { type: 'improvement', text: 'Diffusion et relance en masse : l\'envoi se fait désormais en arrière-plan par lots, avec une connexion SMTP réutilisée au lieu d\'une par email — fini les blocages sur les listes de plusieurs milliers de patients.' },
+      { type: 'feature', text: 'Limite d\'envoi de 450 emails par jour (sous le plafond de Gmail) pour préserver l\'envoi des factures et suivis du jour même. Au-delà, l\'envoi reprend automatiquement le lendemain jusqu\'à épuisement de la liste, avec un message clair indiquant le délai estimé et l\'importance de garder l\'application ouverte.' },
+      { type: 'improvement', text: 'Une diffusion ou relance en cours, même étalée sur plusieurs jours, est retrouvée à la réouverture de l\'application avec sa progression exacte — évite de la relancer par erreur en double.' },
+      { type: 'improvement', text: 'Correction d\'un débordement de la fenêtre de composition (diffusion et nouveau message) pour les messages longs : le contenu défile désormais à l\'intérieur de la fenêtre au lieu de la pousser hors de l\'écran.' },
+      // Divers
+      { type: 'improvement', text: 'Vérification des mises à jour de l\'application toutes les 15 minutes au lieu de 4 heures — les correctifs arrivent plus vite.' },
+    ],
+  },
+  {
     version: '1.11.9',
     date: '2026-07-02',
     title: 'Revue de littérature en modale, thème modernisé et correctif facturation',
