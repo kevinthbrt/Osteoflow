@@ -673,6 +673,13 @@ export function ConsultationForm({
             patientUpdates.next_relaunch_due_at = dueDate.toISOString()
             patientUpdates.next_relaunch_months = scheduledRelaunchMonths
           }
+        } else if (newConsultation) {
+          // The practitioner didn't touch the "Relance à venir" step for this
+          // new consultation — any relaunch scheduled from a previous visit
+          // is now stale (the patient just came back on their own) and must
+          // not keep counting down to send an unwanted "come back" email.
+          patientUpdates.next_relaunch_due_at = null
+          patientUpdates.next_relaunch_months = null
         }
         if (Object.keys(patientUpdates).length > 0) {
           await db.from('patients').update(patientUpdates).eq('id', currentPatient.id)
