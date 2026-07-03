@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 export async function GET() {
   try {
     const { createClient } = await import('@/lib/db/server')
+    const { getDailySendStatus } = await import('@/lib/email/campaign-processor')
     const db = await createClient()
 
     const { data: { user } } = await db.auth.getUser()
@@ -34,6 +35,8 @@ export async function GET() {
       return NextResponse.json({ campaign: null })
     }
 
+    const dailyStatus = getDailySendStatus(practitioner.id)
+
     return NextResponse.json({
       campaign: {
         id: campaign.id,
@@ -42,6 +45,7 @@ export async function GET() {
         total: campaign.total_recipients,
         sent: campaign.sent_count,
         failed: campaign.failed_count,
+        dailyLimitReached: campaign.sent_count + campaign.failed_count < campaign.total_recipients && dailyStatus.limitReached,
       },
     })
   } catch (error) {

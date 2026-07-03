@@ -45,6 +45,7 @@ import { getInitials } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { NewConversationModal } from '@/components/messages/new-conversation-modal'
 import { RelaunchPanel } from '@/components/messages/relaunch-panel'
+import { ActiveCampaignBanner } from '@/components/messages/active-campaign-banner'
 import { QuickReplies } from '@/components/messages/quick-replies'
 import type { Patient } from '@/types/database'
 
@@ -461,6 +462,8 @@ export default function MessagesPage() {
             />
           </div>
         </div>
+
+        <ActiveCampaignBanner />
 
         {/* Conversation list */}
         <div className="flex-1 overflow-y-auto">

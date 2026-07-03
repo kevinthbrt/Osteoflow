@@ -20,6 +20,13 @@ import { getProfessionLabel } from '@/lib/practitioner/profession'
 
 const BATCH_SIZE = 25
 
+// Gmail's free-account cap is 500 recipients/day. We stay under it so the
+// practitioner's other transactional emails (factures, suivi J+7, conseils
+// post-séance...) — which don't go through campaigns — always have headroom
+// to send on the same day. Once the cap is hit, remaining recipients simply
+// stay 'pending' and get picked up again once the daily count resets.
+export const DAILY_SEND_LIMIT = 450
+
 interface CampaignRow {
   id: string
   practitioner_id: string
@@ -41,24 +48,69 @@ function allPatientIds(recipient: RecipientRow): string[] {
   return [recipient.patient_id, ...linked]
 }
 
+function startOfTodayIso(): string {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d.toISOString()
+}
+
+function getSentTodayCount(db: ReturnType<typeof getDatabase>, practitionerId: string, todayIso: string): number {
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) as c FROM email_campaign_recipients r
+       JOIN email_campaigns c ON c.id = r.campaign_id
+       WHERE c.practitioner_id = ? AND r.status = 'sent' AND r.sent_at >= ?`
+    )
+    .get(practitionerId, todayIso) as { c: number }
+  return row.c
+}
+
 /**
- * Process one batch (up to BATCH_SIZE recipients) for every campaign that
- * still has pending recipients. Safe to call repeatedly/concurrently — each
- * call only claims recipients that are still 'pending' at read time.
+ * Public helper for API routes: tells the UI whether a campaign is currently
+ * paused waiting for tomorrow's Gmail quota, so it can show the right message
+ * instead of looking stuck.
+ */
+export function getDailySendStatus(practitionerId: string): { sentToday: number; remainingToday: number; limitReached: boolean } {
+  const db = getDatabase()
+  const sentToday = getSentTodayCount(db, practitionerId, startOfTodayIso())
+  const remainingToday = Math.max(0, DAILY_SEND_LIMIT - sentToday)
+  return { sentToday, remainingToday, limitReached: remainingToday === 0 }
+}
+
+/**
+ * Process one batch (up to BATCH_SIZE recipients, capped by the remaining
+ * daily budget) for every campaign that still has pending recipients. Safe
+ * to call repeatedly/concurrently — each call only claims recipients that
+ * are still 'pending' at read time.
  */
 export async function processCampaignBatch(): Promise<{ processed: number }> {
   const db = getDatabase()
+  const todayIso = startOfTodayIso()
 
   const activeCampaigns = db
     .prepare(`SELECT * FROM email_campaigns WHERE status IN ('pending', 'processing') ORDER BY created_at ASC`)
     .all() as CampaignRow[]
 
   let totalProcessed = 0
+  // Tracks how many emails have gone out today per practitioner across this
+  // run, so several campaigns for the same practitioner share one budget.
+  const sentTodayByPractitioner = new Map<string, number>()
 
   for (const campaign of activeCampaigns) {
+    if (!sentTodayByPractitioner.has(campaign.practitioner_id)) {
+      sentTodayByPractitioner.set(campaign.practitioner_id, getSentTodayCount(db, campaign.practitioner_id, todayIso))
+    }
+    const remainingBudget = DAILY_SEND_LIMIT - (sentTodayByPractitioner.get(campaign.practitioner_id) || 0)
+
+    if (remainingBudget <= 0) {
+      // Daily cap reached — leave this campaign's remaining recipients
+      // pending, it resumes automatically once the count rolls over.
+      continue
+    }
+
     const pending = db
       .prepare(`SELECT id, patient_id, email, linked_patient_ids FROM email_campaign_recipients WHERE campaign_id = ? AND status = 'pending' ORDER BY created_at ASC LIMIT ?`)
-      .all(campaign.id, BATCH_SIZE) as RecipientRow[]
+      .all(campaign.id, Math.min(BATCH_SIZE, remainingBudget)) as RecipientRow[]
 
     if (pending.length === 0) {
       finalizeCampaignIfDone(db, campaign.id)
@@ -216,6 +268,11 @@ export async function processCampaignBatch(): Promise<{ processed: number }> {
       batchSent,
       batchFailed,
       campaign.id
+    )
+
+    sentTodayByPractitioner.set(
+      campaign.practitioner_id,
+      (sentTodayByPractitioner.get(campaign.practitioner_id) || 0) + batchSent
     )
 
     totalProcessed += pending.length

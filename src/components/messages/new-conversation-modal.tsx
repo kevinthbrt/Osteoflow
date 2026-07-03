@@ -60,6 +60,7 @@ export function NewConversationModal({
     total: number
     sent: number
     failed: number
+    dailyLimitReached?: boolean
   } | null>(null)
   const [broadcastDeduplicated, setBroadcastDeduplicated] = useState(0)
 
@@ -367,12 +368,24 @@ export function NewConversationModal({
               description: data.errorMessage || 'Erreur lors de la diffusion',
             })
           }
+        } else if (data.dailyLimitReached) {
+          // Gmail's daily cap is reached — stop polling for now, sending
+          // resumes automatically tomorrow via the background cron.
+          if (broadcastPollRef.current) clearInterval(broadcastPollRef.current)
+          setIsBroadcasting(false)
         }
       } catch (error) {
         console.error('Error polling broadcast campaign:', error)
       }
     }, 1500)
   }
+
+  // A campaign paused for the day (Gmail's daily cap) is no longer "isBroadcasting"
+  // (polling stopped) but still has recipients left — don't let a fresh click
+  // start a second, duplicate campaign on top of it.
+  const hasUnfinishedBroadcast = Boolean(
+    broadcastCampaign && !['completed', 'failed', 'cancelled'].includes(broadcastCampaign.status)
+  )
 
   const handleBroadcast = async () => {
     if (!broadcastContent.trim()) return
@@ -471,6 +484,8 @@ export function NewConversationModal({
                       ? 'Diffusion terminée'
                       : broadcastCampaign.status === 'failed'
                       ? 'Échec de la diffusion'
+                      : broadcastCampaign.dailyLimitReached
+                      ? 'En pause — limite quotidienne atteinte'
                       : 'Envoi en cours en arrière-plan…'}
                   </span>
                   <span className="text-muted-foreground">
@@ -480,6 +495,11 @@ export function NewConversationModal({
                 <Progress
                   value={broadcastCampaign.total > 0 ? (broadcastCampaign.sent / broadcastCampaign.total) * 100 : 0}
                 />
+                {broadcastCampaign.dailyLimitReached && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Gmail limite l&apos;envoi à 450 emails par jour. Il reste {broadcastCampaign.total - broadcastCampaign.sent - broadcastCampaign.failed} patient(s) à contacter — l&apos;envoi reprendra automatiquement demain jusqu&apos;à ce que tout le monde soit contacté.
+                  </p>
+                )}
                 {broadcastDeduplicated > 0 && (
                   <p className="text-xs text-muted-foreground">
                     {broadcastDeduplicated} patient{broadcastDeduplicated > 1 ? 's' : ''} partage{broadcastDeduplicated > 1 ? 'nt' : ''} une adresse email avec un autre — un seul email envoyé par adresse.
@@ -496,13 +516,13 @@ export function NewConversationModal({
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => (isBroadcasting ? onOpenChange(false) : setShowBroadcast(false))}
+                onClick={() => (isBroadcasting || hasUnfinishedBroadcast ? onOpenChange(false) : setShowBroadcast(false))}
               >
-                {isBroadcasting ? 'Fermer' : 'Retour'}
+                {isBroadcasting || hasUnfinishedBroadcast ? 'Fermer' : 'Retour'}
               </Button>
               <Button
                 onClick={handleBroadcast}
-                disabled={isBroadcasting || !broadcastContent.trim()}
+                disabled={isBroadcasting || hasUnfinishedBroadcast || !broadcastContent.trim()}
               >
                 {isBroadcasting ? (
                   <>

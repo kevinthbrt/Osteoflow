@@ -51,6 +51,7 @@ interface CampaignStatus {
   total: number
   sent: number
   failed: number
+  dailyLimitReached?: boolean
 }
 
 const PERIOD_OPTIONS = [
@@ -160,6 +161,11 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
             })
           }
           fetchCandidates()
+        } else if (data.dailyLimitReached) {
+          // Gmail's daily cap is reached — stop polling for now, sending
+          // resumes automatically tomorrow via the background cron.
+          if (pollRef.current) clearInterval(pollRef.current)
+          setIsBulkSending(false)
         }
       } catch (error) {
         console.error('Error polling campaign:', error)
@@ -188,6 +194,13 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
       setSendingPatientId(null)
     }
   }
+
+  // A campaign paused for the day (Gmail's daily cap) is no longer "isBulkSending"
+  // (polling stopped) but still has recipients left — don't let a fresh click
+  // start a second, duplicate campaign on top of it.
+  const hasUnfinishedCampaign = Boolean(
+    campaign && !['completed', 'failed', 'cancelled'].includes(campaign.status)
+  )
 
   const handleSendBulk = async () => {
     setIsBulkSending(true)
@@ -293,7 +306,7 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
                 size="sm"
                 className="ml-auto"
                 onClick={handleSendBulk}
-                disabled={isBulkSending || notSeen.length === 0}
+                disabled={isBulkSending || hasUnfinishedCampaign || notSeen.length === 0}
               >
                 {isBulkSending ? (
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -312,11 +325,18 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
                       ? 'Relance terminée'
                       : campaign.status === 'failed'
                       ? 'Échec de la relance'
+                      : campaign.dailyLimitReached
+                      ? 'En pause — limite quotidienne atteinte'
                       : 'Envoi en cours…'}
                   </span>
                   <span className="text-muted-foreground">{campaign.sent}/{campaign.total}</span>
                 </div>
                 <Progress value={campaign.total > 0 ? (campaign.sent / campaign.total) * 100 : 0} />
+                {campaign.dailyLimitReached && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Gmail limite l&apos;envoi à 450 emails par jour. Il reste {campaign.total - campaign.sent - campaign.failed} patient(s) à relancer — l&apos;envoi reprendra automatiquement demain jusqu&apos;à ce que tout le monde soit contacté.
+                  </p>
+                )}
                 {deduplicated > 0 && (
                   <p className="text-xs text-muted-foreground">
                     {deduplicated} patient{deduplicated > 1 ? 's' : ''} partage{deduplicated > 1 ? 'nt' : ''} une adresse email avec un autre — un seul email envoyé par adresse.
