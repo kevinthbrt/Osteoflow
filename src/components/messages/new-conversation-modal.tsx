@@ -68,6 +68,7 @@ export function NewConversationModal({
     totalPatients: number
     totalEmails: number
     deduplicated: number
+    dailyLimit: number
   } | null>(null)
   const [isLoadingBroadcastPreview, setIsLoadingBroadcastPreview] = useState(false)
 
@@ -542,6 +543,12 @@ export function NewConversationModal({
                     {broadcastPreview.deduplicated > 0 && (
                       <p className="text-xs text-muted-foreground">
                         {broadcastPreview.deduplicated} patient{broadcastPreview.deduplicated > 1 ? 's' : ''} partage{broadcastPreview.deduplicated > 1 ? 'nt' : ''} une adresse avec un autre — un seul email envoyé par adresse.
+                      </p>
+                    )}
+                    {broadcastPreview.totalEmails > broadcastPreview.dailyLimit && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        Gmail limite l&apos;envoi à {broadcastPreview.dailyLimit} emails par jour : l&apos;envoi prendra environ{' '}
+                        {Math.ceil(broadcastPreview.totalEmails / broadcastPreview.dailyLimit)} jours. Pensez à garder l&apos;application ouverte chaque jour pour que l&apos;envoi progresse.
                       </p>
                     )}
                   </div>

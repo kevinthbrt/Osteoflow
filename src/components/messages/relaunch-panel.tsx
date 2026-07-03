@@ -83,6 +83,7 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [sinceDate, setSinceDate] = useState('')
   const [isSavingSinceDate, setIsSavingSinceDate] = useState(false)
+  const [dailyLimit, setDailyLimit] = useState(450)
   const { toast } = useToast()
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -95,6 +96,7 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
         setNotSeen(data.notSeen || [])
         setRelaunched(data.relaunched || [])
         setSinceDate(data.sinceDate || '')
+        if (data.dailyLimit) setDailyLimit(data.dailyLimit)
       }
     } catch (error) {
       console.error('Error fetching relaunch candidates:', error)
@@ -316,6 +318,13 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
                 Relancer tous ({notSeen.length})
               </Button>
             </div>
+
+            {!campaign && notSeen.length > dailyLimit && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Gmail limite l&apos;envoi à {dailyLimit} emails par jour : la relance de ces {notSeen.length} patients prendra environ{' '}
+                {Math.ceil(notSeen.length / dailyLimit)} jours. Pensez à garder l&apos;application ouverte chaque jour pour que l&apos;envoi progresse.
+              </p>
+            )}
 
             {campaign && (
               <div className="rounded-lg border p-3 space-y-2 bg-muted/30">

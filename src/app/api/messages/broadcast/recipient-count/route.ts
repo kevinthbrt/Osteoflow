@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     const { createClient } = await import('@/lib/db/server')
     const { getBroadcastRecipients } = await import('@/lib/patients/broadcast-recipients')
     const { groupPatientsByEmail } = await import('@/lib/email/recipient-grouping')
+    const { DAILY_SEND_LIMIT } = await import('@/lib/email/campaign-processor')
 
     const db = await createClient()
     const { data: { user } } = await db.auth.getUser()
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
       totalPatients: patients.length,
       totalEmails: groups.length,
       deduplicated: patients.length - groups.length,
+      dailyLimit: DAILY_SEND_LIMIT,
     })
   } catch (error) {
     console.error('Error computing broadcast recipient count:', error)
