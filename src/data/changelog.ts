@@ -19,6 +19,21 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.13.0',
+    date: '2026-07-03',
+    title: 'Finalisation de consultation par étapes et conseils post-séance personnalisés',
+    changes: [
+      // Assistant de finalisation
+      { type: 'feature', text: 'Le modal « Finaliser la consultation » devient un assistant par étapes : facturation, mode de réception de la facture (email / impression / téléchargement — mémorisé pour chaque patient), conseils post-séance, suivi à J+x, puis relance à venir. Rien à oublier, et la facture est transmise automatiquement selon le mode choisi.' },
+      { type: 'feature', text: 'Nouvelle étape « Relance à venir » en fin de consultation : proposez de relancer le patient dans 3, 6 ou 12 mois pour une prochaine consultation, sans passer par la messagerie.' },
+      { type: 'feature', text: 'Nouvel onglet « Programmées » dans le panneau de relance : visualisez toutes les relances à venir avec leur échéance, annulez-les ou déclenchez-les immédiatement si besoin.' },
+      { type: 'fix', text: 'Une relance programmée devenait obsolète si le patient revenait consulter avant l\'échéance sans que le praticien ne la retouche : elle continuait de courir et pouvait déclencher un email de relance à un patient pourtant revu récemment. Elle est désormais annulée automatiquement dès l\'enregistrement de la nouvelle consultation, sauf reprogrammation explicite.' },
+      // Conseils post-séance
+      { type: 'feature', text: 'Email de conseils post-séance personnalisable : au lieu d\'un contenu fixe, cochez les conseils adaptés à ce patient parmi une liste organisée par situation (général, douleur aiguë/récente, douleur chronique, signes d\'alerte à surveiller) — seuls les conseils cochés apparaissent dans l\'email envoyé.' },
+      { type: 'improvement', text: 'Contenu des conseils post-séance revu pour ne retenir que des recommandations reconnues (rester actif plutôt que repos prolongé, douleur ne veut pas dire dommage, sommeil et stress, signes nécessitant de consulter rapidement…), en retirant les idées reçues sans fondement clinique.' },
+    ],
+  },
+  {
     version: '1.12.0',
     date: '2026-07-03',
     title: 'Relance des patients non vus et diffusion fiabilisée',
