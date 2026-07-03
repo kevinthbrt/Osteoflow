@@ -415,6 +415,33 @@ export function NewConversationModal({
     }, 1500)
   }
 
+  // On opening the broadcast view, check whether a campaign is already in
+  // flight (e.g. paused for the day, from before a page reload/app restart)
+  // — otherwise the compose form looks empty and a fresh click could start
+  // a duplicate campaign on top of the one still running server-side.
+  useEffect(() => {
+    if (!showBroadcast) return
+    let cancelled = false
+    fetch('/api/messages/campaigns/active')
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return
+        const active = data.campaign
+        if (active && active.type === 'broadcast') {
+          setBroadcastCampaign(active)
+          if (!active.dailyLimitReached) {
+            setIsBroadcasting(true)
+            pollBroadcastCampaign(active.id)
+          }
+        }
+      })
+      .catch((error) => console.error('Error checking active broadcast:', error))
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showBroadcast])
+
   // A campaign paused for the day (Gmail's daily cap) is no longer "isBroadcasting"
   // (polling stopped) but still has recipients left — don't let a fresh click
   // start a second, duplicate campaign on top of it.

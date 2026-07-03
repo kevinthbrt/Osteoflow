@@ -197,6 +197,32 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
     }
   }
 
+  // On opening the panel, check whether a relaunch campaign is already in
+  // flight (e.g. paused for the day, from before a page reload/app restart)
+  // — otherwise this looks like nothing is happening and a fresh click could
+  // start a duplicate campaign on top of the one still running server-side.
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    fetch('/api/messages/campaigns/active')
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return
+        const active = data.campaign
+        if (active && active.type === 'relaunch') {
+          setCampaign(active)
+          if (!active.dailyLimitReached) {
+            setIsBulkSending(true)
+            pollCampaign(active.id)
+          }
+        }
+      })
+      .catch((error) => console.error('Error checking active relaunch campaign:', error))
+    return () => {
+      cancelled = true
+    }
+  }, [open, pollCampaign])
+
   // A campaign paused for the day (Gmail's daily cap) is no longer "isBulkSending"
   // (polling stopped) but still has recipients left — don't let a fresh click
   // start a second, duplicate campaign on top of it.
