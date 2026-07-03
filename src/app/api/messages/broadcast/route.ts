@@ -5,6 +5,7 @@ export async function POST(request: Request) {
   try {
     const { createClient } = await import('@/lib/db/server')
     const { getDatabase } = await import('@/lib/database/connection')
+    const { groupPatientsByEmail } = await import('@/lib/email/recipient-grouping')
 
     const { content } = await request.json()
 
@@ -70,6 +71,12 @@ export async function POST(request: Request) {
 
     const subject = `Message de ${practitioner.practice_name || `${practitioner.first_name} ${practitioner.last_name}`}`
 
+    // Patients sharing the same address (e.g. a parent's email used for
+    // several children) get grouped so only one physical email is sent per
+    // address, while every patient's conversation still records the message.
+    const recipientGroups = groupPatientsByEmail(patientsWithEmail)
+    const deduplicated = patientsWithEmail.length - recipientGroups.length
+
     // Sending happens in the background (see campaign-processor.ts, triggered by
     // the app's cron every ~20s) so this request returns instantly regardless of
     // list size — a synchronous loop over thousands of patients would otherwise
@@ -83,13 +90,21 @@ export async function POST(request: Request) {
        VALUES (?, ?, 'broadcast', ?, ?, 'pending', ?, ?)`
     )
     const insertRecipient = rawDb.prepare(
-      `INSERT INTO email_campaign_recipients (id, campaign_id, patient_id, email, status, created_at) VALUES (?, ?, ?, ?, 'pending', ?)`
+      `INSERT INTO email_campaign_recipients (id, campaign_id, patient_id, email, status, linked_patient_ids, created_at)
+       VALUES (?, ?, ?, ?, 'pending', ?, ?)`
     )
 
     const tx = rawDb.transaction(() => {
-      insertCampaign.run(campaignId, practitioner.id, subject, content, patientsWithEmail.length, nowIso)
-      for (const patient of patientsWithEmail) {
-        insertRecipient.run(randomUUID(), campaignId, patient.id, patient.email, nowIso)
+      insertCampaign.run(campaignId, practitioner.id, subject, content, recipientGroups.length, nowIso)
+      for (const group of recipientGroups) {
+        insertRecipient.run(
+          randomUUID(),
+          campaignId,
+          group.primaryId,
+          group.email,
+          group.linkedIds.length > 0 ? JSON.stringify(group.linkedIds) : null,
+          nowIso
+        )
       }
     })
     tx()
@@ -103,7 +118,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       campaignId,
-      total: patientsWithEmail.length,
+      total: recipientGroups.length,
+      deduplicated,
     })
   } catch (error) {
     console.error('Error in broadcast:', error)

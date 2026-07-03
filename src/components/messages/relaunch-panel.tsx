@@ -78,6 +78,7 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
   const [sendingPatientId, setSendingPatientId] = useState<string | null>(null)
   const [isBulkSending, setIsBulkSending] = useState(false)
   const [campaign, setCampaign] = useState<CampaignStatus | null>(null)
+  const [deduplicated, setDeduplicated] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [sinceDate, setSinceDate] = useState('')
   const [isSavingSinceDate, setIsSavingSinceDate] = useState(false)
@@ -204,6 +205,7 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
         return
       }
       setCampaign({ id: data.campaignId, status: 'pending', total: data.total, sent: 0, failed: 0 })
+      setDeduplicated(data.deduplicated || 0)
       pollCampaign(data.campaignId)
     } catch {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de lancer la relance' })
@@ -315,6 +317,11 @@ export function RelaunchPanel({ open, onOpenChange }: RelaunchPanelProps) {
                   <span className="text-muted-foreground">{campaign.sent}/{campaign.total}</span>
                 </div>
                 <Progress value={campaign.total > 0 ? (campaign.sent / campaign.total) * 100 : 0} />
+                {deduplicated > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {deduplicated} patient{deduplicated > 1 ? 's' : ''} partage{deduplicated > 1 ? 'nt' : ''} une adresse email avec un autre — un seul email envoyé par adresse.
+                  </p>
+                )}
               </div>
             )}
 

@@ -7,6 +7,7 @@ export async function POST(request: Request) {
     const { getDatabase } = await import('@/lib/database/connection')
     const { getRelaunchCandidates } = await import('@/lib/patients/relaunch')
     const { defaultEmailTemplates, replaceTemplateVariables } = await import('@/lib/email/templates')
+    const { groupPatientsByEmail } = await import('@/lib/email/recipient-grouping')
 
     const { months } = await request.json()
     const monthsValue = Math.max(1, Number(months) || 3)
@@ -52,6 +53,12 @@ export async function POST(request: Request) {
       practice_name: practitioner.practice_name || `${practitioner.first_name} ${practitioner.last_name}`,
     })
 
+    // Patients sharing the same address (e.g. a parent's email used for
+    // several children) get grouped so only one physical email is sent per
+    // address, while every patient's conversation still records the message.
+    const recipientGroups = groupPatientsByEmail(candidates)
+    const deduplicated = candidates.length - recipientGroups.length
+
     const rawDb = getDatabase()
     const campaignId = randomUUID()
     const nowIso = new Date().toISOString()
@@ -61,13 +68,21 @@ export async function POST(request: Request) {
        VALUES (?, ?, 'relaunch', ?, ?, 'pending', ?, ?)`
     )
     const insertRecipient = rawDb.prepare(
-      `INSERT INTO email_campaign_recipients (id, campaign_id, patient_id, email, status, created_at) VALUES (?, ?, ?, ?, 'pending', ?)`
+      `INSERT INTO email_campaign_recipients (id, campaign_id, patient_id, email, status, linked_patient_ids, created_at)
+       VALUES (?, ?, ?, ?, 'pending', ?, ?)`
     )
 
     const tx = rawDb.transaction(() => {
-      insertCampaign.run(campaignId, practitioner.id, subject, template.body, candidates.length, nowIso)
-      for (const patient of candidates) {
-        insertRecipient.run(randomUUID(), campaignId, patient.id, patient.email, nowIso)
+      insertCampaign.run(campaignId, practitioner.id, subject, template.body, recipientGroups.length, nowIso)
+      for (const group of recipientGroups) {
+        insertRecipient.run(
+          randomUUID(),
+          campaignId,
+          group.primaryId,
+          group.email,
+          group.linkedIds.length > 0 ? JSON.stringify(group.linkedIds) : null,
+          nowIso
+        )
       }
     })
     tx()
@@ -76,7 +91,7 @@ export async function POST(request: Request) {
       .then(({ processCampaignBatch }) => processCampaignBatch())
       .catch((e) => console.error('[Relaunch] Immediate processing kick failed:', e))
 
-    return NextResponse.json({ success: true, campaignId, total: candidates.length })
+    return NextResponse.json({ success: true, campaignId, total: recipientGroups.length, deduplicated })
   } catch (error) {
     console.error('Error creating relaunch campaign:', error)
     return NextResponse.json({ error: 'Erreur lors du lancement de la relance' }, { status: 500 })

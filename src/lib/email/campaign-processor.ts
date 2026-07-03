@@ -15,6 +15,7 @@ import { getDatabase } from '@/lib/database/connection'
 import { getDecryptedEmailSettings } from './get-email-settings'
 import { sendBulkEmails, createHtmlEmail } from './smtp-service'
 import { createPatientRelaunchHtmlEmail, replaceTemplateVariables } from './templates'
+import { joinNames } from './recipient-grouping'
 import { getProfessionLabel } from '@/lib/practitioner/profession'
 
 const BATCH_SIZE = 25
@@ -32,6 +33,12 @@ interface RecipientRow {
   id: string
   patient_id: string
   email: string
+  linked_patient_ids: string | null
+}
+
+function allPatientIds(recipient: RecipientRow): string[] {
+  const linked: string[] = recipient.linked_patient_ids ? JSON.parse(recipient.linked_patient_ids) : []
+  return [recipient.patient_id, ...linked]
 }
 
 /**
@@ -50,7 +57,7 @@ export async function processCampaignBatch(): Promise<{ processed: number }> {
 
   for (const campaign of activeCampaigns) {
     const pending = db
-      .prepare(`SELECT id, patient_id, email FROM email_campaign_recipients WHERE campaign_id = ? AND status = 'pending' ORDER BY created_at ASC LIMIT ?`)
+      .prepare(`SELECT id, patient_id, email, linked_patient_ids FROM email_campaign_recipients WHERE campaign_id = ? AND status = 'pending' ORDER BY created_at ASC LIMIT ?`)
       .all(campaign.id, BATCH_SIZE) as RecipientRow[]
 
     if (pending.length === 0) {
@@ -85,7 +92,7 @@ export async function processCampaignBatch(): Promise<{ processed: number }> {
 
     const patientNames = new Map<string, string>()
     if (campaign.type === 'relaunch') {
-      const ids = pending.map((r) => r.patient_id)
+      const ids = pending.flatMap(allPatientIds)
       const placeholders = ids.map(() => '?').join(',')
       const rows = db
         .prepare(`SELECT id, first_name FROM patients WHERE id IN (${placeholders})`)
@@ -95,8 +102,12 @@ export async function processCampaignBatch(): Promise<{ processed: number }> {
 
     const sendItems = pending.map((recipient) => {
       if (campaign.type === 'relaunch') {
+        // When several patients share this address (e.g. siblings under a
+        // parent's email), greet all of them by name in one email instead
+        // of picking one arbitrarily.
+        const greetingName = joinNames(allPatientIds(recipient).map((id) => patientNames.get(id) || ''))
         const bodyText = replaceTemplateVariables(campaign.content, {
-          patient_first_name: patientNames.get(recipient.patient_id) || '',
+          patient_first_name: greetingName,
         })
         const html = createPatientRelaunchHtmlEmail({
           bodyText,
@@ -140,51 +151,58 @@ export async function processCampaignBatch(): Promise<{ processed: number }> {
       if (result.success) {
         batchSent++
 
-        let conversationId: string
-        const existingConv = db
-          .prepare(`SELECT id FROM conversations WHERE practitioner_id = ? AND patient_id = ? LIMIT 1`)
-          .get(campaign.practitioner_id, recipient.patient_id) as { id: string } | undefined
+        // One physical email may cover several patients sharing this address
+        // (e.g. siblings under a parent's email) — log the message and update
+        // relaunch tracking for every one of them, not just the primary.
+        let firstMessageId: string | null = null
+        for (const patientId of allPatientIds(recipient)) {
+          let conversationId: string
+          const existingConv = db
+            .prepare(`SELECT id FROM conversations WHERE practitioner_id = ? AND patient_id = ? LIMIT 1`)
+            .get(campaign.practitioner_id, patientId) as { id: string } | undefined
 
-        if (existingConv) {
-          conversationId = existingConv.id
-        } else {
-          conversationId = randomUUID()
-          db.prepare(`INSERT INTO conversations (id, practitioner_id, patient_id, subject) VALUES (?, ?, ?, ?)`).run(
+          if (existingConv) {
+            conversationId = existingConv.id
+          } else {
+            conversationId = randomUUID()
+            db.prepare(`INSERT INTO conversations (id, practitioner_id, patient_id, subject) VALUES (?, ?, ?, ?)`).run(
+              conversationId,
+              campaign.practitioner_id,
+              patientId,
+              campaign.type === 'relaunch' ? 'Relance patient' : 'Diffusion'
+            )
+          }
+
+          const messageId = randomUUID()
+          db.prepare(
+            `INSERT INTO messages (id, conversation_id, content, direction, channel, status, sent_at, email_subject, email_message_id, to_email, from_email)
+             VALUES (?, ?, ?, 'outgoing', 'email', 'sent', ?, ?, ?, ?, ?)`
+          ).run(
+            messageId,
             conversationId,
-            campaign.practitioner_id,
-            recipient.patient_id,
-            campaign.type === 'relaunch' ? 'Relance patient' : 'Diffusion'
+            textContent,
+            nowIso,
+            campaign.subject,
+            result.messageId || null,
+            recipient.email,
+            emailSettings.from_email
           )
+          firstMessageId = firstMessageId || messageId
+
+          db.prepare(`UPDATE conversations SET last_message_at = ? WHERE id = ?`).run(nowIso, conversationId)
+
+          if (campaign.type === 'relaunch') {
+            db.prepare(
+              `UPDATE patients SET last_relaunch_sent_at = ?, relaunch_count = COALESCE(relaunch_count, 0) + 1 WHERE id = ?`
+            ).run(nowIso, patientId)
+          }
         }
-
-        const messageId = randomUUID()
-        db.prepare(
-          `INSERT INTO messages (id, conversation_id, content, direction, channel, status, sent_at, email_subject, email_message_id, to_email, from_email)
-           VALUES (?, ?, ?, 'outgoing', 'email', 'sent', ?, ?, ?, ?, ?)`
-        ).run(
-          messageId,
-          conversationId,
-          textContent,
-          nowIso,
-          campaign.subject,
-          result.messageId || null,
-          recipient.email,
-          emailSettings.from_email
-        )
-
-        db.prepare(`UPDATE conversations SET last_message_at = ? WHERE id = ?`).run(nowIso, conversationId)
 
         db.prepare(`UPDATE email_campaign_recipients SET status = 'sent', sent_at = ?, message_id = ? WHERE id = ?`).run(
           nowIso,
-          messageId,
+          firstMessageId,
           recipient.id
         )
-
-        if (campaign.type === 'relaunch') {
-          db.prepare(
-            `UPDATE patients SET last_relaunch_sent_at = ?, relaunch_count = COALESCE(relaunch_count, 0) + 1 WHERE id = ?`
-          ).run(nowIso, recipient.patient_id)
-        }
       } else {
         batchFailed++
         db.prepare(`UPDATE email_campaign_recipients SET status = 'failed', error_message = ? WHERE id = ?`).run(

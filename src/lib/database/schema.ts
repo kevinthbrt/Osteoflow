@@ -618,6 +618,15 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   `)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_campaign_recipients_campaign ON email_campaign_recipients(campaign_id, status);`)
 
+  // Patients sharing the same email address (e.g. a parent's address used for
+  // several children) are grouped under one recipient row so only a single
+  // physical email is sent per address — linked_patient_ids stores the other
+  // patient ids covered by that one send, as a JSON array.
+  const campaignRecipientCols = db.pragma('table_info(email_campaign_recipients)') as Array<{ name: string }>
+  if (!campaignRecipientCols.some((c) => c.name === 'linked_patient_ids')) {
+    db.exec('ALTER TABLE email_campaign_recipients ADD COLUMN linked_patient_ids TEXT;')
+  }
+
   // Message attachments — files attached to sent/received messages
   db.exec(`
     CREATE TABLE IF NOT EXISTS message_attachments (

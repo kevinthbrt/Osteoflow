@@ -61,6 +61,7 @@ export function NewConversationModal({
     sent: number
     failed: number
   } | null>(null)
+  const [broadcastDeduplicated, setBroadcastDeduplicated] = useState(0)
 
   const { toast } = useToast()
   const dbRef = useRef(createClient())
@@ -85,6 +86,7 @@ export function NewConversationModal({
       setBroadcastContent('')
       setShowQuickReplies(false)
       setBroadcastCampaign(null)
+      setBroadcastDeduplicated(0)
       if (broadcastPollRef.current) clearInterval(broadcastPollRef.current)
     }
   }, [open])
@@ -396,6 +398,7 @@ export function NewConversationModal({
       // Sending happens in the background — poll for progress instead of
       // waiting on a single request that could take minutes for large lists.
       setBroadcastCampaign({ status: 'pending', total: data.total, sent: 0, failed: 0 })
+      setBroadcastDeduplicated(data.deduplicated || 0)
       pollBroadcastCampaign(data.campaignId)
     } catch {
       toast({
@@ -477,6 +480,11 @@ export function NewConversationModal({
                 <Progress
                   value={broadcastCampaign.total > 0 ? (broadcastCampaign.sent / broadcastCampaign.total) * 100 : 0}
                 />
+                {broadcastDeduplicated > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {broadcastDeduplicated} patient{broadcastDeduplicated > 1 ? 's' : ''} partage{broadcastDeduplicated > 1 ? 'nt' : ''} une adresse email avec un autre — un seul email envoyé par adresse.
+                  </p>
+                )}
                 {isBroadcasting && (
                   <p className="text-xs text-muted-foreground">
                     Vous pouvez fermer cette fenêtre, l&apos;envoi continue en arrière-plan.
