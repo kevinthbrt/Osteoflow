@@ -19,7 +19,7 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
-    version: '1.13.1',
+    version: '1.13.2',
     date: '2026-07-04',
     title: 'Fiabilité de la diffusion en masse',
     changes: [
