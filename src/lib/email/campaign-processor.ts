@@ -21,6 +21,38 @@ import { getProfessionLabel } from '@/lib/practitioner/profession'
 
 const BATCH_SIZE = 25
 
+// How many times a recipient whose send failed for a transient reason (network
+// down, connection timeout...) is retried before giving up for good. Combined
+// with the exponential backoff below, this comfortably survives a laptop being
+// offline overnight or over a weekend without hammering retries uselessly.
+const MAX_TRANSIENT_RETRIES = 15
+
+// Node/SMTP error codes that indicate a transient, environment-level problem
+// (no network route, connection refused/reset, timeout...) rather than a
+// permanent one (bad credentials, rejected recipient). These are safe to
+// retry automatically instead of failing the recipient forever.
+const TRANSIENT_ERROR_CODES = new Set([
+  'ENETUNREACH',
+  'EHOSTUNREACH',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'ESOCKET',
+  'EAI_AGAIN',
+  'ENOTFOUND',
+])
+
+function isTransientSendError(result: { error?: string; errorCode?: string }): boolean {
+  if (result.errorCode && TRANSIENT_ERROR_CODES.has(result.errorCode)) return true
+  const message = (result.error || '').toLowerCase()
+  return /timeout|timed out|socket hang up|greeting never received|network/i.test(message)
+}
+
+function nextRetryDelayMs(retryCount: number): number {
+  const MAX_DELAY_MS = 6 * 60 * 60 * 1000 // 6 hours
+  return Math.min(60_000 * 2 ** retryCount, MAX_DELAY_MS)
+}
+
 // Gmail's free-account cap is 500 recipients/day. We stay under it so the
 // practitioner's other transactional emails (factures, suivi J+7, conseils
 // post-séance...) — which don't go through campaigns — always have headroom
@@ -43,6 +75,7 @@ interface RecipientRow {
   patient_id: string
   email: string
   linked_patient_ids: string | null
+  retry_count: number
 }
 
 function allPatientIds(recipient: RecipientRow): string[] {
@@ -88,6 +121,7 @@ export function getDailySendStatus(practitionerId: string): { sentToday: number;
 export async function processCampaignBatch(): Promise<{ processed: number }> {
   const db = getDatabase()
   const todayIso = startOfTodayIso()
+  const batchNowIso = new Date().toISOString()
 
   const activeCampaigns = db
     .prepare(`SELECT * FROM email_campaigns WHERE status IN ('pending', 'processing') ORDER BY created_at ASC`)
@@ -111,8 +145,12 @@ export async function processCampaignBatch(): Promise<{ processed: number }> {
     }
 
     const pending = db
-      .prepare(`SELECT id, patient_id, email, linked_patient_ids FROM email_campaign_recipients WHERE campaign_id = ? AND status = 'pending' ORDER BY created_at ASC LIMIT ?`)
-      .all(campaign.id, Math.min(BATCH_SIZE, remainingBudget)) as RecipientRow[]
+      .prepare(
+        `SELECT id, patient_id, email, linked_patient_ids, retry_count FROM email_campaign_recipients
+         WHERE campaign_id = ? AND status = 'pending' AND (next_retry_at IS NULL OR next_retry_at <= ?)
+         ORDER BY created_at ASC LIMIT ?`
+      )
+      .all(campaign.id, batchNowIso, Math.min(BATCH_SIZE, remainingBudget)) as RecipientRow[]
 
     if (pending.length === 0) {
       finalizeCampaignIfDone(db, campaign.id)
@@ -264,6 +302,14 @@ export async function processCampaignBatch(): Promise<{ processed: number }> {
           firstMessageId,
           recipient.id
         )
+      } else if (isTransientSendError(result) && recipient.retry_count < MAX_TRANSIENT_RETRIES) {
+        // Environment-level hiccup (no network, connection timeout...) rather
+        // than a real send failure — leave 'pending' and try again later
+        // instead of giving up on this patient for good.
+        const nextRetryAt = new Date(Date.now() + nextRetryDelayMs(recipient.retry_count)).toISOString()
+        db.prepare(
+          `UPDATE email_campaign_recipients SET retry_count = retry_count + 1, next_retry_at = ?, error_message = ? WHERE id = ?`
+        ).run(nextRetryAt, result.error || 'Erreur réseau temporaire', recipient.id)
       } else {
         batchFailed++
         db.prepare(`UPDATE email_campaign_recipients SET status = 'failed', error_message = ? WHERE id = ?`).run(

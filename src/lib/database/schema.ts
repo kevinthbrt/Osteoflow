@@ -627,6 +627,8 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
       error_message TEXT,
       sent_at TEXT,
       message_id TEXT,
+      retry_count INTEGER NOT NULL DEFAULT 0,
+      next_retry_at TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
   `)
@@ -639,6 +641,15 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   const campaignRecipientCols = db.pragma('table_info(email_campaign_recipients)') as Array<{ name: string }>
   if (!campaignRecipientCols.some((c) => c.name === 'linked_patient_ids')) {
     db.exec('ALTER TABLE email_campaign_recipients ADD COLUMN linked_patient_ids TEXT;')
+  }
+  // Retry tracking for recipients whose send failed due to a transient error
+  // (e.g. network unreachable while the practitioner's computer was offline)
+  // instead of a permanent one — see isTransientSendError in campaign-processor.ts.
+  if (!campaignRecipientCols.some((c) => c.name === 'retry_count')) {
+    db.exec('ALTER TABLE email_campaign_recipients ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0;')
+  }
+  if (!campaignRecipientCols.some((c) => c.name === 'next_retry_at')) {
+    db.exec('ALTER TABLE email_campaign_recipients ADD COLUMN next_retry_at TEXT;')
   }
 
   // Optional "prendre rendez-vous" button on a broadcast email.
