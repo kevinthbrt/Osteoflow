@@ -19,6 +19,15 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.13.1',
+    date: '2026-07-04',
+    title: 'Fiabilité de la diffusion en masse',
+    changes: [
+      { type: 'fix', text: "Diffusion/relance en masse : un email qui échouait à cause d'un problème réseau temporaire (ordinateur endormi, Wi-Fi coupé...) était jusqu'ici abandonné définitivement, sans être renvoyé — au point qu'une diffusion pouvait se terminer avec la majorité des patients jamais contactés, sans avertissement. Ces échecs réseau sont désormais retentés automatiquement (jusqu'à 15 fois, avec un délai croissant), les vrais échecs restant identifiés comme tels." },
+      { type: 'fix', text: "Correction d'un cas rare où le lancement immédiat d'une diffusion/relance à la création pouvait se dérouler en même temps qu'un passage du cron automatique, menant à un même lot de patients traité deux fois (compteurs faussés, email envoyé en double)." },
+    ],
+  },
+  {
     version: '1.13.0',
     date: '2026-07-03',
     title: 'Finalisation de consultation par étapes et conseils post-séance personnalisés',
