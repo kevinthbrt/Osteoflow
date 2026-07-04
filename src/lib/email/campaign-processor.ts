@@ -112,13 +112,32 @@ export function getDailySendStatus(practitionerId: string): { sentToday: number;
   return { sentToday, remainingToday, limitReached: remainingToday === 0 }
 }
 
+// Guards against two overlapping runs claiming the same 'pending' rows —
+// which happened in practice: /api/messages/broadcast and
+// relaunch/send-bulk each kick off an immediate call to this function
+// (so sending starts right away instead of waiting for the next cron tick)
+// without going through the cron route's own lock, so it could race with a
+// concurrent cron tick and double-send/double-count a batch. The lock lives
+// here instead, so every caller shares it regardless of entry point.
+let isRunning = false
+
 /**
  * Process one batch (up to BATCH_SIZE recipients, capped by the remaining
  * daily budget) for every campaign that still has pending recipients. Safe
- * to call repeatedly/concurrently — each call only claims recipients that
- * are still 'pending' at read time.
+ * to call repeatedly/concurrently — a call that overlaps another simply
+ * does nothing and returns { processed: 0 }.
  */
 export async function processCampaignBatch(): Promise<{ processed: number }> {
+  if (isRunning) return { processed: 0 }
+  isRunning = true
+  try {
+    return await processCampaignBatchInner()
+  } finally {
+    isRunning = false
+  }
+}
+
+async function processCampaignBatchInner(): Promise<{ processed: number }> {
   const db = getDatabase()
   const todayIso = startOfTodayIso()
   const batchNowIso = new Date().toISOString()
