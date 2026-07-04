@@ -104,6 +104,8 @@ export interface BulkSendResult {
   success: boolean
   messageId?: string
   error?: string
+  /** Node/SMTP error code (e.g. ENETUNREACH, ECONNRESET) when available, used to tell transient network errors apart from permanent ones. */
+  errorCode?: string
 }
 
 /**
@@ -170,6 +172,7 @@ export async function sendBulkEmails(
             to: recipient.to,
             success: false,
             error: error instanceof Error ? error.message : 'Unknown error',
+            errorCode: (error as NodeJS.ErrnoException)?.code,
           }
         }
         if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs))
