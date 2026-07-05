@@ -42,10 +42,21 @@ const TRANSIENT_ERROR_CODES = new Set([
   'ENOTFOUND',
 ])
 
+// Matches error text worth retrying automatically instead of failing for
+// good: environment-level hiccups (see TRANSIENT_ERROR_CODES above, surfaced
+// here as text since Node doesn't always attach a .code) and Gmail's own
+// "you've hit your daily sending cap" rejection — a real, but temporary,
+// condition that clears itself once Gmail's quota window rolls over, same as
+// our own DAILY_SEND_LIMIT already assumes for recipients left 'pending'.
+const RETRYABLE_MESSAGE_PATTERN = /timeout|timed out|socket hang up|greeting never received|network|daily user sending limit|550-5\.4\.5/i
+
+export function isRetryableErrorMessage(message?: string | null): boolean {
+  return RETRYABLE_MESSAGE_PATTERN.test(message || '')
+}
+
 function isTransientSendError(result: { error?: string; errorCode?: string }): boolean {
   if (result.errorCode && TRANSIENT_ERROR_CODES.has(result.errorCode)) return true
-  const message = (result.error || '').toLowerCase()
-  return /timeout|timed out|socket hang up|greeting never received|network/i.test(message)
+  return isRetryableErrorMessage(result.error)
 }
 
 function nextRetryDelayMs(retryCount: number): number {

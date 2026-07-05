@@ -5,7 +5,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params
     const { createClient } = await import('@/lib/db/server')
     const { getDatabase } = await import('@/lib/database/connection')
-    const { getDailySendStatus } = await import('@/lib/email/campaign-processor')
+    const { getDailySendStatus, isRetryableErrorMessage } = await import('@/lib/email/campaign-processor')
     const db = await createClient()
 
     const { data: { user } } = await db.auth.getUser()
@@ -33,13 +33,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Diffusion non trouvée' }, { status: 404 })
     }
 
+    const rawDb = getDatabase()
+
     let dailyLimitReached = false
     if (campaign.status === 'pending' || campaign.status === 'processing') {
-      const rawDb = getDatabase()
       const hasPending = rawDb
         .prepare(`SELECT 1 FROM email_campaign_recipients WHERE campaign_id = ? AND status = 'pending' LIMIT 1`)
         .get(campaign.id)
       dailyLimitReached = Boolean(hasPending) && getDailySendStatus(practitioner.id).limitReached
+    }
+
+    let retryableFailedCount = 0
+    if (campaign.failed_count > 0) {
+      const failedMessages = rawDb
+        .prepare(`SELECT error_message FROM email_campaign_recipients WHERE campaign_id = ? AND status = 'failed'`)
+        .all(campaign.id) as Array<{ error_message: string | null }>
+      retryableFailedCount = failedMessages.filter((r) => isRetryableErrorMessage(r.error_message)).length
     }
 
     return NextResponse.json({
@@ -49,6 +58,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       total: campaign.total_recipients,
       sent: campaign.sent_count,
       failed: campaign.failed_count,
+      retryableFailedCount,
       errorMessage: campaign.error_message,
       createdAt: campaign.created_at,
       completedAt: campaign.completed_at,
