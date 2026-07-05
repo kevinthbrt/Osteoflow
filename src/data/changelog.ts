@@ -19,6 +19,16 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.13.3',
+    date: '2026-07-05',
+    title: 'Visibilité et relance des diffusions en échec',
+    changes: [
+      { type: 'feature', text: "Une diffusion/relance terminée avec des échecs reste maintenant visible dans la messagerie (jusqu'à 3 jours) au lieu de disparaître silencieusement, avec le détail envoyés/échecs et un bouton pour la masquer une fois traitée." },
+      { type: 'feature', text: "Bouton « Réessayer » quand une partie des échecs semble due à un problème réseau ou au quota d'envoi quotidien de Gmail — remet ces patients en attente et relance l'envoi immédiatement, sans passer par la base de données." },
+      { type: 'improvement', text: "Les emails qui échouent à cause de la limite d'envoi quotidienne de Gmail (« Daily user sending limit exceeded ») sont désormais retentés automatiquement comme les problèmes réseau, au lieu d'être abandonnés définitivement." },
+    ],
+  },
+  {
     version: '1.13.2',
     date: '2026-07-04',
     title: 'Fiabilité de la diffusion en masse',
