@@ -8,6 +8,8 @@ import { ListChecks, Check, ChevronRight, CalendarPlus, UserPlus } from 'lucide-
 import { createClient } from '@/lib/db/client'
 import { QuickAddPatientDialog, type QuickAddedPatient } from '@/components/patients/quick-add-patient-dialog'
 
+const VISIBLE_CAP = 6
+
 interface PlanItem {
   id: string
   status: 'pending' | 'done'
@@ -49,9 +51,10 @@ export function DayPlanWidget() {
 
   useEffect(() => { load() }, [load])
 
-  const markDone = async (id: string) => {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, status: 'done' } : i)))
-    await db.from('daily_plan_items').update({ status: 'done' }).eq('id', id)
+  const toggleStatus = async (item: PlanItem) => {
+    const nextStatus = item.status === 'pending' ? 'done' : 'pending'
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, status: nextStatus } : i)))
+    await db.from('daily_plan_items').update({ status: nextStatus }).eq('id', item.id)
   }
 
   const handlePatientCreated = async (patient: QuickAddedPatient) => {
@@ -75,7 +78,10 @@ export function DayPlanWidget() {
   }
 
   const doneCount = items.filter((i) => i.status === 'done').length
-  const next = items.find((i) => i.status === 'pending')
+  const nextId = items.find((i) => i.status === 'pending')?.id
+  const progressPct = items.length > 0 ? (doneCount / items.length) * 100 : 0
+  const visibleItems = items.slice(0, VISIBLE_CAP)
+  const hiddenCount = items.length - visibleItems.length
 
   return (
     <Card className="border-border/30 h-full">
@@ -121,34 +127,67 @@ export function DayPlanWidget() {
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              {doneCount} / {items.length} patient{items.length > 1 ? 's' : ''} vu{doneCount > 1 ? 's' : ''}
-            </p>
-            {next ? (
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-accent/30 p-3">
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Prochain patient</p>
-                  <Link
-                    href={`/patients/${next.patient?.id}`}
-                    className="font-medium truncate hover:underline"
-                  >
-                    {next.patient?.first_name} {next.patient?.last_name}
-                  </Link>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 flex-shrink-0 gap-1.5"
-                  onClick={() => markDone(next.id)}
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  Vu
-                </Button>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  {doneCount} / {items.length} patient{items.length > 1 ? 's' : ''} vu{doneCount > 1 ? 's' : ''}
+                </span>
+                {!nextId && (
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">Journée terminée 🎉</span>
+                )}
               </div>
-            ) : (
-              <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                Tous les patients du jour ont été vus 🎉
-              </p>
+              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-orange-500 transition-all duration-500"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              {visibleItems.map((item) => {
+                const isNext = item.id === nextId
+                const isDone = item.status === 'done'
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 ${
+                      isNext ? 'bg-accent/40 border border-border/50' : ''
+                    }`}
+                  >
+                    <button
+                      onClick={() => toggleStatus(item)}
+                      title={isDone ? 'Marquer à revoir' : 'Marquer comme vu'}
+                      className={`h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0 border transition-colors ${
+                        isDone
+                          ? 'bg-emerald-500 border-emerald-500 text-white'
+                          : 'border-muted-foreground/40 text-transparent hover:border-orange-400'
+                      }`}
+                    >
+                      <Check className="h-3 w-3" />
+                    </button>
+                    <Link
+                      href={`/patients/${item.patient?.id}`}
+                      className={`text-sm truncate flex-1 min-w-0 hover:underline ${
+                        isDone ? 'text-muted-foreground line-through' : 'font-medium'
+                      }`}
+                    >
+                      {item.patient?.first_name} {item.patient?.last_name}
+                    </Link>
+                    {isNext && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400 flex-shrink-0">
+                        Prochain
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {hiddenCount > 0 && (
+              <Link href="/day-plan" className="block text-xs text-muted-foreground hover:underline">
+                +{hiddenCount} autre{hiddenCount > 1 ? 's' : ''} patient{hiddenCount > 1 ? 's' : ''}
+              </Link>
             )}
           </div>
         )}
