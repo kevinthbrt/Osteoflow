@@ -319,6 +319,7 @@ export default function DayPlanPage() {
 
                 <Link
                   href={`/patients/${item.patient?.id}`}
+                  onClick={() => { if (item.status !== 'done') toggleStatus(item) }}
                   className={`flex-1 min-w-0 font-medium hover:underline ${
                     item.status === 'done' ? 'text-muted-foreground line-through' : ''
                   }`}

@@ -230,6 +230,7 @@ export function DayPlanWidget({ variant = 'card' }: { variant?: 'card' | 'banner
                 <div className="flex items-center justify-between gap-2">
                   <Link
                     href={`/patients/${item.patient?.id}`}
+                    onClick={() => { if (!isDone) toggleStatus(item) }}
                     className={`text-sm truncate hover:underline ${
                       isDone
                         ? (banner ? 'text-white/50 line-through' : 'text-muted-foreground line-through')
