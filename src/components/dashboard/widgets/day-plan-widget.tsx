@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ListChecks, Check, ChevronRight, CalendarPlus } from 'lucide-react'
+import { ListChecks, Check, ChevronRight, CalendarPlus, UserPlus } from 'lucide-react'
 import { createClient } from '@/lib/db/client'
+import { QuickAddPatientDialog, type QuickAddedPatient } from '@/components/patients/quick-add-patient-dialog'
 
 interface PlanItem {
   id: string
@@ -19,8 +20,10 @@ function todayStr(): string {
 }
 
 export function DayPlanWidget() {
+  const [practitionerId, setPractitionerId] = useState<string | null>(null)
   const [items, setItems] = useState<PlanItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
   const db = createClient()
 
   const load = useCallback(async () => {
@@ -31,6 +34,7 @@ export function DayPlanWidget() {
         setItems([])
         return
       }
+      setPractitionerId(practitioner.id)
       const { data } = await db
         .from('daily_plan_items')
         .select('id, status, patient:patients (id, first_name, last_name)')
@@ -50,6 +54,26 @@ export function DayPlanWidget() {
     await db.from('daily_plan_items').update({ status: 'done' }).eq('id', id)
   }
 
+  const handlePatientCreated = async (patient: QuickAddedPatient) => {
+    setQuickAddOpen(false)
+    if (!practitionerId) return
+    const nextPosition = items.length
+    const { data, error } = await db
+      .from('daily_plan_items')
+      .insert({
+        practitioner_id: practitionerId,
+        patient_id: patient.id,
+        plan_date: todayStr(),
+        position: nextPosition,
+        status: 'pending',
+      })
+      .select('id, status')
+      .single()
+    if (!error) {
+      setItems((prev) => [...prev, { id: data.id, status: 'pending', patient }])
+    }
+  }
+
   const doneCount = items.filter((i) => i.status === 'done').length
   const next = items.find((i) => i.status === 'pending')
 
@@ -62,12 +86,23 @@ export function DayPlanWidget() {
           </div>
           <span className="text-orange-600 dark:text-orange-400">Ma journée</span>
         </CardTitle>
-        <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs" asChild>
-          <Link href="/day-plan">
-            Organiser
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            title="Ajouter un nouveau patient"
+            onClick={() => setQuickAddOpen(true)}
+          >
+            <UserPlus className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs" asChild>
+            <Link href="/day-plan">
+              Organiser
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {loading ? (
@@ -118,6 +153,12 @@ export function DayPlanWidget() {
           </div>
         )}
       </CardContent>
+
+      <QuickAddPatientDialog
+        open={quickAddOpen}
+        onClose={() => setQuickAddOpen(false)}
+        onCreated={handlePatientCreated}
+      />
     </Card>
   )
 }

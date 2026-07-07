@@ -14,6 +14,7 @@ import {
   Plus,
   ChevronsUpDown,
   User,
+  UserPlus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { createClient } from '@/lib/db/client'
 import { useToast } from '@/hooks/use-toast'
+import { QuickAddPatientDialog, type QuickAddedPatient } from '@/components/patients/quick-add-patient-dialog'
 
 interface Patient {
   id: string
@@ -54,6 +56,7 @@ export default function DayPlanPage() {
   const [addOpen, setAddOpen] = useState(false)
   const [patientSearch, setPatientSearch] = useState('')
   const [savingOrder, setSavingOrder] = useState(false)
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
 
   const db = createClient()
   const { toast } = useToast()
@@ -125,6 +128,12 @@ export default function DayPlanPage() {
     } catch {
       toast({ title: "Erreur lors de l'ajout du patient", variant: 'destructive' })
     }
+  }
+
+  const handlePatientCreated = (patient: QuickAddedPatient) => {
+    setPatients((prev) => [...prev, patient].sort((a, b) => a.last_name.localeCompare(b.last_name)))
+    setQuickAddOpen(false)
+    addPatient(patient)
   }
 
   const removeItem = async (id: string) => {
@@ -242,8 +251,23 @@ export default function DayPlanPage() {
               ))
             )}
           </div>
+          <div className="border-t p-1">
+            <button
+              className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent flex items-center gap-2 text-primary font-medium rounded-md"
+              onClick={() => { setAddOpen(false); setQuickAddOpen(true) }}
+            >
+              <UserPlus className="h-3.5 w-3.5 flex-shrink-0" />
+              Créer un nouveau patient
+            </button>
+          </div>
         </PopoverContent>
       </Popover>
+
+      <QuickAddPatientDialog
+        open={quickAddOpen}
+        onClose={() => setQuickAddOpen(false)}
+        onCreated={handlePatientCreated}
+      />
 
       {/* List */}
       <section className="max-w-2xl">
