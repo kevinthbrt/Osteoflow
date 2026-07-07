@@ -186,7 +186,7 @@ export function DayPlanWidget({ variant = 'card' }: { variant?: 'card' | 'banner
       </div>
 
       {/* Vue d'ensemble de la journée, défilable à la molette */}
-      <div ref={listRef} className="space-y-1 max-h-72 overflow-y-auto pr-1">
+      <div ref={listRef} className="space-y-1 max-h-36 overflow-y-auto pr-1">
         {items.map((item) => {
           const isNext = item.id === nextId
           const isDone = item.status === 'done'
