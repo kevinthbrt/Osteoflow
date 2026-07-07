@@ -25,7 +25,14 @@ function todayStr(): string {
 }
 
 function formatTimeSince(dateStr: string): string {
-  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
+  // Compare calendar dates (midnight to midnight), not raw elapsed hours —
+  // otherwise "yesterday afternoon" checked "this morning" reads as "today"
+  // since less than 24h have actually elapsed.
+  const consultDay = new Date(dateStr)
+  consultDay.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const days = Math.round((today.getTime() - consultDay.getTime()) / 86400000)
   if (days <= 0) return "aujourd'hui"
   if (days === 1) return 'hier'
   if (days < 7) return `il y a ${days} jours`
