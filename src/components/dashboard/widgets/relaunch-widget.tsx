@@ -43,7 +43,7 @@ export function RelaunchWidget() {
           <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
             <UserX className="h-4 w-4 text-primary" />
           </div>
-          Relances patients
+          <span className="text-primary">Relances patients</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">

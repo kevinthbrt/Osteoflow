@@ -6,6 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Target, TrendingUp, TrendingDown, Minus, Settings, Calendar, Sun, Umbrella } from 'lucide-react'
 
+function formatEuros(amount: number): string {
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+  }).format(amount)
+}
+
 type ObjectivesData = {
   settings: {
     annual_revenue_objective: number | null
@@ -69,6 +77,8 @@ function PeriodBlock({
   iconColor,
   label,
   status,
+  revenue,
+  objective,
   revPct,
   datePct,
   message,
@@ -77,6 +87,8 @@ function PeriodBlock({
   iconColor: string
   label: string
   status: StatusInfo
+  revenue: number
+  objective: number
   revPct: number
   datePct: number
   message: string
@@ -92,6 +104,13 @@ function PeriodBlock({
         <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${status.badge}`}>
           <StatusIcon className="h-3 w-3" /> {status.label}
         </span>
+      </div>
+      <div className="flex items-baseline justify-between">
+        <p className="text-sm font-semibold">
+          {formatEuros(revenue)}
+          <span className="text-muted-foreground font-normal"> / {formatEuros(objective)}</span>
+        </p>
+        <p className="text-xs text-muted-foreground">{Math.round(revPct)} %</p>
       </div>
       <VisualBar pct={revPct} datePct={datePct} color={status.bg} />
       <p className="text-xs text-muted-foreground">{message}</p>
@@ -140,7 +159,7 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
             <div className="w-7 h-7 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
               <Target className="h-4 w-4 text-violet-500" />
             </div>
-            Progression
+            <span className="text-violet-600 dark:text-violet-400">Progression</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -163,7 +182,7 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
             <div className="w-7 h-7 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
               <Target className="h-4 w-4 text-violet-500" />
             </div>
-            Progression
+            <span className="text-violet-600 dark:text-violet-400">Progression</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col items-center justify-center gap-4 py-6 text-center">
@@ -208,6 +227,8 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
       iconColor="text-amber-500"
       label="Cette semaine"
       status={weekStatus}
+      revenue={data.revenue.this_week}
+      objective={data.computed.weekly_objective}
       revPct={weekRevPct}
       datePct={weekPct}
       message={
@@ -226,6 +247,8 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
       iconColor="text-indigo-500"
       label="Ce mois-ci"
       status={monthStatus}
+      revenue={data.revenue.this_month}
+      objective={data.computed.monthly_objective}
       revPct={monthRevPct}
       datePct={monthPct}
       message={
@@ -244,6 +267,8 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
       iconColor="text-violet-500"
       label="Cette année"
       status={yearStatus}
+      revenue={data.revenue.this_year}
+      objective={annual}
       revPct={yearRevPct}
       datePct={yearPct}
       message={
@@ -278,7 +303,7 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
           <div className="w-7 h-7 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
             <Target className="h-4 w-4 text-violet-500" />
           </div>
-          Progression
+          <span className="text-violet-600 dark:text-violet-400">Progression</span>
         </CardTitle>
         <Button variant="ghost" size="sm" className="h-8 w-8 p-0" asChild>
           <Link href="/objectives">
