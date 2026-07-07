@@ -15,18 +15,18 @@ function formatEuros(amount: number): string {
 }
 
 /**
- * Fraction (0–1) of working days elapsed in [start, endExclusive), given a
- * working week made of the first `workingDaysPerWeek` weekdays (Mon-first).
- * There's no data on which specific weekdays are worked, so this is the
- * best available approximation.
+ * Fraction (0–1) of working days elapsed in [start, endExclusive), given the
+ * set of worked weekdays (1=Mon ... 7=Sun). When the practitioner hasn't
+ * picked specific days, callers fall back to an approximation (the first
+ * `workingDaysPerWeek` weekdays).
  */
-function workingDayRatio(start: Date, endExclusive: Date, todayStart: Date, workingDaysPerWeek: number): number {
+function workingDayRatio(start: Date, endExclusive: Date, todayStart: Date, workingWeekdays: Set<number>): number {
   let total = 0
   let elapsed = 0
   const cursor = new Date(start)
   while (cursor < endExclusive) {
     const weekday = cursor.getDay() === 0 ? 7 : cursor.getDay() // 1=Mon ... 7=Sun
-    if (weekday <= workingDaysPerWeek) {
+    if (workingWeekdays.has(weekday)) {
       total++
       if (cursor < todayStart) elapsed++
     }
@@ -40,6 +40,7 @@ type ObjectivesData = {
     annual_revenue_objective: number | null
     vacation_weeks_per_year: number
     working_days_per_week: number
+    working_weekdays: number[] | null
     average_consultation_price: number | null
   }
   computed: {
@@ -165,21 +166,29 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
   const startOfToday = new Date(year, now.getMonth(), now.getDate())
   const workingDaysPerWeek = data?.settings.working_days_per_week ?? 4
 
-  // Fraction of working days elapsed so far, per period (accounts for
-  // weekends via working_days_per_week — vacation weeks aren't pinned to
-  // specific calendar weeks so they can't be excluded precisely).
+  // Prefer the exact days picked in settings; fall back to an approximation
+  // (the first N weekdays) when they haven't been configured yet.
+  const workingWeekdays = new Set(
+    data?.settings.working_weekdays && data.settings.working_weekdays.length > 0
+      ? data.settings.working_weekdays
+      : Array.from({ length: workingDaysPerWeek }, (_, i) => i + 1)
+  )
+
+  // Fraction of working days elapsed so far, per period (vacation weeks
+  // aren't pinned to specific calendar weeks so they can't be excluded
+  // precisely).
   const dow = now.getDay() === 0 ? 7 : now.getDay() // 1=Mon ... 7=Sun
   const weekStart = new Date(year, now.getMonth(), now.getDate() - (dow - 1))
   const weekEnd = new Date(year, now.getMonth(), now.getDate() - (dow - 1) + 7)
-  const weekPct = workingDayRatio(weekStart, weekEnd, startOfToday, workingDaysPerWeek) * 100
+  const weekPct = workingDayRatio(weekStart, weekEnd, startOfToday, workingWeekdays) * 100
 
   const monthStart = new Date(year, now.getMonth(), 1)
   const monthEnd = new Date(year, now.getMonth() + 1, 1)
-  const monthPct = workingDayRatio(monthStart, monthEnd, startOfToday, workingDaysPerWeek) * 100
+  const monthPct = workingDayRatio(monthStart, monthEnd, startOfToday, workingWeekdays) * 100
 
   const yearStart = new Date(year, 0, 1)
   const yearEnd = new Date(year + 1, 0, 1)
-  const yearPct = workingDayRatio(yearStart, yearEnd, startOfToday, workingDaysPerWeek) * 100
+  const yearPct = workingDayRatio(yearStart, yearEnd, startOfToday, workingWeekdays) * 100
 
   const annual = data?.settings.annual_revenue_objective
   const hasObjectives = annual && annual > 0

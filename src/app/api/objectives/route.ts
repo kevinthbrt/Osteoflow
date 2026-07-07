@@ -13,7 +13,7 @@ export async function GET() {
 
     const { data: practitioner } = await db
       .from('practitioners')
-      .select('id, annual_revenue_objective, vacation_weeks_per_year, working_days_per_week, average_consultation_price')
+      .select('id, annual_revenue_objective, vacation_weeks_per_year, working_days_per_week, working_weekdays, average_consultation_price')
       .eq('user_id', user.id)
       .single()
 
@@ -25,6 +25,7 @@ export async function GET() {
       annual_revenue_objective: practitioner.annual_revenue_objective ?? null,
       vacation_weeks_per_year: practitioner.vacation_weeks_per_year ?? 5,
       working_days_per_week: practitioner.working_days_per_week ?? 4,
+      working_weekdays: practitioner.working_weekdays ?? null,
       average_consultation_price: practitioner.average_consultation_price ?? null,
     }
 
@@ -174,14 +175,19 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { annual_revenue_objective, vacation_weeks_per_year, working_days_per_week, average_consultation_price } = body
+    const { annual_revenue_objective, vacation_weeks_per_year, working_days_per_week, working_weekdays, average_consultation_price } = body
+
+    // Si des jours précis sont fournis, le nombre de jours/semaine en découle.
+    const weekdays = Array.isArray(working_weekdays) && working_weekdays.length > 0 ? working_weekdays : null
+    const daysPerWeek = weekdays ? weekdays.length : (working_days_per_week ?? 4)
 
     const { error } = await db
       .from('practitioners')
       .update({
         annual_revenue_objective: annual_revenue_objective ?? null,
         vacation_weeks_per_year: vacation_weeks_per_year ?? 5,
-        working_days_per_week: working_days_per_week ?? 4,
+        working_days_per_week: daysPerWeek,
+        working_weekdays: weekdays,
         average_consultation_price: average_consultation_price ?? null,
       })
       .eq('id', practitioner.id)

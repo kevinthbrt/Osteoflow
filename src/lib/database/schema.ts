@@ -505,6 +505,11 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   if (!practCols2.some((c) => c.name === 'average_consultation_price')) {
     db.exec('ALTER TABLE practitioners ADD COLUMN average_consultation_price REAL;')
   }
+  // Jours de la semaine réellement travaillés (JSON : [1,2,3,4] = lun-jeu, 1=lundi..7=dimanche).
+  // NULL = non configuré, on retombe sur l'hypothèse "les N premiers jours" (working_days_per_week).
+  if (!practCols2.some((c) => c.name === 'working_weekdays')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN working_weekdays TEXT;')
+  }
 
   // Add referred_by_patient_id to patients
   const patientCols = db.pragma('table_info(patients)') as Array<{ name: string }>
@@ -918,4 +923,5 @@ export const BOOLEAN_FIELDS: Record<string, string[]> = {
 export const JSON_FIELDS: Record<string, string[]> = {
   audit_logs: ['old_data', 'new_data'],
   saved_reports: ['filters'],
+  practitioners: ['working_weekdays'],
 }

@@ -150,6 +150,17 @@ function LegalSettingsTab() {
   )
 }
 
+// Jours de la semaine pour le sélecteur "jours travaillés" (1=lundi ... 7=dimanche)
+const WEEKDAY_OPTIONS = [
+  { value: 1, label: 'Lun' },
+  { value: 2, label: 'Mar' },
+  { value: 3, label: 'Mer' },
+  { value: 4, label: 'Jeu' },
+  { value: 5, label: 'Ven' },
+  { value: 6, label: 'Sam' },
+  { value: 7, label: 'Dim' },
+]
+
 // Navigation des paramètres regroupée en grandes catégories (2 niveaux) pour
 // éviter la longue liste d'onglets à plat, source de confusion.
 const SETTINGS_NAV: {
@@ -218,6 +229,7 @@ function SettingsPageInner() {
     annual_revenue_objective: '',
     vacation_weeks_per_year: '5',
     working_days_per_week: '4',
+    working_weekdays: [1, 2, 3, 4] as number[],
     average_consultation_price: '',
   })
   const [isSavingObjectives, setIsSavingObjectives] = useState(false)
@@ -289,10 +301,15 @@ function SettingsPageInner() {
         if (res.ok) {
           const data = await res.json()
           if (data.settings) {
+            const wdpw = data.settings.working_days_per_week ?? 4
+            const weekdays: number[] = Array.isArray(data.settings.working_weekdays) && data.settings.working_weekdays.length > 0
+              ? data.settings.working_weekdays
+              : Array.from({ length: Math.min(Math.max(wdpw, 1), 7) }, (_, i) => i + 1)
             setObjectivesSettings({
               annual_revenue_objective: data.settings.annual_revenue_objective != null ? String(data.settings.annual_revenue_objective) : '',
               vacation_weeks_per_year: String(data.settings.vacation_weeks_per_year ?? 5),
-              working_days_per_week: String(data.settings.working_days_per_week ?? 4),
+              working_days_per_week: String(wdpw),
+              working_weekdays: weekdays,
               average_consultation_price: data.settings.average_consultation_price != null ? String(data.settings.average_consultation_price) : '',
             })
           }
@@ -304,6 +321,21 @@ function SettingsPageInner() {
     fetchObjectives()
   }, [])
 
+  // Toggle a weekday in the "jours travaillés" picker (1=lundi ... 7=dimanche)
+  const toggleWorkingWeekday = (day: number) => {
+    setObjectivesSettings((prev) => {
+      const has = prev.working_weekdays.includes(day)
+      const nextWeekdays = has
+        ? prev.working_weekdays.filter((d) => d !== day)
+        : [...prev.working_weekdays, day].sort((a, b) => a - b)
+      return {
+        ...prev,
+        working_weekdays: nextWeekdays,
+        working_days_per_week: String(nextWeekdays.length || 1),
+      }
+    })
+  }
+
   // Save objectives settings
   const handleSaveObjectives = async () => {
     setIsSavingObjectives(true)
@@ -314,7 +346,8 @@ function SettingsPageInner() {
         body: JSON.stringify({
           annual_revenue_objective: objectivesSettings.annual_revenue_objective ? Number(objectivesSettings.annual_revenue_objective) : null,
           vacation_weeks_per_year: Number(objectivesSettings.vacation_weeks_per_year) || 5,
-          working_days_per_week: Number(objectivesSettings.working_days_per_week) || 4,
+          working_days_per_week: objectivesSettings.working_weekdays.length || Number(objectivesSettings.working_days_per_week) || 4,
+          working_weekdays: objectivesSettings.working_weekdays,
           average_consultation_price: objectivesSettings.average_consultation_price ? Number(objectivesSettings.average_consultation_price) : null,
         }),
       })
@@ -1914,17 +1947,30 @@ function SettingsPageInner() {
                     onChange={(e) => setObjectivesSettings((prev) => ({ ...prev, vacation_weeks_per_year: e.target.value }))}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="working_days_per_week">Jours travaillés par semaine</Label>
-                  <Input
-                    id="working_days_per_week"
-                    type="number"
-                    min="1"
-                    max="7"
-                    step="1"
-                    value={objectivesSettings.working_days_per_week}
-                    onChange={(e) => setObjectivesSettings((prev) => ({ ...prev, working_days_per_week: e.target.value }))}
-                  />
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Jours travaillés</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {WEEKDAY_OPTIONS.map((wd) => {
+                      const active = objectivesSettings.working_weekdays.includes(wd.value)
+                      return (
+                        <button
+                          key={wd.value}
+                          type="button"
+                          onClick={() => toggleWorkingWeekday(wd.value)}
+                          className={`h-9 w-12 rounded-md text-sm font-medium border transition-colors ${
+                            active
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-background text-muted-foreground border-input hover:bg-accent'
+                          }`}
+                        >
+                          {wd.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {objectivesSettings.working_weekdays.length} jour{objectivesSettings.working_weekdays.length > 1 ? 's' : ''} travaillé{objectivesSettings.working_weekdays.length > 1 ? 's' : ''} par semaine — utilisé pour calculer où vous devriez en être chaque jour.
+                  </p>
                 </div>
               </div>
 

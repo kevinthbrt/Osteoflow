@@ -55,6 +55,7 @@ export interface Database {
           annual_revenue_objective: number | null
           vacation_weeks_per_year: number | null
           working_days_per_week: number | null
+          working_weekdays: number[] | null
           average_consultation_price: number | null
           created_at: string
           updated_at: string
@@ -91,6 +92,7 @@ export interface Database {
           annual_revenue_objective?: number | null
           vacation_weeks_per_year?: number | null
           working_days_per_week?: number | null
+          working_weekdays?: number[] | null
           average_consultation_price?: number | null
           created_at?: string
           updated_at?: string
@@ -127,6 +129,7 @@ export interface Database {
           annual_revenue_objective?: number | null
           vacation_weeks_per_year?: number | null
           working_days_per_week?: number | null
+          working_weekdays?: number[] | null
           average_consultation_price?: number | null
           created_at?: string
           updated_at?: string
