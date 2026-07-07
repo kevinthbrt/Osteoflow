@@ -89,6 +89,9 @@ export function Dashboard({
   return (
     <div className="space-y-6 animate-fade-in">
 
+      {/* ── Complétude du profil (tout en haut pour ne pas la manquer) ── */}
+      <ProfileCompletionWidget />
+
       {/* ── Header banner ── */}
       <div className="relative overflow-hidden rounded-2xl px-6 py-5 text-white gradient-primary">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-xl" />
@@ -125,9 +128,6 @@ export function Dashboard({
 
       {/* ── Progression pleine largeur ── */}
       <ProgressWidget layout="horizontal" />
-
-      {/* ── Complétude du profil ── */}
-      <ProfileCompletionWidget />
 
       {/* ── 3 colonnes : OsteoUpgrade | Vidéo | OsteoFlash ── */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
