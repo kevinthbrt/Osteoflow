@@ -9,7 +9,7 @@
  * - Handle application lifecycle
  */
 
-import { app, BrowserWindow, shell, dialog, Notification, ipcMain, session } from 'electron'
+import { app, BrowserWindow, shell, dialog, Notification, ipcMain, session, desktopCapturer, systemPreferences } from 'electron'
 import path from 'path'
 import { exec } from 'child_process'
 import { startCronJobs, stopCronJobs } from './cron'
@@ -465,6 +465,47 @@ async function setupAutoUpdater(): Promise<void> {
 }
 
 /**
+ * Screen capture — lets the renderer list open windows/screens and grab a
+ * still image of one, used to import a Doctolib agenda screenshot into
+ * "Ma journée" (read locally via OCR, nothing is uploaded anywhere).
+ */
+function registerCaptureHandlers(): void {
+  ipcMain.handle('capture:list-sources', async () => {
+    // On macOS, if Screen Recording permission hasn't been granted yet,
+    // desktopCapturer silently returns sources with blank/black thumbnails
+    // instead of throwing — there is no automatic system prompt for this
+    // permission (unlike camera/microphone). We surface that state so the
+    // renderer can show instructions instead of a confusing empty picker.
+    if (process.platform === 'darwin') {
+      const status = systemPreferences.getMediaAccessStatus('screen')
+      if (status !== 'granted') {
+        return { needsPermission: true, sources: [] }
+      }
+    }
+    const sources = await desktopCapturer.getSources({
+      types: ['window', 'screen'],
+      thumbnailSize: { width: 1920, height: 1200 },
+    })
+    return {
+      needsPermission: false,
+      sources: sources
+        .filter((s) => !s.thumbnail.isEmpty())
+        .map((s) => ({
+          id: s.id,
+          name: s.name,
+          thumbnailDataUrl: s.thumbnail.toDataURL(),
+        })),
+    }
+  })
+
+  ipcMain.handle('capture:open-screen-recording-settings', async () => {
+    if (process.platform === 'darwin') {
+      await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
+    }
+  })
+}
+
+/**
  * Application lifecycle.
  */
 // When a second instance is launched, focus the existing window instead.
@@ -538,6 +579,7 @@ app.whenReady().then(async () => {
   loadApp() // Navigate from splash to the real app
   startCronJobs(PORT)
   setupAutoUpdater()
+  registerCaptureHandlers()
 
   console.log('[Electron] MyOsteoFlow ready!')
 

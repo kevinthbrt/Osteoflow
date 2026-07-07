@@ -48,4 +48,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onOpenBackupReminder: (callback: () => void) => {
     ipcRenderer.on('open-backup-reminder', () => callback())
   },
+
+  // Screen capture — used to import a Doctolib agenda screenshot into
+  // "Ma journée". Everything (listing sources, reading pixels) stays local;
+  // no image is ever sent over the network.
+  listCaptureSources: (): Promise<{
+    needsPermission: boolean
+    sources: { id: string; name: string; thumbnailDataUrl: string }[]
+  }> => ipcRenderer.invoke('capture:list-sources'),
+  openScreenRecordingSettings: (): Promise<void> => ipcRenderer.invoke('capture:open-screen-recording-settings'),
 })
