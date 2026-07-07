@@ -19,6 +19,15 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.14.1',
+    date: '2026-07-07',
+    title: 'Complétude du profil plus visible et patients marqués vus automatiquement',
+    changes: [
+      { type: 'improvement', text: "Le panneau « Complétez votre profil » s'affiche désormais tout en haut du dashboard, pour ne plus passer inaperçu." },
+      { type: 'feature', text: "Dans « Ma journée » (page dédiée et widget du dashboard), cliquer sur le nom d'un patient pour ouvrir sa fiche le marque désormais automatiquement comme vu." },
+    ],
+  },
+  {
     version: '1.14.0',
     date: '2026-07-07',
     title: 'Nouvelle fonctionnalité « Ma journée » et suivi des objectifs par jours travaillés',
