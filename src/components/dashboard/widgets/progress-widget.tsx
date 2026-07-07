@@ -14,6 +14,27 @@ function formatEuros(amount: number): string {
   }).format(amount)
 }
 
+/**
+ * Fraction (0–1) of working days elapsed in [start, endExclusive), given a
+ * working week made of the first `workingDaysPerWeek` weekdays (Mon-first).
+ * There's no data on which specific weekdays are worked, so this is the
+ * best available approximation.
+ */
+function workingDayRatio(start: Date, endExclusive: Date, todayStart: Date, workingDaysPerWeek: number): number {
+  let total = 0
+  let elapsed = 0
+  const cursor = new Date(start)
+  while (cursor < endExclusive) {
+    const weekday = cursor.getDay() === 0 ? 7 : cursor.getDay() // 1=Mon ... 7=Sun
+    if (weekday <= workingDaysPerWeek) {
+      total++
+      if (cursor < todayStart) elapsed++
+    }
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return total > 0 ? elapsed / total : 0
+}
+
 type ObjectivesData = {
   settings: {
     annual_revenue_objective: number | null
@@ -94,6 +115,8 @@ function PeriodBlock({
   message: string
 }) {
   const StatusIcon = status.icon
+  const expected = objective * (datePct / 100)
+  const gap = revenue - expected
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -113,6 +136,13 @@ function PeriodBlock({
         <p className="text-xs text-muted-foreground">{Math.round(revPct)} %</p>
       </div>
       <VisualBar pct={revPct} datePct={datePct} color={status.bg} />
+      <p className="text-xs text-muted-foreground">
+        Attendu à ce jour : <span className="font-medium text-foreground">{formatEuros(expected)}</span>
+        {' '}
+        <span className={gap >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
+          ({gap >= 0 ? '+' : '−'}{formatEuros(Math.abs(gap))})
+        </span>
+      </p>
       <p className="text-xs text-muted-foreground">{message}</p>
     </div>
   )
@@ -132,21 +162,24 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
 
   const now = new Date()
   const year = now.getFullYear()
+  const startOfToday = new Date(year, now.getMonth(), now.getDate())
+  const workingDaysPerWeek = data?.settings.working_days_per_week ?? 4
 
-  // Day-of-year percentage
-  const startOfYear = new Date(year, 0, 1)
-  const isLeap = (year % 400 === 0) || (year % 4 === 0 && year % 100 !== 0)
-  const totalDays = isLeap ? 366 : 365
-  const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000)
-  const yearPct = (dayOfYear / totalDays) * 100
+  // Fraction of working days elapsed so far, per period (accounts for
+  // weekends via working_days_per_week — vacation weeks aren't pinned to
+  // specific calendar weeks so they can't be excluded precisely).
+  const dow = now.getDay() === 0 ? 7 : now.getDay() // 1=Mon ... 7=Sun
+  const weekStart = new Date(year, now.getMonth(), now.getDate() - (dow - 1))
+  const weekEnd = new Date(year, now.getMonth(), now.getDate() - (dow - 1) + 7)
+  const weekPct = workingDayRatio(weekStart, weekEnd, startOfToday, workingDaysPerWeek) * 100
 
-  // Week percentage (Mon–Sun)
-  const dayOfWeek = now.getDay() === 0 ? 7 : now.getDay()
-  const weekPct = ((dayOfWeek - 1) / 7) * 100
+  const monthStart = new Date(year, now.getMonth(), 1)
+  const monthEnd = new Date(year, now.getMonth() + 1, 1)
+  const monthPct = workingDayRatio(monthStart, monthEnd, startOfToday, workingDaysPerWeek) * 100
 
-  // Month percentage
-  const daysInMonth = new Date(year, now.getMonth() + 1, 0).getDate()
-  const monthPct = ((now.getDate() - 1) / daysInMonth) * 100
+  const yearStart = new Date(year, 0, 1)
+  const yearEnd = new Date(year + 1, 0, 1)
+  const yearPct = workingDayRatio(yearStart, yearEnd, startOfToday, workingDaysPerWeek) * 100
 
   const annual = data?.settings.annual_revenue_objective
   const hasObjectives = annual && annual > 0
