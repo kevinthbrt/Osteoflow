@@ -443,6 +443,10 @@ async function setupAutoUpdater(): Promise<void> {
 
     autoUpdater.on('error', (error) => {
       console.error('[Updater] Error:', error.message)
+      // Without this, a failed download leaves the renderer's banner stuck
+      // on "téléchargement en cours" forever — surface the failure so the
+      // UI can reset (a retry happens automatically on the next check).
+      mainWindow?.webContents.send('update-error', error.message)
     })
 
     // Listen for restart request from the renderer.
