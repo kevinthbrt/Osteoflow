@@ -10,6 +10,8 @@ export interface DoctolibScheduleParseResult {
   entries: DoctolibScheduleEntry[]
   /** True when the image looks like it might be a week/month view rather than a single day. */
   suspectedWrongView: boolean
+  /** True when OCR read no text at all from the image (wrong window, blank capture, OCR failure). */
+  noTextDetected: boolean
 }
 
 interface OcrWord {
@@ -17,8 +19,11 @@ interface OcrWord {
   bbox: { x0: number; y0: number; x1: number; y1: number }
 }
 
-const TIME_REGEX = /^(\d{1,2}[:h]\d{2})$/
-const LINE_Y_TOLERANCE = 12
+// Matches a time either as its own token ("10:40") or glued to the next word
+// by a missing space ("10:40TREHEUX") — Tesseract sometimes drops the space
+// after a bold time label. Captures the time and (if glued) the remainder.
+const TIME_LINE_REGEX = /(\d{1,2})[:h.](\d{2})\s*(.*)/
+const LINE_Y_TOLERANCE = 14
 
 /**
  * Runs local OCR (Tesseract, entirely offline — nothing is uploaded) on a
@@ -30,34 +35,71 @@ export async function parseDoctolibScheduleImage(
 ): Promise<DoctolibScheduleParseResult> {
   const worker = await createWorker('fra')
   try {
-    const { data } = await worker.recognize(imageSource, {}, { blocks: true })
-    const words: OcrWord[] = ((data as unknown as { words?: OcrWord[] }).words ?? [])
-      .filter((w) => w.text.trim().length > 0)
+    const { data } = await worker.recognize(imageSource, {}, { blocks: true, text: true })
+    const words = extractWords(data)
+
+    console.log(`[parse-doctolib-schedule] OCR: ${words.length} mots reconnus`)
+    if (words.length === 0) {
+      return { entries: [], suspectedWrongView: false, noTextDetected: true }
+    }
 
     const lines = groupWordsIntoLines(words)
     const entries: DoctolibScheduleEntry[] = []
 
     for (const line of lines) {
       if (line.length === 0) continue
-      const [first, ...rest] = line
-      const timeMatch = first.text.replace('h', ':').match(TIME_REGEX)
-      if (!timeMatch || rest.length === 0) continue
+      const lineText = line.map((w) => w.text).join(' ').trim()
+      const match = lineText.match(TIME_LINE_REGEX)
+      if (!match) continue
 
-      const time = normalizeTime(timeMatch[1])
-      const nameTokens = rest.map((w) => w.text).filter((t) => /^[A-Za-zÀ-ÿ'’-]+$/.test(t))
+      const restText = match[3] ?? ''
+      const nameTokens = restText
+        .split(/\s+/)
+        .filter((t) => /^[A-Za-zÀ-ÿ'’-]{2,}$/.test(t))
       if (nameTokens.length < 2) continue
 
+      const time = normalizeTime(match[1], match[2])
       const firstName = nameTokens[nameTokens.length - 1]
       const lastName = nameTokens.slice(0, -1).join(' ')
       entries.push({ time, firstName, lastName })
     }
 
+    console.log(`[parse-doctolib-schedule] ${lines.length} lignes, ${entries.length} rendez-vous détectés`)
+
     const suspectedWrongView = detectWrongView(words, entries)
 
-    return { entries, suspectedWrongView }
+    return { entries, suspectedWrongView, noTextDetected: false }
   } finally {
     await worker.terminate()
   }
+}
+
+/**
+ * Tesseract.js puts recognized words either as a flat `data.words` array, or
+ * nested under `data.blocks[].paragraphs[].lines[].words[]` depending on
+ * version/options — read whichever is actually populated.
+ */
+function extractWords(data: unknown): OcrWord[] {
+  const d = data as {
+    words?: OcrWord[]
+    blocks?: Array<{ paragraphs?: Array<{ lines?: Array<{ words?: OcrWord[] }> }> }>
+  }
+
+  if (d.words && d.words.length > 0) {
+    return d.words.filter((w) => w.text?.trim().length > 0)
+  }
+
+  const flattened: OcrWord[] = []
+  for (const block of d.blocks ?? []) {
+    for (const paragraph of block.paragraphs ?? []) {
+      for (const line of paragraph.lines ?? []) {
+        for (const word of line.words ?? []) {
+          if (word.text?.trim().length > 0) flattened.push(word)
+        }
+      }
+    }
+  }
+  return flattened
 }
 
 /** Group OCR words into horizontal "lines" using their vertical center. */
@@ -82,8 +124,7 @@ function yCenter(word: OcrWord): number {
   return (word.bbox.y0 + word.bbox.y1) / 2
 }
 
-function normalizeTime(raw: string): string {
-  const [h, m] = raw.split(':')
+function normalizeTime(h: string, m: string): string {
   return `${h.padStart(2, '0')}:${m}`
 }
 

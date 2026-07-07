@@ -128,11 +128,13 @@ export function CaptureDoctolibScheduleDialog({
   const handlePickSource = async (source: CaptureSource) => {
     setStep('processing')
     try {
-      const { entries, suspectedWrongView: wrongView } = await parseDoctolibScheduleImage(source.thumbnailDataUrl)
+      const { entries, suspectedWrongView: wrongView, noTextDetected } = await parseDoctolibScheduleImage(source.thumbnailDataUrl)
       if (entries.length === 0) {
         toast({
           title: 'Aucun rendez-vous détecté',
-          description: 'Vérifiez que Doctolib est bien sur la vue Journée (pas Semaine ni Mois).',
+          description: noTextDetected
+            ? "La capture ne semble contenir aucun texte lisible — vérifiez que vous avez bien sélectionné la fenêtre où Doctolib est affiché."
+            : 'Vérifiez que Doctolib est bien sur la vue Journée (pas Semaine ni Mois).',
           variant: 'destructive',
         })
         setStep('sources')
