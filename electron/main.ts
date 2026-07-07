@@ -9,7 +9,7 @@
  * - Handle application lifecycle
  */
 
-import { app, BrowserWindow, shell, dialog, Notification, ipcMain, session, desktopCapturer, systemPreferences } from 'electron'
+import { app, BrowserWindow, shell, dialog, Notification, ipcMain, session, desktopCapturer } from 'electron'
 import path from 'path'
 import { exec } from 'child_process'
 import { startCronJobs, stopCronJobs } from './cron'
@@ -471,30 +471,28 @@ async function setupAutoUpdater(): Promise<void> {
  */
 function registerCaptureHandlers(): void {
   ipcMain.handle('capture:list-sources', async () => {
-    // On macOS, if Screen Recording permission hasn't been granted yet,
-    // desktopCapturer silently returns sources with blank/black thumbnails
-    // instead of throwing — there is no automatic system prompt for this
-    // permission (unlike camera/microphone). We surface that state so the
-    // renderer can show instructions instead of a confusing empty picker.
-    if (process.platform === 'darwin') {
-      const status = systemPreferences.getMediaAccessStatus('screen')
-      if (status !== 'granted') {
-        return { needsPermission: true, sources: [] }
-      }
-    }
+    // On macOS, if Screen Recording permission hasn't been granted, desktopCapturer
+    // silently returns sources with blank/black thumbnails instead of throwing —
+    // there is no automatic system prompt for this permission (unlike camera/mic).
+    // We deliberately don't gate on systemPreferences.getMediaAccessStatus('screen')
+    // beforehand: that API is known to be unreliable in dev mode (the unpackaged
+    // `electron .` process doesn't share the packaged app's signed identity, so it
+    // can report stale/wrong status even right after granting access in Settings).
+    // Instead we attempt the real capture and infer permission from its outcome.
     const sources = await desktopCapturer.getSources({
       types: ['window', 'screen'],
       thumbnailSize: { width: 1920, height: 1200 },
     })
+    const usable = sources.filter((s) => !s.thumbnail.isEmpty())
+    const needsPermission = process.platform === 'darwin' && usable.length === 0
+
     return {
-      needsPermission: false,
-      sources: sources
-        .filter((s) => !s.thumbnail.isEmpty())
-        .map((s) => ({
-          id: s.id,
-          name: s.name,
-          thumbnailDataUrl: s.thumbnail.toDataURL(),
-        })),
+      needsPermission,
+      sources: usable.map((s) => ({
+        id: s.id,
+        name: s.name,
+        thumbnailDataUrl: s.thumbnail.toDataURL(),
+      })),
     }
   })
 
