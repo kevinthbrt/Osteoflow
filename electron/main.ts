@@ -9,7 +9,7 @@
  * - Handle application lifecycle
  */
 
-import { app, BrowserWindow, shell, dialog, Notification, ipcMain, session, desktopCapturer } from 'electron'
+import { app, BrowserWindow, shell, dialog, Notification, ipcMain, session } from 'electron'
 import path from 'path'
 import { exec } from 'child_process'
 import { startCronJobs, stopCronJobs } from './cron'
@@ -465,45 +465,6 @@ async function setupAutoUpdater(): Promise<void> {
 }
 
 /**
- * Screen capture — lets the renderer list open windows/screens and grab a
- * still image of one, used to import a Doctolib agenda screenshot into
- * "Ma journée" (read locally via OCR, nothing is uploaded anywhere).
- */
-function registerCaptureHandlers(): void {
-  ipcMain.handle('capture:list-sources', async () => {
-    // On macOS, if Screen Recording permission hasn't been granted, desktopCapturer
-    // silently returns sources with blank/black thumbnails instead of throwing —
-    // there is no automatic system prompt for this permission (unlike camera/mic).
-    // We deliberately don't gate on systemPreferences.getMediaAccessStatus('screen')
-    // beforehand: that API is known to be unreliable in dev mode (the unpackaged
-    // `electron .` process doesn't share the packaged app's signed identity, so it
-    // can report stale/wrong status even right after granting access in Settings).
-    // Instead we attempt the real capture and infer permission from its outcome.
-    const sources = await desktopCapturer.getSources({
-      types: ['window', 'screen'],
-      thumbnailSize: { width: 1920, height: 1200 },
-    })
-    const usable = sources.filter((s) => !s.thumbnail.isEmpty())
-    const needsPermission = process.platform === 'darwin' && usable.length === 0
-
-    return {
-      needsPermission,
-      sources: usable.map((s) => ({
-        id: s.id,
-        name: s.name,
-        thumbnailDataUrl: s.thumbnail.toDataURL(),
-      })),
-    }
-  })
-
-  ipcMain.handle('capture:open-screen-recording-settings', async () => {
-    if (process.platform === 'darwin') {
-      await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
-    }
-  })
-}
-
-/**
  * Application lifecycle.
  */
 // When a second instance is launched, focus the existing window instead.
@@ -577,7 +538,6 @@ app.whenReady().then(async () => {
   loadApp() // Navigate from splash to the real app
   startCronJobs(PORT)
   setupAutoUpdater()
-  registerCaptureHandlers()
 
   console.log('[Electron] MyOsteoFlow ready!')
 
