@@ -37,23 +37,36 @@ type ObjectivesData = {
   }
 }
 
-function getStatusInfo(pct: number, datePct: number) {
+function getStatusInfo(pct: number, datePct: number, banner: boolean) {
   const diff = pct - datePct
-  if (diff >= 10) return { label: 'En avance', color: 'text-emerald-600', bg: 'bg-emerald-500', icon: TrendingUp, badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' }
-  if (diff >= -5) return { label: 'Dans les temps', color: 'text-sky-600', bg: 'bg-sky-500', icon: Minus, badge: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' }
-  return { label: 'À rattraper', color: 'text-amber-600', bg: 'bg-amber-500', icon: TrendingDown, badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' }
+  if (diff >= 10) {
+    return {
+      label: 'En avance', bg: banner ? 'bg-emerald-300' : 'bg-emerald-500', icon: TrendingUp,
+      badge: banner ? 'bg-emerald-400/30 text-emerald-100' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    }
+  }
+  if (diff >= -5) {
+    return {
+      label: 'Dans les temps', bg: banner ? 'bg-sky-300' : 'bg-sky-500', icon: Minus,
+      badge: banner ? 'bg-sky-400/25 text-sky-100' : 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+    }
+  }
+  return {
+    label: 'À rattraper', bg: banner ? 'bg-amber-300' : 'bg-amber-500', icon: TrendingDown,
+    badge: banner ? 'bg-amber-400/25 text-amber-100' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  }
 }
 
-function VisualBar({ pct, datePct, color }: { pct: number; datePct: number; color: string }) {
+function VisualBar({ pct, datePct, color, banner }: { pct: number; datePct: number; color: string; banner?: boolean }) {
   return (
-    <div className="relative h-3 w-full rounded-full bg-muted overflow-visible">
+    <div className={`relative h-3 w-full rounded-full overflow-visible ${banner ? 'bg-white/15' : 'bg-muted'}`}>
       <div
         className={`h-full rounded-full transition-all duration-700 ${color}`}
         style={{ width: `${Math.min(100, pct)}%` }}
       />
       {/* Date cursor */}
       <div
-        className="absolute top-1/2 -translate-y-1/2 w-0.5 h-5 bg-foreground/50 rounded-full"
+        className={`absolute top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full ${banner ? 'bg-white/60' : 'bg-foreground/50'}`}
         style={{ left: `${Math.min(99, datePct)}%` }}
       />
     </div>
@@ -84,6 +97,7 @@ function PeriodBlock({
   revPct,
   datePct,
   message,
+  banner,
 }: {
   icon: typeof Sun
   iconColor: string
@@ -94,15 +108,20 @@ function PeriodBlock({
   revPct: number
   datePct: number
   message: string
+  banner?: boolean
 }) {
   const StatusIcon = status.icon
   const expected = objective * (datePct / 100)
   const gap = revenue - expected
+  const mutedClass = banner ? 'text-white/70' : 'text-muted-foreground'
+  const gapClass = banner
+    ? (gap >= 0 ? 'text-emerald-200' : 'text-amber-200')
+    : (gap >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400')
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-sm font-medium">
-          <Icon className={`h-4 w-4 ${iconColor}`} />
+        <div className={`flex items-center gap-1.5 text-sm font-medium ${banner ? 'text-white' : ''}`}>
+          <Icon className={`h-4 w-4 ${banner ? 'text-white/80' : iconColor}`} />
           {label}
         </div>
         <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${status.badge}`}>
@@ -110,26 +129,34 @@ function PeriodBlock({
         </span>
       </div>
       <div className="flex items-baseline justify-between">
-        <p className="text-sm font-semibold">
+        <p className={`text-sm font-semibold ${banner ? 'text-white' : ''}`}>
           {formatEuros(revenue)}
-          <span className="text-muted-foreground font-normal"> / {formatEuros(objective)}</span>
+          <span className={`font-normal ${mutedClass}`}> / {formatEuros(objective)}</span>
         </p>
-        <p className="text-xs text-muted-foreground">{Math.round(revPct)} %</p>
+        <p className={`text-xs ${mutedClass}`}>{Math.round(revPct)} %</p>
       </div>
-      <VisualBar pct={revPct} datePct={datePct} color={status.bg} />
-      <p className="text-xs text-muted-foreground">
-        Attendu à ce jour : <span className="font-medium text-foreground">{formatEuros(expected)}</span>
+      <VisualBar pct={revPct} datePct={datePct} color={status.bg} banner={banner} />
+      <p className={`text-xs ${mutedClass}`}>
+        Attendu à ce jour : <span className={`font-medium ${banner ? 'text-white' : 'text-foreground'}`}>{formatEuros(expected)}</span>
         {' '}
-        <span className={gap >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
+        <span className={gapClass}>
           ({gap >= 0 ? '+' : '−'}{formatEuros(Math.abs(gap))})
         </span>
       </p>
-      <p className="text-xs text-muted-foreground">{message}</p>
+      <p className={`text-xs ${mutedClass}`}>{message}</p>
     </div>
   )
 }
 
-export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 'horizontal' }) {
+export function ProgressWidget({
+  layout = 'vertical',
+  variant = 'card',
+}: {
+  layout?: 'vertical' | 'horizontal'
+  /** 'banner' renders without the Card wrapper, with light text for a dark gradient background. */
+  variant?: 'card' | 'banner'
+}) {
+  const banner = variant === 'banner'
   const [data, setData] = useState<ObjectivesData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -169,6 +196,18 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
   const hasObjectives = annual && annual > 0
 
   if (loading) {
+    if (banner) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="space-y-2 animate-pulse">
+              <div className="h-3 bg-white/20 rounded w-1/3" />
+              <div className="h-3 bg-white/15 rounded-full" />
+            </div>
+          ))}
+        </div>
+      )
+    }
     return (
       <Card className="border-border/30">
         <CardHeader className="pb-3">
@@ -192,6 +231,21 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
   }
 
   if (!hasObjectives) {
+    if (banner) {
+      return (
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 py-2 text-center sm:text-left">
+          <p className="text-sm text-white/80">
+            Définissez votre objectif annuel pour suivre votre progression ici.
+          </p>
+          <Button variant="outline" size="sm" className="bg-white/10 text-white border-white/30 hover:bg-white/20" asChild>
+            <Link href="/objectives">
+              <Settings className="h-4 w-4 mr-1" />
+              Configurer
+            </Link>
+          </Button>
+        </div>
+      )
+    }
     return (
       <Card className="border-border/30 h-full">
         <CardHeader className="pb-3">
@@ -228,9 +282,9 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
   const yearRevPct = annual > 0
     ? Math.min(100, (data.revenue.this_year / annual) * 100) : 0
 
-  const weekStatus = getStatusInfo(weekRevPct, weekPct)
-  const monthStatus = getStatusInfo(monthRevPct, monthPct)
-  const yearStatus = getStatusInfo(yearRevPct, yearPct)
+  const weekStatus = getStatusInfo(weekRevPct, weekPct, banner)
+  const monthStatus = getStatusInfo(monthRevPct, monthPct, banner)
+  const yearStatus = getStatusInfo(yearRevPct, yearPct, banner)
 
   // Vacation days ahead calculation
   const dailyObj = data.computed.daily_objective
@@ -248,6 +302,7 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
       objective={data.computed.weekly_objective}
       revPct={weekRevPct}
       datePct={weekPct}
+      banner={banner}
       message={
         weekRevPct >= 100
           ? 'Objectif hebdomadaire atteint !'
@@ -268,6 +323,7 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
       objective={data.computed.monthly_objective}
       revPct={monthRevPct}
       datePct={monthPct}
+      banner={banner}
       message={
         monthRevPct >= 100
           ? 'Objectif mensuel atteint !'
@@ -288,6 +344,7 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
       objective={annual}
       revPct={yearRevPct}
       datePct={yearPct}
+      banner={banner}
       message={
         yearRevPct >= 100
           ? 'Objectif annuel atteint !'
@@ -299,19 +356,43 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
   )
 
   const vacationBlock = isAhead && vacationDaysAhead > 0 && (
-    <div className={layout === 'horizontal' ? '' : 'pt-1 border-t border-border/40'}>
+    <div className={layout === 'horizontal' || banner ? '' : 'pt-1 border-t border-border/40'}>
       <div className="flex items-center gap-2 mb-2">
-        <Umbrella className="h-4 w-4 text-emerald-500" />
-        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+        <Umbrella className={`h-4 w-4 ${banner ? 'text-emerald-200' : 'text-emerald-500'}`} />
+        <p className={`text-sm font-medium ${banner ? 'text-emerald-100' : 'text-emerald-700 dark:text-emerald-400'}`}>
           Jours de congés en avance
         </p>
       </div>
       <VacationDots days={vacationDaysAhead} />
-      <p className="text-xs text-muted-foreground mt-1.5">
+      <p className={`text-xs mt-1.5 ${banner ? 'text-white/70' : 'text-muted-foreground'}`}>
         Votre avance représente environ {vacationDaysAhead} jour{vacationDaysAhead > 1 ? 's' : ''} de congés supplémentaires.
       </p>
     </div>
   )
+
+  if (banner) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-sm font-medium text-white/80">
+            <Target className="h-4 w-4" />
+            Progression
+          </div>
+          <Link href="/objectives" className="text-white/60 hover:text-white transition-colors">
+            <Settings className="h-4 w-4" />
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {weekBlock}
+          {monthBlock}
+          {yearBlock}
+        </div>
+        {vacationBlock && (
+          <div className="pt-3 border-t border-white/20">{vacationBlock}</div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <Card className="border-border/30 h-full">
