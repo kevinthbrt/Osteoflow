@@ -100,7 +100,10 @@ export default function DayPlanPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, practitionerId])
 
-  const patientIdsInPlan = useMemo(() => new Set(items.map((i) => i.patient?.id)), [items])
+  const patientIdsInPlan = useMemo(
+    () => new Set(items.map((i) => i.patient?.id).filter((id): id is string => Boolean(id))),
+    [items]
+  )
 
   const filteredPatients = useMemo(() => {
     const available = patients.filter((p) => !patientIdsInPlan.has(p.id))

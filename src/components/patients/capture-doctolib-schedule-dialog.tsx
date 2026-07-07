@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -19,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Camera, Loader2, AlertTriangle, Settings } from 'lucide-react'
+import { Camera, Loader2, AlertTriangle, Settings, Crop } from 'lucide-react'
 import { createClient } from '@/lib/db/client'
 import { useToast } from '@/hooks/use-toast'
 import { parseDoctolibScheduleImage, type DoctolibScheduleEntry } from '@/lib/utils/parse-doctolib-schedule-image'
@@ -50,6 +49,13 @@ interface ReviewRow {
   phone: string
 }
 
+interface Rect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
 interface CaptureDoctolibScheduleDialogProps {
   open: boolean
   onClose: () => void
@@ -75,13 +81,18 @@ export function CaptureDoctolibScheduleDialog({
   existingPatientIds,
   onImported,
 }: CaptureDoctolibScheduleDialogProps) {
-  const [step, setStep] = useState<'sources' | 'processing' | 'review'>('sources')
+  const [step, setStep] = useState<'sources' | 'cropping' | 'processing' | 'review'>('sources')
   const [needsPermission, setNeedsPermission] = useState(false)
   const [sources, setSources] = useState<CaptureSource[]>([])
   const [loadingSources, setLoadingSources] = useState(false)
+  const [capturedImage, setCapturedImage] = useState<string | null>(null)
+  const [cropRect, setCropRect] = useState<Rect | null>(null)
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
   const [rows, setRows] = useState<ReviewRow[]>([])
   const [suspectedWrongView, setSuspectedWrongView] = useState(false)
   const [saving, setSaving] = useState(false)
+  const imgRef = useRef<HTMLImageElement>(null)
+  const cropContainerRef = useRef<HTMLDivElement>(null)
   const db = createClient()
   const { toast } = useToast()
 
@@ -112,6 +123,8 @@ export function CaptureDoctolibScheduleDialog({
       setStep('sources')
       setRows([])
       setSuspectedWrongView(false)
+      setCapturedImage(null)
+      setCropRect(null)
       loadSources()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -125,19 +138,90 @@ export function CaptureDoctolibScheduleDialog({
     await getApi()?.openScreenRecordingSettings?.()
   }
 
-  const handlePickSource = async (source: CaptureSource) => {
+  const handlePickSource = (source: CaptureSource) => {
+    setCapturedImage(source.thumbnailDataUrl)
+    setCropRect(null)
+    setStep('cropping')
+  }
+
+  // ── Crop selection (drag a rectangle over the captured image) ──
+  // Coordinates are expressed in the scrollable content's own space (not the
+  // viewport), since the container can be taller than its visible max-height
+  // and scrolled — this keeps the selection anchored to the image as it scrolls.
+  const getRelativePos = (e: React.MouseEvent): { x: number; y: number } => {
+    const el = cropContainerRef.current!
+    const rect = el.getBoundingClientRect()
+    return {
+      x: Math.min(Math.max(e.clientX - rect.left + el.scrollLeft, 0), el.scrollWidth),
+      y: Math.min(Math.max(e.clientY - rect.top + el.scrollTop, 0), el.scrollHeight),
+    }
+  }
+
+  const handleCropMouseDown = (e: React.MouseEvent) => {
+    const pos = getRelativePos(e)
+    setDragStart(pos)
+    setCropRect({ x: pos.x, y: pos.y, w: 0, h: 0 })
+  }
+
+  const handleCropMouseMove = (e: React.MouseEvent) => {
+    if (!dragStart) return
+    const pos = getRelativePos(e)
+    setCropRect({
+      x: Math.min(dragStart.x, pos.x),
+      y: Math.min(dragStart.y, pos.y),
+      w: Math.abs(pos.x - dragStart.x),
+      h: Math.abs(pos.y - dragStart.y),
+    })
+  }
+
+  const handleCropMouseUp = () => {
+    setDragStart(null)
+  }
+
+  const handleAnalyzeCrop = async () => {
+    if (!capturedImage || !imgRef.current) return
+    const img = imgRef.current
+    const scaleX = img.naturalWidth / img.clientWidth
+    const scaleY = img.naturalHeight / img.clientHeight
+
+    let sourceForOcr = capturedImage
+    if (cropRect && cropRect.w > 10 && cropRect.h > 10) {
+      const canvas = document.createElement('canvas')
+      canvas.width = cropRect.w * scaleX
+      canvas.height = cropRect.h * scaleY
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(
+          img,
+          cropRect.x * scaleX,
+          cropRect.y * scaleY,
+          cropRect.w * scaleX,
+          cropRect.h * scaleY,
+          0,
+          0,
+          cropRect.w * scaleX,
+          cropRect.h * scaleY
+        )
+        sourceForOcr = canvas.toDataURL('image/png')
+      }
+    }
+
+    await analyzeImage(sourceForOcr)
+  }
+
+  const analyzeImage = async (imageDataUrl: string) => {
     setStep('processing')
     try {
-      const { entries, suspectedWrongView: wrongView, noTextDetected } = await parseDoctolibScheduleImage(source.thumbnailDataUrl)
+      const { entries, suspectedWrongView: wrongView, noTextDetected } = await parseDoctolibScheduleImage(imageDataUrl)
       if (entries.length === 0) {
         toast({
           title: 'Aucun rendez-vous détecté',
           description: noTextDetected
-            ? "La capture ne semble contenir aucun texte lisible — vérifiez que vous avez bien sélectionné la fenêtre où Doctolib est affiché."
+            ? "La zone sélectionnée ne semble contenir aucun texte lisible — resélectionnez la zone de l'agenda."
             : 'Vérifiez que Doctolib est bien sur la vue Journée (pas Semaine ni Mois).',
           variant: 'destructive',
         })
-        setStep('sources')
+        setStep('cropping')
         return
       }
       setSuspectedWrongView(wrongView)
@@ -160,7 +244,7 @@ export function CaptureDoctolibScheduleDialog({
     } catch (err) {
       console.error('[capture-doctolib]', err)
       toast({ title: "Erreur lors de l'analyse de l'image", variant: 'destructive' })
-      setStep('sources')
+      setStep('cropping')
     }
   }
 
@@ -268,6 +352,32 @@ export function CaptureDoctolibScheduleDialog({
           </div>
         )}
 
+        {step === 'cropping' && capturedImage && (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground flex items-start gap-2">
+              <Crop className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              Dessinez un cadre sur la zone de l&apos;agenda uniquement (sans les onglets, la barre d&apos;adresse
+              ni les favoris) pour une lecture plus fiable. Faites défiler si l&apos;image dépasse la fenêtre.
+            </p>
+            <div
+              ref={cropContainerRef}
+              className="relative select-none cursor-crosshair max-h-[28rem] overflow-y-auto overflow-x-hidden rounded-lg border border-border/60"
+              onMouseDown={handleCropMouseDown}
+              onMouseMove={handleCropMouseMove}
+              onMouseUp={handleCropMouseUp}
+              onMouseLeave={handleCropMouseUp}
+            >
+              <img ref={imgRef} src={capturedImage} alt="Capture" className="w-full h-auto block pointer-events-none" draggable={false} />
+              {cropRect && (
+                <div
+                  className="absolute border-2 border-primary bg-primary/10 pointer-events-none"
+                  style={{ left: cropRect.x, top: cropRect.y, width: cropRect.w, height: cropRect.h }}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
         {step === 'processing' && (
           <div className="flex flex-col items-center justify-center gap-3 py-10">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -338,6 +448,12 @@ export function CaptureDoctolibScheduleDialog({
           <Button variant="outline" onClick={handleClose} disabled={saving}>
             Annuler
           </Button>
+          {step === 'cropping' && (
+            <Button onClick={handleAnalyzeCrop}>
+              <Camera className="h-4 w-4 mr-1.5" />
+              Analyser cette zone
+            </Button>
+          )}
           {step === 'review' && (
             <Button onClick={handleConfirm} disabled={!canConfirm || saving}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
