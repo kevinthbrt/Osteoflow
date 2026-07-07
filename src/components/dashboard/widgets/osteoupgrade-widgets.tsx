@@ -60,7 +60,7 @@ export function ReviewWidget({
           <div className="w-6 h-6 rounded-md bg-emerald-500 flex items-center justify-center flex-shrink-0">
             <BookOpen className="h-3.5 w-3.5 text-white" />
           </div>
-          Revue de littérature
+          <span className="text-emerald-600 dark:text-emerald-400">Revue de littérature</span>
         </CardTitle>
         <button
           onClick={onRefresh}
@@ -160,7 +160,7 @@ export function FeaturedFormationWidget({
           <div className="w-6 h-6 rounded-md bg-violet-500 flex items-center justify-center flex-shrink-0">
             <GraduationCap className="h-3.5 w-3.5 text-white" />
           </div>
-          Nouveauté OsteoUpgrade
+          <span className="text-violet-600 dark:text-violet-400">Nouveauté OsteoUpgrade</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="px-4 pb-4 flex-1 flex flex-col justify-center">

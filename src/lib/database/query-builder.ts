@@ -187,6 +187,10 @@ function findForeignKey(
       patients: { column: 'patient_id', ref: 'id', dir: 'parent' },
       practitioners: { column: 'practitioner_id', ref: 'id', dir: 'parent' },
     },
+    daily_plan_items: {
+      patients: { column: 'patient_id', ref: 'id', dir: 'parent' },
+      practitioners: { column: 'practitioner_id', ref: 'id', dir: 'parent' },
+    },
   }
 
   // Check parent -> child (e.g., invoices.consultation_id -> consultations.id)

@@ -73,8 +73,8 @@ const STEPS = [
   {
     element: '[data-tour="nav-messages"]',
     popover: {
-      title: '💬 Messagerie',
-      description: `Communiquez avec vos patients par email ou SMS sans quitter l'application. Toutes les conversations sont archivées par patient. Les messages non lus apparaissent dans le badge de notification.`,
+      title: '💬 Messagerie et relances',
+      description: `Communiquez avec vos patients par email ou SMS sans quitter l'application. Toutes les conversations sont archivées par patient. Les messages non lus apparaissent dans le badge de notification. Vous y retrouvez aussi les patients inactifs à relancer.`,
       side: 'right' as const,
     },
   },

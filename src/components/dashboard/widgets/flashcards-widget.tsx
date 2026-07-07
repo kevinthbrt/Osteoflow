@@ -44,7 +44,7 @@ function SkeletonWidget() {
           <div className="w-6 h-6 rounded-md bg-violet-500 flex items-center justify-center flex-shrink-0">
             <Zap className="h-3.5 w-3.5 text-white" />
           </div>
-          OsteoFlash
+          <span className="text-violet-600 dark:text-violet-400">OsteoFlash</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="px-4 pb-4 space-y-3">
@@ -152,7 +152,7 @@ export function FlashcardsWidget() {
             <div className="w-6 h-6 rounded-md bg-violet-500 flex items-center justify-center flex-shrink-0">
               <Zap className="h-3.5 w-3.5 text-white" />
             </div>
-            OsteoFlash
+            <span className="text-violet-600 dark:text-violet-400">OsteoFlash</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 space-y-2">
@@ -202,7 +202,7 @@ export function FlashcardsWidget() {
             <div className="w-6 h-6 rounded-md bg-violet-500 flex items-center justify-center flex-shrink-0">
               <Zap className="h-3.5 w-3.5 text-white" />
             </div>
-            OsteoFlash
+            <span className="text-violet-600 dark:text-violet-400">OsteoFlash</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 flex-1 flex flex-col items-center justify-center gap-3 text-center">

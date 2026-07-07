@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Target, Settings, Users, Euro, Check, Pencil, X, TrendingUp, TrendingDown, Sparkles } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { resolveWorkingWeekdays, workingDayRatio } from '@/lib/utils/working-days'
 
 const MONTHS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 
@@ -16,6 +17,7 @@ interface ObjectivesData {
     annual_revenue_objective: number | null
     vacation_weeks_per_year: number
     working_days_per_week: number
+    working_weekdays: number[] | null
     average_consultation_price: number | null
   }
   computed: {
@@ -146,19 +148,27 @@ interface AnnualTimelineProps {
 function AnnualProgressTimeline({ data, year, showPatients }: AnnualTimelineProps) {
   const now = new Date()
   const startOfYear = new Date(year, 0, 1)
+  const startOfNextYear = new Date(year + 1, 0, 1)
   const isLeap = (year % 400 === 0) || (year % 4 === 0 && year % 100 !== 0)
   const totalDays = isLeap ? 366 : 365
 
-  // How far through the year we are (0–100)
+  // Calendar position of "today" on the Jan-Dec timeline (needle + month ticks) —
+  // this stays purely calendar-based since it represents an actual date on an axis.
   const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000)
   const datePct = Math.min(100, (dayOfYear / totalDays) * 100)
+
+  // How far through the year's *working days* we are (0–100) — used for every
+  // "where should I be" comparison, so it matches the dashboard widget.
+  const startOfToday = new Date(year, now.getMonth(), now.getDate())
+  const workingWeekdays = resolveWorkingWeekdays(data.settings.working_weekdays, data.settings.working_days_per_week)
+  const expectedPct = Math.min(100, workingDayRatio(startOfYear, startOfNextYear, startOfToday, workingWeekdays) * 100)
 
   const annualObj = data.settings.annual_revenue_objective!
   // How far toward the annual objective we are (0–100)
   const caPct = Math.min(100, (data.revenue.this_year / annualObj) * 100)
 
-  const isAhead = caPct >= datePct
-  const expectedRevenue = (datePct / 100) * annualObj
+  const isAhead = caPct >= expectedPct
+  const expectedRevenue = (expectedPct / 100) * annualObj
   const diff = data.revenue.this_year - expectedRevenue
 
   // Nombre de jours de congés équivalents à l'avance
@@ -166,7 +176,7 @@ function AnnualProgressTimeline({ data, year, showPatients }: AnnualTimelineProp
   const advanceDays = (isAhead && dailyObj > 0) ? Math.floor(diff / dailyObj) : 0
 
   // --- Projection fin d'année (extrapolation au rythme actuel) ---
-  const elapsedFraction = Math.min(1, dayOfYear / totalDays)
+  const elapsedFraction = Math.min(1, expectedPct / 100)
   // Avant 14 jours d'activité, la projection est trop bruitée
   const enoughData = dayOfYear >= 14
   const projected = enoughData && elapsedFraction > 0 ? data.revenue.this_year / elapsedFraction : data.revenue.this_year
@@ -385,7 +395,7 @@ function AnnualProgressTimeline({ data, year, showPatients }: AnnualTimelineProp
           <div>
             <span className="text-white/70">Attendu au {todayLabel} </span>
             <span className="font-semibold">{formatEuro(expectedRevenue)}</span>
-            <span className="text-white/70 ml-1">({datePct.toFixed(1)} %)</span>
+            <span className="text-white/70 ml-1">({expectedPct.toFixed(1)} %)</span>
           </div>
           <div>
             <span className="text-white/70">Objectif annuel </span>

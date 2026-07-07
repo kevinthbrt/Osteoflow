@@ -436,6 +436,18 @@ CREATE TABLE IF NOT EXISTS custom_clinical_content (
 );
 CREATE INDEX IF NOT EXISTS idx_custom_clinical_content_practitioner ON custom_clinical_content(practitioner_id, content_type);
 
+-- Daily plan items ("Préparer ma journée" : ordre des patients à voir dans la journée)
+CREATE TABLE IF NOT EXISTS daily_plan_items (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+  patient_id TEXT NOT NULL REFERENCES patients(id),
+  plan_date TEXT NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'done')),
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_daily_plan_items_practitioner_date ON daily_plan_items(practitioner_id, plan_date);
+
 `
 
 /**
@@ -492,6 +504,11 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   }
   if (!practCols2.some((c) => c.name === 'average_consultation_price')) {
     db.exec('ALTER TABLE practitioners ADD COLUMN average_consultation_price REAL;')
+  }
+  // Jours de la semaine réellement travaillés (JSON : [1,2,3,4] = lun-jeu, 1=lundi..7=dimanche).
+  // NULL = non configuré, on retombe sur l'hypothèse "les N premiers jours" (working_days_per_week).
+  if (!practCols2.some((c) => c.name === 'working_weekdays')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN working_weekdays TEXT;')
   }
 
   // Add referred_by_patient_id to patients
@@ -906,4 +923,5 @@ export const BOOLEAN_FIELDS: Record<string, string[]> = {
 export const JSON_FIELDS: Record<string, string[]> = {
   audit_logs: ['old_data', 'new_data'],
   saved_reports: ['filters'],
+  practitioners: ['working_weekdays'],
 }

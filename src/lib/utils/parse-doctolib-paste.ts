@@ -58,13 +58,26 @@ export function parseDoctolibPaste(rawText: string): ParsedPatientData {
   // Line N-2: "PORTE" (last name, ALL CAPS)
   // Line N-1: "Christelle" (first name)
   // Line N:   "F, 11/12/1972 (53 ans)" — gender marker + birth date
+  //
+  // Doctolib inserts a maiden-name line ("né(e) NOM") right before the
+  // gender/birth-date line for married patients — when present, the last
+  // and first name are one line further back than usual.
   if ((!result.last_name || !result.first_name || !result.gender) && lines.length >= 3) {
     const genderDateRegex = /^\s*([FHM])\s*,\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{4})/i
+    const maidenNameRegex = /^n[ée]\(?e?\)?\s+\S/i
     for (let i = 2; i < lines.length; i++) {
       const m = lines[i].match(genderDateRegex)
       if (!m) continue
-      const potentialLastName = lines[i - 2]
-      const potentialFirstName = lines[i - 1]
+
+      let firstNameIdx = i - 1
+      let lastNameIdx = i - 2
+      if (maidenNameRegex.test(lines[firstNameIdx]) && i - 3 >= 0) {
+        firstNameIdx = i - 2
+        lastNameIdx = i - 3
+      }
+
+      const potentialLastName = lines[lastNameIdx]
+      const potentialFirstName = lines[firstNameIdx]
       if (
         potentialLastName.includes(':') ||
         potentialFirstName.includes(':') ||

@@ -10,7 +10,7 @@ import { getRegistrationLines } from '@/lib/practitioner/profession'
  *  - Cabinet (practice info + SIRET)
  *  - Facturation (at least one séance type, default rate, invoice prefix)
  *  - Email (email_settings row exists and is verified)
- *  - Objectifs (an annual revenue objective is defined)
+ *  - Objectifs (an annual revenue objective is defined + working weekdays are picked)
  *
  * Returns an overall percentage plus a per-area checklist used by the
  * dashboard ProfileCompletionWidget.
@@ -101,6 +101,9 @@ export async function GET() {
   const objectivesMissing: string[] = []
   if (!(typeof p.annual_revenue_objective === 'number' && p.annual_revenue_objective > 0)) {
     objectivesMissing.push("Définir un objectif de chiffre d'affaires annuel")
+  }
+  if (!(Array.isArray(p.working_weekdays) && p.working_weekdays.length > 0)) {
+    objectivesMissing.push('Choisir vos jours travaillés')
   }
 
   const areas: CompletionArea[] = [

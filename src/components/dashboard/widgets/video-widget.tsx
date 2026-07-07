@@ -94,7 +94,7 @@ export function VideoWidget() {
           <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center flex-shrink-0">
             <Video className="h-4 w-4 text-white" />
           </div>
-          Pratique du jour
+          <span className="text-primary">Pratique du jour</span>
         </CardTitle>
         <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={loading} className="h-8 w-8 p-0">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />

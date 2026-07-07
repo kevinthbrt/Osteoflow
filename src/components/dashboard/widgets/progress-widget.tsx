@@ -5,12 +5,22 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Target, TrendingUp, TrendingDown, Minus, Settings, Calendar, Sun, Umbrella } from 'lucide-react'
+import { resolveWorkingWeekdays, workingDayRatio } from '@/lib/utils/working-days'
+
+function formatEuros(amount: number): string {
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+  }).format(amount)
+}
 
 type ObjectivesData = {
   settings: {
     annual_revenue_objective: number | null
     vacation_weeks_per_year: number
     working_days_per_week: number
+    working_weekdays: number[] | null
     average_consultation_price: number | null
   }
   computed: {
@@ -27,23 +37,36 @@ type ObjectivesData = {
   }
 }
 
-function getStatusInfo(pct: number, datePct: number) {
+function getStatusInfo(pct: number, datePct: number, banner: boolean) {
   const diff = pct - datePct
-  if (diff >= 10) return { label: 'En avance', color: 'text-emerald-600', bg: 'bg-emerald-500', icon: TrendingUp, badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' }
-  if (diff >= -5) return { label: 'Dans les temps', color: 'text-sky-600', bg: 'bg-sky-500', icon: Minus, badge: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' }
-  return { label: 'À rattraper', color: 'text-amber-600', bg: 'bg-amber-500', icon: TrendingDown, badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' }
+  if (diff >= 10) {
+    return {
+      label: 'En avance', bg: banner ? 'bg-emerald-300' : 'bg-emerald-500', icon: TrendingUp,
+      badge: banner ? 'bg-emerald-400/30 text-emerald-100' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    }
+  }
+  if (diff >= -5) {
+    return {
+      label: 'Dans les temps', bg: banner ? 'bg-sky-300' : 'bg-sky-500', icon: Minus,
+      badge: banner ? 'bg-sky-400/25 text-sky-100' : 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+    }
+  }
+  return {
+    label: 'À rattraper', bg: banner ? 'bg-amber-300' : 'bg-amber-500', icon: TrendingDown,
+    badge: banner ? 'bg-amber-400/25 text-amber-100' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  }
 }
 
-function VisualBar({ pct, datePct, color }: { pct: number; datePct: number; color: string }) {
+function VisualBar({ pct, datePct, color, banner }: { pct: number; datePct: number; color: string; banner?: boolean }) {
   return (
-    <div className="relative h-3 w-full rounded-full bg-muted overflow-visible">
+    <div className={`relative h-3 w-full rounded-full overflow-visible ${banner ? 'bg-white/15' : 'bg-muted'}`}>
       <div
         className={`h-full rounded-full transition-all duration-700 ${color}`}
         style={{ width: `${Math.min(100, pct)}%` }}
       />
       {/* Date cursor */}
       <div
-        className="absolute top-1/2 -translate-y-1/2 w-0.5 h-5 bg-foreground/50 rounded-full"
+        className={`absolute top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full ${banner ? 'bg-white/60' : 'bg-foreground/50'}`}
         style={{ left: `${Math.min(99, datePct)}%` }}
       />
     </div>
@@ -69,37 +92,71 @@ function PeriodBlock({
   iconColor,
   label,
   status,
+  revenue,
+  objective,
   revPct,
   datePct,
   message,
+  banner,
 }: {
   icon: typeof Sun
   iconColor: string
   label: string
   status: StatusInfo
+  revenue: number
+  objective: number
   revPct: number
   datePct: number
   message: string
+  banner?: boolean
 }) {
   const StatusIcon = status.icon
+  const expected = objective * (datePct / 100)
+  const gap = revenue - expected
+  const mutedClass = banner ? 'text-white/70' : 'text-muted-foreground'
+  const gapClass = banner
+    ? (gap >= 0 ? 'text-emerald-200' : 'text-amber-200')
+    : (gap >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400')
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-sm font-medium">
-          <Icon className={`h-4 w-4 ${iconColor}`} />
+        <div className={`flex items-center gap-1.5 text-sm font-medium ${banner ? 'text-white' : ''}`}>
+          <Icon className={`h-4 w-4 ${banner ? 'text-white/80' : iconColor}`} />
           {label}
         </div>
         <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${status.badge}`}>
           <StatusIcon className="h-3 w-3" /> {status.label}
         </span>
       </div>
-      <VisualBar pct={revPct} datePct={datePct} color={status.bg} />
-      <p className="text-xs text-muted-foreground">{message}</p>
+      <div className="flex items-baseline justify-between">
+        <p className={`text-sm font-semibold ${banner ? 'text-white' : ''}`}>
+          {formatEuros(revenue)}
+          <span className={`font-normal ${mutedClass}`}> / {formatEuros(objective)}</span>
+        </p>
+        <p className={`text-xs ${mutedClass}`}>{Math.round(revPct)} %</p>
+      </div>
+      <VisualBar pct={revPct} datePct={datePct} color={status.bg} banner={banner} />
+      <p className={`text-xs ${mutedClass}`}>
+        Attendu à ce jour : <span className={`font-medium ${banner ? 'text-white' : 'text-foreground'}`}>{formatEuros(expected)}</span>
+        {' '}
+        <span className={gapClass}>
+          ({gap >= 0 ? '+' : '−'}{formatEuros(Math.abs(gap))})
+        </span>
+      </p>
+      <p className={`text-xs ${mutedClass}`}>{message}</p>
     </div>
   )
 }
 
-export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 'horizontal' }) {
+export function ProgressWidget({
+  layout = 'vertical',
+  variant = 'card',
+}: {
+  layout?: 'vertical' | 'horizontal'
+  /** 'banner' renders without the Card wrapper, with light text for a dark gradient background. */
+  variant?: 'card' | 'banner'
+}) {
+  const banner = variant === 'banner'
   const [data, setData] = useState<ObjectivesData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -113,26 +170,44 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
 
   const now = new Date()
   const year = now.getFullYear()
+  const startOfToday = new Date(year, now.getMonth(), now.getDate())
+  const workingWeekdays = resolveWorkingWeekdays(
+    data?.settings.working_weekdays,
+    data?.settings.working_days_per_week ?? 4
+  )
 
-  // Day-of-year percentage
-  const startOfYear = new Date(year, 0, 1)
-  const isLeap = (year % 400 === 0) || (year % 4 === 0 && year % 100 !== 0)
-  const totalDays = isLeap ? 366 : 365
-  const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000)
-  const yearPct = (dayOfYear / totalDays) * 100
+  // Fraction of working days elapsed so far, per period (vacation weeks
+  // aren't pinned to specific calendar weeks so they can't be excluded
+  // precisely).
+  const dow = now.getDay() === 0 ? 7 : now.getDay() // 1=Mon ... 7=Sun
+  const weekStart = new Date(year, now.getMonth(), now.getDate() - (dow - 1))
+  const weekEnd = new Date(year, now.getMonth(), now.getDate() - (dow - 1) + 7)
+  const weekPct = workingDayRatio(weekStart, weekEnd, startOfToday, workingWeekdays) * 100
 
-  // Week percentage (Mon–Sun)
-  const dayOfWeek = now.getDay() === 0 ? 7 : now.getDay()
-  const weekPct = ((dayOfWeek - 1) / 7) * 100
+  const monthStart = new Date(year, now.getMonth(), 1)
+  const monthEnd = new Date(year, now.getMonth() + 1, 1)
+  const monthPct = workingDayRatio(monthStart, monthEnd, startOfToday, workingWeekdays) * 100
 
-  // Month percentage
-  const daysInMonth = new Date(year, now.getMonth() + 1, 0).getDate()
-  const monthPct = ((now.getDate() - 1) / daysInMonth) * 100
+  const yearStart = new Date(year, 0, 1)
+  const yearEnd = new Date(year + 1, 0, 1)
+  const yearPct = workingDayRatio(yearStart, yearEnd, startOfToday, workingWeekdays) * 100
 
   const annual = data?.settings.annual_revenue_objective
   const hasObjectives = annual && annual > 0
 
   if (loading) {
+    if (banner) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="space-y-2 animate-pulse">
+              <div className="h-3 bg-white/20 rounded w-1/3" />
+              <div className="h-3 bg-white/15 rounded-full" />
+            </div>
+          ))}
+        </div>
+      )
+    }
     return (
       <Card className="border-border/30">
         <CardHeader className="pb-3">
@@ -140,7 +215,7 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
             <div className="w-7 h-7 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
               <Target className="h-4 w-4 text-violet-500" />
             </div>
-            Progression
+            <span className="text-violet-600 dark:text-violet-400">Progression</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -156,6 +231,21 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
   }
 
   if (!hasObjectives) {
+    if (banner) {
+      return (
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 py-2 text-center sm:text-left">
+          <p className="text-sm text-white/80">
+            Définissez votre objectif annuel pour suivre votre progression ici.
+          </p>
+          <Button variant="outline" size="sm" className="bg-white/10 text-white border-white/30 hover:bg-white/20" asChild>
+            <Link href="/objectives">
+              <Settings className="h-4 w-4 mr-1" />
+              Configurer
+            </Link>
+          </Button>
+        </div>
+      )
+    }
     return (
       <Card className="border-border/30 h-full">
         <CardHeader className="pb-3">
@@ -163,7 +253,7 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
             <div className="w-7 h-7 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
               <Target className="h-4 w-4 text-violet-500" />
             </div>
-            Progression
+            <span className="text-violet-600 dark:text-violet-400">Progression</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col items-center justify-center gap-4 py-6 text-center">
@@ -192,9 +282,9 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
   const yearRevPct = annual > 0
     ? Math.min(100, (data.revenue.this_year / annual) * 100) : 0
 
-  const weekStatus = getStatusInfo(weekRevPct, weekPct)
-  const monthStatus = getStatusInfo(monthRevPct, monthPct)
-  const yearStatus = getStatusInfo(yearRevPct, yearPct)
+  const weekStatus = getStatusInfo(weekRevPct, weekPct, banner)
+  const monthStatus = getStatusInfo(monthRevPct, monthPct, banner)
+  const yearStatus = getStatusInfo(yearRevPct, yearPct, banner)
 
   // Vacation days ahead calculation
   const dailyObj = data.computed.daily_objective
@@ -208,8 +298,11 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
       iconColor="text-amber-500"
       label="Cette semaine"
       status={weekStatus}
+      revenue={data.revenue.this_week}
+      objective={data.computed.weekly_objective}
       revPct={weekRevPct}
       datePct={weekPct}
+      banner={banner}
       message={
         weekRevPct >= 100
           ? 'Objectif hebdomadaire atteint !'
@@ -226,8 +319,11 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
       iconColor="text-indigo-500"
       label="Ce mois-ci"
       status={monthStatus}
+      revenue={data.revenue.this_month}
+      objective={data.computed.monthly_objective}
       revPct={monthRevPct}
       datePct={monthPct}
+      banner={banner}
       message={
         monthRevPct >= 100
           ? 'Objectif mensuel atteint !'
@@ -244,8 +340,11 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
       iconColor="text-violet-500"
       label="Cette année"
       status={yearStatus}
+      revenue={data.revenue.this_year}
+      objective={annual}
       revPct={yearRevPct}
       datePct={yearPct}
+      banner={banner}
       message={
         yearRevPct >= 100
           ? 'Objectif annuel atteint !'
@@ -257,19 +356,43 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
   )
 
   const vacationBlock = isAhead && vacationDaysAhead > 0 && (
-    <div className={layout === 'horizontal' ? '' : 'pt-1 border-t border-border/40'}>
+    <div className={layout === 'horizontal' || banner ? '' : 'pt-1 border-t border-border/40'}>
       <div className="flex items-center gap-2 mb-2">
-        <Umbrella className="h-4 w-4 text-emerald-500" />
-        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+        <Umbrella className={`h-4 w-4 ${banner ? 'text-emerald-200' : 'text-emerald-500'}`} />
+        <p className={`text-sm font-medium ${banner ? 'text-emerald-100' : 'text-emerald-700 dark:text-emerald-400'}`}>
           Jours de congés en avance
         </p>
       </div>
       <VacationDots days={vacationDaysAhead} />
-      <p className="text-xs text-muted-foreground mt-1.5">
+      <p className={`text-xs mt-1.5 ${banner ? 'text-white/70' : 'text-muted-foreground'}`}>
         Votre avance représente environ {vacationDaysAhead} jour{vacationDaysAhead > 1 ? 's' : ''} de congés supplémentaires.
       </p>
     </div>
   )
+
+  if (banner) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-sm font-medium text-white/80">
+            <Target className="h-4 w-4" />
+            Progression
+          </div>
+          <Link href="/objectives" className="text-white/60 hover:text-white transition-colors">
+            <Settings className="h-4 w-4" />
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {weekBlock}
+          {monthBlock}
+          {yearBlock}
+        </div>
+        {vacationBlock && (
+          <div className="pt-3 border-t border-white/20">{vacationBlock}</div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <Card className="border-border/30 h-full">
@@ -278,7 +401,7 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
           <div className="w-7 h-7 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
             <Target className="h-4 w-4 text-violet-500" />
           </div>
-          Progression
+          <span className="text-violet-600 dark:text-violet-400">Progression</span>
         </CardTitle>
         <Button variant="ghost" size="sm" className="h-8 w-8 p-0" asChild>
           <Link href="/objectives">

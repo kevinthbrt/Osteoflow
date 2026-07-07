@@ -16,6 +16,7 @@ import { Plus, Sparkles } from 'lucide-react'
 
 import { VideoWidget } from './widgets/video-widget'
 import { ProgressWidget } from './widgets/progress-widget'
+import { DayPlanWidget } from './widgets/day-plan-widget'
 import { ReviewWidget, FeaturedFormationWidget, type WidgetsData } from './widgets/osteoupgrade-widgets'
 import { FlashcardsWidget } from './widgets/flashcards-widget'
 import { RelaunchWidget } from './widgets/relaunch-widget'
@@ -88,11 +89,15 @@ export function Dashboard({
   return (
     <div className="space-y-6 animate-fade-in">
 
+      {/* ── Complétude du profil (tout en haut pour ne pas la manquer) ── */}
+      <ProfileCompletionWidget />
+
       {/* ── Header banner ── */}
       <div className="relative overflow-hidden rounded-2xl px-6 py-5 text-white gradient-primary">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-xl" />
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/3 blur-lg" />
-        <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="relative z-10 space-y-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex flex-col gap-3">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -114,13 +119,15 @@ export function Dashboard({
           </div>
           <BannerWeather />
         </div>
+
+        <div className="pt-4 border-t border-white/20">
+          <DayPlanWidget variant="banner" />
+        </div>
+        </div>
       </div>
 
       {/* ── Progression pleine largeur ── */}
       <ProgressWidget layout="horizontal" />
-
-      {/* ── Complétude du profil ── */}
-      <ProfileCompletionWidget />
 
       {/* ── 3 colonnes : OsteoUpgrade | Vidéo | OsteoFlash ── */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">

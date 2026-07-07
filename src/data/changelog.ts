@@ -19,6 +19,21 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.14.0',
+    date: '2026-07-07',
+    title: 'Nouvelle fonctionnalité « Ma journée » et suivi des objectifs par jours travaillés',
+    changes: [
+      { type: 'feature', text: "Nouvelle fonctionnalité « Ma journée » : préparez l'ordre des patients à voir dans la journée, réorganisez-les à tout moment, marquez un passage vu/à revoir, et accédez directement à la fiche de chaque patient. Un widget dans le bandeau du dashboard affiche la liste avec l'âge et la date/motif de la dernière consultation de chaque patient, en centrant automatiquement le prochain à voir." },
+      { type: 'feature', text: "Création rapide de patient directement depuis « Ma journée », avec import par copier-coller depuis Doctolib pour éviter la ressaisie." },
+      { type: 'improvement', text: "Widget Progression : affiche désormais le montant réalisé et l'objectif (pas seulement le %), ainsi que le montant attendu à ce jour et l'écart, calculé sur les jours réellement travaillés plutôt que sur les jours calendaires (les week-ends n'inflatent plus artificiellement le retard)." },
+      { type: 'feature', text: "Paramètres > Objectifs : sélection précise des jours travaillés (au lieu d'un simple nombre), utilisée pour un calcul plus fidèle de « où vous devriez en être » sur la page Objectifs et le widget dashboard." },
+      { type: 'fix', text: "Correction d'un bug d'import Doctolib : le copier-coller ratait le nom et le prénom pour les patientes mariées lorsque Doctolib insère une ligne « né(e) NOM » (nom de naissance) entre le prénom et la ligne sexe/date de naissance." },
+      { type: 'fix', text: "Correction de la visibilité en mode sombre des modèles de courrier de la page Communication (texte peu lisible sur fond trop clair)." },
+      { type: 'fix', text: "Correction d'un bug d'affichage de la « dernière consultation » dans « Ma journée » qui pouvait indiquer « aujourd'hui » pour une consultation de la veille." },
+      { type: 'improvement', text: "Renommage de « Messagerie » en « Messagerie et relances » dans le menu pour rendre plus visible la fonctionnalité de relance des patients inactifs, jusqu'ici difficile à découvrir." },
+    ],
+  },
+  {
     version: '1.13.3',
     date: '2026-07-05',
     title: 'Visibilité et relance des diffusions en échec',

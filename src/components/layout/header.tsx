@@ -48,7 +48,7 @@ const pageTitles: Record<string, { title: string; description: string }> = {
   '/patients': { title: 'Patients', description: 'Gérez vos patients et leurs informations' },
   '/consultations': { title: 'Consultations', description: 'Historique de toutes vos consultations' },
   '/invoices': { title: 'Factures', description: 'Gérez vos factures et paiements' },
-  '/messages': { title: 'Messagerie', description: 'Communiquez avec vos patients' },
+  '/messages': { title: 'Messagerie et relances', description: 'Communiquez avec vos patients' },
   '/accounting': { title: 'Comptabilité', description: 'Analysez votre activité' },
   '/settings': { title: 'Paramètres', description: 'Configurez votre cabinet' },
   '/changelog': { title: 'Changelog', description: 'Historique des mises à jour' },

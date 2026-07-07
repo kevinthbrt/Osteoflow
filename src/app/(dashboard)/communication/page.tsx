@@ -29,8 +29,8 @@ const TEMPLATE_CARDS = [
     name: "Courrier d'adressage",
     description: 'Adresser un patient à un confrère ou spécialiste avec résumé clinique',
     icon: Send,
-    color: 'bg-blue-50 border-blue-200 hover:bg-blue-100',
-    iconColor: 'text-blue-600 bg-blue-100',
+    color: 'bg-blue-50 border-blue-200 hover:bg-blue-100 dark:bg-blue-950/20 dark:border-blue-900/40 dark:hover:bg-blue-950/40',
+    iconColor: 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30',
     category: 'Consultation',
   },
   {
@@ -38,8 +38,8 @@ const TEMPLATE_CARDS = [
     name: 'Attestation de consultation',
     description: 'Attester la présence du patient, sans contenu médical',
     icon: FileText,
-    color: 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100',
-    iconColor: 'text-emerald-600 bg-emerald-100',
+    color: 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/40 dark:hover:bg-emerald-950/40',
+    iconColor: 'text-emerald-600 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-900/30',
     category: 'Attestation',
   },
 ]

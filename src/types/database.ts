@@ -17,6 +17,7 @@ export type PainEvolution = 'better' | 'same' | 'worse'
 export type AuditAction = 'INSERT' | 'UPDATE' | 'DELETE'
 export type MedicalHistoryType = 'traumatic' | 'medical' | 'surgical' | 'family'
 export type OnsetDurationUnit = 'days' | 'weeks' | 'months' | 'years'
+export type DailyPlanItemStatus = 'pending' | 'done'
 
 export interface Database {
   public: {
@@ -54,6 +55,7 @@ export interface Database {
           annual_revenue_objective: number | null
           vacation_weeks_per_year: number | null
           working_days_per_week: number | null
+          working_weekdays: number[] | null
           average_consultation_price: number | null
           created_at: string
           updated_at: string
@@ -90,6 +92,7 @@ export interface Database {
           annual_revenue_objective?: number | null
           vacation_weeks_per_year?: number | null
           working_days_per_week?: number | null
+          working_weekdays?: number[] | null
           average_consultation_price?: number | null
           created_at?: string
           updated_at?: string
@@ -126,6 +129,7 @@ export interface Database {
           annual_revenue_objective?: number | null
           vacation_weeks_per_year?: number | null
           working_days_per_week?: number | null
+          working_weekdays?: number[] | null
           average_consultation_price?: number | null
           created_at?: string
           updated_at?: string
@@ -655,6 +659,35 @@ export interface Database {
           acknowledged_at?: string | null
         }
       }
+      daily_plan_items: {
+        Row: {
+          id: string
+          practitioner_id: string
+          patient_id: string
+          plan_date: string
+          position: number
+          status: DailyPlanItemStatus
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          practitioner_id: string
+          patient_id: string
+          plan_date: string
+          position?: number
+          status?: DailyPlanItemStatus
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          practitioner_id?: string
+          patient_id?: string
+          plan_date?: string
+          position?: number
+          status?: DailyPlanItemStatus
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -697,6 +730,7 @@ export type ScheduledTask = Tables<'scheduled_tasks'>
 export type AuditLog = Tables<'audit_logs'>
 export type SavedReport = Tables<'saved_reports'>
 export type MedicalHistoryEntry = Tables<'medical_history_entries'>
+export type DailyPlanItem = Tables<'daily_plan_items'>
 export type ConsultationAttachment = Tables<'consultation_attachments'>
 export type ManualRevenueEntry = Tables<'manual_revenue_entries'>
 export type SurveyResponse = Tables<'survey_responses'>
