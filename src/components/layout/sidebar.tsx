@@ -20,6 +20,7 @@ import {
   ClipboardList,
   FileText,
   GraduationCap,
+  ListChecks,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -33,6 +34,7 @@ interface ElectronAPI {
 
 const navigation = [
   { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard, description: 'Vue d\'ensemble' },
+  { name: 'Ma journée', href: '/day-plan', icon: ListChecks, description: 'Patients du jour' },
   { name: 'Patients et consultations', href: '/patients', icon: Users, description: 'Patients & consultations' },
   { name: 'Messagerie', href: '/messages', icon: MessageCircle, description: 'Communications' },
   { name: 'Suivi patients', href: '/surveys', icon: ClipboardList, description: 'Sondages & emails' },

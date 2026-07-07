@@ -16,6 +16,7 @@ import { Plus, Sparkles } from 'lucide-react'
 
 import { VideoWidget } from './widgets/video-widget'
 import { ProgressWidget } from './widgets/progress-widget'
+import { DayPlanWidget } from './widgets/day-plan-widget'
 import { ReviewWidget, FeaturedFormationWidget, type WidgetsData } from './widgets/osteoupgrade-widgets'
 import { FlashcardsWidget } from './widgets/flashcards-widget'
 import { RelaunchWidget } from './widgets/relaunch-widget'
@@ -115,6 +116,9 @@ export function Dashboard({
           <BannerWeather />
         </div>
       </div>
+
+      {/* ── Ma journée ── */}
+      <DayPlanWidget />
 
       {/* ── Progression pleine largeur ── */}
       <ProgressWidget layout="horizontal" />

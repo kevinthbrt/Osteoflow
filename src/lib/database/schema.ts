@@ -436,6 +436,18 @@ CREATE TABLE IF NOT EXISTS custom_clinical_content (
 );
 CREATE INDEX IF NOT EXISTS idx_custom_clinical_content_practitioner ON custom_clinical_content(practitioner_id, content_type);
 
+-- Daily plan items ("Préparer ma journée" : ordre des patients à voir dans la journée)
+CREATE TABLE IF NOT EXISTS daily_plan_items (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+  patient_id TEXT NOT NULL REFERENCES patients(id),
+  plan_date TEXT NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'done')),
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_daily_plan_items_practitioner_date ON daily_plan_items(practitioner_id, plan_date);
+
 `
 
 /**
