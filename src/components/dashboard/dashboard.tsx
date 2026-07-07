@@ -118,13 +118,13 @@ export function Dashboard({
         </div>
 
         <div className="pt-4 border-t border-white/20">
-          <ProgressWidget layout="horizontal" variant="banner" />
+          <DayPlanWidget variant="banner" />
         </div>
         </div>
       </div>
 
-      {/* ── Ma journée ── */}
-      <DayPlanWidget />
+      {/* ── Progression pleine largeur ── */}
+      <ProgressWidget layout="horizontal" />
 
       {/* ── Complétude du profil ── */}
       <ProfileCompletionWidget />

@@ -44,7 +44,8 @@ function formatTimeSince(dateStr: string): string {
   return `il y a ${years} an${years > 1 ? 's' : ''}`
 }
 
-export function DayPlanWidget() {
+export function DayPlanWidget({ variant = 'card' }: { variant?: 'card' | 'banner' }) {
+  const banner = variant === 'banner'
   const [items, setItems] = useState<PlanItem[]>([])
   const [lastConsults, setLastConsults] = useState<Record<string, LastConsult>>({})
   const [loading, setLoading] = useState(true)
@@ -107,6 +108,142 @@ export function DayPlanWidget() {
   const progressPct = items.length > 0 ? (doneCount / items.length) * 100 : 0
   const nextId = items.find((i) => i.status === 'pending')?.id
 
+  const mutedClass = banner ? 'text-white/70' : 'text-muted-foreground'
+
+  const headerRow = (
+    <div className="flex items-center justify-between">
+      <div className={`flex items-center gap-2 text-base font-semibold ${banner ? 'text-white' : ''}`}>
+        <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${banner ? 'bg-white/15' : 'bg-orange-500/10'}`}>
+          <ListChecks className={`h-4 w-4 ${banner ? 'text-white' : 'text-orange-500'}`} />
+        </div>
+        <span className={banner ? 'text-white' : 'text-orange-600 dark:text-orange-400'}>Ma journée</span>
+      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className={`h-8 gap-1 px-2 text-xs ${banner ? 'text-white/80 hover:text-white hover:bg-white/10' : ''}`}
+        asChild
+      >
+        <Link href="/day-plan">
+          Organiser
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
+      </Button>
+    </div>
+  )
+
+  const bodyContent = loading ? (
+    <div className={`h-12 rounded-lg animate-pulse ${banner ? 'bg-white/15' : 'bg-muted/30'}`} />
+  ) : items.length === 0 ? (
+    <div className="flex flex-col items-center justify-center gap-3 py-4 text-center">
+      <p className={`text-sm ${banner ? 'text-white/80' : 'text-muted-foreground'}`}>
+        Aucun patient préparé pour aujourd&apos;hui.
+      </p>
+      <Button
+        variant="outline"
+        size="sm"
+        className={banner ? 'bg-white/10 text-white border-white/30 hover:bg-white/20' : ''}
+        asChild
+      >
+        <Link href="/day-plan">
+          <CalendarPlus className="h-4 w-4 mr-1.5" />
+          Préparer ma journée
+        </Link>
+      </Button>
+    </div>
+  ) : (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <div className={`flex items-center justify-between text-xs ${mutedClass}`}>
+          <span>
+            {doneCount} / {items.length} patient{items.length > 1 ? 's' : ''} vu{doneCount > 1 ? 's' : ''}
+          </span>
+          {doneCount === items.length && (
+            <span className={`font-medium ${banner ? 'text-emerald-200' : 'text-emerald-600 dark:text-emerald-400'}`}>
+              Journée terminée 🎉
+            </span>
+          )}
+        </div>
+        <div className={`h-1.5 w-full rounded-full overflow-hidden ${banner ? 'bg-white/15' : 'bg-muted'}`}>
+          <div
+            className="h-full rounded-full bg-orange-500 transition-all duration-500"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Vue d'ensemble de la journée, défilable à la molette */}
+      <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
+        {items.map((item) => {
+          const isNext = item.id === nextId
+          const isDone = item.status === 'done'
+          const age = item.patient?.birth_date ? calculateAge(item.patient.birth_date) : null
+          const lastConsult = item.patient?.id ? lastConsults[item.patient.id] : undefined
+          const details = [
+            age != null ? `${age} ans` : null,
+            lastConsult
+              ? `${formatTimeSince(lastConsult.date_time)} · ${lastConsult.reason}`
+              : 'Première consultation',
+          ].filter(Boolean).join(' · ')
+
+          return (
+            <div
+              key={item.id}
+              className={`flex items-start gap-2.5 rounded-lg px-2 py-1.5 ${
+                isNext ? (banner ? 'bg-white/15 border border-white/25' : 'bg-accent/40 border border-border/50') : ''
+              }`}
+            >
+              <button
+                onClick={() => toggleStatus(item)}
+                title={isDone ? 'Marquer à revoir' : 'Marquer comme vu'}
+                className={`mt-0.5 h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0 border transition-colors ${
+                  isDone
+                    ? 'bg-emerald-500 border-emerald-500 text-white'
+                    : banner
+                    ? 'border-white/40 text-transparent hover:border-white'
+                    : 'border-muted-foreground/40 text-transparent hover:border-orange-400'
+                }`}
+              >
+                <Check className="h-3 w-3" />
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <Link
+                    href={`/patients/${item.patient?.id}`}
+                    className={`text-sm truncate hover:underline ${
+                      isDone
+                        ? (banner ? 'text-white/50 line-through' : 'text-muted-foreground line-through')
+                        : (banner ? 'text-white font-medium' : 'font-medium')
+                    }`}
+                  >
+                    {item.patient?.first_name} {item.patient?.last_name}
+                  </Link>
+                  {isNext && (
+                    <span className={`text-[10px] font-semibold uppercase tracking-wide flex-shrink-0 ${
+                      banner ? 'text-amber-200' : 'text-orange-600 dark:text-orange-400'
+                    }`}>
+                      Prochain
+                    </span>
+                  )}
+                </div>
+                <p className={`text-xs truncate ${mutedClass}`}>{details}</p>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+
+  if (banner) {
+    return (
+      <div className="space-y-3">
+        {headerRow}
+        {bodyContent}
+      </div>
+    )
+  }
+
   return (
     <Card className="border-border/30 h-full">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -123,97 +260,7 @@ export function DayPlanWidget() {
           </Link>
         </Button>
       </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="h-12 bg-muted/30 rounded-lg animate-pulse" />
-        ) : items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-4 text-center">
-            <p className="text-sm text-muted-foreground">
-              Aucun patient préparé pour aujourd&apos;hui.
-            </p>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/day-plan">
-                <CalendarPlus className="h-4 w-4 mr-1.5" />
-                Préparer ma journée
-              </Link>
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>
-                  {doneCount} / {items.length} patient{items.length > 1 ? 's' : ''} vu{doneCount > 1 ? 's' : ''}
-                </span>
-                {doneCount === items.length && (
-                  <span className="font-medium text-emerald-600 dark:text-emerald-400">Journée terminée 🎉</span>
-                )}
-              </div>
-              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-orange-500 transition-all duration-500"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Vue d'ensemble de la journée, défilable à la molette */}
-            <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
-              {items.map((item) => {
-                const isNext = item.id === nextId
-                const isDone = item.status === 'done'
-                const age = item.patient?.birth_date ? calculateAge(item.patient.birth_date) : null
-                const lastConsult = item.patient?.id ? lastConsults[item.patient.id] : undefined
-                const details = [
-                  age != null ? `${age} ans` : null,
-                  lastConsult
-                    ? `${formatTimeSince(lastConsult.date_time)} · ${lastConsult.reason}`
-                    : 'Première consultation',
-                ].filter(Boolean).join(' · ')
-
-                return (
-                  <div
-                    key={item.id}
-                    className={`flex items-start gap-2.5 rounded-lg px-2 py-1.5 ${
-                      isNext ? 'bg-accent/40 border border-border/50' : ''
-                    }`}
-                  >
-                    <button
-                      onClick={() => toggleStatus(item)}
-                      title={isDone ? 'Marquer à revoir' : 'Marquer comme vu'}
-                      className={`mt-0.5 h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0 border transition-colors ${
-                        isDone
-                          ? 'bg-emerald-500 border-emerald-500 text-white'
-                          : 'border-muted-foreground/40 text-transparent hover:border-orange-400'
-                      }`}
-                    >
-                      <Check className="h-3 w-3" />
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <Link
-                          href={`/patients/${item.patient?.id}`}
-                          className={`text-sm truncate hover:underline ${
-                            isDone ? 'text-muted-foreground line-through' : 'font-medium'
-                          }`}
-                        >
-                          {item.patient?.first_name} {item.patient?.last_name}
-                        </Link>
-                        {isNext && (
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400 flex-shrink-0">
-                            Prochain
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">{details}</p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </CardContent>
+      <CardContent>{bodyContent}</CardContent>
     </Card>
   )
 }
