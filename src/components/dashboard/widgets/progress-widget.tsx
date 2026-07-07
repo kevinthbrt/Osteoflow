@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Target, TrendingUp, TrendingDown, Minus, Settings, Calendar, Sun, Umbrella } from 'lucide-react'
+import { resolveWorkingWeekdays, workingDayRatio } from '@/lib/utils/working-days'
 
 function formatEuros(amount: number): string {
   return new Intl.NumberFormat('fr-FR', {
@@ -12,27 +13,6 @@ function formatEuros(amount: number): string {
     currency: 'EUR',
     maximumFractionDigits: 0,
   }).format(amount)
-}
-
-/**
- * Fraction (0–1) of working days elapsed in [start, endExclusive), given the
- * set of worked weekdays (1=Mon ... 7=Sun). When the practitioner hasn't
- * picked specific days, callers fall back to an approximation (the first
- * `workingDaysPerWeek` weekdays).
- */
-function workingDayRatio(start: Date, endExclusive: Date, todayStart: Date, workingWeekdays: Set<number>): number {
-  let total = 0
-  let elapsed = 0
-  const cursor = new Date(start)
-  while (cursor < endExclusive) {
-    const weekday = cursor.getDay() === 0 ? 7 : cursor.getDay() // 1=Mon ... 7=Sun
-    if (workingWeekdays.has(weekday)) {
-      total++
-      if (cursor < todayStart) elapsed++
-    }
-    cursor.setDate(cursor.getDate() + 1)
-  }
-  return total > 0 ? elapsed / total : 0
 }
 
 type ObjectivesData = {
@@ -164,14 +144,9 @@ export function ProgressWidget({ layout = 'vertical' }: { layout?: 'vertical' | 
   const now = new Date()
   const year = now.getFullYear()
   const startOfToday = new Date(year, now.getMonth(), now.getDate())
-  const workingDaysPerWeek = data?.settings.working_days_per_week ?? 4
-
-  // Prefer the exact days picked in settings; fall back to an approximation
-  // (the first N weekdays) when they haven't been configured yet.
-  const workingWeekdays = new Set(
-    data?.settings.working_weekdays && data.settings.working_weekdays.length > 0
-      ? data.settings.working_weekdays
-      : Array.from({ length: workingDaysPerWeek }, (_, i) => i + 1)
+  const workingWeekdays = resolveWorkingWeekdays(
+    data?.settings.working_weekdays,
+    data?.settings.working_days_per_week ?? 4
   )
 
   // Fraction of working days elapsed so far, per period (vacation weeks
