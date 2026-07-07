@@ -19,6 +19,16 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.14.2',
+    date: '2026-07-07',
+    title: 'Correction des mises à jour automatiques sur Windows',
+    changes: [
+      { type: 'fix', text: "Correction des mises à jour automatiques sur Windows, cassées depuis la v1.13.2 : la mise à jour était détectée mais son téléchargement échouait silencieusement, laissant le bandeau bloqué sur « mise à jour en cours »." },
+      { type: 'improvement', text: "En cas d'échec de téléchargement d'une mise à jour, un message d'erreur s'affiche désormais (avec nouvel essai automatique) au lieu d'un bandeau de téléchargement figé." },
+      { type: 'fix', text: "Correction de la visibilité des cartes Antécédents (types et points de vigilance) en mode sombre." },
+    ],
+  },
+  {
     version: '1.14.1',
     date: '2026-07-07',
     title: 'Complétude du profil plus visible et patients marqués vus automatiquement',

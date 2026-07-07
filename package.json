@@ -1,6 +1,6 @@
 {
   "name": "myosteoflow",
-  "version": "1.14.1",
+  "version": "1.14.2",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -163,7 +163,8 @@
       "target": [
         "nsis"
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": true,

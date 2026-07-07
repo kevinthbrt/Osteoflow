@@ -9,10 +9,11 @@ interface ElectronAPI {
   onUpdateAvailable: (callback: (version: string) => void) => void
   onUpdateProgress: (callback: (percent: number) => void) => void
   onUpdateDownloaded: (callback: (version: string) => void) => void
+  onUpdateError?: (callback: (message: string) => void) => void
   installUpdate: () => void
 }
 
-type UpdateState = 'idle' | 'downloading' | 'ready'
+type UpdateState = 'idle' | 'downloading' | 'ready' | 'error'
 
 function getElectronAPI(): ElectronAPI | undefined {
   return (window as unknown as { electronAPI?: ElectronAPI }).electronAPI
@@ -43,9 +44,15 @@ export function UpdateBanner() {
       setState('ready')
       setDismissed(false)
     })
+
+    // A failed download would otherwise leave the banner on "téléchargement
+    // en cours" forever; the updater retries on its own at the next check.
+    api.onUpdateError?.(() => {
+      setState((prev) => (prev === 'downloading' ? 'error' : prev))
+    })
   }, [])
 
-  if (state === 'idle' || (state === 'downloading' && dismissed)) return null
+  if (state === 'idle' || ((state === 'downloading' || state === 'error') && dismissed)) return null
 
   const api = getElectronAPI()
 
@@ -84,6 +91,27 @@ export function UpdateBanner() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Redémarrer et mettre à jour
           </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (state === 'error') {
+    return (
+      <div className="relative z-50 border-b bg-gradient-to-r from-amber-600 to-orange-600 text-white px-4 py-2.5">
+        <div className="flex items-center justify-center gap-3 text-sm">
+          <Download className="h-4 w-4" />
+          <span>
+            Le téléchargement de la mise à jour <strong>v{version}</strong> a échoué — nouvel essai
+            automatique dans quelques minutes.
+          </span>
+          <button
+            onClick={() => setDismissed(true)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/20 transition-colors"
+            aria-label="Fermer"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     )
