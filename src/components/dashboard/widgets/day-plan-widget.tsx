@@ -68,11 +68,14 @@ export function DayPlanWidget() {
           .in('patient_id', patientIds)
           .is('archived_at', null)
           .order('date_time', { ascending: false })
-        const now = Date.now()
+        const startOfToday = new Date()
+        startOfToday.setHours(0, 0, 0, 0)
         const map: Record<string, LastConsult> = {}
         for (const c of (consults as Array<{ patient_id: string; date_time: string; reason: string }> | null) ?? []) {
           const t = new Date(c.date_time).getTime()
-          if (t >= now) continue
+          // Exclude today's own consultation(s) — "dernière consultation" should
+          // reflect the previous visit, not one already logged earlier today.
+          if (t >= startOfToday.getTime()) continue
           const existing = map[c.patient_id]
           if (!existing || t > new Date(existing.date_time).getTime()) {
             map[c.patient_id] = { date_time: c.date_time, reason: c.reason }
