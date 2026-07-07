@@ -72,10 +72,10 @@ const historyTypeLabels: Record<MedicalHistoryType, string> = {
 }
 
 const historyTypeColors: Record<MedicalHistoryType, string> = {
-  traumatic: 'bg-orange-100 text-orange-800 border-orange-200',
-  medical: 'bg-blue-100 text-blue-800 border-blue-200',
-  surgical: 'bg-purple-100 text-purple-800 border-purple-200',
-  family: 'bg-green-100 text-green-800 border-green-200',
+  traumatic: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800/50',
+  medical: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/50',
+  surgical: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/50',
+  family: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-800/50',
 }
 
 const durationUnitLabels: Record<OnsetDurationUnit, string> = {
@@ -544,7 +544,7 @@ export function MedicalHistorySection({ patientId, entries, onEntriesChange }: M
                       className={cn(
                         'group relative rounded-lg border p-3 text-sm',
                         entry.is_vigilance
-                          ? 'border-amber-300 bg-amber-50'
+                          ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-200'
                           : historyTypeColors[type]
                       )}
                     >
