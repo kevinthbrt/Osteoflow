@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -50,6 +50,8 @@ export function DayPlanWidget({ variant = 'card' }: { variant?: 'card' | 'banner
   const [lastConsults, setLastConsults] = useState<Record<string, LastConsult>>({})
   const [loading, setLoading] = useState(true)
   const db = createClient()
+  const listRef = useRef<HTMLDivElement>(null)
+  const nextItemRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -107,6 +109,17 @@ export function DayPlanWidget({ variant = 'card' }: { variant?: 'card' | 'banner
   const doneCount = items.filter((i) => i.status === 'done').length
   const progressPct = items.length > 0 ? (doneCount / items.length) * 100 : 0
   const nextId = items.find((i) => i.status === 'pending')?.id
+
+  // Keep the next patient in view — centered in the scrollable list when
+  // possible, or just scrolled into sight if it's near the top/bottom.
+  useEffect(() => {
+    if (loading || !nextId) return
+    const container = listRef.current
+    const item = nextItemRef.current
+    if (!container || !item) return
+    const target = item.offsetTop - container.clientHeight / 2 + item.offsetHeight / 2
+    container.scrollTo({ top: Math.max(0, target), behavior: 'smooth' })
+  }, [loading, nextId])
 
   const mutedClass = banner ? 'text-white/70' : 'text-muted-foreground'
 
@@ -173,7 +186,7 @@ export function DayPlanWidget({ variant = 'card' }: { variant?: 'card' | 'banner
       </div>
 
       {/* Vue d'ensemble de la journée, défilable à la molette */}
-      <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
+      <div ref={listRef} className="space-y-1 max-h-72 overflow-y-auto pr-1">
         {items.map((item) => {
           const isNext = item.id === nextId
           const isDone = item.status === 'done'
@@ -189,6 +202,7 @@ export function DayPlanWidget({ variant = 'card' }: { variant?: 'card' | 'banner
           return (
             <div
               key={item.id}
+              ref={isNext ? nextItemRef : undefined}
               className={`flex items-start gap-2.5 rounded-lg px-2 py-1.5 ${
                 isNext ? (banner ? 'bg-white/15 border border-white/25' : 'bg-accent/40 border border-border/50') : ''
               }`}
