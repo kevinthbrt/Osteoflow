@@ -112,12 +112,18 @@ export function DayPlanWidget({ variant = 'card' }: { variant?: 'card' | 'banner
 
   // Keep the next patient in view — centered in the scrollable list when
   // possible, or just scrolled into sight if it's near the top/bottom.
+  // Uses getBoundingClientRect rather than offsetTop, since offsetTop is
+  // relative to the nearest *positioned* ancestor — which may not be this
+  // container (e.g. inside the banner) and would throw the math off.
   useEffect(() => {
     if (loading || !nextId) return
     const container = listRef.current
     const item = nextItemRef.current
     if (!container || !item) return
-    const target = item.offsetTop - container.clientHeight / 2 + item.offsetHeight / 2
+    const containerRect = container.getBoundingClientRect()
+    const itemRect = item.getBoundingClientRect()
+    const itemTopInContainer = (itemRect.top - containerRect.top) + container.scrollTop
+    const target = itemTopInContainer - container.clientHeight / 2 + item.offsetHeight / 2
     container.scrollTo({ top: Math.max(0, target), behavior: 'smooth' })
   }, [loading, nextId])
 
