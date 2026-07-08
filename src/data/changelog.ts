@@ -19,6 +19,14 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.14.7',
+    date: '2026-07-08',
+    title: 'Correction de la visite guidée (suite)',
+    changes: [
+      { type: 'fix', text: "La fenêtre « Quoi de neuf ? » ne s'affiche plus par-dessus la visite guidée lors de la création d'un nouveau cabinet — elle ne se déclenche désormais que pour un cabinet ayant déjà terminé la visite." },
+    ],
+  },
+  {
     version: '1.14.6',
     date: '2026-07-08',
     title: 'Correction de la visite guidée',
