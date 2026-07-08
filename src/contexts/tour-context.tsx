@@ -58,7 +58,7 @@ const STEPS = [
     element: '[data-tour="nav-patients"]',
     popover: {
       title: '👥 Patients et consultations',
-      description: `Gérez votre patientèle : fiches détaillées (coordonnées, genre, date de naissance, médecin référent, antécédents, profession), notes personnelles et historique complet des consultations. Pour chaque séance : motif, compte-rendu libre, aide au diagnostic (arbres décisionnels lombalgie et cervicalgie basés sur les recommandations AAFP 2025), envoi d'email de conseils post-séance, prescription d'exercices en PDF, génération de courriers et facturation en un clic. Export PDF disponible.`,
+      description: `Gérez votre patientèle : fiches détaillées (coordonnées, genre, date de naissance, médecin référent, antécédents, profession), notes personnelles et historique complet des consultations. Pour chaque séance : motif, compte-rendu libre, envoi d'email de conseils post-séance, prescription d'exercices en PDF, génération de courriers et facturation en un clic. Export PDF disponible.`,
       side: 'right' as const,
     },
   },
