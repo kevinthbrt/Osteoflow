@@ -19,6 +19,15 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.14.6',
+    date: '2026-07-08',
+    title: 'Correction de la visite guidée',
+    changes: [
+      { type: 'fix', text: "La fenêtre de rappel de sauvegarde ne s'affiche plus par-dessus la visite guidée lors de la création d'un nouveau cabinet." },
+      { type: 'improvement', text: "Mise à jour du contenu de la visite guidée pour refléter les fonctionnalités actuelles de l'application (tableau de bord, patients, messagerie, sondages, objectifs, paramètres) et ajout de l'étape « Ma journée »." },
+    ],
+  },
+  {
     version: '1.14.5',
     date: '2026-07-08',
     title: 'Renforcement de la sécurité de la messagerie support',
