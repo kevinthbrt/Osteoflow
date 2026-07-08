@@ -11,6 +11,7 @@
 
 import { app, BrowserWindow, shell, dialog, Notification, ipcMain, session } from 'electron'
 import path from 'path'
+import crypto from 'crypto'
 import { exec } from 'child_process'
 import { startCronJobs, stopCronJobs } from './cron'
 
@@ -50,6 +51,16 @@ const gotTheLock = app.requestSingleInstanceLock()
 if (!gotTheLock) {
   app.quit()
 }
+
+// Local API token: the embedded HTTP server listens on 127.0.0.1, which any
+// other local process — or a malicious webpage the user visits while the app
+// is running — could otherwise call directly to read/wipe the patient
+// database. Generated fresh per launch, kept only in memory, and required by
+// every sensitive route (see src/lib/server/local-auth.ts). The renderer
+// fetches it once via IPC (see preload.ts) and attaches it to its requests.
+const LOCAL_API_TOKEN = crypto.randomBytes(32).toString('hex')
+process.env.LOCAL_API_TOKEN = LOCAL_API_TOKEN
+ipcMain.handle('get-local-api-token', () => LOCAL_API_TOKEN)
 
 // Next.js server
 let nextServer: any = null

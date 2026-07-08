@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDatabase } from '@/lib/database/connection'
+import { getOsteoflowAuthHeaders } from '@/lib/osteoupgrade/proxy-auth'
 
 const OSTEOUPGRADE_URL = 'https://osteoupgrade.vercel.app'
 const OSTEOFLOW_SECRET = process.env.OSTEOFLOW_PROXY_SECRET
@@ -23,7 +24,7 @@ export async function GET() {
   try {
     const res = await fetch(
       `${OSTEOUPGRADE_URL}/api/osteoflow/support?license_email=${encodeURIComponent(licenseEmail)}`,
-      { headers: { 'x-osteoflow-secret': OSTEOFLOW_SECRET }, next: { revalidate: 0 } }
+      { headers: { 'x-osteoflow-secret': OSTEOFLOW_SECRET, ...getOsteoflowAuthHeaders() }, next: { revalidate: 0 } }
     )
     if (!res.ok) return NextResponse.json({ tickets: [] })
     return NextResponse.json(await res.json())
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
         'x-osteoflow-secret': OSTEOFLOW_SECRET,
+        ...getOsteoflowAuthHeaders(),
       },
       body: JSON.stringify(payload),
     })

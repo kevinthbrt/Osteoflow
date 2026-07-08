@@ -12,8 +12,12 @@
  */
 
 import { NextResponse } from 'next/server'
+import { checkLocalApiToken } from '@/lib/local-api-auth'
 
 export async function POST(request: Request) {
+  const authError = checkLocalApiToken(request)
+  if (authError) return authError
+
   try {
     const { createLocalClient } = await import('@/lib/database/query-builder')
 

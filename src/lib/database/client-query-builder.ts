@@ -10,6 +10,8 @@
  * The actual database operations are handled by /api/db on the server.
  */
 
+import { localApiHeaders } from '@/lib/local-api-token'
+
 interface Condition {
   type: string
   column: string
@@ -175,11 +177,14 @@ class ClientQueryChain {
     resolve: (value: any) => any,
     reject?: (reason: any) => any,
   ): Promise<any> {
-    return fetch('/api/db', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(this._descriptor),
-    })
+    return localApiHeaders()
+      .then((extraHeaders) =>
+        fetch('/api/db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...extraHeaders },
+          body: JSON.stringify(this._descriptor),
+        })
+      )
       .then(async (res) => {
         if (!res.ok) {
           // Try to parse JSON error, fall back to status text

@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
 import { getDatabase, closeDatabase } from '@/lib/database/connection'
+import { checkLocalApiToken } from '@/lib/local-api-auth'
 import fs from 'fs'
 import path from 'path'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
+  const authError = checkLocalApiToken(request)
+  if (authError) return authError
+
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File | null

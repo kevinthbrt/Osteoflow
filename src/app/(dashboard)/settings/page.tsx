@@ -26,6 +26,7 @@ import { PROFESSION_OPTIONS } from '@/lib/practitioner/profession'
 import type { Practitioner, SessionType } from '@/types/database'
 import { CustomClinicalContentTab } from '@/components/settings/custom-clinical-content-tab'
 import { ImportDataTab } from '@/components/settings/import-data-tab'
+import { localApiHeaders } from '@/lib/local-api-token'
 
 interface PatientListItem {
   id: string
@@ -741,7 +742,7 @@ function SettingsPageInner() {
 
       const response = await fetch('/api/stamps/upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await localApiHeaders()) },
         body: JSON.stringify({
           file: base64,
           practitioner_id: practitioner.id,
@@ -2245,7 +2246,7 @@ function BackupRestoreSettings() {
   const handleBackup = async () => {
     setIsBackingUp(true)
     try {
-      const res = await fetch('/api/settings/database/backup')
+      const res = await fetch('/api/settings/database/backup', { headers: await localApiHeaders() })
       if (!res.ok) {
         const data = await res.json()
         toast({ variant: 'destructive', title: 'Erreur', description: data.error })
@@ -2277,7 +2278,7 @@ function BackupRestoreSettings() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const res = await fetch('/api/settings/database/restore', { method: 'POST', body: formData })
+      const res = await fetch('/api/settings/database/restore', { method: 'POST', headers: await localApiHeaders(), body: formData })
       const data = await res.json()
       if (!res.ok) {
         toast({ variant: 'destructive', title: 'Erreur', description: data.error })

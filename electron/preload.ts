@@ -13,6 +13,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   arch: process.arch,
 
+  // Token proving a request to the local API actually comes from this app's
+  // own renderer (see electron/main.ts). Fetched once per launch over IPC,
+  // never exposed to any web page the renderer might navigate to.
+  getLocalApiToken: (): Promise<string> => ipcRenderer.invoke('get-local-api-token'),
+
   // Auto-update events
   onUpdateAvailable: (callback: (version: string) => void) => {
     ipcRenderer.on('update-available', (_event, version: string) => callback(version))
