@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { getAppDataDir } from '@/lib/database/connection'
 import { createLocalClient } from '@/lib/database/query-builder'
+import { checkLocalApiToken } from '@/lib/local-api-auth'
 import path from 'path'
 import fs from 'fs'
 
@@ -17,8 +18,13 @@ const MIME_TO_EXT: Record<string, string> = {
   'image/webp': 'webp',
   'image/svg+xml': 'svg',
 }
+const ALLOWED_EXTS = new Set(Object.values(MIME_TO_EXT))
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function POST(request: Request) {
+  const authError = checkLocalApiToken(request)
+  if (authError) return authError
+
   try {
     let body: { file?: string; practitioner_id?: string; mimetype?: string; filename?: string }
     try {
@@ -39,6 +45,10 @@ export async function POST(request: Request) {
       )
     }
 
+    if (!UUID_RE.test(practitionerId)) {
+      return NextResponse.json({ error: 'practitioner_id invalide' }, { status: 400 })
+    }
+
     // Strip data URI prefix if present (e.g. "data:image/png;base64,...")
     const base64 = base64Data.replace(/^data:[^;]+;base64,/, '')
 
@@ -53,14 +63,17 @@ export async function POST(request: Request) {
       )
     }
 
-    // Determine extension from MIME type, then filename, fallback to png
+    // Determine extension from MIME type, then filename, fallback to png —
+    // constrained to the fixed image-extension allow-list so it can never
+    // smuggle a path separator into the filename below.
     let ext = 'png'
     if (mimetype && MIME_TO_EXT[mimetype]) {
       ext = MIME_TO_EXT[mimetype]
     } else if (filename) {
       const parts = filename.split('.')
-      if (parts.length > 1) {
-        ext = parts.pop()!.toLowerCase()
+      const candidate = parts.length > 1 ? parts.pop()!.toLowerCase() : ''
+      if (ALLOWED_EXTS.has(candidate)) {
+        ext = candidate
       }
     }
 
@@ -78,9 +91,13 @@ export async function POST(request: Request) {
       fs.mkdirSync(stampsDir, { recursive: true })
     }
 
-    // Save file
+    // Save file — resolved path re-verified to stay under stampsDir in case
+    // the filename construction above is ever changed carelessly.
     const stampFileName = `${practitionerId}.${ext}`
     const filePath = path.join(stampsDir, stampFileName)
+    if (path.dirname(filePath) !== stampsDir) {
+      return NextResponse.json({ error: 'Chemin de fichier invalide' }, { status: 400 })
+    }
     fs.writeFileSync(filePath, buffer)
 
     // The stamp URL will be served via the /api/stamps/[filename] route

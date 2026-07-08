@@ -6,13 +6,19 @@
 import { NextResponse } from 'next/server'
 import { getAppDataDir } from '@/lib/database/connection'
 import { createLocalClient } from '@/lib/database/query-builder'
+import { checkLocalApiToken } from '@/lib/local-api-auth'
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20 MB
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const SAFE_EXT_RE = /^\.[a-zA-Z0-9]{1,10}$/
 
 export async function POST(request: Request) {
+  const authError = checkLocalApiToken(request)
+  if (authError) return authError
+
   try {
     const body = await request.json()
     const { file: base64Data, consultation_id, original_name, mimetype } = body as {
@@ -29,6 +35,10 @@ export async function POST(request: Request) {
       )
     }
 
+    if (!UUID_RE.test(consultation_id)) {
+      return NextResponse.json({ error: 'consultation_id invalide' }, { status: 400 })
+    }
+
     // Strip data URI prefix if present
     const base64 = base64Data.replace(/^data:[^;]+;base64,/, '')
     const buffer = Buffer.from(base64, 'base64')
@@ -40,8 +50,10 @@ export async function POST(request: Request) {
       )
     }
 
-    // Determine extension from original filename
-    const ext = path.extname(original_name).toLowerCase() || '.bin'
+    // Determine extension from original filename — constrained to a safe
+    // character set so it can never smuggle path separators.
+    const rawExt = path.extname(original_name).toLowerCase()
+    const ext = SAFE_EXT_RE.test(rawExt) ? rawExt : '.bin'
     const uniqueId = crypto.randomBytes(8).toString('hex')
     const filename = `${consultation_id}_${uniqueId}${ext}`
 
@@ -51,8 +63,12 @@ export async function POST(request: Request) {
       fs.mkdirSync(attachmentsDir, { recursive: true })
     }
 
-    // Save file
+    // Save file — resolved path is re-verified to stay under attachmentsDir
+    // in case the filename construction above is ever changed carelessly.
     const filePath = path.join(attachmentsDir, filename)
+    if (path.dirname(filePath) !== attachmentsDir) {
+      return NextResponse.json({ error: 'Chemin de fichier invalide' }, { status: 400 })
+    }
     fs.writeFileSync(filePath, buffer)
 
     // Save record in database

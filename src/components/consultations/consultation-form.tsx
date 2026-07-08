@@ -62,6 +62,7 @@ import {
   type AdviceCategory,
 } from '@/lib/consultations/post-session-advice-options'
 import type { Patient, Consultation, Practitioner, SessionType, MedicalHistoryEntry, ConsultationAttachment, MedicalHistoryType } from '@/types/database'
+import { localApiHeaders } from '@/lib/local-api-token'
 
 interface ConsultationFormProps {
   patient: Patient
@@ -492,7 +493,7 @@ export function ConsultationForm({
 
       await fetch('/api/attachments/upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await localApiHeaders()) },
         body: JSON.stringify({
           file: base64,
           consultation_id: consultationId,

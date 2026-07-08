@@ -20,6 +20,22 @@ import { BOOLEAN_FIELDS, JSON_FIELDS } from './schema'
 import { getScopeCabinetIds, getActiveCabinetId, type ShareCategory } from './cabinet-scope'
 
 /**
+ * Table/column names reach this module as plain strings coming straight from
+ * the /api/db request body (see src/app/api/db/route.ts), which has no
+ * allow-list of its own. Every identifier gets concatenated directly into
+ * SQL (SQLite doesn't support parameter binding for identifiers), so this
+ * gate is what stops a crafted table/column/order name from smuggling SQL.
+ */
+const SAFE_IDENTIFIER_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/
+
+function assertSafeIdentifier(name: string, kind: string): string {
+  if (typeof name !== 'string' || !SAFE_IDENTIFIER_RE.test(name)) {
+    throw new Error(`Identifiant SQL invalide (${kind}): ${JSON.stringify(name)}`)
+  }
+  return name
+}
+
+/**
  * Tables soumises au cloisonnement par cabinet, avec la façon de filtrer.
  * - 'self'   : la table porte directement la colonne cabinet (practitioner_id ou cabinet_id)
  * - 'via'    : on filtre par sous-requête sur une table parente déjà cloisonnée
@@ -401,7 +417,7 @@ export class QueryBuilder {
 
   from(table: string): QueryBuilder {
     const qb = new QueryBuilder()
-    qb._table = table
+    qb._table = assertSafeIdentifier(table, 'table')
     return qb
   }
 
@@ -502,7 +518,7 @@ export class QueryBuilder {
 
   order(column: string, options?: { ascending?: boolean }): QueryBuilder {
     this._orders.push({
-      column,
+      column: assertSafeIdentifier(column, 'order column'),
       ascending: options?.ascending ?? true,
     })
     return this
@@ -584,6 +600,9 @@ export class QueryBuilder {
     const params: any[] = []
 
     for (const cond of this._conditions) {
+      if (cond.type !== 'or') {
+        assertSafeIdentifier(cond.column, 'condition column')
+      }
       switch (cond.type) {
         case 'eq':
           clauses.push(`${cond.column} = ?`)
@@ -645,6 +664,7 @@ export class QueryBuilder {
           if (orConditions.length > 0) {
             const orParts: string[] = []
             for (const oc of orConditions) {
+              assertSafeIdentifier(oc.column, 'or condition column')
               switch (oc.operator) {
                 case 'eq':
                   orParts.push(`${oc.column} = ?`)
@@ -782,6 +802,7 @@ export class QueryBuilder {
       }
 
       const columns = Object.keys(row)
+      columns.forEach((col) => assertSafeIdentifier(col, 'insert column'))
       const values = columns.map((col) => convertValueForSQLite(this._table, col, row[col]))
       const placeholders = columns.map(() => '?').join(', ')
 
@@ -828,6 +849,7 @@ export class QueryBuilder {
     }
 
     const columns = Object.keys(data)
+    columns.forEach((col) => assertSafeIdentifier(col, 'update column'))
     const setClauses = columns.map((col) => `${col} = ?`)
     const values = columns.map((col) => convertValueForSQLite(this._table, col, data[col]))
 

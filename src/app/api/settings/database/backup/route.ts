@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server'
 import { getDatabase } from '@/lib/database/connection'
+import { checkLocalApiToken } from '@/lib/local-api-auth'
 import fs from 'fs'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: Request) {
+  const authError = checkLocalApiToken(request)
+  if (authError) return authError
+
   try {
     const db = getDatabase()
 

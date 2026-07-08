@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
+import { localApiHeaders } from '@/lib/local-api-token'
 
 const REMINDER_INTERVAL_DAYS = 7
 // Delay after login (CGU already accepted) before showing the reminder
@@ -102,7 +103,7 @@ export function BackupReminderDialog() {
   const handleDownload = async () => {
     setIsDownloading(true)
     try {
-      const res = await fetch('/api/settings/database/backup')
+      const res = await fetch('/api/settings/database/backup', { headers: await localApiHeaders() })
       if (!res.ok) throw new Error()
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
