@@ -23,12 +23,12 @@ export const CGU_SECTIONS: LegalSection[] = [
   { type: 'p', content: "En accédant à l'un ou l'autre de ces services, l'Utilisateur accepte sans réserve les présentes CGU." },
 
   { type: 'h2', content: "Article 2 – Éditeur" },
-  { type: 'p', content: "**SAS OsteoUpgrade**" },
+  { type: 'p', content: "**SAS OsteoUpgrade** — Société par actions simplifiée au capital de 1 000 €" },
   { type: 'p', content: "57 bis route nationale, résidence coté parc, bât A, 06440 Blausasc" },
-  { type: 'p', content: "SIRET : en cours d'immatriculation" },
+  { type: 'p', content: "RCS Nice : 106 919 715" },
   { type: 'p', content: "Téléphone : 06 63 24 42 80" },
   { type: 'p', content: "Contact : contact@osteo-upgrade.fr" },
-  { type: 'p', content: "Co-gérants : Kevin Thubert et Gerald Stoppini" },
+  { type: 'p', content: "Président : Gerald Stoppini — Directeur général : Kevin Thubert" },
 
   { type: 'h2', content: 'Article 3 – Définitions' },
   { type: 'ul', items: [
