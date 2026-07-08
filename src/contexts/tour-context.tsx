@@ -31,14 +31,6 @@ const STEPS = [
     },
   },
   {
-    element: '[data-tour="dashboard-stats"]',
-    popover: {
-      title: 'Indicateurs clés',
-      description: `Ces quatre cartes vous donnent en un coup d'oeil l'état de votre cabinet en temps réel.`,
-      side: 'bottom' as const,
-    },
-  },
-  {
     element: '[data-tour="dashboard-new-consult"]',
     popover: {
       title: '➕ Nouvelle consultation',
@@ -55,18 +47,18 @@ const STEPS = [
     },
   },
   {
-    element: '[data-tour="nav-patients"]',
+    element: '[data-tour="nav-day-plan"]',
     popover: {
-      title: '👥 Patients',
-      description: `Gérez votre patientèle : fiches détaillées (coordonnées, genre, date de naissance, médecin référent, antécédents, profession), notes personnelles, historique des consultations et des factures. L'onglet consultation permet l'édition inline du règlement. Export PDF disponible.`,
+      title: '📋 Ma journée',
+      description: `Organisez l'ordre de vos rendez-vous du jour : ajoutez vos patients à la liste, réordonnez-les et cochez-les au fur et à mesure. Naviguez d'un jour à l'autre et ajoutez un nouveau patient à la volée sans quitter la page.`,
       side: 'right' as const,
     },
   },
   {
-    element: '[data-tour="nav-consultations"]',
+    element: '[data-tour="nav-patients"]',
     popover: {
-      title: '🗓 Consultations',
-      description: `L'historique complet de toutes vos séances. Pour chaque consultation : motif, compte-rendu libre, aide au diagnostic (arbres décisionnels lombalgie et cervicalgie basés sur les recommandations AAFP 2025), envoi d'email de conseils post-séance, prescription d'exercices en PDF, génération de courriers et facturation en un clic.`,
+      title: '👥 Patients et consultations',
+      description: `Gérez votre patientèle : fiches détaillées (coordonnées, genre, date de naissance, médecin référent, antécédents, profession), notes personnelles et historique complet des consultations. Pour chaque séance : motif, compte-rendu libre, aide au diagnostic (arbres décisionnels lombalgie et cervicalgie basés sur les recommandations AAFP 2025), envoi d'email de conseils post-séance, prescription d'exercices en PDF, génération de courriers et facturation en un clic avec édition inline du règlement. Export PDF disponible.`,
       side: 'right' as const,
     },
   },
@@ -115,14 +107,6 @@ const STEPS = [
     popover: {
       title: '🎯 Objectifs',
       description: `Définissez votre objectif de chiffre d'affaires annuel. MyOsteoFlow calcule automatiquement vos objectifs journaliers, hebdomadaires et mensuels en tenant compte de vos semaines de congé et de votre tarif moyen. Les corrections manuelles se propagent automatiquement aux statistiques et à la comptabilité.`,
-      side: 'right' as const,
-    },
-  },
-  {
-    element: '[data-tour="nav-scheduled-emails"]',
-    popover: {
-      title: '📧 Emails programmés',
-      description: `Planifiez des emails de suivi à envoyer automatiquement à une date précise. Idéal pour les bilans post-traitement, les relances ou les rappels de bilan.`,
       side: 'right' as const,
     },
   },
