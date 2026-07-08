@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getOsteoflowAuthHeaders } from '@/lib/osteoupgrade/proxy-auth'
 
 const OSTEOUPGRADE_URL = 'https://osteoupgrade.vercel.app'
 const OSTEOFLOW_SECRET = process.env.OSTEOFLOW_PROXY_SECRET
@@ -20,6 +21,7 @@ export async function GET(
     headers: {
       'Content-Type': 'application/json',
       'x-osteoflow-secret': OSTEOFLOW_SECRET,
+      ...getOsteoflowAuthHeaders(),
     },
   })
 
@@ -43,6 +45,7 @@ export async function POST(
     headers: {
       'Content-Type': 'application/json',
       'x-osteoflow-secret': OSTEOFLOW_SECRET,
+      ...getOsteoflowAuthHeaders(),
     },
     body: JSON.stringify(body),
   })
