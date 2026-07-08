@@ -29,8 +29,9 @@ export function WhatsNewDialog() {
 
   useEffect(() => {
     const lastSeen = localStorage.getItem(LAST_SEEN_KEY)
-    if (lastSeen !== currentVersion) {
-      // Find the current version in the changelog
+    if (lastSeen === currentVersion) return
+
+    const showIfNew = () => {
       const entry = changelog.find((e) => e.version === currentVersion)
       if (entry) {
         setOpen(true)
@@ -38,6 +39,22 @@ export function WhatsNewDialog() {
       // Always mark as seen to avoid showing again
       localStorage.setItem(LAST_SEEN_KEY, currentVersion)
     }
+
+    // On a brand-new cabinet the guided tour hasn't run yet — it already covers
+    // every current feature, so showing "what's new" on top of it would just
+    // interfere. Skip it silently and mark the current version as seen; only
+    // show this dialog to users who have already been through the tour before
+    // (i.e. an existing cabinet that just got updated to a new version).
+    fetch('/api/tour/status')
+      .then((r) => r.json())
+      .then(({ seen }) => {
+        if (seen) {
+          showIfNew()
+        } else {
+          localStorage.setItem(LAST_SEEN_KEY, currentVersion)
+        }
+      })
+      .catch(showIfNew)
   }, [currentVersion])
 
   const entry = changelog.find((e) => e.version === currentVersion)
