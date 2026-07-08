@@ -19,6 +19,15 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.14.3',
+    date: '2026-07-08',
+    title: 'Renforcement de la sécurité des échanges avec OsteoUpgrade',
+    changes: [
+      { type: 'improvement', text: "Renforcement de l'authentification entre MyOsteoflow et les serveurs OsteoUpgrade (dictée, aide au raisonnement clinique, contenus premium) : la clé de communication n'est plus intégrée en clair dans le code, et son absence bloque désormais proprement la requête au lieu de se rabattre sur une valeur par défaut." },
+      { type: 'fix', text: "Suppression d'un endpoint de configuration de clé OpenAI inutilisé et sans effet." },
+    ],
+  },
+  {
     version: '1.14.2',
     date: '2026-07-07',
     title: 'Correction des mises à jour automatiques sur Windows',

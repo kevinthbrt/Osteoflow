@@ -23,12 +23,12 @@ export const CGU_SECTIONS: LegalSection[] = [
   { type: 'p', content: "En accédant à l'un ou l'autre de ces services, l'Utilisateur accepte sans réserve les présentes CGU." },
 
   { type: 'h2', content: "Article 2 – Éditeur" },
-  { type: 'p', content: "**SAS OsteoUpgrade**" },
+  { type: 'p', content: "**SAS OsteoUpgrade** — Société par actions simplifiée au capital de 1 000 €" },
   { type: 'p', content: "57 bis route nationale, résidence coté parc, bât A, 06440 Blausasc" },
-  { type: 'p', content: "SIRET : en cours d'immatriculation" },
+  { type: 'p', content: "RCS Nice : 106 919 715" },
   { type: 'p', content: "Téléphone : 06 63 24 42 80" },
   { type: 'p', content: "Contact : contact@osteo-upgrade.fr" },
-  { type: 'p', content: "Co-gérants : Kevin Thubert et Gerald Stoppini" },
+  { type: 'p', content: "Président : Gerald Stoppini — Directeur général : Kevin Thubert" },
 
   { type: 'h2', content: 'Article 3 – Définitions' },
   { type: 'ul', items: [
@@ -152,7 +152,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
   { type: 'p', content: "Les données des patients (identité, coordonnées, antécédents, comptes-rendus) sont stockées **exclusivement en local** sur l'appareil de l'Utilisateur. Elles ne sont **jamais transmises** aux serveurs de l'Éditeur. L'ostéopathe est le responsable de traitement au sens du RGPD pour ces données." },
 
   { type: 'h3', content: '2.3 Données des sondages de satisfaction' },
-  { type: 'p', content: "Si l'Utilisateur active l'envoi de sondages, les réponses des patients transitent temporairement par un service Cloudflare Workers. Ces réponses sont synchronisées en local puis **supprimées du service intermédiaire** dans les 24 heures suivant la synchronisation." },
+  { type: 'p', content: "Si l'Utilisateur active l'envoi de sondages, les réponses des patients transitent temporairement par un service Cloudflare Workers. Ces réponses sont synchronisées en local dès que le Logiciel est ouvert (vérification automatique toutes les 10 minutes), puis **supprimées du service intermédiaire** ; à défaut de synchronisation, elles sont automatiquement purgées du service intermédiaire au bout de **30 jours maximum**." },
 
   { type: 'h3', content: '2.4 Données de la dictée vocale intelligente (IA — MyOsteoFlow uniquement)' },
   { type: 'p', content: "Lorsque l'Utilisateur utilise la fonctionnalité de dictée intelligente (optionnelle) dans MyOsteoFlow, l'enregistrement audio est transmis à **Groq** (États-Unis) via un proxy sécurisé exploité par l'Éditeur, uniquement pour la durée de la transcription. L'audio n'est pas conservé après traitement. Le texte transcrit est ensuite transmis à **Anthropic** (États-Unis) via un proxy sécurisé exploité par l'Éditeur, pour la structuration clinique. L'Utilisateur s'engage à ne pas inclure d'informations identifiantes dans la dictée." },
@@ -175,7 +175,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
   { type: 'ul', items: [
     "**Données de licence** : conservées pendant la durée de l'abonnement, puis supprimées dans un délai de 30 jours après résiliation.",
     "**Données patients** : stockées localement, sous la responsabilité de l'Utilisateur, conformément aux durées légales (articles L. 1142-28 et R. 1112-7 du Code de la santé publique).",
-    "**Réponses aux sondages** : supprimées du service intermédiaire sous 24h après synchronisation.",
+    "**Réponses aux sondages** : supprimées du service intermédiaire dès la synchronisation locale (vérifiée automatiquement toutes les 10 minutes lorsque le Logiciel est ouvert), et au plus tard 30 jours après réception en cas d'absence de synchronisation.",
     "**Données de dictée vocale** : l'audio et le texte transcrit ne sont pas conservés par l'Éditeur après traitement. Les durées de conservation chez Groq et Anthropic sont régies par leurs politiques respectives.",
   ]},
 

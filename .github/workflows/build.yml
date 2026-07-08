@@ -50,6 +50,8 @@ jobs:
 
       - name: Build Next.js
         run: npm run build
+        env:
+          OSTEOFLOW_PROXY_SECRET: ${{ secrets.OSTEOFLOW_PROXY_SECRET }}
 
       - name: Build Electron TypeScript
         run: npm run build:electron
@@ -93,6 +95,8 @@ jobs:
 
       - name: Build Next.js
         run: npm run build
+        env:
+          OSTEOFLOW_PROXY_SECRET: ${{ secrets.OSTEOFLOW_PROXY_SECRET }}
 
       - name: Build Electron TypeScript
         run: npm run build:electron

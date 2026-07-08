@@ -12,7 +12,6 @@ export const maxDuration = 120
 // avec header x-osteoflow-secret + body multipart/form-data (champ "file").
 
 const PROXY_BASE = 'https://osteoupgrade.vercel.app'
-const PROXY_SECRET_DEFAULT = 'a8c0fcc6aa558582564131768fd6aa6b0628b84ac0abe494948b088f086be1a6'
 
 // ─── Mode 2 : clé Groq locale (développement / utilisateur avec clé perso) ────
 // Définir GROQ_API_KEY dans .env.local. Gratuit jusqu'à 7200 s/jour par clé.
@@ -76,7 +75,7 @@ export async function POST(req: Request) {
     let text: string
 
     const groqKey = process.env.GROQ_API_KEY
-    const proxySecret = process.env.OSTEOFLOW_PROXY_SECRET || PROXY_SECRET_DEFAULT
+    const proxySecret = process.env.OSTEOFLOW_PROXY_SECRET
 
     if (proxySecret) {
       // Mode proxy — production commerciale (pas de clé Groq nécessaire côté client)
