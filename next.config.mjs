@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // OSTEOFLOW_PROXY_SECRET doit être intégré au bundle au moment du build CI
+  // (voir .github/workflows/build.yml) car l'app packagée ne reçoit jamais de
+  // vraies variables d'environnement au runtime sur la machine de l'utilisateur.
+  env: {
+    OSTEOFLOW_PROXY_SECRET: process.env.OSTEOFLOW_PROXY_SECRET,
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
