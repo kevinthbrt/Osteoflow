@@ -26,7 +26,7 @@ const STEPS = [
     element: '[data-tour="nav-dashboard"]',
     popover: {
       title: '📊 Tableau de bord',
-      description: `Votre vue d'ensemble du jour : patients actifs, consultations du jour, chiffre d'affaires du mois, messages non lus, anniversaires de la semaine et dernières consultations. La carte de complétude du profil vous guide pas à pas pour bien démarrer.`,
+      description: `Votre page d'accueil : météo du jour, aperçu de vos patients à voir aujourd'hui, votre progression par rapport à votre objectif de chiffre d'affaires, un rappel de vos patients à relancer, et des contenus OsteoUpgrade (revue de littérature, formation à la une, vidéo pratique, flashcards) pour rester à jour entre deux patients.`,
       side: 'right' as const,
     },
   },
@@ -58,7 +58,7 @@ const STEPS = [
     element: '[data-tour="nav-patients"]',
     popover: {
       title: '👥 Patients et consultations',
-      description: `Gérez votre patientèle : fiches détaillées (coordonnées, genre, date de naissance, médecin référent, antécédents, profession), notes personnelles et historique complet des consultations. Pour chaque séance : motif, compte-rendu libre, aide au diagnostic (arbres décisionnels lombalgie et cervicalgie basés sur les recommandations AAFP 2025), envoi d'email de conseils post-séance, prescription d'exercices en PDF, génération de courriers et facturation en un clic avec édition inline du règlement. Export PDF disponible.`,
+      description: `Gérez votre patientèle : fiches détaillées (coordonnées, genre, date de naissance, médecin référent, antécédents, profession), notes personnelles et historique complet des consultations. Pour chaque séance : motif, compte-rendu libre, aide au diagnostic (arbres décisionnels lombalgie et cervicalgie basés sur les recommandations AAFP 2025), envoi d'email de conseils post-séance, prescription d'exercices en PDF, génération de courriers et facturation en un clic. Export PDF disponible.`,
       side: 'right' as const,
     },
   },
@@ -66,7 +66,7 @@ const STEPS = [
     element: '[data-tour="nav-messages"]',
     popover: {
       title: '💬 Messagerie et relances',
-      description: `Communiquez avec vos patients par email ou SMS sans quitter l'application. Toutes les conversations sont archivées par patient. Les messages non lus apparaissent dans le badge de notification. Vous y retrouvez aussi les patients inactifs à relancer.`,
+      description: `Communiquez avec vos patients par email sans quitter l'application. Toutes les conversations sont archivées par patient. Retrouvez ici vos patients inactifs à relancer, en manuel ou en programmant une relance automatique à une échéance choisie. Vous pouvez aussi envoyer une diffusion à plusieurs patients à la fois (ex. fermeture du cabinet pour les vacances).`,
       side: 'right' as const,
     },
   },
@@ -82,7 +82,7 @@ const STEPS = [
     element: '[data-tour="nav-surveys"]',
     popover: {
       title: '⭐ Sondages de satisfaction',
-      description: `Envoyez automatiquement un sondage à vos patients 7 jours après leur consultation. Mesurez leur satisfaction : note globale, score EVA, mobilité, recommandation. Les réponses se synchronisent et sont analysées ici.`,
+      description: `Envoyez automatiquement un sondage à vos patients un nombre de jours après leur consultation que vous choisissez (réglable dans les paramètres). Mesurez leur satisfaction : note globale, score EVA, mobilité, recommandation. Les réponses se synchronisent et sont analysées ici.`,
       side: 'right' as const,
     },
   },
@@ -106,7 +106,7 @@ const STEPS = [
     element: '[data-tour="nav-objectives"]',
     popover: {
       title: '🎯 Objectifs',
-      description: `Définissez votre objectif de chiffre d'affaires annuel. MyOsteoFlow calcule automatiquement vos objectifs journaliers, hebdomadaires et mensuels en tenant compte de vos semaines de congé et de votre tarif moyen. Les corrections manuelles se propagent automatiquement aux statistiques et à la comptabilité.`,
+      description: `Définissez votre objectif de chiffre d'affaires annuel : MyOsteoFlow calcule automatiquement vos objectifs journaliers, hebdomadaires et mensuels en tenant compte de vos semaines de congé et de votre tarif moyen. Sur le tableau de bord, un indicateur vous dit en temps réel si vous êtes en avance ou en retard par rapport à votre rythme cible.`,
       side: 'right' as const,
     },
   },
@@ -122,7 +122,7 @@ const STEPS = [
     element: '[data-tour="nav-settings"]',
     popover: {
       title: '⚙️ Paramètres',
-      description: `Configurez votre cabinet : profil (avec champs spécifiques à votre profession — les étiopathes disposent des champs RPE et RNE au lieu du RPPS), logo et tampon pour les factures, types de séance pour la facturation, configuration email avec préréglages SMTP, sécurité (PIN + verrouillage automatique) et sauvegarde de vos données.`,
+      description: `Configurez votre cabinet : coordonnées et profil, facturation (types de séance, logo, tampon), contenu clinique, connexion email, sauvegarde et import de données, sécurité (PIN), journal d'activité, RGPD et mentions légales.`,
       side: 'right' as const,
     },
   },
