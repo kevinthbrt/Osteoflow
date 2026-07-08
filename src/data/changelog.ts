@@ -19,6 +19,14 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.14.5',
+    date: '2026-07-08',
+    title: 'Renforcement de la sécurité de la messagerie support',
+    changes: [
+      { type: 'improvement', text: "La messagerie support utilise désormais systématiquement l'authentification par session, en complément du secret partagé existant." },
+    ],
+  },
+  {
     version: '1.14.4',
     date: '2026-07-08',
     title: 'Renforcement de la sécurité des données locales',
