@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
-// Vercel Hobby caps function duration at 60s (raise once on Pro). Keep this
-// >= the outer fetch timeout below so the function isn't killed mid-wait.
-export const maxDuration = 60
+// osteoupgrade est maintenant en plan Pro (jusqu'à 300s) — relevé de 60s.
+// Garder >= le timeout du fetch sortant ci-dessous.
+export const maxDuration = 160
 
 const PROXY_URL = 'https://osteoupgrade.vercel.app/api/osteoflow/generate-hypotheses'
 
@@ -30,9 +30,10 @@ export async function POST(req: Request) {
           'x-osteoflow-secret': secret,
         },
         body: JSON.stringify({ anamnesis, reason, patientContext }),
-        // Under our own 60s cap, with headroom for the proxy (which times out
-        // its Anthropic call at 45s) to return its real error before we abort.
-        signal: AbortSignal.timeout(55000),
+        // Under our own 160s cap, with headroom for the proxy (maxDuration
+        // 120s, Anthropic call timeout 90s) to return its real error before
+        // we abort.
+        signal: AbortSignal.timeout(150000),
       })
     } catch {
       return NextResponse.json({ error: 'Impossible de contacter le serveur.' }, { status: 500 })

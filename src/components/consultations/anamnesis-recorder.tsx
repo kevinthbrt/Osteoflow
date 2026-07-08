@@ -76,8 +76,8 @@ function getSpeechRecognition(): (new () => SpeechRecognitionInstance) | null {
 }
 
 const MAX_RESTARTS = 10
-const MAX_RECORD_SECONDS = 600  // 10 minutes
-const WARN_RECORD_SECONDS = 540 // avertissement à 9 minutes
+const MAX_RECORD_SECONDS = 780  // 13 minutes
+const WARN_RECORD_SECONDS = 720 // avertissement à 12 minutes
 
 function isElectron(): boolean {
   return typeof window !== 'undefined' && !!(window as any).electronAPI?.isDesktop
@@ -575,13 +575,6 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
     }
   }, [transcribeBlob])
 
-  // Auto-stop à MAX_RECORD_SECONDS — doit être après stopMediaRecorder
-  useEffect(() => {
-    if (state === 'recording' && elapsed >= MAX_RECORD_SECONDS) {
-      stopMediaRecorder()
-    }
-  }, [elapsed, state, stopMediaRecorder])
-
   // ══════════════════════════════════════════════════════════════════════════
   // MODE B – Web Speech API (navigateur)
   // Transcription en temps réel via l'API speech intégrée au navigateur.
@@ -686,6 +679,17 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
     if (isElectron()) stopMediaRecorder()
     else stopSpeechRecognition()
   }, [stopMediaRecorder, stopSpeechRecognition])
+
+  // Auto-stop à MAX_RECORD_SECONDS — doit passer par le handler unifié
+  // stopRecording() (et non stopMediaRecorder() directement) : il route selon
+  // isElectron() ET positionne pendingStructureRef, sans quoi, en mode Web
+  // Speech, la reconnaissance ne s'arrête pas et l'auto-structuration ne se
+  // déclenche jamais. Placé après stopRecording pour éviter la TDZ dans les deps.
+  useEffect(() => {
+    if (state === 'recording' && elapsed >= MAX_RECORD_SECONDS) {
+      stopRecording()
+    }
+  }, [elapsed, state, stopRecording])
 
   // Auto-structuration : dès que la dictée est arrêtée et le transcript prêt.
   // Web uniquement (dictée continue). En Electron on garde le flux manuel pour
@@ -880,7 +884,7 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
         </div>
       )}
 
-      {/* Avertissement durée — à 9 min, arrêt automatique à 10 min */}
+      {/* Avertissement durée — à 12 min, arrêt automatique à 13 min */}
       {state === 'recording' && elapsed >= WARN_RECORD_SECONDS && (
         <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-1.5">
           <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />

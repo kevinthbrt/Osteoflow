@@ -15,10 +15,12 @@ import { useToast } from '@/hooks/use-toast'
 import { localApiHeaders } from '@/lib/local-api-token'
 
 const REMINDER_INTERVAL_DAYS = 7
-// Delay after login (CGU already accepted) before showing the reminder
+// Delay after login (CGU already accepted, tour already seen) before showing the reminder
 const CHECK_DELAY_MS = 4000
-// Longer delay after CGU acceptance — gives the tour time to start first
-const CHECK_DELAY_POST_CGU_MS = 12000
+// Safety net: if the guided tour never fires its completion event (error, page
+// navigated away, etc.), show the backup check anyway after this long instead
+// of waiting forever.
+const TOUR_FALLBACK_TIMEOUT_MS = 120000
 
 type Mode = 'first_time' | 'reminder'
 
@@ -31,6 +33,7 @@ export function BackupReminderDialog() {
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
+    let fallbackTimer: ReturnType<typeof setTimeout>
 
     const scheduleCheck = (delayMs: number) => {
       timer = setTimeout(async () => {
@@ -63,17 +66,36 @@ export function BackupReminderDialog() {
       }, delayMs)
     }
 
+    // On a brand-new cabinet the guided tour runs first. Wait for it to finish
+    // (or skip the wait if it was already seen in a previous session) so this
+    // dialog never pops up on top of / interrupts the tour.
+    const waitForTourThenCheck = () => {
+      fetch('/api/tour/status')
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.seen) {
+            scheduleCheck(CHECK_DELAY_MS)
+            return
+          }
+          const onTourCompleted = () => scheduleCheck(CHECK_DELAY_MS)
+          window.addEventListener('tour-completed', onTourCompleted, { once: true })
+          fallbackTimer = setTimeout(() => {
+            window.removeEventListener('tour-completed', onTourCompleted)
+            scheduleCheck(0)
+          }, TOUR_FALLBACK_TIMEOUT_MS)
+        })
+        .catch(() => scheduleCheck(CHECK_DELAY_MS))
+    }
+
     // Only show after CGU is accepted — avoids stacking on top of the legal modal
     fetch('/api/legal/status')
       .then((r) => r.json())
       .then((d) => {
         if (d.accepted) {
-          scheduleCheck(CHECK_DELAY_MS)
+          waitForTourThenCheck()
         } else {
-          // CGU not yet accepted: wait for it, then use a longer delay so the
-          // tour has time to start before we show another dialog
-          const onCguAccepted = () => scheduleCheck(CHECK_DELAY_POST_CGU_MS)
-          window.addEventListener('cgu-accepted', onCguAccepted, { once: true })
+          // CGU not yet accepted: wait for it, then wait for the tour as above
+          window.addEventListener('cgu-accepted', waitForTourThenCheck, { once: true })
         }
       })
       .catch(() => scheduleCheck(CHECK_DELAY_MS))
@@ -96,6 +118,7 @@ export function BackupReminderDialog() {
 
     return () => {
       clearTimeout(timer)
+      clearTimeout(fallbackTimer)
       window.removeEventListener('open-backup-dialog', openManually)
     }
   }, [])
