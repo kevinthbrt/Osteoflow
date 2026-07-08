@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 const PROXY_URL = 'https://osteoupgrade.vercel.app/api/osteoflow/suggest-tests'
-const FALLBACK_SECRET = 'a8c0fcc6aa558582564131768fd6aa6b0628b84ac0abe494948b088f086be1a6'
 
 export async function POST(req: Request) {
   try {
@@ -14,7 +13,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Anamnèse vide' }, { status: 400 })
     }
 
-    const secret = process.env.OSTEOFLOW_PROXY_SECRET || FALLBACK_SECRET
+    const secret = process.env.OSTEOFLOW_PROXY_SECRET
+    if (!secret) {
+      return NextResponse.json({ error: 'Configuration serveur invalide (OSTEOFLOW_PROXY_SECRET manquant)' }, { status: 500 })
+    }
 
     let proxyRes: Response
     try {

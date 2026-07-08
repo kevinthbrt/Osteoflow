@@ -4,13 +4,18 @@ import { getDatabase } from '@/lib/database/connection'
 export const dynamic = 'force-dynamic'
 
 const PROXY_URL = 'https://osteoupgrade.vercel.app/api/osteoflow/broadcasts'
-const FALLBACK_SECRET = 'a8c0fcc6aa558582564131768fd6aa6b0628b84ac0abe494948b088f086be1a6'
 
 // Returns all active osteoflow/both broadcasts.
 // Seen state is tracked locally in SQLite — not from OsteoUpgrade's admin_broadcast_views.
 export async function GET() {
   try {
-    const secret = process.env.OSTEOFLOW_PROXY_SECRET || FALLBACK_SECRET
+    const secret = process.env.OSTEOFLOW_PROXY_SECRET
+    if (!secret) {
+      return NextResponse.json(
+        { error: 'Configuration serveur invalide (OSTEOFLOW_PROXY_SECRET manquant)' },
+        { status: 500, headers: { 'Cache-Control': 'no-store' } },
+      )
+    }
 
     let proxyRes: Response
     try {

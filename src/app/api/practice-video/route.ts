@@ -4,7 +4,6 @@ import { createClient } from '@/lib/db/server'
 export const dynamic = 'force-dynamic'
 
 const PROXY_BASE = process.env.NEXT_PUBLIC_OSTEOUPGRADE_URL || 'https://osteoupgrade.vercel.app'
-const PROXY_SECRET_DEFAULT = 'a8c0fcc6aa558582564131768fd6aa6b0628b84ac0abe494948b088f086be1a6'
 
 export async function GET() {
   try {
@@ -14,7 +13,10 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const secret = process.env.OSTEOFLOW_PROXY_SECRET || PROXY_SECRET_DEFAULT
+    const secret = process.env.OSTEOFLOW_PROXY_SECRET
+    if (!secret) {
+      return NextResponse.json({ error: 'Configuration serveur invalide (OSTEOFLOW_PROXY_SECRET manquant)' }, { status: 500 })
+    }
 
     const res = await fetch(`${PROXY_BASE}/api/osteoflow/practice-video`, {
       headers: { 'x-osteoflow-secret': secret },
