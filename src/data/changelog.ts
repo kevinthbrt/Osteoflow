@@ -19,6 +19,15 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.14.4',
+    date: '2026-07-08',
+    title: 'Renforcement de la sécurité des données locales',
+    changes: [
+      { type: 'improvement', text: "Protection renforcée de la base de données locale contre tout accès depuis un autre programme ou une page web ouverte pendant l'utilisation de l'application." },
+      { type: 'fix', text: "Validation renforcée des fichiers joints aux consultations et des tampons de signature." },
+    ],
+  },
+  {
     version: '1.14.3',
     date: '2026-07-08',
     title: 'Renforcement de la sécurité des échanges avec OsteoUpgrade',
