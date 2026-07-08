@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
-// Permet au serveur Next.js de traiter des fichiers audio longs (jusqu'à 5 min).
+// Permet au serveur Next.js de traiter des fichiers audio longs (jusqu'à 13 min).
 // Sans ça, Next.js coupe la requête après 30s par défaut.
-export const maxDuration = 120
+export const maxDuration = 150
 
 // ─── Mode 1 : proxy centralisé Osteoupgrade (production commerciale) ──────────
 // Quand OSTEOFLOW_PROXY_SECRET est défini, l'audio passe par le proxy qui gère
@@ -27,7 +27,7 @@ async function transcribeViaProxy(arrayBuffer: ArrayBuffer, secret: string): Pro
     method: 'POST',
     headers: { 'x-osteoflow-secret': secret },
     body: formData,
-    signal: AbortSignal.timeout(90000), // 90s — couvre jusqu'à 5 min d'audio
+    signal: AbortSignal.timeout(130000), // 130s — au-delà du maxDuration du proxy (100s), couvre jusqu'à 13 min d'audio
   })
 
   if (!res.ok) {
