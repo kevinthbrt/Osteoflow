@@ -9,7 +9,7 @@
  * - Handle application lifecycle
  */
 
-import { app, BrowserWindow, shell, dialog, Notification, ipcMain, session } from 'electron'
+import { app, BrowserWindow, Menu, shell, dialog, Notification, ipcMain, session } from 'electron'
 import path from 'path'
 import crypto from 'crypto'
 import { exec } from 'child_process'
@@ -374,6 +374,30 @@ function createWindow(): void {
       (process.platform === 'darwin' && input.meta && input.alt && input.key === 'i') ||
       (process.platform !== 'darwin' && input.control && input.shift && input.key === 'I')
     if (toggle) mainWindow?.webContents.toggleDevTools()
+  })
+
+  // Menu contextuel natif (clic droit) : Couper / Copier / Coller / Tout sélectionner.
+  // Sans ce gestionnaire, Electron n'affiche aucun menu au clic droit, ce qui oblige
+  // les utilisateurs à passer par les raccourcis clavier (Cmd/Ctrl+V) pour coller.
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    const items: Electron.MenuItemConstructorOptions[] = []
+
+    if (params.isEditable) {
+      items.push(
+        { role: 'cut', label: 'Couper', enabled: params.editFlags.canCut },
+        { role: 'copy', label: 'Copier', enabled: params.editFlags.canCopy },
+        { role: 'paste', label: 'Coller', enabled: params.editFlags.canPaste },
+        { type: 'separator' },
+        { role: 'selectAll', label: 'Tout sélectionner', enabled: params.editFlags.canSelectAll },
+      )
+    } else if (params.selectionText && params.selectionText.trim().length > 0) {
+      items.push({ role: 'copy', label: 'Copier' })
+    }
+
+    if (items.length === 0) return
+
+    const menu = Menu.buildFromTemplate(items)
+    menu.popup({ window: mainWindow ?? undefined })
   })
 
   mainWindow.on('closed', () => {

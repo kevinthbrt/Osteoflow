@@ -19,6 +19,14 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.14.8',
+    date: '2026-07-09',
+    title: 'Clic droit « Coller » dans les champs',
+    changes: [
+      { type: 'fix', text: "Le clic droit affiche désormais un menu Couper / Copier / Coller / Tout sélectionner dans les champs de saisie (notamment lors de l'import d'une fiche depuis Doctolib). Il n'est plus nécessaire d'utiliser obligatoirement le raccourci clavier Cmd/Ctrl+V pour coller." },
+    ],
+  },
+  {
     version: '1.14.7',
     date: '2026-07-08',
     title: 'Correction de la visite guidée (suite)',
