@@ -1022,7 +1022,10 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
             </p>
             <div className="space-y-1.5">
               {active.map(({ key, label, color, format }) => {
-                const value = detectedFields[key] as string
+                const raw = detectedFields[key]
+                // Les antécédents sont des tableaux (une entrée par élément) : on les
+                // joint pour l'affichage. Les champs plats restent des chaînes.
+                const value = Array.isArray(raw) ? raw.join(' • ') : (raw as string)
                 return (
                   <div key={key} className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-1.5 min-w-0">

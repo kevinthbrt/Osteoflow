@@ -1581,29 +1581,40 @@ export function ConsultationForm({
                   ]
                   let historyInserted = false
                   for (const { field, type } of historyMap) {
-                    if (fields[field] === undefined) continue
-                    const value = toText(fields[field])
-                    if (!value) continue
-                    try {
-                      const { error } = await db.from('medical_history_entries').insert({
-                        patient_id: currentPatient.id,
-                        history_type: type,
-                        description: value,
-                        onset_date: null,
-                        onset_age: null,
-                        onset_duration_value: null,
-                        onset_duration_unit: null,
-                        is_vigilance: false,
-                        note: null,
-                      })
-                      if (error) throw new Error(error.message)
-                      historyInserted = true
-                    } catch (e) {
-                      const msg = e instanceof Error ? e.message : String(e)
-                      console.error(`[patient-fields] Échec insertion antécédent (${type}):`, msg)
-                      errorDetails.push(msg)
-                      failedKeys.push(field)
+                    const raw = fields[field]
+                    if (raw === undefined) continue
+                    // Une entrée medical_history_entries PAR antécédent détecté :
+                    // le champ peut contenir plusieurs ATCD distincts (tableau).
+                    const items = (Array.isArray(raw) ? raw : [raw])
+                      .map((x) => (x == null ? '' : String(x).trim()))
+                      .filter(Boolean)
+                    if (items.length === 0) continue
+                    let fieldFailed = false
+                    for (const description of items) {
+                      try {
+                        const { error } = await db.from('medical_history_entries').insert({
+                          patient_id: currentPatient.id,
+                          history_type: type,
+                          description,
+                          onset_date: null,
+                          onset_age: null,
+                          onset_duration_value: null,
+                          onset_duration_unit: null,
+                          is_vigilance: false,
+                          note: null,
+                        })
+                        if (error) throw new Error(error.message)
+                        historyInserted = true
+                      } catch (e) {
+                        const msg = e instanceof Error ? e.message : String(e)
+                        console.error(`[patient-fields] Échec insertion antécédent (${type}):`, msg)
+                        errorDetails.push(msg)
+                        fieldFailed = true
+                      }
                     }
+                    // On ne marque le champ en échec que si au moins une entrée a échoué,
+                    // pour le laisser affiché et permettre de réessayer.
+                    if (fieldFailed) failedKeys.push(field)
                   }
                   if (historyInserted) setMedicalHistoryRefreshKey((k) => k + 1)
 

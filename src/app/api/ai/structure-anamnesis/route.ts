@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { PatientFieldsDetected } from '@/types/ai'
+import { HISTORY_FIELD_KEYS } from '@/types/ai'
 
 export type { PatientFieldsDetected }
 
@@ -24,26 +25,27 @@ interface CurrentPatientContext {
   family_history?: string | null
 }
 
+const HISTORY_KEYS = new Set<string>(HISTORY_FIELD_KEYS)
+
 /**
- * Aplatit chaque champ patient détecté en chaîne de caractères propre.
- * - tableau  → éléments non vides joints par ", "
- * - chaîne   → conservée (trim)
- * - null/""  → champ retiré
- * Garantit que ni l'affichage ni l'insertion SQLite ne reçoivent un tableau.
+ * Normalise les champs patient détectés par le LLM.
+ * - Antécédents (medical/surgical/trauma/family) → string[] : une entrée par
+ *   élément (le LLM renvoie tantôt une chaîne, tantôt un tableau). On ne
+ *   découpe jamais une chaîne nous-mêmes (une virgule peut appartenir à un
+ *   même antécédent), on aplatit seulement les tableaux.
+ * - Champs plats (profession, etc.) → string.
+ * Garantit qu'aucun tableau ne fuit vers un champ qui attend une chaîne, et
+ * que l'insertion SQLite reçoit des valeurs scalaires.
  */
 function normalizePatientFields(fields: unknown): PatientFieldsDetected | null {
   if (!fields || typeof fields !== 'object') return null
-  const out: Record<string, string> = {}
+  const out: Record<string, string | string[]> = {}
   for (const [key, raw] of Object.entries(fields as Record<string, unknown>)) {
-    let value: string
-    if (Array.isArray(raw)) {
-      value = raw.map((v) => (v == null ? '' : String(v).trim())).filter(Boolean).join(', ')
-    } else if (raw == null) {
-      value = ''
-    } else {
-      value = String(raw).trim()
-    }
-    if (value) out[key] = value
+    const items = (Array.isArray(raw) ? raw : [raw])
+      .map((v) => (v == null ? '' : String(v).trim()))
+      .filter(Boolean)
+    if (items.length === 0) continue
+    out[key] = HISTORY_KEYS.has(key) ? items : items.join(', ')
   }
   return Object.keys(out).length > 0 ? (out as PatientFieldsDetected) : null
 }
