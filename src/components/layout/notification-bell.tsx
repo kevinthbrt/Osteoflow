@@ -641,7 +641,10 @@ export function NotificationBell() {
                     key={notif.conversationId}
                     onClick={() => {
                       setOpen(false)
-                      router.push('/messages')
+                      // Retire immédiatement la notif de la cloche ; l'ouverture
+                      // de la conversation la marquera comme lue côté base.
+                      setMailNotifs(prev => prev.filter(n => n.conversationId !== notif.conversationId))
+                      router.push(`/messages?conversation=${notif.conversationId}`)
                     }}
                     className="w-full text-left px-4 py-2.5 hover:bg-accent/50 transition-colors flex items-start gap-3 border-b border-border/20 last:border-0"
                   >
