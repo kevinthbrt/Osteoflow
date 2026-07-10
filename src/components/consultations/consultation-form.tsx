@@ -1531,6 +1531,9 @@ export function ConsultationForm({
                 patientContext={patientClinicalContext}
                 onPatientFieldsDetected={async (fields) => {
                   const failedKeys: (keyof typeof fields)[] = []
+                  // Messages d'erreur réels (SQLite/API) pour les faire remonter dans le toast
+                  // et la console DevTools — sinon l'échec reste opaque côté utilisateur.
+                  const errorDetails: string[] = []
 
                   // Flat patient fields (replace) — indépendant des antécédents ci-dessous.
                   const patientUpdates: Pick<Patient, 'profession' | 'sport_activity' | 'primary_physician' | 'pregnancy_due_date'> = {
@@ -1545,10 +1548,16 @@ export function ConsultationForm({
                     if (fields[key] !== undefined) { (patientUpdates as Record<string, unknown>)[key] = fields[key]; hasPatientUpdate = true }
                   }
                   if (hasPatientUpdate) {
+                    // db.update() ne *jette* pas : il renvoie { error }. Il faut le lire
+                    // explicitement, sinon une erreur passait totalement inaperçue.
                     try {
-                      await db.from('patients').update(patientUpdates).eq('id', currentPatient.id)
+                      const { error } = await db.from('patients').update(patientUpdates).eq('id', currentPatient.id)
+                      if (error) throw new Error(error.message)
                       setCurrentPatient((prev) => ({ ...prev, ...patientUpdates }))
-                    } catch {
+                    } catch (e) {
+                      const msg = e instanceof Error ? e.message : String(e)
+                      console.error('[patient-fields] Échec mise à jour patient:', msg)
+                      errorDetails.push(msg)
                       failedKeys.push(...patientFieldKeys.filter((key) => fields[key] !== undefined))
                     }
                   }
@@ -1580,7 +1589,10 @@ export function ConsultationForm({
                       })
                       if (error) throw new Error(error.message)
                       historyInserted = true
-                    } catch {
+                    } catch (e) {
+                      const msg = e instanceof Error ? e.message : String(e)
+                      console.error(`[patient-fields] Échec insertion antécédent (${type}):`, msg)
+                      errorDetails.push(msg)
                       failedKeys.push(field)
                     }
                   }
@@ -1593,6 +1605,7 @@ export function ConsultationForm({
                       title: failedKeys.length === Object.keys(fields).length
                         ? 'Erreur lors de la mise à jour'
                         : `Dossier mis à jour partiellement (${failedKeys.length} élément(s) en échec)`,
+                      description: errorDetails[0],
                       variant: 'destructive',
                     })
                   }
