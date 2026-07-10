@@ -1531,6 +1531,17 @@ export function ConsultationForm({
                 patientContext={patientClinicalContext}
                 onPatientFieldsDetected={async (fields) => {
                   const failedKeys: (keyof typeof fields)[] = []
+                  // Messages d'erreur réels (SQLite/API) pour les faire remonter dans le toast
+                  // et la console DevTools — sinon l'échec reste opaque côté utilisateur.
+                  const errorDetails: string[] = []
+                  // Défense en profondeur : le LLM (ou un brouillon sauvegardé avant
+                  // le correctif) peut fournir un tableau au lieu d'une chaîne, ce qui
+                  // fait planter l'insert SQLite ("Too many parameter values"). On
+                  // aplatit toute valeur en chaîne avant de toucher la base.
+                  const toText = (v: unknown): string =>
+                    Array.isArray(v)
+                      ? v.map((x) => (x == null ? '' : String(x).trim())).filter(Boolean).join(', ')
+                      : v == null ? '' : String(v).trim()
 
                   // Flat patient fields (replace) — indépendant des antécédents ci-dessous.
                   const patientUpdates: Pick<Patient, 'profession' | 'sport_activity' | 'primary_physician' | 'pregnancy_due_date'> = {
@@ -1542,13 +1553,19 @@ export function ConsultationForm({
                   const patientFieldKeys: (keyof typeof fields)[] = ['profession', 'sport_activity', 'primary_physician', 'pregnancy_due_date']
                   let hasPatientUpdate = false
                   for (const key of patientFieldKeys) {
-                    if (fields[key] !== undefined) { (patientUpdates as Record<string, unknown>)[key] = fields[key]; hasPatientUpdate = true }
+                    if (fields[key] !== undefined) { (patientUpdates as Record<string, unknown>)[key] = toText(fields[key]); hasPatientUpdate = true }
                   }
                   if (hasPatientUpdate) {
+                    // db.update() ne *jette* pas : il renvoie { error }. Il faut le lire
+                    // explicitement, sinon une erreur passait totalement inaperçue.
                     try {
-                      await db.from('patients').update(patientUpdates).eq('id', currentPatient.id)
+                      const { error } = await db.from('patients').update(patientUpdates).eq('id', currentPatient.id)
+                      if (error) throw new Error(error.message)
                       setCurrentPatient((prev) => ({ ...prev, ...patientUpdates }))
-                    } catch {
+                    } catch (e) {
+                      const msg = e instanceof Error ? e.message : String(e)
+                      console.error('[patient-fields] Échec mise à jour patient:', msg)
+                      errorDetails.push(msg)
                       failedKeys.push(...patientFieldKeys.filter((key) => fields[key] !== undefined))
                     }
                   }
@@ -1564,25 +1581,40 @@ export function ConsultationForm({
                   ]
                   let historyInserted = false
                   for (const { field, type } of historyMap) {
-                    const value = fields[field]
-                    if (value === undefined) continue
-                    try {
-                      const { error } = await db.from('medical_history_entries').insert({
-                        patient_id: currentPatient.id,
-                        history_type: type,
-                        description: value,
-                        onset_date: null,
-                        onset_age: null,
-                        onset_duration_value: null,
-                        onset_duration_unit: null,
-                        is_vigilance: false,
-                        note: null,
-                      })
-                      if (error) throw new Error(error.message)
-                      historyInserted = true
-                    } catch {
-                      failedKeys.push(field)
+                    const raw = fields[field]
+                    if (raw === undefined) continue
+                    // Une entrée medical_history_entries PAR antécédent détecté :
+                    // le champ peut contenir plusieurs ATCD distincts (tableau).
+                    const items = (Array.isArray(raw) ? raw : [raw])
+                      .map((x) => (x == null ? '' : String(x).trim()))
+                      .filter(Boolean)
+                    if (items.length === 0) continue
+                    let fieldFailed = false
+                    for (const description of items) {
+                      try {
+                        const { error } = await db.from('medical_history_entries').insert({
+                          patient_id: currentPatient.id,
+                          history_type: type,
+                          description,
+                          onset_date: null,
+                          onset_age: null,
+                          onset_duration_value: null,
+                          onset_duration_unit: null,
+                          is_vigilance: false,
+                          note: null,
+                        })
+                        if (error) throw new Error(error.message)
+                        historyInserted = true
+                      } catch (e) {
+                        const msg = e instanceof Error ? e.message : String(e)
+                        console.error(`[patient-fields] Échec insertion antécédent (${type}):`, msg)
+                        errorDetails.push(msg)
+                        fieldFailed = true
+                      }
                     }
+                    // On ne marque le champ en échec que si au moins une entrée a échoué,
+                    // pour le laisser affiché et permettre de réessayer.
+                    if (fieldFailed) failedKeys.push(field)
                   }
                   if (historyInserted) setMedicalHistoryRefreshKey((k) => k + 1)
 
@@ -1593,6 +1625,7 @@ export function ConsultationForm({
                       title: failedKeys.length === Object.keys(fields).length
                         ? 'Erreur lors de la mise à jour'
                         : `Dossier mis à jour partiellement (${failedKeys.length} élément(s) en échec)`,
+                      description: errorDetails[0],
                       variant: 'destructive',
                     })
                   }

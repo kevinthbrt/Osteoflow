@@ -19,6 +19,16 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.14.9',
+    date: '2026-07-10',
+    title: 'Fiabilisation de la détection IA et de l’ajout rapide de patient',
+    changes: [
+      { type: 'fix', text: "Correction d'une erreur intermittente « Erreur lors de la mise à jour » lors de l'ajout au dossier des informations patient détectées depuis l'anamnèse dictée : lorsque l'IA renvoyait plusieurs antécédents sous forme de liste, l'enregistrement échouait." },
+      { type: 'improvement', text: "Chaque antécédent détecté par l'IA (médical, chirurgical, traumatique, familial) crée désormais sa propre entrée dans le dossier patient, au lieu d'être regroupé en une seule ligne." },
+      { type: 'fix', text: "Lors de l'ajout rapide d'un patient, l'adresse e-mail — ainsi que la profession et le médecin traitant — collée depuis Doctolib est désormais bien enregistrée. Un champ E-mail a été ajouté au formulaire d'ajout rapide." },
+    ],
+  },
+  {
     version: '1.14.8',
     date: '2026-07-09',
     title: 'Clic droit « Coller » dans les champs',

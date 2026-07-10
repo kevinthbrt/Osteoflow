@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { PatientFieldsDetected } from '@/types/ai'
+import { HISTORY_FIELD_KEYS } from '@/types/ai'
 
 export type { PatientFieldsDetected }
 
@@ -22,6 +23,31 @@ interface CurrentPatientContext {
   trauma_history?: string | null
   medical_history?: string | null
   family_history?: string | null
+}
+
+const HISTORY_KEYS = new Set<string>(HISTORY_FIELD_KEYS)
+
+/**
+ * Normalise les champs patient détectés par le LLM.
+ * - Antécédents (medical/surgical/trauma/family) → string[] : une entrée par
+ *   élément (le LLM renvoie tantôt une chaîne, tantôt un tableau). On ne
+ *   découpe jamais une chaîne nous-mêmes (une virgule peut appartenir à un
+ *   même antécédent), on aplatit seulement les tableaux.
+ * - Champs plats (profession, etc.) → string.
+ * Garantit qu'aucun tableau ne fuit vers un champ qui attend une chaîne, et
+ * que l'insertion SQLite reçoit des valeurs scalaires.
+ */
+function normalizePatientFields(fields: unknown): PatientFieldsDetected | null {
+  if (!fields || typeof fields !== 'object') return null
+  const out: Record<string, string | string[]> = {}
+  for (const [key, raw] of Object.entries(fields as Record<string, unknown>)) {
+    const items = (Array.isArray(raw) ? raw : [raw])
+      .map((v) => (v == null ? '' : String(v).trim()))
+      .filter(Boolean)
+    if (items.length === 0) continue
+    out[key] = HISTORY_KEYS.has(key) ? items : items.join(', ')
+  }
+  return Object.keys(out).length > 0 ? (out as PatientFieldsDetected) : null
 }
 
 export async function POST(req: Request) {
@@ -66,7 +92,13 @@ export async function POST(req: Request) {
 
     // patient_fields is returned by the proxy when it supports field detection.
     // detection_skipped is true when the proxy did not attempt detection.
-    const patient_fields: PatientFieldsDetected | null = data.patient_fields ?? null
+    //
+    // Le LLM renvoie parfois un tableau (ex. ["diabète", "HTA"]) là où le schéma
+    // attend une chaîne. Sans normalisation, React affiche les éléments collés
+    // sans séparateur ET SQLite plante à l'insertion ("Too many parameter values
+    // were provided", car better-sqlite3 déplie le tableau en paramètres). On
+    // aplatit donc chaque champ en chaîne propre.
+    const patient_fields = normalizePatientFields(data.patient_fields ?? null)
     const detection_skipped: boolean = data.detection_skipped ?? (patient_fields === null)
 
     return NextResponse.json({ ...data, patient_fields, detection_skipped })
