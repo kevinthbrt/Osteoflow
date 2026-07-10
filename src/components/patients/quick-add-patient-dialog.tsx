@@ -35,6 +35,7 @@ const quickAddPatientSchema = patientSchema.pick({
   last_name: true,
   birth_date: true,
   phone: true,
+  email: true,
 })
 
 type QuickAddPatientFormData = z.infer<typeof quickAddPatientSchema>
@@ -54,6 +55,10 @@ interface QuickAddPatientDialogProps {
 export function QuickAddPatientDialog({ open, onClose, onCreated }: QuickAddPatientDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [doctolibOpen, setDoctolibOpen] = useState(false)
+  // Champs importés de Doctolib mais sans input dans ce formulaire rapide
+  // (profession, médecin traitant). On les conserve pour ne rien perdre à la
+  // création — l'email, lui, a désormais son propre champ ci-dessous.
+  const [importedExtras, setImportedExtras] = useState<Partial<PatientFormData>>({})
   const db = createClient()
   const { toast } = useToast()
 
@@ -66,7 +71,7 @@ export function QuickAddPatientDialog({ open, onClose, onCreated }: QuickAddPati
     formState: { errors },
   } = useForm<QuickAddPatientFormData>({
     resolver: zodResolver(quickAddPatientSchema),
-    defaultValues: { gender: undefined, first_name: '', last_name: '', birth_date: '', phone: '' },
+    defaultValues: { gender: undefined, first_name: '', last_name: '', birth_date: '', phone: '', email: '' },
   })
 
   const gender = watch('gender')
@@ -77,10 +82,17 @@ export function QuickAddPatientDialog({ open, onClose, onCreated }: QuickAddPati
     if (data.last_name) setValue('last_name', data.last_name)
     if (data.birth_date) setValue('birth_date', data.birth_date)
     if (data.phone) setValue('phone', data.phone)
+    if (data.email) setValue('email', data.email)
+    // Conserve les champs supplémentaires détectés (non affichés) pour l'insert.
+    setImportedExtras({
+      ...(data.profession ? { profession: data.profession } : {}),
+      ...(data.primary_physician ? { primary_physician: data.primary_physician } : {}),
+    })
   }
 
   const handleClose = () => {
     reset()
+    setImportedExtras({})
     onClose()
   }
 
@@ -99,6 +111,11 @@ export function QuickAddPatientDialog({ open, onClose, onCreated }: QuickAddPati
           last_name: data.last_name,
           birth_date: data.birth_date,
           phone: data.phone,
+          // Email + champs importés de Doctolib : n'insérer que s'ils ont une
+          // valeur, pour ne pas écraser avec des chaînes vides.
+          ...(data.email ? { email: data.email } : {}),
+          ...(importedExtras.profession ? { profession: importedExtras.profession } : {}),
+          ...(importedExtras.primary_physician ? { primary_physician: importedExtras.primary_physician } : {}),
         })
         .select('id, first_name, last_name')
         .single()
@@ -107,6 +124,7 @@ export function QuickAddPatientDialog({ open, onClose, onCreated }: QuickAddPati
 
       toast({ title: 'Patient créé' })
       reset()
+      setImportedExtras({})
       onCreated(patient as QuickAddedPatient)
     } catch {
       toast({ title: 'Erreur lors de la création du patient', variant: 'destructive' })
@@ -168,6 +186,11 @@ export function QuickAddPatientDialog({ open, onClose, onCreated }: QuickAddPati
               <Label>Téléphone</Label>
               <Input placeholder="06 12 34 56 78" {...register('phone')} disabled={isLoading} />
               {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Email</Label>
+              <Input type="email" placeholder="patient@email.fr" {...register('email')} disabled={isLoading} />
+              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
