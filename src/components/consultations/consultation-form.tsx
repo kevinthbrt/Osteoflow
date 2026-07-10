@@ -1534,6 +1534,14 @@ export function ConsultationForm({
                   // Messages d'erreur réels (SQLite/API) pour les faire remonter dans le toast
                   // et la console DevTools — sinon l'échec reste opaque côté utilisateur.
                   const errorDetails: string[] = []
+                  // Défense en profondeur : le LLM (ou un brouillon sauvegardé avant
+                  // le correctif) peut fournir un tableau au lieu d'une chaîne, ce qui
+                  // fait planter l'insert SQLite ("Too many parameter values"). On
+                  // aplatit toute valeur en chaîne avant de toucher la base.
+                  const toText = (v: unknown): string =>
+                    Array.isArray(v)
+                      ? v.map((x) => (x == null ? '' : String(x).trim())).filter(Boolean).join(', ')
+                      : v == null ? '' : String(v).trim()
 
                   // Flat patient fields (replace) — indépendant des antécédents ci-dessous.
                   const patientUpdates: Pick<Patient, 'profession' | 'sport_activity' | 'primary_physician' | 'pregnancy_due_date'> = {
@@ -1545,7 +1553,7 @@ export function ConsultationForm({
                   const patientFieldKeys: (keyof typeof fields)[] = ['profession', 'sport_activity', 'primary_physician', 'pregnancy_due_date']
                   let hasPatientUpdate = false
                   for (const key of patientFieldKeys) {
-                    if (fields[key] !== undefined) { (patientUpdates as Record<string, unknown>)[key] = fields[key]; hasPatientUpdate = true }
+                    if (fields[key] !== undefined) { (patientUpdates as Record<string, unknown>)[key] = toText(fields[key]); hasPatientUpdate = true }
                   }
                   if (hasPatientUpdate) {
                     // db.update() ne *jette* pas : il renvoie { error }. Il faut le lire
@@ -1573,8 +1581,9 @@ export function ConsultationForm({
                   ]
                   let historyInserted = false
                   for (const { field, type } of historyMap) {
-                    const value = fields[field]
-                    if (value === undefined) continue
+                    if (fields[field] === undefined) continue
+                    const value = toText(fields[field])
+                    if (!value) continue
                     try {
                       const { error } = await db.from('medical_history_entries').insert({
                         patient_id: currentPatient.id,

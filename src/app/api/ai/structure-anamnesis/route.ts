@@ -24,6 +24,30 @@ interface CurrentPatientContext {
   family_history?: string | null
 }
 
+/**
+ * Aplatit chaque champ patient détecté en chaîne de caractères propre.
+ * - tableau  → éléments non vides joints par ", "
+ * - chaîne   → conservée (trim)
+ * - null/""  → champ retiré
+ * Garantit que ni l'affichage ni l'insertion SQLite ne reçoivent un tableau.
+ */
+function normalizePatientFields(fields: unknown): PatientFieldsDetected | null {
+  if (!fields || typeof fields !== 'object') return null
+  const out: Record<string, string> = {}
+  for (const [key, raw] of Object.entries(fields as Record<string, unknown>)) {
+    let value: string
+    if (Array.isArray(raw)) {
+      value = raw.map((v) => (v == null ? '' : String(v).trim())).filter(Boolean).join(', ')
+    } else if (raw == null) {
+      value = ''
+    } else {
+      value = String(raw).trim()
+    }
+    if (value) out[key] = value
+  }
+  return Object.keys(out).length > 0 ? (out as PatientFieldsDetected) : null
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json() as { transcript: string; currentPatient?: CurrentPatientContext }
@@ -66,7 +90,13 @@ export async function POST(req: Request) {
 
     // patient_fields is returned by the proxy when it supports field detection.
     // detection_skipped is true when the proxy did not attempt detection.
-    const patient_fields: PatientFieldsDetected | null = data.patient_fields ?? null
+    //
+    // Le LLM renvoie parfois un tableau (ex. ["diabète", "HTA"]) là où le schéma
+    // attend une chaîne. Sans normalisation, React affiche les éléments collés
+    // sans séparateur ET SQLite plante à l'insertion ("Too many parameter values
+    // were provided", car better-sqlite3 déplie le tableau en paramètres). On
+    // aplatit donc chaque champ en chaîne propre.
+    const patient_fields = normalizePatientFields(data.patient_fields ?? null)
     const detection_skipped: boolean = data.detection_skipped ?? (patient_fields === null)
 
     return NextResponse.json({ ...data, patient_fields, detection_skipped })
