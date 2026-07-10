@@ -19,6 +19,15 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.14.10',
+    date: '2026-07-10',
+    title: 'Recherche par profession et fiabilisation des notifications',
+    changes: [
+      { type: 'feature', text: "La barre de recherche du haut permet désormais de retrouver un patient par sa profession, en plus du nom, du téléphone et de l'e-mail. La profession s'affiche aussi dans les résultats." },
+      { type: 'fix', text: "En cliquant sur une notification de message dans la cloche, la conversation concernée s'ouvre directement et la notification se retire à chaque fois (elle est marquée comme lue de façon fiable)." },
+    ],
+  },
+  {
     version: '1.14.9',
     date: '2026-07-10',
     title: 'Fiabilisation de la détection IA et de l’ajout rapide de patient',
