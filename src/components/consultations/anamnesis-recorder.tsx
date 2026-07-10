@@ -767,7 +767,10 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
       if (!prev) return null
       const next: PatientFieldsDetected = {}
       for (const key of failedKeys) {
-        if (prev[key] !== undefined) next[key] = prev[key]
+        const value = prev[key]
+        // Écriture indexée sur une union de clés : on caste pour éviter que TS
+        // n'exige l'intersection des types de valeur (string & string[]).
+        if (value !== undefined) (next as Record<string, unknown>)[key] = value
       }
       return Object.keys(next).length > 0 ? next : null
     })
