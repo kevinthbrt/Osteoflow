@@ -198,6 +198,22 @@ function MessagesPageInner() {
     fetchConversations()
   }, [fetchConversations])
 
+  // Deep link depuis la cloche de notifications : /messages?conversation=<id>
+  // Ouvre automatiquement la conversation concernée une fois la liste chargée,
+  // ce qui la marque comme lue (unread_count → 0) via fetchMessages.
+  const didDeepLinkRef = useRef(false)
+  useEffect(() => {
+    if (didDeepLinkRef.current) return
+    const convId = searchParams.get('conversation')
+    if (!convId || conversations.length === 0) return
+    const conv = conversations.find((c) => c.id === convId)
+    if (conv) {
+      setSelectedConversation(conv)
+      didDeepLinkRef.current = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations])
+
   // Fetch messages for selected conversation
   const fetchMessages = useCallback(async (conversationId: string) => {
     try {
