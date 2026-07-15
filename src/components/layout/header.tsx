@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { LogOut, Settings, Search, HelpCircle, Lock, Building2, ChevronDown } from 'lucide-react'
-import { getInitials } from '@/lib/utils'
+import { getInitials, formatDate } from '@/lib/utils'
 import { buildSearchOrFilters } from '@/lib/utils/search'
 import type { Practitioner } from '@/types/database'
 import { Input } from '@/components/ui/input'
@@ -39,6 +39,7 @@ interface PatientResult {
   id: string
   first_name: string
   last_name: string
+  birth_date: string
   phone: string
   email: string | null
   profession: string | null
@@ -117,10 +118,14 @@ export function Header({ user, practitioner }: HeaderProps) {
       const db = dbRef.current
       let builder = db
         .from('patients')
-        .select('id, first_name, last_name, phone, email, profession')
+        .select('id, first_name, last_name, birth_date, phone, email, profession')
         .is('archived_at', null)
 
-      for (const filter of buildSearchOrFilters(query, ['first_name', 'last_name', 'phone', 'email', 'profession'])) {
+      for (const filter of buildSearchOrFilters(
+        query,
+        ['first_name', 'last_name', 'phone', 'email', 'profession'],
+        'birth_date'
+      )) {
         builder = builder.or(filter)
       }
 
@@ -203,7 +208,7 @@ export function Header({ user, practitioner }: HeaderProps) {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Rechercher un patient (nom, tél, profession...)"
+              placeholder="Rechercher un patient (nom, tél, naissance JJ/MM/AAAA...)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => {
@@ -243,7 +248,7 @@ export function Header({ user, practitioner }: HeaderProps) {
                           {patient.last_name} {patient.first_name}
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {patient.phone}
+                          {patient.phone} · {formatDate(patient.birth_date)}
                           {patient.email && ` · ${patient.email}`}
                           {patient.profession && ` · ${patient.profession}`}
                         </p>
