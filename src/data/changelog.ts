@@ -19,6 +19,14 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.14.12',
+    date: '2026-07-15',
+    title: 'Recherche par date de naissance',
+    changes: [
+      { type: 'feature', text: "La barre de recherche du haut permet désormais de retrouver un patient par sa date de naissance, au format JJ/MM/AAAA (ex : 12/06/1980), en plus du nom, du téléphone, de l'e-mail et de la profession. La date de naissance s'affiche aussi dans les résultats." },
+    ],
+  },
+  {
     version: '1.14.11',
     date: '2026-07-15',
     title: 'Fiabilisation des accès Premium',
