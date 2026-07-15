@@ -19,6 +19,15 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.14.11',
+    date: '2026-07-15',
+    title: 'Fiabilisation des accès Premium',
+    changes: [
+      { type: 'fix', text: "Le widget « Pratique du jour » vérifie désormais correctement votre abonnement avant d'afficher une vidéo." },
+      { type: 'improvement', text: "Message plus clair lorsqu'un article de la revue de littérature n'est pas accessible avec votre formule actuelle." },
+    ],
+  },
+  {
     version: '1.14.10',
     date: '2026-07-10',
     title: 'Recherche par profession et fiabilisation des notifications',

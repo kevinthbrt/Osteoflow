@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/db/server'
+import { getOsteoflowAuthHeaders } from '@/lib/osteoupgrade/proxy-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +20,7 @@ export async function GET() {
     }
 
     const res = await fetch(`${PROXY_BASE}/api/osteoflow/practice-video`, {
-      headers: { 'x-osteoflow-secret': secret },
+      headers: { 'x-osteoflow-secret': secret, ...getOsteoflowAuthHeaders() },
       signal: AbortSignal.timeout(8000),
     })
 
