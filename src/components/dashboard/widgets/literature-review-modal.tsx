@@ -50,19 +50,22 @@ export function LiteratureReviewModal({
   const [review, setReview] = useState<FullReview | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
+  const [locked, setLocked] = useState(false)
 
   useEffect(() => {
     if (!open || !reviewId) return
     setLoading(true)
     setError(false)
+    setLocked(false)
     setReview(null)
     fetch(`/api/osteoupgrade-literature-review/${reviewId}`, { cache: 'no-store' })
       .then((r) => {
+        if (r.status === 403) throw new Error('locked')
         if (!r.ok) throw new Error('not ok')
         return r.json()
       })
       .then((d) => setReview(d.review))
-      .catch(() => setError(true))
+      .catch((e) => (e?.message === 'locked' ? setLocked(true) : setError(true)))
       .finally(() => setLoading(false))
   }, [open, reviewId])
 
@@ -82,6 +85,12 @@ export function LiteratureReviewModal({
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
+        )}
+
+        {!loading && locked && (
+          <p className="text-sm text-muted-foreground py-8 text-center">
+            La revue de littérature est réservée aux abonnés Premium.
+          </p>
         )}
 
         {!loading && error && (
