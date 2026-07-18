@@ -72,8 +72,16 @@ export async function GET() {
   if (!notEmpty(p.email)) profileMissing.push('Email')
   if (!notEmpty(p.phone)) profileMissing.push('Téléphone')
   if (!notEmpty(p.profession)) profileMissing.push('Profession')
-  if (getRegistrationLines(p as { profession?: string | null; rpps?: string | null; rpe?: string | null; rne?: string | null }).length === 0) {
-    profileMissing.push("Numéro d'enregistrement (RPPS / RPE / RNE)")
+  const isQuebec = p.country === 'QC'
+  if (getRegistrationLines(p as {
+    profession?: string | null
+    rpps?: string | null
+    rpe?: string | null
+    rne?: string | null
+    country?: string | null
+    association_number?: string | null
+  }).length === 0) {
+    profileMissing.push(isQuebec ? "Numéro de membre (association)" : "Numéro d'enregistrement (RPPS / RPE / RNE)")
   }
 
   // --- Cabinet ---
@@ -82,8 +90,12 @@ export async function GET() {
   if (!notEmpty(p.address)) practiceMissing.push('Adresse')
   if (!notEmpty(p.city)) practiceMissing.push('Ville')
   if (!notEmpty(p.postal_code)) practiceMissing.push('Code postal')
-  if (!notEmpty(p.siret)) practiceMissing.push('SIRET')
+  if (!notEmpty(p.siret)) practiceMissing.push(isQuebec ? 'NEQ' : 'SIRET')
   if (!notEmpty(p.booking_url)) practiceMissing.push('Lien de prise de rendez-vous en ligne')
+  if (isQuebec && p.vat_regime === 'qc_registered') {
+    if (!notEmpty(p.gst_number)) practiceMissing.push('N° TPS')
+    if (!notEmpty(p.qst_number)) practiceMissing.push('N° TVQ')
+  }
 
   // --- Facturation ---
   const billingMissing: string[] = []

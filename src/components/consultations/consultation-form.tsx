@@ -34,6 +34,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Plus, Trash2, Stethoscope, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, MapPin, GitBranch, Dumbbell, Sparkles, Brain, Activity, Lightbulb, Mail, Printer, Download, ArrowLeft, ArrowRight, CalendarClock, HeartPulse } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate, calculateAge, cn } from '@/lib/utils'
+import { getCurrencySymbol } from '@/lib/utils/currency'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
 import { EditPatientModal } from '@/components/patients/edit-patient-modal'
@@ -1073,7 +1074,7 @@ export function ConsultationForm({
                           <SelectItem value="none">Aucun</SelectItem>
                           {sessionTypes.map((type) => (
                             <SelectItem key={type.id} value={type.id}>
-                              {type.name} - {Number(type.price).toFixed(2)} €
+                              {type.name} - {Number(type.price).toFixed(2)} {getCurrencySymbol()}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1153,7 +1154,7 @@ export function ConsultationForm({
 
                     <div className="flex justify-between items-center p-3 glass-inner">
                       <span className="font-medium">Total</span>
-                      <span className="text-lg font-bold">{totalPayments.toFixed(2)} €</span>
+                      <span className="text-lg font-bold">{totalPayments.toFixed(2)} {getCurrencySymbol()}</span>
                     </div>
                   </div>
                 </>

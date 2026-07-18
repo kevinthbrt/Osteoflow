@@ -18,6 +18,7 @@ export interface InvoicePDFData {
   practitionerAddress: string
   practitionerCityLine: string
   practitionerSiret: string
+  practitionerBusinessNumberLabel: string
   practitionerRpps: string
   practitionerRegistrations: RegistrationLine[]
   patientName: string
@@ -30,6 +31,8 @@ export interface InvoicePDFData {
   vatRate: number
   vatAmount: string
   vatMention: string
+  taxLabel: string
+  showLatePaymentMentions: boolean
   paymentMethod: string
   paymentType: string
   paymentDate: string
@@ -59,11 +62,12 @@ function formatDatePDF(dateInput: string | Date | null | undefined): string {
   }
 }
 
-function formatAmountPDF(amount: number | string | null | undefined): string {
-  if (amount === null || amount === undefined || amount === '') return '0.00 EUR'
+function formatAmountPDF(amount: number | string | null | undefined, country?: string | null): string {
+  const currencySuffix = country === 'QC' ? 'CAD' : 'EUR'
+  if (amount === null || amount === undefined || amount === '') return `0.00 ${currencySuffix}`
   const numericAmount = typeof amount === 'number' ? amount : Number(amount)
-  if (Number.isNaN(numericAmount)) return '0.00 EUR'
-  return numericAmount.toFixed(2) + ' EUR'
+  if (Number.isNaN(numericAmount)) return `0.00 ${currencySuffix}`
+  return numericAmount.toFixed(2) + ' ' + currencySuffix
 }
 
 function normalizeText(value: unknown): string {
@@ -92,9 +96,10 @@ export function buildInvoicePDFData({
   practitioner,
   payments,
 }: InvoicePDFProps): InvoicePDFData {
+  const country = normalizeText((practitioner as Record<string, unknown>)?.country) || 'FR'
   const payment = payments && payments.length > 0 ? payments[0] : null
   const invoiceDateStr = normalizeText(invoice?.issued_at) || new Date().toISOString()
-  const location = normalizeText(practitioner?.city) || 'Paris'
+  const location = normalizeText(practitioner?.city) || (country === 'QC' ? 'Montréal' : 'Paris')
 
   const practLastName = normalizeText(practitioner?.last_name).toUpperCase()
   const practFirstName = normalizeText(practitioner?.first_name)
@@ -114,6 +119,8 @@ export function buildInvoicePDFData({
     rpps: practitioner?.rpps,
     rpe: (practitioner as Record<string, unknown>)?.rpe as string | null | undefined,
     rne: (practitioner as Record<string, unknown>)?.rne as string | null | undefined,
+    country,
+    association_number: (practitioner as Record<string, unknown>)?.association_number as string | null | undefined,
   }).map((line) => ({ label: line.label, value: normalizeText(line.value) }))
   const practAddress = normalizeText(practitioner?.address)
   const practPostalCode = normalizeText(practitioner?.postal_code)
@@ -126,16 +133,28 @@ export function buildInvoicePDFData({
   const patientName = `${patLastName} ${patFirstName}`.trim()
   const practitionerCityLine = `${practPostalCode} ${practCity}`.trim()
   const locationLine = `${location}, le ${formatDatePDF(invoiceDateStr)}`.trim()
+  const practitionerBusinessNumberLabel = country === 'QC' ? 'NEQ' : 'SIREN'
 
-  const vatRegime = normalizeText((practitioner as Record<string, unknown>)?.vat_regime) || 'exempt_261'
+  const vatRegime = normalizeText((practitioner as Record<string, unknown>)?.vat_regime) || (country === 'QC' ? 'qc_not_registered' : 'exempt_261')
   const rawAmount = typeof invoice?.amount === 'number' ? invoice.amount : Number(invoice?.amount) || 0
 
   let vatRate = 0
   let vatMention = ''
   let amountHT = rawAmount
   let vatAmount = 0
+  // TPS (5%) + TVQ (9,975%) au Québec ne se composent pas l'une sur l'autre
+  // depuis la réforme de 2013 : les deux s'appliquent sur le même sous-total.
+  const taxLabel = country === 'QC' ? 'TPS/TVQ' : 'TVA'
 
-  if (vatRegime === 'vat_20') {
+  if (country === 'QC') {
+    if (vatRegime === 'qc_registered') {
+      vatRate = 14.975
+      amountHT = rawAmount / 1.14975
+      vatAmount = rawAmount - amountHT
+    } else {
+      vatMention = 'TPS/TVQ non applicables (petit fournisseur)'
+    }
+  } else if (vatRegime === 'vat_20') {
     vatRate = 20
     amountHT = rawAmount / 1.2
     vatAmount = rawAmount - amountHT
@@ -153,6 +172,7 @@ export function buildInvoicePDFData({
     practitionerAddress: normalizeText(practAddress),
     practitionerCityLine: normalizeText(practitionerCityLine),
     practitionerSiret: normalizeText(practSiret),
+    practitionerBusinessNumberLabel,
     practitionerRpps: normalizeText(practRpps),
     practitionerRegistrations: practRegistrations,
     patientName: normalizeText(patientName),
@@ -160,11 +180,13 @@ export function buildInvoicePDFData({
     locationLine: normalizeText(locationLine),
     invoiceNumber: normalizeText(invoiceNumber),
     sessionTypeLabel: normalizeText(sessionTypeLabel),
-    amount: normalizeText(formatAmountPDF(invoice?.amount)),
-    amountHT: normalizeText(formatAmountPDF(amountHT)),
+    amount: normalizeText(formatAmountPDF(invoice?.amount, country)),
+    amountHT: normalizeText(formatAmountPDF(amountHT, country)),
     vatRate,
-    vatAmount: normalizeText(formatAmountPDF(vatAmount)),
+    vatAmount: normalizeText(formatAmountPDF(vatAmount, country)),
     vatMention,
+    taxLabel,
+    showLatePaymentMentions: country !== 'QC',
     paymentMethod: normalizeText(method),
     paymentType: 'Comptant',
     paymentDate: normalizeText(payment ? formatDatePDF(payment.payment_date) : formatDatePDF(invoiceDateStr)),

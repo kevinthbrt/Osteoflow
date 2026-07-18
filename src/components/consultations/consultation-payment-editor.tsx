@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
+import { getCurrencySymbol } from '@/lib/utils/currency'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -180,7 +181,7 @@ export function ConsultationPaymentEditor({
                 placeholder="0.00"
                 className="flex-1"
               />
-              <span className="text-sm text-muted-foreground">€</span>
+              <span className="text-sm text-muted-foreground">{getCurrencySymbol()}</span>
               <Button
                 type="button"
                 variant="outline"
@@ -197,7 +198,7 @@ export function ConsultationPaymentEditor({
           <div key={payment.id} className="space-y-3 rounded-lg border p-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Montant</span>
-              <span className="font-medium">{Number(payment.amount).toFixed(2)} €</span>
+              <span className="font-medium">{Number(payment.amount).toFixed(2)} {getCurrencySymbol()}</span>
             </div>
 
             <div className="space-y-2">

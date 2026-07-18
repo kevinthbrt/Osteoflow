@@ -6,11 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Target, TrendingUp, TrendingDown, Minus, Settings, Calendar, Sun, Umbrella } from 'lucide-react'
 import { resolveWorkingWeekdays, workingDayRatio } from '@/lib/utils/working-days'
+import { getCurrencyCode } from '@/lib/utils/currency'
 
 function formatEuros(amount: number): string {
-  return new Intl.NumberFormat('fr-FR', {
+  const currency = getCurrencyCode()
+  return new Intl.NumberFormat(currency === 'CAD' ? 'fr-CA' : 'fr-FR', {
     style: 'currency',
-    currency: 'EUR',
+    currency,
     maximumFractionDigits: 0,
   }).format(amount)
 }

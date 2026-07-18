@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield, Upload, Stethoscope } from 'lucide-react'
 import { CGU_SECTIONS, PRIVACY_SECTIONS, CGU_VERSION, CGU_DATE, type LegalSection } from '@/lib/legal/documents'
 import { PROFESSION_OPTIONS } from '@/lib/practitioner/profession'
+import { getCurrencySymbol } from '@/lib/utils/currency'
 import type { Practitioner, SessionType } from '@/types/database'
 import { CustomClinicalContentTab } from '@/components/settings/custom-clinical-content-tab'
 import { ImportDataTab } from '@/components/settings/import-data-tab'
@@ -238,6 +239,13 @@ function SettingsPageInner() {
   const [isSavingFollowUpDelay, setIsSavingFollowUpDelay] = useState(false)
   const [profession, setProfession] = useState('osteopathe')
   const [vatRegime, setVatRegime] = useState('exempt_261')
+  const [country, setCountryState] = useState<'FR' | 'QC'>('FR')
+  // Switching country resets the tax regime to that country's default so a
+  // stale FR/QC-only value (e.g. "exempt_261") never lingers after the switch.
+  const setCountry = (value: 'FR' | 'QC') => {
+    setCountryState(value)
+    setVatRegime(value === 'QC' ? 'qc_not_registered' : 'exempt_261')
+  }
 
   // Email connection states
   const [selectedProvider, setSelectedProvider] = useState<string>('')
@@ -418,6 +426,9 @@ function SettingsPageInner() {
           setSettingsValue('rpps', practitionerData.rpps || '')
           setSettingsValue('rpe', (practitionerData as any).rpe || '')
           setSettingsValue('rne', (practitionerData as any).rne || '')
+          setSettingsValue('association_number', (practitionerData as any).association_number || '')
+          setSettingsValue('gst_number', (practitionerData as any).gst_number || '')
+          setSettingsValue('qst_number', (practitionerData as any).qst_number || '')
           setSettingsValue('status', practitionerData.status || '')
           setSettingsValue('default_rate', practitionerData.default_rate)
           setSettingsValue('invoice_prefix', practitionerData.invoice_prefix)
@@ -425,6 +436,7 @@ function SettingsPageInner() {
           setStampUrl(practitionerData.stamp_url)
           setFollowUpDelay(String((practitionerData as any).follow_up_delay_days ?? 7))
           setProfession((practitionerData as any).profession ?? 'osteopathe')
+          setCountryState(((practitionerData as any).country as 'FR' | 'QC') ?? 'FR')
           setVatRegime((practitionerData as any).vat_regime ?? 'exempt_261')
 
           // Get patients for export
@@ -517,8 +529,12 @@ function SettingsPageInner() {
           rpps: data.rpps || null,
           rpe: data.rpe || null,
           rne: data.rne || null,
+          association_number: data.association_number || null,
+          gst_number: data.gst_number || null,
+          qst_number: data.qst_number || null,
           status: data.status || null,
           profession: profession,
+          country: country,
           vat_regime: vatRegime,
           default_rate: data.default_rate,
           invoice_prefix: data.invoice_prefix,
@@ -1148,26 +1164,54 @@ function SettingsPageInner() {
                   </div>
                 </div>
 
+                <div className="space-y-2">
+                  <Label>Pays de facturation</Label>
+                  <Select value={country} onValueChange={(value) => setCountry(value as 'FR' | 'QC')}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FR">France</SelectItem>
+                      <SelectItem value="QC">Québec</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Pilote la devise, les mentions de taxes et les numéros affichés sur vos factures.
+                  </p>
+                </div>
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="siret">N° SIREN/SIRET</Label>
+                    <Label htmlFor="siret">{country === 'QC' ? 'N° NEQ' : 'N° SIREN/SIRET'}</Label>
                     <Input
                       id="siret"
                       {...registerSettings('siret')}
-                      placeholder="12345678901234"
+                      placeholder={country === 'QC' ? '1234567890' : '12345678901234'}
                     />
+                    {settingsErrors.siret && (
+                      <p className="text-sm text-destructive">{settingsErrors.siret.message}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="status">Statut juridique</Label>
                     <Input
                       id="status"
                       {...registerSettings('status')}
-                      placeholder="EI"
+                      placeholder={country === 'QC' ? 'Travailleur autonome' : 'EI'}
                     />
                   </div>
                 </div>
 
-                {profession === 'etiopathe' ? (
+                {country === 'QC' ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="association_number">N° de membre (association d&apos;ostéopathes)</Label>
+                    <Input
+                      id="association_number"
+                      {...registerSettings('association_number')}
+                      placeholder="Ex : ROQ-1234"
+                    />
+                  </div>
+                ) : profession === 'etiopathe' ? (
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="rpe">N° RPE</Label>
@@ -1198,8 +1242,18 @@ function SettingsPageInner() {
                 )}
 
                 <div className="space-y-2">
-                  <Label>Régime TVA (factures)</Label>
-                  {profession === 'osteopathe' || profession === 'chiropracteur' ? (
+                  <Label>{country === 'QC' ? 'Régime TPS/TVQ (factures)' : 'Régime TVA (factures)'}</Label>
+                  {country === 'QC' ? (
+                    <Select value={vatRegime} onValueChange={setVatRegime}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="qc_not_registered">Non inscrit — petit fournisseur (moins de 30 000 $/an)</SelectItem>
+                        <SelectItem value="qc_registered">Inscrit à la TPS/TVQ</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : profession === 'osteopathe' || profession === 'chiropracteur' ? (
                     <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground">
                       Exonéré TVA — art. 261-4-1° CGI
                     </div>
@@ -1215,6 +1269,27 @@ function SettingsPageInner() {
                     </Select>
                   )}
                 </div>
+
+                {country === 'QC' && vatRegime === 'qc_registered' && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="gst_number">N° TPS</Label>
+                      <Input
+                        id="gst_number"
+                        {...registerSettings('gst_number')}
+                        placeholder="123456789RT0001"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="qst_number">N° TVQ</Label>
+                      <Input
+                        id="qst_number"
+                        {...registerSettings('qst_number')}
+                        placeholder="1234567890TQ0001"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex justify-end">
                   <Button type="submit" disabled={isSaving}>
@@ -1240,7 +1315,7 @@ function SettingsPageInner() {
               <CardContent className="space-y-6">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="default_rate">Tarif par défaut (€) *</Label>
+                    <Label htmlFor="default_rate">Tarif par défaut ({getCurrencySymbol(country)}) *</Label>
                     <Input
                       id="default_rate"
                       type="number"
@@ -1377,7 +1452,7 @@ function SettingsPageInner() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="session-type-price">Tarif (€)</Label>
+                      <Label htmlFor="session-type-price">Tarif ({getCurrencySymbol(country)})</Label>
                       <Input
                         id="session-type-price"
                         type="number"
@@ -1419,7 +1494,7 @@ function SettingsPageInner() {
                                 value={editingPrice}
                                 onChange={(e) => setEditingPrice(e.target.value)}
                               />
-                              <span className="text-sm text-muted-foreground">€</span>
+                              <span className="text-sm text-muted-foreground">{getCurrencySymbol(country)}</span>
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -1443,7 +1518,7 @@ function SettingsPageInner() {
                             <>
                               <span className="flex-1 text-sm font-medium">{type.name}</span>
                               <span className="text-sm text-muted-foreground">
-                                {Number(type.price).toFixed(2)} €
+                                {Number(type.price).toFixed(2)} {getCurrencySymbol(country)}
                               </span>
                               <Button
                                 type="button"
@@ -1906,7 +1981,7 @@ function SettingsPageInner() {
             <CardContent className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="annual_revenue_objective">Objectif CA annuel (€)</Label>
+                  <Label htmlFor="annual_revenue_objective">Objectif CA annuel ({getCurrencySymbol(country)})</Label>
                   <Input
                     id="annual_revenue_objective"
                     type="number"
@@ -1919,7 +1994,7 @@ function SettingsPageInner() {
                   <p className="text-xs text-muted-foreground">Votre objectif de chiffre d&apos;affaires pour l&apos;année en cours.</p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="average_consultation_price">Tarif moyen consultation (€)</Label>
+                  <Label htmlFor="average_consultation_price">Tarif moyen consultation ({getCurrencySymbol(country)})</Label>
                   <Input
                     id="average_consultation_price"
                     type="number"
@@ -1989,9 +2064,9 @@ function SettingsPageInner() {
                     const monthlyObj = annualObj / 12
                     return (
                       <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="flex justify-between"><span className="text-muted-foreground">Journalier</span><span className="font-medium">{dailyObj.toFixed(0)} €</span></div>
-                        <div className="flex justify-between"><span className="text-muted-foreground">Hebdomadaire</span><span className="font-medium">{weeklyObj.toFixed(0)} €</span></div>
-                        <div className="flex justify-between"><span className="text-muted-foreground">Mensuel</span><span className="font-medium">{monthlyObj.toFixed(0)} €</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Journalier</span><span className="font-medium">{dailyObj.toFixed(0)} {getCurrencySymbol(country)}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Hebdomadaire</span><span className="font-medium">{weeklyObj.toFixed(0)} {getCurrencySymbol(country)}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Mensuel</span><span className="font-medium">{monthlyObj.toFixed(0)} {getCurrencySymbol(country)}</span></div>
                         <div className="flex justify-between"><span className="text-muted-foreground">Semaines travaillées</span><span className="font-medium">{workingWeeks} sem.</span></div>
                       </div>
                     )

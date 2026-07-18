@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       patient_name: `${patient.first_name} ${patient.last_name}`,
       patient_first_name: patient.first_name,
       invoice_number: invoice.invoice_number,
-      invoice_amount: formatCurrency(invoice.amount),
+      invoice_amount: formatCurrency(invoice.amount, practitioner.country),
       invoice_date: formatDate(invoice.issued_at || invoice.created_at),
       practitioner_name: `${practitioner.first_name} ${practitioner.last_name}`,
       practice_name:

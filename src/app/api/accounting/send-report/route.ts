@@ -14,6 +14,7 @@ export async function POST(request: Request) {
     const { createClient, createServiceClient } = await import('@/lib/db/server')
     const { sendEmail, createHtmlEmail } = await import('@/lib/email/smtp-service')
     const { formatCurrency, formatDate } = await import('@/lib/utils')
+    const { getCurrencySymbol } = await import('@/lib/utils/currency')
     const { generateAccountingPdf } = await import('@/lib/pdf/accounting-pdfkit')
     const getResend = () => new Resend(process.env.RESEND_API_KEY)
 
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
 
     const { data: practitioner, error: practitionerError } = await db
       .from('practitioners')
-      .select('id, first_name, last_name, practice_name, accountant_email, email')
+      .select('id, first_name, last_name, practice_name, accountant_email, email, country')
       .eq('user_id', user.id)
       .single()
 
@@ -100,7 +101,7 @@ export async function POST(request: Request) {
 
         // Collect check numbers
         if (payment.method === 'check' && payment.check_number) {
-          allCheckNumbers.push(`N° ${payment.check_number} (${recapDate} - ${formatCurrency(payment.amount)})`)
+          allCheckNumbers.push(`N° ${payment.check_number} (${recapDate} - ${formatCurrency(payment.amount, practitioner.country)})`)
         }
       }
     }
@@ -113,26 +114,27 @@ export async function POST(request: Request) {
       practitionerName,
       periodLabel,
       generatedAt: formatDate(new Date()),
-      totalRevenue: formatCurrency(totalRevenue),
+      totalRevenue: formatCurrency(totalRevenue, practitioner.country),
       totalConsultations: safeInvoices.length,
       revenueByMethod: Object.fromEntries(
         Object.entries(paymentMethodLabels).map(([method, label]) => [
           label,
-          formatCurrency(revenueByMethod[method] || 0),
+          formatCurrency(revenueByMethod[method] || 0, practitioner.country),
         ])
       ),
       dailyRecaps: Object.values(dailyRecaps).map((recap) => ({
         date: recap.date,
         count: recap.count,
-        total: formatCurrency(recap.total),
+        total: formatCurrency(recap.total, practitioner.country),
         byMethod: Object.fromEntries(
           Object.entries(recap.byMethod).map(([method, info]) => [
             paymentMethodLabels[method] || method,
-            { count: info.count, amount: formatCurrency(info.amount) },
+            { count: info.count, amount: formatCurrency(info.amount, practitioner.country) },
           ])
         ),
       })),
       checkNumbers: allCheckNumbers.length > 0 ? allCheckNumbers : undefined,
+      currencySymbol: getCurrencySymbol(practitioner.country),
     }
 
     const pdfBytes = await generateAccountingPdf(pdfData)

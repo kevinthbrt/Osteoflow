@@ -43,6 +43,7 @@ import {
   ArrowLeftRight,
 } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
+import { getCurrencySymbol } from '@/lib/utils/currency'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import type { Invoice, Payment, Patient, Consultation } from '@/types/database'
 import {
@@ -457,7 +458,7 @@ export default function AccountingPage() {
         for (let C = 2; C <= 7; ++C) {
           const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })]
           if (cell) {
-            cell.z = '#,##0.00 €'
+            cell.z = `#,##0.00 ${getCurrencySymbol()}`
           }
         }
       }

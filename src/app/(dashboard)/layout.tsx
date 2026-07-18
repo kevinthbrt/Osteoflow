@@ -12,6 +12,7 @@ import { CguModal } from '@/components/legal/cgu-modal'
 import { TourWrapper } from '@/components/layout/tour-wrapper'
 import { SupportWidget } from '@/components/support/support-widget'
 import { BroadcastModal } from '@/components/layout/broadcast-modal'
+import { CurrencySync } from '@/components/providers/currency-sync'
 
 export const dynamic = 'force-dynamic'
 
@@ -76,6 +77,7 @@ export default async function DashboardLayout({
 
   return (
     <TourWrapper>
+      <CurrencySync country={practitioner?.country} />
       <div className="min-h-screen">
         <Sidebar />
         <div className="lg:pl-64">

@@ -54,17 +54,29 @@ export interface RegistrationLine {
 
 /**
  * Registration number lines to print on invoices / letters.
- * - Étiopathes use RPE + RNE (two separate lines).
- * - Everyone else uses RPPS.
+ * - Québec has no equivalent registry: practitioners show their association
+ *   membership number instead (osteopathy isn't a regulated order there).
+ * - Étiopathes (France) use RPE + RNE (two separate lines).
+ * - Everyone else in France uses RPPS.
  */
 export function getRegistrationLines(practitioner: {
   profession?: string | null
   rpps?: string | null
   rpe?: string | null
   rne?: string | null
+  country?: string | null
+  association_number?: string | null
 }): RegistrationLine[] {
-  const p = normalizeProfession(practitioner.profession)
   const lines: RegistrationLine[] = []
+
+  if (practitioner.country === 'QC') {
+    if (practitioner.association_number && practitioner.association_number.trim()) {
+      lines.push({ label: 'N° de membre', value: practitioner.association_number.trim() })
+    }
+    return lines
+  }
+
+  const p = normalizeProfession(practitioner.profession)
 
   if (p === 'etiopathe') {
     if (practitioner.rpe && practitioner.rpe.trim()) {
