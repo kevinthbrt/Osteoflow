@@ -19,6 +19,18 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.15.0',
+    date: '2026-07-18',
+    title: 'MyOsteoFlow arrive au Québec',
+    changes: [
+      { type: 'feature', text: "Nouveau sélecteur de pays de facturation (🇫🇷 France / 🇨🇦 Québec) dans l'en-tête et dans Paramètres > Profil. Il pilote automatiquement la devise (€/$), le régime de taxes des factures (TVA ou TPS/TVQ) et les identifiants affichés (SIRET → NEQ, RPPS/RPE/RNE → numéro de membre d'association)." },
+      { type: 'feature', text: "Facturation Québec : calcul automatique de la TPS (5 %) et de la TVQ (9,975 %) pour les praticiens inscrits, avec ajout des numéros de TPS/TVQ dans les paramètres. Les mentions légales propres à la France (art. 293 B / 261 du CGI, pénalités de retard) n'apparaissent plus sur les factures québécoises." },
+      { type: 'improvement', text: "Le téléphone accepte désormais aussi le format nord-américain (ex : 514 123 4567) pour le praticien comme pour les patients, en plus du format français." },
+      { type: 'improvement', text: "Les courriers générés par IA (adressage, attestation de consultation) affichent le bon numéro de membre d'association pour les praticiens québécois, au lieu d'un champ RPPS vide." },
+      { type: 'improvement', text: "Le widget de complétude du profil s'adapte au pays choisi (NEQ, numéro de membre, N° TPS/TVQ)." },
+    ],
+  },
+  {
     version: '1.14.12',
     date: '2026-07-15',
     title: 'Recherche par date de naissance',
