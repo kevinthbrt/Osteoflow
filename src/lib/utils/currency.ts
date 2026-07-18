@@ -30,3 +30,8 @@ export function getCurrencyCode(country?: string | null): 'EUR' | 'CAD' {
 export function getCurrencySymbol(country?: string | null): '€' | '$' {
   return getCurrencyCode(country) === 'CAD' ? '$' : '€'
 }
+
+/** Example phone number shown as input placeholder, matching the format `patientSchema` accepts. */
+export function getPhonePlaceholder(country?: string | null): string {
+  return (country ?? currentCountry) === 'QC' ? '514 123 4567' : '06 12 34 56 78'
+}

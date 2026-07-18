@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import type { z } from 'zod'
 import { patientSchema } from '@/lib/validations/patient'
 import { createClient } from '@/lib/db/client'
+import { getPhonePlaceholder } from '@/lib/utils/currency'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -184,7 +185,7 @@ export function QuickAddPatientDialog({ open, onClose, onCreated }: QuickAddPati
             </div>
             <div className="space-y-1.5">
               <Label>Téléphone</Label>
-              <Input placeholder="06 12 34 56 78" {...register('phone')} disabled={isLoading} />
+              <Input placeholder={getPhonePlaceholder()} {...register('phone')} disabled={isLoading} />
               {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
             </div>
             <div className="space-y-1.5">

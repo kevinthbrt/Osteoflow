@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createClient } from '@/lib/db/client'
 import { patientSchema, type PatientFormData } from '@/lib/validations/patient'
+import { getPhonePlaceholder } from '@/lib/utils/currency'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -472,7 +473,7 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
               id="phone"
               {...register('phone')}
               disabled={isLoading}
-              placeholder="06 12 34 56 78"
+              placeholder={getPhonePlaceholder()}
             />
             {errors.phone && (
               <p className="text-sm text-destructive">{errors.phone.message}</p>
