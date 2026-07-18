@@ -22,6 +22,7 @@ import { NotificationBell } from '@/components/layout/notification-bell'
 import { BackupButton } from '@/components/layout/backup-button'
 import { HeaderWeather } from '@/components/layout/header-weather'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
+import { CountrySwitcher } from '@/components/layout/country-switcher'
 import { useTour } from '@/contexts/tour-context'
 
 interface LocalUser {
@@ -266,6 +267,9 @@ export function Header({ user, practitioner }: HeaderProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-1">
+          {/* Pays de facturation (France / Québec) */}
+          <CountrySwitcher practitioner={practitioner} />
+
           {/* Thème clair / sombre / système */}
           <ThemeToggle />
 

@@ -92,6 +92,10 @@ export async function GET() {
   if (!notEmpty(p.postal_code)) practiceMissing.push('Code postal')
   if (!notEmpty(p.siret)) practiceMissing.push(isQuebec ? 'NEQ' : 'SIRET')
   if (!notEmpty(p.booking_url)) practiceMissing.push('Lien de prise de rendez-vous en ligne')
+  if (isQuebec && p.vat_regime === 'qc_registered') {
+    if (!notEmpty(p.gst_number)) practiceMissing.push('N° TPS')
+    if (!notEmpty(p.qst_number)) practiceMissing.push('N° TVQ')
+  }
 
   // --- Facturation ---
   const billingMissing: string[] = []
