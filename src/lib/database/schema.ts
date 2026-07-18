@@ -572,6 +572,23 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     db.exec('ALTER TABLE practitioners ADD COLUMN rne TEXT;')
   }
 
+  // Market/country the practitioner bills in ('FR' or 'QC'), driving currency,
+  // tax regime and legal mentions on invoices. Québécois practitioners don't
+  // have a SIRET/RPPS/TVA — they have a NEQ, an association membership number
+  // and GST/QST instead.
+  if (!practFollowUpCols.some((c) => c.name === 'country')) {
+    db.exec("ALTER TABLE practitioners ADD COLUMN country TEXT NOT NULL DEFAULT 'FR';")
+  }
+  if (!practFollowUpCols.some((c) => c.name === 'gst_number')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN gst_number TEXT;')
+  }
+  if (!practFollowUpCols.some((c) => c.name === 'qst_number')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN qst_number TEXT;')
+  }
+  if (!practFollowUpCols.some((c) => c.name === 'association_number')) {
+    db.exec('ALTER TABLE practitioners ADD COLUMN association_number TEXT;')
+  }
+
   // Booking link, used in the "relance patient" email and flagged on the
   // dashboard completion widget when missing.
   if (!practCols.some((c) => c.name === 'booking_url')) {

@@ -1,6 +1,9 @@
 import { z } from 'zod'
 
 export const practitionerSettingsSchema = z.object({
+  country: z
+    .enum(['FR', 'QC'])
+    .default('FR'),
   first_name: z
     .string()
     .min(1, 'Le prénom est requis')
@@ -59,7 +62,7 @@ export const practitionerSettingsSchema = z.object({
     .or(z.literal('')),
   siret: z
     .string()
-    .regex(/^(\d{9}|\d{14})?$/, 'Format invalide (9 chiffres pour SIREN ou 14 pour SIRET)')
+    .max(20, 'Le numéro ne peut pas dépasser 20 caractères')
     .optional()
     .or(z.literal('')),
   rpps: z
@@ -77,6 +80,21 @@ export const practitionerSettingsSchema = z.object({
     .max(20, 'Le RNE ne peut pas dépasser 20 caractères')
     .optional()
     .or(z.literal('')),
+  association_number: z
+    .string()
+    .max(30, 'Le numéro de membre ne peut pas dépasser 30 caractères')
+    .optional()
+    .or(z.literal('')),
+  gst_number: z
+    .string()
+    .max(20, 'Le numéro de TPS ne peut pas dépasser 20 caractères')
+    .optional()
+    .or(z.literal('')),
+  qst_number: z
+    .string()
+    .max(20, 'Le numéro de TVQ ne peut pas dépasser 20 caractères')
+    .optional()
+    .or(z.literal('')),
   status: z
     .string()
     .max(50, 'Le statut ne peut pas dépasser 50 caractères')
@@ -86,12 +104,12 @@ export const practitionerSettingsSchema = z.object({
     .enum(['osteopathe', 'etiopathe', 'chiropracteur', 'autre'])
     .default('osteopathe'),
   vat_regime: z
-    .enum(['exempt_261', 'franchise_293b', 'vat_20'])
+    .enum(['exempt_261', 'franchise_293b', 'vat_20', 'qc_not_registered', 'qc_registered'])
     .default('exempt_261'),
   default_rate: z
     .number()
     .positive('Le tarif doit être positif')
-    .max(9999.99, 'Le tarif ne peut pas dépasser 9999.99€'),
+    .max(9999.99, 'Le tarif ne peut pas dépasser 9999.99'),
   invoice_prefix: z
     .string()
     .min(1, 'Le préfixe est requis')
@@ -99,6 +117,16 @@ export const practitionerSettingsSchema = z.object({
   primary_color: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, 'Format de couleur invalide (ex: #2563eb)'),
+}).superRefine((data, ctx) => {
+  // SIREN/SIRET format only makes sense for French practitioners — a Québécois
+  // NEQ has a different shape, so we don't constrain the field for country=QC.
+  if (data.country === 'FR' && data.siret && !/^\d{9}(\d{5})?$/.test(data.siret)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['siret'],
+      message: 'Format invalide (9 chiffres pour SIREN ou 14 pour SIRET)',
+    })
+  }
 })
 
 export type PractitionerSettingsFormData = z.infer<typeof practitionerSettingsSchema>

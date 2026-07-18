@@ -22,6 +22,8 @@ export interface AccountingPdfData {
   revenueByMethod: Record<string, string>
   dailyRecaps: AccountingRecapRow[]
   checkNumbers?: string[]
+  /** Currency symbol for placeholder amounts when a value is missing (defaults to €). */
+  currencySymbol?: string
 }
 
 // Colors
@@ -108,7 +110,7 @@ export async function generateAccountingPdf(data: AccountingPdfData): Promise<Ui
       value:
         data.totalConsultations > 0
           ? normalizeAmount(data.totalRevenue) // approximation — callers already format
-          : '0,00 €',
+          : `0,00 ${data.currencySymbol || '€'}`,
     },
   ]
 
@@ -120,7 +122,7 @@ export async function generateAccountingPdf(data: AccountingPdfData): Promise<Ui
   )
   if (!isNaN(revenueNum) && data.totalConsultations > 0) {
     const avg = revenueNum / data.totalConsultations
-    cards[2].value = avg.toFixed(2).replace('.', ',') + ' €'
+    cards[2].value = avg.toFixed(2).replace('.', ',') + ' ' + (data.currencySymbol || '€')
   }
 
   cards.forEach((card, i) => {
@@ -230,7 +232,7 @@ export async function generateAccountingPdf(data: AccountingPdfData): Promise<Ui
   doc.text(normalizeAmount(data.totalRevenue), colX[2] - 4, y + 4, { width: colWidths[2] - 4, align: 'right' })
 
   methodOrder.forEach((label, i) => {
-    const amount = data.revenueByMethod[label] || '0,00 €'
+    const amount = data.revenueByMethod[label] || `0,00 ${data.currencySymbol || '€'}`
     doc.text(normalizeAmount(amount), colX[3 + i] - 4, y + 4, { width: colWidths[3 + i] - 4, align: 'right' })
   })
   y += 32

@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Loader2, Target, Settings, Users, Euro, Check, Pencil, X, TrendingUp, TrendingDown, Sparkles } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { resolveWorkingWeekdays, workingDayRatio } from '@/lib/utils/working-days'
+import { getCurrencyCode, getCurrencySymbol } from '@/lib/utils/currency'
 
 const MONTHS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 
@@ -37,7 +38,8 @@ interface ObjectivesData {
 }
 
 function formatEuro(value: number): string {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value)
+  const currency = getCurrencyCode()
+  return new Intl.NumberFormat(currency === 'CAD' ? 'fr-CA' : 'fr-FR', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value)
 }
 
 function formatPatients(value: number, price: number): string {
@@ -554,7 +556,7 @@ function EditableManualEntry({ month, year, actual, manual, onSaved }: EditableM
       className="group flex items-center gap-1 text-sm hover:text-primary"
       onClick={() => { setValue(String(manual || '')); setIsEditing(true) }}
     >
-      <span>{manual > 0 ? formatEuro(manual) : <span className="text-muted-foreground italic">0 €</span>}</span>
+      <span>{manual > 0 ? formatEuro(manual) : <span className="text-muted-foreground italic">0 {getCurrencySymbol()}</span>}</span>
       <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-60 transition-opacity" />
     </button>
   )
@@ -613,7 +615,7 @@ export default function ObjectivesPage() {
               className="gap-2"
             >
               {showPatients ? <Euro className="h-4 w-4" /> : <Users className="h-4 w-4" />}
-              {showPatients ? 'Afficher en €' : 'Afficher en patients'}
+              {showPatients ? `Afficher en ${getCurrencySymbol()}` : 'Afficher en patients'}
             </Button>
           )}
           <Button variant="outline" size="sm" asChild>

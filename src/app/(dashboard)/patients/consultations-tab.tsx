@@ -24,6 +24,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
+import { getCurrencySymbol } from '@/lib/utils/currency'
 import { invoiceStatusLabels, paymentMethodLabels } from '@/lib/validations/invoice'
 import { Eye, FileText, Calendar, Download, Check, Loader2, Pencil } from 'lucide-react'
 import { ConsultationModal } from '@/components/consultations/consultation-modal'
@@ -249,7 +250,7 @@ export function ConsultationsTab() {
                               className="h-7 w-[80px] text-xs"
                               autoFocus
                             />
-                            <span className="text-xs text-muted-foreground">€</span>
+                            <span className="text-xs text-muted-foreground">{getCurrencySymbol()}</span>
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => saveAmount(invoice.id, consultation.id)} disabled={savingAmount === consultation.id}>
                               {savingAmount === consultation.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                             </Button>

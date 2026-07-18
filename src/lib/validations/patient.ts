@@ -3,6 +3,17 @@ import { z } from 'zod'
 // French phone validation: 10 digits (0X XX XX XX XX) or +33/0033 + 9 digits, with optional separators
 const frenchPhoneRegex = /^(?:(?:\+|00)33[\s.-]?|0)[1-9](?:[\s.-]?\d{2}){4}$/
 
+// North American (Québec/Canada/US) phone validation: optional +1/1 prefix
+// (only when set off by a separator, so an 11-digit run like "12345678901"
+// isn't swallowed as "1" + a 10-digit number), area code, then 7 digits, with
+// optional separators (space, dot, dash) or parentheses around the area code
+// (ex: 514-123-4567, (514) 123 4567, +1 514.123.4567, 1-514-123-4567).
+const northAmericanPhoneRegex = /^(?:\+1[\s.-]?|1[\s.-])?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$/
+
+const phoneRegex = new RegExp(
+  `(?:${frenchPhoneRegex.source})|(?:${northAmericanPhoneRegex.source})`
+)
+
 export const patientSchema = z.object({
   gender: z.enum(['M', 'F'], {
     required_error: 'Le sexe est requis',
@@ -31,7 +42,7 @@ export const patientSchema = z.object({
   phone: z
     .string()
     .min(1, 'Le téléphone est requis')
-    .regex(frenchPhoneRegex, 'Format invalide (ex: 06 12 34 56 78 ou +33 6 12 34 56 78)'),
+    .regex(phoneRegex, 'Format invalide (ex: 06 12 34 56 78, +33 6 12 34 56 78 ou 514 123 4567)'),
   email: z
     .string()
     .email('Format d\'email invalide')

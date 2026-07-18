@@ -86,7 +86,7 @@ export async function generateInvoicePdf(data: InvoicePDFData): Promise<Uint8Arr
     practY += 14
   }
   if (data.practitionerSiret) {
-    doc.fontSize(8).fillColor(colors.textMuted).text('SIREN', margin, practY)
+    doc.fontSize(8).fillColor(colors.textMuted).text(data.practitionerBusinessNumberLabel || 'SIREN', margin, practY)
     practY += 10
     doc.fontSize(9).fillColor(colors.textLight).text(data.practitionerSiret, margin, practY)
     practY += 14
@@ -231,13 +231,13 @@ export async function generateInvoicePdf(data: InvoicePDFData): Promise<Uint8Arr
     .fillColor(colors.text)
     .text(data.vatRate > 0 ? data.amountHT : data.amount, totalsX + totalsBoxWidth - 16 - 80, totalsY, { width: 80, align: 'right' })
 
-  // TVA
+  // TVA / TPS-TVQ
   doc
     .fillColor(colors.textLight)
-    .text(`TVA (${data.vatRate}%)`, totalsX + 16, totalsY + 22)
+    .text(`${data.taxLabel} (${data.vatRate}%)`, totalsX + 16, totalsY + 22)
   doc
     .fillColor(colors.text)
-    .text(data.vatRate > 0 ? data.vatAmount : '0.00 EUR', totalsX + totalsBoxWidth - 16 - 80, totalsY + 22, { width: 80, align: 'right' })
+    .text(data.vatAmount, totalsX + totalsBoxWidth - 16 - 80, totalsY + 22, { width: 80, align: 'right' })
 
   // Total TTC - encadré coloré
   const grandTotalY = totalsY + 48
@@ -335,8 +335,10 @@ export async function generateInvoicePdf(data: InvoicePDFData): Promise<Uint8Arr
     doc.text(data.vatMention, margin, footerTextY)
     footerTextY += 10
   }
-  doc.text('Absence d escompte pour paiement anticipe - En cas de retard, penalites suivant le taux minimum legal en vigueur', margin, footerTextY)
-  doc.text('Indemnite forfaitaire pour frais de recouvrement: 40 euros', margin, footerTextY + 10)
+  if (data.showLatePaymentMentions) {
+    doc.text('Absence d escompte pour paiement anticipe - En cas de retard, penalites suivant le taux minimum legal en vigueur', margin, footerTextY)
+    doc.text('Indemnite forfaitaire pour frais de recouvrement: 40 euros', margin, footerTextY + 10)
+  }
 
   // Marque à droite
   doc

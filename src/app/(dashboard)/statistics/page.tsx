@@ -32,6 +32,7 @@ import {
   UserPlus,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { getCurrencySymbol } from '@/lib/utils/currency'
 import { useToast } from '@/hooks/use-toast'
 
 interface ReferralStat {
@@ -880,7 +881,7 @@ export default function StatisticsPage() {
                               return (
                                 <div key={`${year}-${month}`} className="flex-1 flex flex-col items-center min-w-0 h-full">
                                   <span className="text-xs font-medium mb-1">
-                                    {total > 0 ? `${Math.round(total)}€` : '-'}
+                                    {total > 0 ? `${Math.round(total)}${getCurrencySymbol()}` : '-'}
                                   </span>
                                   <div className="flex-1 w-full flex items-end">
                                     <div

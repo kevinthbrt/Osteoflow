@@ -45,6 +45,10 @@ export interface Database {
           rne: string | null
           profession: string | null
           vat_regime: string | null
+          country: string
+          gst_number: string | null
+          qst_number: string | null
+          association_number: string | null
           status: string | null
           default_rate: number
           invoice_prefix: string
@@ -82,6 +86,10 @@ export interface Database {
           rne?: string | null
           profession?: string | null
           vat_regime?: string | null
+          country?: string
+          gst_number?: string | null
+          qst_number?: string | null
+          association_number?: string | null
           status?: string | null
           default_rate?: number
           invoice_prefix?: string
@@ -119,6 +127,10 @@ export interface Database {
           rne?: string | null
           profession?: string | null
           vat_regime?: string | null
+          country?: string
+          gst_number?: string | null
+          qst_number?: string | null
+          association_number?: string | null
           status?: string | null
           default_rate?: number
           invoice_prefix?: string

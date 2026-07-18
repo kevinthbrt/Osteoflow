@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import { getCurrencyCode } from '@/lib/utils/currency'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -25,18 +26,23 @@ export function formatDateTime(date: Date | string): string {
   })
 }
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('fr-FR', {
+export function formatCurrency(amount: number, country?: string | null): string {
+  const currency = getCurrencyCode(country)
+  return new Intl.NumberFormat(currency === 'CAD' ? 'fr-CA' : 'fr-FR', {
     style: 'currency',
-    currency: 'EUR',
+    currency,
   }).format(amount)
 }
 
 export function formatPhone(phone: string): string {
-  // Format French phone number: 06 12 34 56 78
   const cleaned = phone.replace(/\D/g, '')
-  if (cleaned.length === 10) {
+  if (cleaned.length === 10 && cleaned.startsWith('0')) {
+    // French phone number: 06 12 34 56 78
     return cleaned.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5')
+  }
+  if (cleaned.length === 10) {
+    // North American phone number (Québec/Canada/US): 514 123 4567
+    return cleaned.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')
   }
   return phone
 }
