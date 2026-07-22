@@ -36,7 +36,7 @@ export function workingDayRatio(
     const weekday = cursor.getDay() === 0 ? 7 : cursor.getDay() // 1=Mon ... 7=Sun
     if (workingWeekdays.has(weekday)) {
       total++
-      if (cursor < todayStart) elapsed++
+      if (cursor <= todayStart) elapsed++
     }
     cursor.setDate(cursor.getDate() + 1)
   }
