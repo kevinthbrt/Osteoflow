@@ -19,6 +19,14 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.15.1',
+    date: '2026-07-22',
+    title: 'Correctif du widget Progression en début de semaine',
+    changes: [
+      { type: 'fix', text: "Widget Progression et page Objectifs : le montant « attendu à ce jour » affichait 0 € le premier jour travaillé d'une semaine, d'un mois ou de l'année (par exemple le lundi, si vous travaillez du lundi au vendredi), car cette journée en cours n'était pas comptée dans le calcul. Elle est désormais bien prise en compte." },
+    ],
+  },
+  {
     version: '1.15.0',
     date: '2026-07-18',
     title: 'MyOsteoFlow arrive au Québec',
