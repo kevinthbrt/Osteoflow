@@ -426,7 +426,7 @@ function MessagesPageInner() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 p-4 space-y-3">
           {messages.map((message) => (
             <MessageBubble key={message.id} message={message} />
           ))}
@@ -565,7 +565,7 @@ function MessagesPageInner() {
       </div>
 
       {/* Messages panel */}
-      <div className="hidden md:flex flex-1 flex-col">
+      <div className="hidden md:flex flex-1 flex-col min-w-0">
         {selectedConversation ? (
           <>
             {/* Header */}
@@ -575,14 +575,14 @@ function MessagesPageInner() {
                   {getContactInitials(selectedConversation)}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1">
-                <p className="font-semibold text-lg">
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-lg truncate">
                   {getContactName(selectedConversation)}
                   {!selectedConversation.patient && (
                     <span className="ml-2 text-sm font-normal text-orange-600">(contact externe)</span>
                   )}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground truncate">
                   {getContactEmail(selectedConversation) || 'Pas d\'email'}
                 </p>
               </div>
@@ -616,7 +616,7 @@ function MessagesPageInner() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/10">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 p-4 space-y-3 bg-muted/10">
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <Sparkles className="h-12 w-12 text-primary/50 mb-4" />
