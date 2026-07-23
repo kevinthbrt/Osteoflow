@@ -575,14 +575,14 @@ function MessagesPageInner() {
                   {getContactInitials(selectedConversation)}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1">
-                <p className="font-semibold text-lg">
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-lg truncate">
                   {getContactName(selectedConversation)}
                   {!selectedConversation.patient && (
                     <span className="ml-2 text-sm font-normal text-orange-600">(contact externe)</span>
                   )}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground truncate">
                   {getContactEmail(selectedConversation) || 'Pas d\'email'}
                 </p>
               </div>
