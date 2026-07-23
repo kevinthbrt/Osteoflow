@@ -19,6 +19,14 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.15.2',
+    date: '2026-07-23',
+    title: 'Correctif d\'affichage dans la messagerie',
+    changes: [
+      { type: 'fix', text: "Messagerie : sur certaines conversations, l'en-tête débordait horizontalement et il fallait glisser latéralement pour atteindre le bouton « Supprimer la conversation ». La mise en page ne déborde plus." },
+    ],
+  },
+  {
     version: '1.15.1',
     date: '2026-07-22',
     title: 'Correctif du widget Progression en début de semaine',
