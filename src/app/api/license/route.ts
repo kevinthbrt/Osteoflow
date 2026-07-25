@@ -15,6 +15,19 @@ const LICENSE_KEYS = [
   'license_pin_last_used_at',
 ] as const
 
+// Clés purgées à la déconnexion / expiration de licence. `license_device_id`
+// en est volontairement EXCLU : ce n'est pas un identifiant de session mais
+// l'identifiant du poste, qui doit survivre à une déconnexion.
+//   1. Anti-abus : l'essai gratuit sans carte est verrouillé par poste
+//      (table trial_device_claims côté Osteoupgrade). Régénérer le device_id
+//      à chaque déconnexion offrirait un essai neuf à chaque nouveau compte,
+//      ce qui viderait le verrou de toute substance.
+//   2. Sessions concurrentes : un device_id stable permet à osteoflow_sessions
+//      de réutiliser la même ligne d'une session à l'autre, au lieu
+//      d'accumuler des lignes orphelines qui peuvent déclencher à tort une
+//      alerte CONCURRENT_SESSION.
+const LICENSE_SESSION_KEYS = LICENSE_KEYS.filter((key) => key !== 'license_device_id')
+
 function getConfigs(): Record<string, string> {
   const db = getDatabase()
   const rows = db
@@ -96,6 +109,6 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE() {
-  LICENSE_KEYS.forEach(deleteConfig)
+  LICENSE_SESSION_KEYS.forEach(deleteConfig)
   return NextResponse.json({ success: true })
 }
