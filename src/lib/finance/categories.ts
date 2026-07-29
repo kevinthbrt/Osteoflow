@@ -14,6 +14,17 @@ export interface ExpenseCategory {
   /** Taux de TVA le plus courant sur ce poste. */
   defaultVatRate: number
   hint?: string
+  /**
+   * Forfait déduit sans décaissement professionnel correspondant : il réduit le
+   * bénéfice mais ne sort pas de la trésorerie de l'activité.
+   */
+  isFlatAllowance?: boolean
+  /**
+   * Faux pour les cotisations sociales : elles se déduisent du résultat fiscal
+   * mais pas de l'assiette sociale, laquelle est définie hors cotisations.
+   * Les traiter comme une charge ordinaire minorerait l'Urssaf calculée.
+   */
+  reducesSocialBase?: boolean
 }
 
 export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
@@ -109,6 +120,22 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
     hint: 'CFE notamment. L’impôt sur le revenu n’est jamais déductible',
   },
   {
+    key: 'cotisations_sociales',
+    label: 'Cotisations sociales Urssaf',
+    defaultDeductibleShare: 100,
+    defaultVatRate: 0,
+    reducesSocialBase: false,
+    hint: 'Appels et régularisations Urssaf. Déductibles de votre impôt, mais pas de l’assiette qui sert à calculer ces mêmes cotisations',
+  },
+  {
+    key: 'forfait_blanchissage',
+    label: 'Forfait blanchissage',
+    defaultDeductibleShare: 100,
+    defaultVatRate: 0,
+    isFlatAllowance: true,
+    hint: 'Évaluation forfaitaire du linge professionnel lavé à domicile : déduite du bénéfice, sans décaissement',
+  },
+  {
     key: 'autre',
     label: 'Autre',
     defaultDeductibleShare: 100,
@@ -122,6 +149,16 @@ export const EXPENSE_CATEGORY_LABELS: Record<string, string> = Object.fromEntrie
 
 export function getExpenseCategory(key: string): ExpenseCategory | undefined {
   return EXPENSE_CATEGORIES.find((category) => category.key === key)
+}
+
+/** Vrai si la catégorie réduit l'assiette des cotisations sociales. */
+export function reducesSocialBase(key: string): boolean {
+  return getExpenseCategory(key)?.reducesSocialBase !== false
+}
+
+/** Vrai si la catégorie est un forfait déduit sans décaissement. */
+export function isFlatAllowance(key: string): boolean {
+  return getExpenseCategory(key)?.isFlatAllowance === true
 }
 
 export const EXPENSE_RECURRENCE_LABELS: Record<string, string> = {

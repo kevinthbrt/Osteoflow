@@ -68,8 +68,10 @@ export async function PUT(request: Request) {
            marital_status, dependents, other_household_income, safety_margin_rate,
            target_monthly_draw, vehicle_mode, vehicle_kind, vehicle_horsepower,
            vehicle_annual_km, vehicle_electric, optional_retirement,
-           optional_prevoyance, updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+           optional_prevoyance, input_mode, simple_annual_expenses,
+           simple_annual_expenses_vat, simple_flat_allowances,
+           prior_year_social_settlement, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
          ON CONFLICT(practitioner_id) DO UPDATE SET
            regime = excluded.regime,
            retirement_fund = excluded.retirement_fund,
@@ -87,6 +89,11 @@ export async function PUT(request: Request) {
            vehicle_electric = excluded.vehicle_electric,
            optional_retirement = excluded.optional_retirement,
            optional_prevoyance = excluded.optional_prevoyance,
+           input_mode = excluded.input_mode,
+           simple_annual_expenses = excluded.simple_annual_expenses,
+           simple_annual_expenses_vat = excluded.simple_annual_expenses_vat,
+           simple_flat_allowances = excluded.simple_flat_allowances,
+           prior_year_social_settlement = excluded.prior_year_social_settlement,
            updated_at = datetime('now')`,
       )
       .run(
@@ -107,6 +114,11 @@ export async function PUT(request: Request) {
         settings.vehicle_electric ? 1 : 0,
         settings.optional_retirement,
         settings.optional_prevoyance,
+        settings.input_mode,
+        settings.simple_annual_expenses,
+        settings.simple_annual_expenses_vat,
+        settings.simple_flat_allowances,
+        settings.prior_year_social_settlement,
       )
 
     return NextResponse.json({ success: true })

@@ -51,6 +51,38 @@ export interface FinanceSettings {
   optionalRetirement: number
   /** Cotisations annuelles de prévoyance et santé Madelin. */
   optionalPrevoyance: number
+  /**
+   * Régularisation Urssaf d'une année antérieure, payée sur l'exercice.
+   *
+   * Traitement asymétrique volontaire : c'est une cotisation sociale, donc
+   * déductible du résultat fiscal (le BNC est tenu en encaissements-décaissements)
+   * mais PAS de l'assiette sociale, laquelle se calcule sur un revenu brut
+   * justement défini hors cotisations sociales.
+   */
+  priorYearSocialSettlement: number
+  /** Mode de saisie : montants annuels globaux, ou charges détaillées. */
+  inputMode: InputMode
+  /** Montants annuels utilisés en mode simplifié. */
+  simple: SimpleEstimates
+}
+
+/**
+ * Saisie simplifiée : les grandes masses annuelles, telles qu'un prévisionnel
+ * comptable les présente, sans détailler chaque justificatif.
+ */
+export interface SimpleEstimates {
+  /** Charges professionnelles annuelles, hors Urssaf et hors forfaits. */
+  annualExpenses: number
+  /** TVA supportée sur ces charges, si le praticien est assujetti. */
+  annualExpensesVat: number
+  /** Forfaits déduits sans décaissement (blanchissage…). */
+  flatAllowances: number
+}
+
+export const DEFAULT_SIMPLE_ESTIMATES: SimpleEstimates = {
+  annualExpenses: 0,
+  annualExpensesVat: 0,
+  flatAllowances: 0,
 }
 
 /**
@@ -93,6 +125,9 @@ export const DEFAULT_FINANCE_SETTINGS: FinanceSettings = {
   vehicle: DEFAULT_VEHICLE_SETTINGS,
   optionalRetirement: 0,
   optionalPrevoyance: 0,
+  priorYearSocialSettlement: 0,
+  inputMode: 'real',
+  simple: DEFAULT_SIMPLE_ESTIMATES,
 }
 
 /** Une ligne de charge professionnelle. */
@@ -217,14 +252,23 @@ export interface SimulationInput {
 }
 
 export interface ExpenseTotals {
-  /** Total HT des charges, quote-part professionnelle appliquée. */
+  /** Total HT des charges ordinaires, quote-part professionnelle appliquée. */
   deductibleHt: number
   /** TVA déductible correspondante. */
   deductibleVat: number
-  /** Total TTC réellement décaissé, toutes charges confondues. */
+  /** Total TTC réellement décaissé sur les charges ordinaires. */
   paidTtc: number
+  /**
+   * Forfaits déduits sans décaissement correspondant (blanchissage notamment).
+   * Ils réduisent le bénéfice mais ne sortent pas de la trésorerie
+   * professionnelle : la dépense, quand elle existe, est supportée à titre privé.
+   */
+  flatAllowances: number
   byCategory: Record<string, number>
 }
+
+/** Mode de saisie des charges. */
+export type InputMode = 'simple' | 'real'
 
 export interface SimulationResult {
   year: number
@@ -237,9 +281,13 @@ export interface SimulationResult {
   revenueHt: number
   /** Charges déductibles retenues (HT si assujetti, TTC sinon). */
   deductibleExpenses: number
+  /** Forfaits déduits sans décaissement. */
+  flatAllowances: number
+  /** Régularisation Urssaf d'une année antérieure, payée sur l'exercice. */
+  priorYearSocialSettlement: number
   /** Frais de véhicule au barème kilométrique, le cas échéant. */
   mileage: MileageSummary | null
-  /** Bénéfice avant cotisations sociales. */
+  /** Bénéfice avant cotisations sociales, base de l'assiette sociale. */
   grossProfit: number
   /** Cotisations facultatives Madelin et PER. */
   optionalContributions: OptionalContributionsSummary | null

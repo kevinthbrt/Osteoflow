@@ -57,8 +57,13 @@ export function simulate(input: SimulationInput): SimulationResult {
 
   const mileage = buildMileage(config, input, warnings, expenses.byCategory)
   const mileageAllowance = mileage?.allowance ?? 0
+  const flatAllowances = Math.max(0, expenses.flatAllowances)
+  const priorYearSettlement = Math.max(0, settings.priorYearSocialSettlement)
 
-  const deductibleExpenses = recordedExpenses + mileageAllowance
+  const deductibleExpenses = recordedExpenses + mileageAllowance + flatAllowances
+
+  // Assiette sociale : la régularisation Urssaf n'en est PAS déduite, le revenu
+  // brut social étant défini hors cotisations sociales.
   const grossProfit = revenueHt - deductibleExpenses
 
   const social = computeSocialCharges(config, {
@@ -75,19 +80,21 @@ export function simulate(input: SimulationInput): SimulationResult {
     revenueHt,
     grossProfit,
     socialTotal: social.total,
+    priorYearSettlement,
     csgDeductible: social.csgDeductible,
     warnings,
   })
 
-  // Vue trésorerie : ce qui entre, moins tout ce qui doit ressortir. Les frais
-  // de véhicule au barème remplacent les dépenses réelles non saisies (essence,
-  // entretien, assurance) : les compter en sortie garde la trésorerie honnête.
+  // Vue trésorerie : ce qui entre, moins ce qui sort RÉELLEMENT. Le barème
+  // kilométrique et les forfaits sont des déductions sans décaissement
+  // professionnel — l'essence est réglée à titre privé — donc ils ne sortent pas
+  // de la trésorerie de l'activité.
   const optionalPaid = optionalContributions?.totalPaid ?? 0
   const availableIncome =
     revenue -
     vat.due -
     expenses.paidTtc -
-    mileageAllowance -
+    priorYearSettlement -
     optionalPaid -
     social.total -
     activityTax
@@ -121,6 +128,8 @@ export function simulate(input: SimulationInput): SimulationResult {
     vat,
     revenueHt,
     deductibleExpenses,
+    flatAllowances,
+    priorYearSocialSettlement: priorYearSettlement,
     mileage,
     grossProfit,
     optionalContributions,
@@ -206,6 +215,7 @@ function computeActivityTax(args: {
   revenueHt: number
   grossProfit: number
   socialTotal: number
+  priorYearSettlement: number
   csgDeductible: number
   warnings: SimulationWarning[]
 }): {
@@ -213,7 +223,15 @@ function computeActivityTax(args: {
   activityTax: number
   optionalContributions: OptionalContributionsSummary | null
 } {
-  const { input, revenueHt, grossProfit, socialTotal, csgDeductible, warnings } = args
+  const {
+    input,
+    revenueHt,
+    grossProfit,
+    socialTotal,
+    priorYearSettlement,
+    csgDeductible,
+    warnings,
+  } = args
   const config = getTaxConfig(input.year)
   const { settings } = input
 
@@ -250,9 +268,13 @@ function computeActivityTax(args: {
   const profitBeforeOptional =
     settings.regime === 'micro_bnc'
       ? microTaxableIncome(revenueHt, config.microBnc)
-      : // Au réel, les cotisations sont déductibles, sauf la fraction non
-        // déductible de la CSG-CRDS qu'il faut réintégrer.
-        grossProfit - socialTotal + nonDeductibleCsg(csgDeductible, config)
+      : // Au réel, les cotisations sont déductibles du résultat fiscal — celles
+        // de l'exercice comme la régularisation d'une année antérieure — sauf la
+        // fraction non déductible de la CSG-CRDS, qu'il faut réintégrer.
+        grossProfit -
+        socialTotal -
+        priorYearSettlement +
+        nonDeductibleCsg(csgDeductible, config)
 
   const optional = computeOptionalContributions(config, {
     regime: settings.regime,
@@ -354,14 +376,19 @@ function buildProjection(input: SimulationInput): SimulationResult['projection']
   const factor = 12 / input.monthsElapsed
   const projectedRevenue = input.revenue * factor
 
+  // En mode simplifié, les charges saisies sont déjà annuelles : les mettre à
+  // l'échelle les compterait deux fois.
+  const expenseFactor = input.settings.inputMode === 'simple' ? 1 : factor
+
   const annualised = simulate({
     ...input,
     monthsElapsed: 12,
     revenue: projectedRevenue,
     expenses: {
-      deductibleHt: input.expenses.deductibleHt * factor,
-      deductibleVat: input.expenses.deductibleVat * factor,
-      paidTtc: input.expenses.paidTtc * factor,
+      deductibleHt: input.expenses.deductibleHt * expenseFactor,
+      deductibleVat: input.expenses.deductibleVat * expenseFactor,
+      paidTtc: input.expenses.paidTtc * expenseFactor,
+      flatAllowances: input.expenses.flatAllowances * expenseFactor,
       byCategory: input.expenses.byCategory,
     },
   })

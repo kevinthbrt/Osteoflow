@@ -48,6 +48,11 @@ export const financeSettingsSchema = z.object({
   vehicle_electric: z.boolean().default(false),
   optional_retirement: z.number().min(0).max(200000).default(0),
   optional_prevoyance: z.number().min(0).max(200000).default(0),
+  input_mode: z.enum(['simple', 'real']).default('real'),
+  simple_annual_expenses: z.number().min(0).max(5000000).default(0),
+  simple_annual_expenses_vat: z.number().min(0).max(1000000).default(0),
+  simple_flat_allowances: z.number().min(0).max(1000000).default(0),
+  prior_year_social_settlement: z.number().min(0).max(1000000).default(0),
 })
 
 export type FinanceSettingsInput = z.infer<typeof financeSettingsSchema>

@@ -92,28 +92,63 @@ export async function GET(request: Request) {
       deductible_share: number
     }>
 
-    const expenses: ExpenseTotals = {
-      deductibleHt: 0,
-      deductibleVat: 0,
-      paidTtc: 0,
-      byCategory: {},
-    }
-
-    for (const row of expenseRows) {
-      const share = Math.min(1, Math.max(0, (row.deductible_share ?? 100) / 100))
-      expenses.deductibleHt += row.amount_ht * share
-      expenses.deductibleVat += row.vat_amount * share
-      // Le décaissement est intégral, même quand une partie n'est pas déductible.
-      expenses.paidTtc += row.amount_ttc
-      expenses.byCategory[row.category] =
-        (expenses.byCategory[row.category] ?? 0) + row.amount_ttc
-    }
-
     const settingsRow = rawDb
       .prepare('SELECT * FROM finance_settings WHERE practitioner_id = ?')
       .get(practitioner.id) as Record<string, unknown> | undefined
 
     const settings = toFinanceSettings(settingsRow, practitioner.vat_regime)
+
+    const { isFlatAllowance, reducesSocialBase } = await import('@/lib/finance/categories')
+
+    const expenses: ExpenseTotals = {
+      deductibleHt: 0,
+      deductibleVat: 0,
+      paidTtc: 0,
+      flatAllowances: 0,
+      byCategory: {},
+    }
+
+    // Les cotisations sociales saisies en charge sont routées vers la
+    // régularisation : elles réduisent le résultat fiscal, jamais l'assiette
+    // sociale. Les traiter comme une charge ordinaire minorerait l'Urssaf.
+    let socialContributionsRecorded = 0
+
+    if (settings.inputMode === 'simple') {
+      expenses.deductibleHt = settings.simple.annualExpenses
+      expenses.deductibleVat = settings.simple.annualExpensesVat
+      expenses.paidTtc =
+        settings.simple.annualExpenses + settings.simple.annualExpensesVat
+      expenses.flatAllowances = settings.simple.flatAllowances
+    } else {
+      for (const row of expenseRows) {
+        const share = Math.min(1, Math.max(0, (row.deductible_share ?? 100) / 100))
+
+        expenses.byCategory[row.category] =
+          (expenses.byCategory[row.category] ?? 0) + row.amount_ttc
+
+        if (!reducesSocialBase(row.category)) {
+          // Le décaissement est porté par la régularisation, que le simulateur
+          // sort déjà de la trésorerie : ne pas l'ajouter aussi à paidTtc.
+          socialContributionsRecorded += row.amount_ttc
+          continue
+        }
+
+        if (isFlatAllowance(row.category)) {
+          // Forfait : déduit du bénéfice, mais aucun décaissement professionnel.
+          expenses.flatAllowances += row.amount_ttc * share
+          continue
+        }
+
+        expenses.deductibleHt += row.amount_ht * share
+        expenses.deductibleVat += row.vat_amount * share
+        // Le décaissement est intégral, même quand une partie n'est pas déductible.
+        expenses.paidTtc += row.amount_ttc
+      }
+    }
+
+    if (socialContributionsRecorded > 0) {
+      settings.priorYearSocialSettlement += socialContributionsRecorded
+    }
 
     // Sur l'année en cours, on ne compte que les mois écoulés pour ne pas
     // diluer les provisions mensuelles sur des mois qui n'ont pas eu lieu.

@@ -983,6 +983,13 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   addFinanceColumn('vehicle_electric', 'INTEGER NOT NULL DEFAULT 0')
   addFinanceColumn('optional_retirement', 'REAL NOT NULL DEFAULT 0')
   addFinanceColumn('optional_prevoyance', 'REAL NOT NULL DEFAULT 0')
+
+  // Mode de saisie simplifié (grandes masses annuelles) et régularisation Urssaf.
+  addFinanceColumn('input_mode', "TEXT NOT NULL DEFAULT 'real'")
+  addFinanceColumn('simple_annual_expenses', 'REAL NOT NULL DEFAULT 0')
+  addFinanceColumn('simple_annual_expenses_vat', 'REAL NOT NULL DEFAULT 0')
+  addFinanceColumn('simple_flat_allowances', 'REAL NOT NULL DEFAULT 0')
+  addFinanceColumn('prior_year_social_settlement', 'REAL NOT NULL DEFAULT 0')
 }
 
 /**

@@ -37,6 +37,11 @@ export interface FinanceSettingsRow {
   vehicle_electric?: number | boolean | null
   optional_retirement?: number | null
   optional_prevoyance?: number | null
+  input_mode?: string | null
+  simple_annual_expenses?: number | null
+  simple_annual_expenses_vat?: number | null
+  simple_flat_allowances?: number | null
+  prior_year_social_settlement?: number | null
 }
 
 function toBoolean(value: number | boolean | null | undefined): boolean {
@@ -85,5 +90,12 @@ export function toFinanceSettings(
     },
     optionalRetirement: Math.max(0, row.optional_retirement ?? 0),
     optionalPrevoyance: Math.max(0, row.optional_prevoyance ?? 0),
+    priorYearSocialSettlement: Math.max(0, row.prior_year_social_settlement ?? 0),
+    inputMode: row.input_mode === 'simple' ? 'simple' : 'real',
+    simple: {
+      annualExpenses: Math.max(0, row.simple_annual_expenses ?? 0),
+      annualExpensesVat: Math.max(0, row.simple_annual_expenses_vat ?? 0),
+      flatAllowances: Math.max(0, row.simple_flat_allowances ?? 0),
+    },
   }
 }

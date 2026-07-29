@@ -15,6 +15,7 @@ const noExpenses: ExpenseTotals = {
   deductibleHt: 0,
   deductibleVat: 0,
   paidTtc: 0,
+  flatAllowances: 0,
   byCategory: {},
 }
 
@@ -301,6 +302,7 @@ describe('simulation complète', () => {
         deductibleHt: 10000,
         deductibleVat: 2000,
         paidTtc: 12000,
+        flatAllowances: 0,
         byCategory: {},
       },
       monthsElapsed: 12,
@@ -332,6 +334,7 @@ describe('simulation complète', () => {
         deductibleHt: 20000,
         deductibleVat: 4000,
         paidTtc: 24000,
+        flatAllowances: 0,
         byCategory: {},
       },
       monthsElapsed: 12,
@@ -352,6 +355,7 @@ describe('simulation complète', () => {
         deductibleHt: 20000,
         deductibleVat: 4000,
         paidTtc: 24000,
+        flatAllowances: 0,
         byCategory: {},
       },
       monthsElapsed: 12,
@@ -635,6 +639,7 @@ describe('intégration véhicule et cotisations facultatives', () => {
         deductibleHt: 1200,
         deductibleVat: 240,
         paidTtc: 1440,
+        flatAllowances: 0,
         byCategory: { vehicule: 1440 },
       },
       monthsElapsed: 12,
@@ -721,5 +726,197 @@ describe('intégration véhicule et cotisations facultatives', () => {
 
     expect(result.warnings.map((w) => w.key)).toContain('optional_excess')
     expect(result.optionalContributions?.totalExcess).toBeGreaterThan(0)
+  })
+})
+
+describe('régularisation Urssaf d’une année antérieure', () => {
+  const base = {
+    year: 2026,
+    revenue: 85000,
+    expenses: {
+      deductibleHt: 19947,
+      deductibleVat: 0,
+      paidTtc: 19947,
+      flatAllowances: 0,
+      byCategory: {},
+    },
+    monthsElapsed: 12,
+  }
+
+  it('ne réduit pas l’assiette sociale', () => {
+    const withSettlement = simulate({
+      ...base,
+      settings: settings({ regime: 'reel_bnc', priorYearSocialSettlement: 6758 }),
+    })
+    const without = simulate({
+      ...base,
+      settings: settings({ regime: 'reel_bnc' }),
+    })
+
+    // Le revenu brut social est défini hors cotisations sociales : la
+    // régularisation ne doit rien changer à l'Urssaf calculée.
+    expect(withSettlement.social.assiette).toBeCloseTo(without.social.assiette, 2)
+    expect(withSettlement.social.total).toBeCloseTo(without.social.total, 2)
+  })
+
+  it('réduit en revanche le revenu imposable et l’impôt', () => {
+    const withSettlement = simulate({
+      ...base,
+      settings: settings({ regime: 'reel_bnc', priorYearSocialSettlement: 6758 }),
+    })
+    const without = simulate({
+      ...base,
+      settings: settings({ regime: 'reel_bnc' }),
+    })
+
+    expect(withSettlement.incomeTax.taxableIncome).toBeCloseTo(
+      without.incomeTax.taxableIncome - 6758,
+      2,
+    )
+    expect(withSettlement.incomeTax.total).toBeLessThan(without.incomeTax.total)
+  })
+
+  it('sort bien de la trésorerie', () => {
+    const withSettlement = simulate({
+      ...base,
+      settings: settings({ regime: 'reel_bnc', priorYearSocialSettlement: 6758 }),
+    })
+    const without = simulate({
+      ...base,
+      settings: settings({ regime: 'reel_bnc' }),
+    })
+
+    const taxSaved = without.incomeTax.attributableToActivity -
+      withSettlement.incomeTax.attributableToActivity
+    expect(withSettlement.availableIncome).toBeCloseTo(
+      without.availableIncome - 6758 + taxSaved,
+      2,
+    )
+  })
+})
+
+describe('forfaits sans décaissement', () => {
+  it('déduisent du bénéfice sans sortir de la trésorerie', () => {
+    const withFlat = simulate({
+      year: 2026,
+      settings: settings({ regime: 'reel_bnc' }),
+      revenue: 85000,
+      expenses: {
+        deductibleHt: 18657,
+        deductibleVat: 0,
+        paidTtc: 18657,
+        flatAllowances: 1290,
+        byCategory: {},
+      },
+      monthsElapsed: 12,
+    })
+
+    const withoutFlat = simulate({
+      year: 2026,
+      settings: settings({ regime: 'reel_bnc' }),
+      revenue: 85000,
+      expenses: {
+        deductibleHt: 18657,
+        deductibleVat: 0,
+        paidTtc: 18657,
+        flatAllowances: 0,
+        byCategory: {},
+      },
+      monthsElapsed: 12,
+    })
+
+    // Le forfait réduit l'assiette sociale...
+    expect(withFlat.grossProfit).toBeCloseTo(withoutFlat.grossProfit - 1290, 2)
+    expect(withFlat.social.total).toBeLessThan(withoutFlat.social.total)
+    // ...mais laisse plus de trésorerie, puisque rien n'est décaissé.
+    expect(withFlat.availableIncome).toBeGreaterThan(withoutFlat.availableIncome)
+  })
+
+  it('ne compte plus le barème kilométrique comme un décaissement', () => {
+    const withMileage = simulate({
+      year: 2026,
+      settings: settings({
+        regime: 'reel_bnc',
+        vehicle: { mode: 'mileage', kind: 'car', horsepower: 5, annualKm: 4000, electric: false },
+      }),
+      revenue: 85000,
+      expenses: noExpenses,
+      monthsElapsed: 12,
+    })
+
+    const without = simulate({
+      year: 2026,
+      settings: settings({ regime: 'reel_bnc' }),
+      revenue: 85000,
+      expenses: noExpenses,
+      monthsElapsed: 12,
+    })
+
+    // L'essence étant réglée à titre privé, le barème allège l'impôt et les
+    // cotisations sans réduire la trésorerie de l'activité.
+    expect(withMileage.grossProfit).toBeCloseTo(without.grossProfit - 2544, 2)
+    expect(withMileage.availableIncome).toBeGreaterThan(without.availableIncome)
+  })
+})
+
+describe('mode simplifié', () => {
+  it('donne le même résultat que le mode réel à montants équivalents', () => {
+    const simple = simulate({
+      year: 2026,
+      settings: settings({
+        regime: 'reel_bnc',
+        inputMode: 'simple',
+        simple: { annualExpenses: 19947, annualExpensesVat: 0, flatAllowances: 1290 },
+      }),
+      revenue: 85000,
+      expenses: {
+        deductibleHt: 19947,
+        deductibleVat: 0,
+        paidTtc: 19947,
+        flatAllowances: 1290,
+        byCategory: {},
+      },
+      monthsElapsed: 12,
+    })
+
+    const real = simulate({
+      year: 2026,
+      settings: settings({ regime: 'reel_bnc', inputMode: 'real' }),
+      revenue: 85000,
+      expenses: {
+        deductibleHt: 19947,
+        deductibleVat: 0,
+        paidTtc: 19947,
+        flatAllowances: 1290,
+        byCategory: {},
+      },
+      monthsElapsed: 12,
+    })
+
+    expect(simple.availableIncome).toBeCloseTo(real.availableIncome, 2)
+  })
+
+  it('n’annualise pas des charges déjà annuelles dans la projection', () => {
+    const result = simulate({
+      year: 2026,
+      settings: settings({
+        regime: 'reel_bnc',
+        inputMode: 'simple',
+        simple: { annualExpenses: 20000, annualExpensesVat: 0, flatAllowances: 0 },
+      }),
+      revenue: 40000,
+      expenses: {
+        deductibleHt: 20000,
+        deductibleVat: 0,
+        paidTtc: 20000,
+        flatAllowances: 0,
+        byCategory: {},
+      },
+      monthsElapsed: 6,
+    })
+
+    // Recettes doublées, charges inchangées : le bénéfice projeté vaut
+    // 80 000 − 20 000 et non 80 000 − 40 000.
+    expect(result.projection?.revenue).toBeCloseTo(80000, 2)
   })
 })

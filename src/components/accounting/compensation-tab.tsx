@@ -33,6 +33,7 @@ import {
   Info,
   Car,
   ShieldCheck,
+  HelpCircle,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
@@ -68,6 +69,11 @@ interface SettingsForm {
   vehicle_electric: boolean
   optional_retirement: number
   optional_prevoyance: number
+  input_mode: string
+  simple_annual_expenses: number
+  simple_annual_expenses_vat: number
+  simple_flat_allowances: number
+  prior_year_social_settlement: number
 }
 
 const DEFAULT_FORM: SettingsForm = {
@@ -87,6 +93,11 @@ const DEFAULT_FORM: SettingsForm = {
   vehicle_electric: false,
   optional_retirement: 0,
   optional_prevoyance: 0,
+  input_mode: 'real',
+  simple_annual_expenses: 0,
+  simple_annual_expenses_vat: 0,
+  simple_flat_allowances: 0,
+  prior_year_social_settlement: 0,
 }
 
 const VAT_REGIME_LABELS: Record<string, string> = {
@@ -135,6 +146,12 @@ export default function CompensationTab({ year }: { year: number }) {
             vehicle_electric: Boolean(payload.settings.vehicle_electric),
             optional_retirement: payload.settings.optional_retirement ?? 0,
             optional_prevoyance: payload.settings.optional_prevoyance ?? 0,
+            input_mode: payload.settings.input_mode ?? 'real',
+            simple_annual_expenses: payload.settings.simple_annual_expenses ?? 0,
+            simple_annual_expenses_vat: payload.settings.simple_annual_expenses_vat ?? 0,
+            simple_flat_allowances: payload.settings.simple_flat_allowances ?? 0,
+            prior_year_social_settlement:
+              payload.settings.prior_year_social_settlement ?? 0,
           })
         } else {
           // Aucun paramètre enregistré : on ouvre directement la configuration.
@@ -243,6 +260,83 @@ export default function CompensationTab({ year }: { year: number }) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
+            {/* Mode de saisie */}
+            <div className="space-y-3 rounded-xl border border-border px-4 py-4">
+              <p className="text-sm font-medium">Comment saisir vos charges</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <ModeCard
+                  active={form.input_mode === 'simple'}
+                  title="Simplifié"
+                  description="Vous entrez vos grandes masses annuelles, comme sur un prévisionnel comptable. Rapide, suffisant pour provisionner."
+                  onClick={() => setForm({ ...form, input_mode: 'simple' })}
+                />
+                <ModeCard
+                  active={form.input_mode === 'real'}
+                  title="Détaillé"
+                  description="Le calcul s’appuie sur les charges saisies dans l’onglet Charges, ligne par ligne. Plus précis, et exploitable par votre comptable."
+                  onClick={() => setForm({ ...form, input_mode: 'real' })}
+                />
+              </div>
+
+              {form.input_mode === 'simple' && (
+                <div className="grid gap-3 sm:grid-cols-3 pt-1">
+                  <div className="space-y-2">
+                    <Label>Charges annuelles</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="100"
+                      value={form.simple_annual_expenses}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          simple_annual_expenses: Number(event.target.value) || 0,
+                        })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Hors Urssaf et hors forfaits
+                    </p>
+                  </div>
+                  {vatRegime === 'vat_20' && (
+                    <div className="space-y-2">
+                      <Label>Dont TVA supportée</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="100"
+                        value={form.simple_annual_expenses_vat}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            simple_annual_expenses_vat: Number(event.target.value) || 0,
+                          })
+                        }
+                      />
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label>Forfaits sans décaissement</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="50"
+                      value={form.simple_flat_allowances}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          simple_flat_allowances: Number(event.target.value) || 0,
+                        })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Blanchissage notamment
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Régime fiscal</Label>
@@ -333,7 +427,20 @@ export default function CompensationTab({ year }: { year: number }) {
               </div>
 
               <div className="space-y-2">
-                <Label>Marge de sécurité (%)</Label>
+                <Label className="flex items-center gap-1.5">
+                  Marge de sécurité (%)
+                  <HelpTip>
+                    Part du disponible que l&apos;application vous conseille de
+                    laisser sur le compte au lieu de vous la verser. Elle absorbe
+                    ce que l&apos;estimation ne peut pas prévoir : une
+                    régularisation Urssaf plus lourde que prévu, un trimestre
+                    creux, une charge oubliée. Elle n&apos;est pas perdue — c&apos;est
+                    votre argent, simplement mis de côté. 5 % suffisent quand vos
+                    charges sont bien saisies et vos revenus réguliers ; montez à
+                    10-15 % en début d&apos;activité, après une forte hausse de
+                    revenus, ou si vous saisissez des montants approximatifs.
+                  </HelpTip>
+                </Label>
                 <Input
                   type="number"
                   min={0}
@@ -343,6 +450,31 @@ export default function CompensationTab({ year }: { year: number }) {
                     setForm({
                       ...form,
                       safety_margin_rate: Number(event.target.value) || 0,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  Régularisation Urssaf payée cette année
+                  <HelpTip>
+                    Reliquat d&apos;une année antérieure réglé sur cet exercice.
+                    Il se déduit de votre impôt, mais pas de l&apos;assiette qui
+                    sert à calculer vos cotisations — celle-ci se calcule
+                    justement hors cotisations sociales. À ne pas saisir dans
+                    l&apos;onglet Charges comme une dépense ordinaire.
+                  </HelpTip>
+                </Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="100"
+                  value={form.prior_year_social_settlement}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      prior_year_social_settlement: Number(event.target.value) || 0,
                     })
                   }
                 />
@@ -678,7 +810,21 @@ export default function CompensationTab({ year }: { year: number }) {
                 <FlowLine
                   label="Frais de véhicule"
                   amount={-simulation.mileage.allowance}
-                  hint={`Barème kilométrique · ${simulation.mileage.formula}`}
+                  hint={`Barème kilométrique · ${simulation.mileage.formula} · réglé à titre privé, donc sans sortie de trésorerie`}
+                />
+              )}
+              {simulation.flatAllowances > 0 && (
+                <FlowLine
+                  label="Forfaits déductibles"
+                  amount={-simulation.flatAllowances}
+                  hint="Déduits du bénéfice, sans décaissement professionnel"
+                />
+              )}
+              {simulation.priorYearSocialSettlement > 0 && (
+                <FlowLine
+                  label="Régularisation Urssaf antérieure"
+                  amount={-simulation.priorYearSocialSettlement}
+                  hint="Déductible de l’impôt, sans effet sur l’assiette des cotisations"
                 />
               )}
               {simulation.optionalContributions &&
@@ -886,6 +1032,55 @@ export default function CompensationTab({ year }: { year: number }) {
         </>
       )}
     </div>
+  )
+}
+
+/** Bulle d'aide au survol, pour expliquer une notion sans alourdir le formulaire. */
+function HelpTip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="group relative inline-flex align-middle">
+      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute left-1/2 top-full z-50 hidden w-72 -translate-x-1/2 translate-y-2 rounded-lg border border-border bg-popover px-3 py-2 text-xs font-normal leading-relaxed text-popover-foreground shadow-lg group-hover:block"
+      >
+        {children}
+      </span>
+    </span>
+  )
+}
+
+function ModeCard({
+  active,
+  title,
+  description,
+  onClick,
+}: {
+  active: boolean
+  title: string
+  description: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl border px-3.5 py-3 text-left transition-colors ${
+        active
+          ? 'border-primary bg-primary/5'
+          : 'border-border hover:border-primary/40 hover:bg-muted/40'
+      }`}
+    >
+      <span className="flex items-center gap-2 text-sm font-medium">
+        <span
+          className={`h-3.5 w-3.5 rounded-full border-2 ${
+            active ? 'border-primary bg-primary' : 'border-muted-foreground/40'
+          }`}
+        />
+        {title}
+      </span>
+      <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
+    </button>
   )
 }
 
