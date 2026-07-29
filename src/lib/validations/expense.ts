@@ -1,0 +1,46 @@
+import { z } from 'zod'
+import { EXPENSE_CATEGORIES } from '@/lib/finance/categories'
+
+const categoryKeys = EXPENSE_CATEGORIES.map((category) => category.key) as [
+  string,
+  ...string[],
+]
+
+export const expenseSchema = z.object({
+  expense_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date invalide'),
+  label: z
+    .string()
+    .trim()
+    .min(1, 'Le libellé est requis')
+    .max(200, 'Le libellé ne peut pas dépasser 200 caractères'),
+  category: z.enum(categoryKeys).default('autre'),
+  amount_ht: z
+    .number()
+    .min(0, 'Le montant ne peut pas être négatif')
+    .max(1000000, 'Montant trop élevé'),
+  vat_rate: z.number().min(0).max(1, 'Le taux de TVA doit être une fraction (0,2 pour 20 %)'),
+  deductible_share: z
+    .number()
+    .min(0, 'La quote-part ne peut pas être négative')
+    .max(100, 'La quote-part ne peut pas dépasser 100 %')
+    .default(100),
+  recurrence: z.enum(['once', 'monthly', 'quarterly', 'yearly']).default('once'),
+  payment_method: z.string().max(50).nullable().optional(),
+  notes: z.string().max(1000).nullable().optional(),
+})
+
+export type ExpenseInput = z.infer<typeof expenseSchema>
+
+export const financeSettingsSchema = z.object({
+  regime: z.enum(['micro_bnc', 'reel_bnc']).default('micro_bnc'),
+  retirement_fund: z.enum(['ssi', 'cipav']).default('ssi'),
+  versement_liberatoire: z.boolean().default(false),
+  acre: z.boolean().default(false),
+  marital_status: z.enum(['single', 'couple', 'single_parent']).default('single'),
+  dependents: z.number().int().min(0).max(20).default(0),
+  other_household_income: z.number().min(0).max(10000000).default(0),
+  safety_margin_rate: z.number().min(0).max(50).default(5),
+  target_monthly_draw: z.number().min(0).max(1000000).nullable().optional(),
+})
+
+export type FinanceSettingsInput = z.infer<typeof financeSettingsSchema>

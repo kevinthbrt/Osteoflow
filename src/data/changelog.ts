@@ -19,6 +19,20 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.16.0',
+    date: '2026-07-29',
+    title: 'Charges et rémunération : savoir enfin ce que vous pouvez vous verser',
+    changes: [
+      { type: 'feature', text: "La page Comptabilité s'organise désormais en trois onglets : « Recettes » (l'analyse de chiffre d'affaires existante, inchangée), « Charges » et « Ma rémunération »." },
+      { type: 'feature', text: "Nouvel onglet Charges : enregistrez vos dépenses professionnelles (loyer, rétrocession, RCP, matériel, comptable, véhicule, télécom, formation…) avec le montant HT, la TVA et la quote-part réellement professionnelle pour les postes à usage mixte. Chaque poste propose ses valeurs par défaut, et la répartition des principales dépenses est affichée." },
+      { type: 'feature', text: "Nouvel onglet Ma rémunération : à partir de vos recettes encaissées et de vos charges, l'application estime vos cotisations sociales, votre impôt sur le revenu et votre TVA, puis en déduit ce que vous pouvez vous verser — par mois et sur l'année — ainsi que le montant à provisionner chaque mois pour chaque poste." },
+      { type: 'feature', text: "Deux régimes fiscaux sont couverts : le micro-BNC (cotisations sur le chiffre d'affaires, abattement de 34 %, option pour le versement libératoire) et la déclaration contrôlée (cotisations sur le bénéfice réel, avec la nouvelle assiette 2026 et son abattement de 26 %). Le choix de la caisse — régime des indépendants ou Cipav selon votre date d'installation — et l'Acre sont pris en compte." },
+      { type: 'feature', text: "L'impôt est calculé sur le barème complet 2026 avec votre foyer fiscal : situation de famille, enfants à charge, plafonnement du quotient familial, décote et majoration du parent isolé. Les autres revenus du foyer sont pris en compte, car ce sont eux qui déterminent la tranche dans laquelle tombe votre activité." },
+      { type: 'improvement', text: "La TVA est traitée correctement pour les praticiens qui y sont soumis : la TVA collectée n'est plus comptée comme un revenu, la TVA déductible sur les charges est récupérée, et vous êtes alerté à l'approche puis au franchissement des seuils de franchise en base (37 500 € et 41 250 €). Les ostéopathes exonérés au titre de l'article 261-4-1° ne voient pas ces alertes." },
+      { type: 'improvement', text: "Le régime de TVA utilisé pour la simulation est celui déjà défini dans Paramètres pour vos factures : aucune double saisie, et aucun risque que vos factures et vos estimations se contredisent." },
+    ],
+  },
+  {
     version: '1.15.2',
     date: '2026-07-23',
     title: 'Correctif d\'affichage dans la messagerie',
