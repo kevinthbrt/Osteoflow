@@ -133,7 +133,7 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
     defaultDeductibleShare: 100,
     defaultVatRate: 0,
     isFlatAllowance: true,
-    hint: 'Évaluation forfaitaire du linge professionnel lavé à domicile : déduite du bénéfice, sans décaissement',
+    hint: 'Linge professionnel lavé à domicile, évalué forfaitairement (usage courant : environ 6 € par jour travaillé). Déduit du bénéfice, sans décaissement',
   },
   {
     key: 'autre',

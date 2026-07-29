@@ -13,6 +13,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Car, Loader2, Landmark, HelpCircle } from 'lucide-react'
+import { formatCurrency } from '@/lib/utils'
+import { computeMileageAllowance } from '@/lib/finance/mileage'
+import { getTaxConfig } from '@/lib/finance/tax-config'
+import type { VehicleKind } from '@/lib/finance/types'
 import type { UseFinanceSettings } from '@/hooks/use-finance-settings'
 
 /**
@@ -36,6 +40,18 @@ export default function ChargesSettings({
     const ok = await save()
     if (ok) onSaved?.()
   }
+
+  // Aperçu du barème en direct, pour se comparer immédiatement à la ligne
+  // « indemnités kilométriques » d'un prévisionnel comptable.
+  const mileagePreview =
+    form.vehicle_mode === 'mileage' && form.vehicle_annual_km > 0
+      ? computeMileageAllowance(getTaxConfig(new Date().getFullYear()), {
+          kind: (form.vehicle_kind as VehicleKind) ?? 'car',
+          horsepower: form.vehicle_horsepower,
+          annualKm: form.vehicle_annual_km,
+          electric: form.vehicle_electric,
+        })
+      : null
 
   return (
     <Card>
@@ -96,9 +112,11 @@ export default function ChargesSettings({
                 Forfaits sans décaissement
                 <HelpTip>
                   Déductions forfaitaires auxquelles ne correspond aucune dépense
-                  professionnelle réglée : le forfait blanchissage typiquement.
-                  Elles réduisent votre bénéfice, donc vos cotisations et votre
-                  impôt, sans que l&apos;argent quitte l&apos;activité.
+                  professionnelle réglée : le forfait blanchissage typiquement,
+                  souvent évalué à environ 6 € par jour travaillé pour le linge
+                  lavé à domicile. Elles réduisent votre bénéfice, donc vos
+                  cotisations et votre impôt, sans que l&apos;argent quitte
+                  l&apos;activité.
                 </HelpTip>
               </Label>
               <Input
@@ -188,6 +206,26 @@ export default function ChargesSettings({
                 />
                 Véhicule 100 % électrique (majoration de 20 %)
               </label>
+
+              {mileagePreview && (
+                <div className="rounded-xl border border-primary/40 bg-primary/5 px-3.5 py-3">
+                  <p className="text-xs text-muted-foreground">
+                    Déduction calculée au barème {new Date().getFullYear()}
+                  </p>
+                  <p className="mt-0.5 text-xl font-bold tabular-nums">
+                    {formatCurrency(mileagePreview.allowance)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {mileagePreview.formula} — soit{' '}
+                    {mileagePreview.effectivePerKm.toFixed(3)} € le kilomètre
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Comptez tous vos kilomètres professionnels de l&apos;année :
+                    trajets domicile-cabinet, visites, formations, déplacements
+                    administratifs.
+                  </p>
+                </div>
+              )}
 
               <p className="text-xs text-muted-foreground">
                 Le barème couvre déjà carburant, entretien, assurance et

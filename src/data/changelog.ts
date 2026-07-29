@@ -46,6 +46,7 @@ export const changelog: ChangelogEntry[] = [
       { type: 'improvement', text: "La vue mensuelle suit le circuit réel de l'argent : l'Urssaf, la TVA et la marge de sécurité restent provisionnées sur le compte professionnel, tandis que l'impôt — prélevé sur le compte personnel — part avec le virement. L'application affiche donc le virement pro → perso (brut), la part d'impôt à garder de côté une fois sur le perso, et le net qui reste vraiment dans votre poche, avec le détail mensuel Urssaf et impôt ligne par ligne." },
       { type: 'fix', text: "La projection annuelle de Ma rémunération est alignée sur celle de la page Objectifs : le rythme est désormais mesuré en jours travaillés écoulés (selon vos jours configurés), et non en mois calendaires — l'ancienne méthode comptait le mois en cours comme terminé dès le 1er, et les deux pages affichaient des projections différentes pour les mêmes recettes." },
       { type: 'improvement', text: "La vue annuelle affiche la même distinction brut / net que la vue mensuelle : le virement pro → perso moyen (impôt inclus) en chiffre principal, puis le net d'impôt qui reste vraiment dans votre poche et les recettes projetées." },
+      { type: 'improvement', text: "Le barème kilométrique affiche désormais son résultat en direct pendant la saisie : montant déductible, formule appliquée et coût réel au kilomètre. De quoi vérifier d'un coup d'œil que vos kilomètres sont bien comptés, et comparer à la ligne « indemnités kilométriques » d'un prévisionnel comptable." },
     ],
   },
   {
