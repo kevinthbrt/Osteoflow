@@ -6,12 +6,19 @@ import { BarChart3, Receipt, Wallet } from 'lucide-react'
 import RevenueTab from '@/components/accounting/revenue-tab'
 import ExpensesTab from '@/components/accounting/expenses-tab'
 import CompensationTab from '@/components/accounting/compensation-tab'
+import { useFinanceSettings } from '@/hooks/use-finance-settings'
 
 export default function AccountingPage() {
   const [tab, setTab] = useState('revenue')
   const [year] = useState(() => new Date().getFullYear())
+
+  // Les paramètres financiers sont détenus ici : les onglets Charges et
+  // Ma rémunération en éditent des champs différents, et l'enregistrement
+  // réécrit toute la ligne. Un état unique évite qu'ils s'écrasent.
+  const finance = useFinanceSettings()
+
   // Recalcule la simulation après une modification des charges.
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [expensesRevision, setExpensesRevision] = useState(0)
 
   return (
     <div className="space-y-6">
@@ -43,11 +50,15 @@ export default function AccountingPage() {
         </TabsContent>
 
         <TabsContent value="expenses" className="mt-6">
-          <ExpensesTab year={year} onChanged={() => setRefreshKey((key) => key + 1)} />
+          <ExpensesTab
+            year={year}
+            finance={finance}
+            onChanged={() => setExpensesRevision((value) => value + 1)}
+          />
         </TabsContent>
 
         <TabsContent value="compensation" className="mt-6">
-          <CompensationTab key={refreshKey} year={year} />
+          <CompensationTab key={expensesRevision} year={year} finance={finance} />
         </TabsContent>
       </Tabs>
     </div>

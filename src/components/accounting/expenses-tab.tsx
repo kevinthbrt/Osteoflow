@@ -58,6 +58,8 @@ import {
   EXPENSE_RECURRENCE_LABELS,
   getExpenseCategory,
 } from '@/lib/finance/categories'
+import ChargesSettings from '@/components/accounting/charges-settings'
+import type { UseFinanceSettings } from '@/hooks/use-finance-settings'
 
 interface ExpenseRow {
   id: string
@@ -100,9 +102,11 @@ function emptyForm(): FormState {
 
 export default function ExpensesTab({
   year,
+  finance,
   onChanged,
 }: {
   year: number
+  finance: UseFinanceSettings
   onChanged?: () => void
 }) {
   const [expenses, setExpenses] = useState<ExpenseRow[]>([])
@@ -113,6 +117,7 @@ export default function ExpensesTab({
   const [deleting, setDeleting] = useState<ExpenseRow | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
   const { toast } = useToast()
+  const isSimpleMode = finance.form.input_mode === 'simple'
 
   const fetchExpenses = useCallback(async () => {
     setIsLoading(true)
@@ -278,11 +283,27 @@ export default function ExpensesTab({
 
   return (
     <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">
+        Les charges de {year} déterminent votre bénéfice, donc vos cotisations et
+        votre impôt. Sans elles, l&apos;estimation de rémunération est fausse.
+      </p>
+
+      <ChargesSettings finance={finance} onSaved={onChanged} />
+
+      {isSimpleMode && (
+        <div className="flex items-start gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3">
+          <Info className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" />
+          <p className="text-sm text-muted-foreground">
+            Mode simplifié actif : le calcul utilise les montants annuels
+            ci-dessus. Les charges détaillées ci-dessous restent enregistrées mais
+            n&apos;entrent pas dans l&apos;estimation — passez en mode détaillé
+            pour qu&apos;elles soient prises en compte.
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          Les charges de {year} déterminent votre bénéfice, donc vos cotisations et
-          votre impôt. Sans elles, l&apos;estimation de rémunération est fausse.
-        </p>
+        <p className="text-sm font-medium">Charges détaillées</p>
         <Button onClick={openCreate} className="shrink-0">
           <Plus className="mr-2 h-4 w-4" />
           Ajouter une charge

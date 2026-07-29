@@ -31,13 +31,13 @@ import {
   Landmark,
   Receipt,
   Info,
-  Car,
   ShieldCheck,
   HelpCircle,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import type { SimulationResult } from '@/lib/finance/types'
+import type { UseFinanceSettings } from '@/hooks/use-finance-settings'
 
 interface SimulationResponse {
   simulation: SimulationResult
@@ -52,157 +52,62 @@ interface SimulationResponse {
   }
 }
 
-interface SettingsForm {
-  regime: string
-  retirement_fund: string
-  versement_liberatoire: boolean
-  acre: boolean
-  marital_status: string
-  dependents: number
-  other_household_income: number
-  safety_margin_rate: number
-  target_monthly_draw: number | null
-  vehicle_mode: string
-  vehicle_kind: string
-  vehicle_horsepower: number
-  vehicle_annual_km: number
-  vehicle_electric: boolean
-  optional_retirement: number
-  optional_prevoyance: number
-  input_mode: string
-  simple_annual_expenses: number
-  simple_annual_expenses_vat: number
-  simple_flat_allowances: number
-  prior_year_social_settlement: number
-}
-
-const DEFAULT_FORM: SettingsForm = {
-  regime: 'micro_bnc',
-  retirement_fund: 'ssi',
-  versement_liberatoire: false,
-  acre: false,
-  marital_status: 'single',
-  dependents: 0,
-  other_household_income: 0,
-  safety_margin_rate: 5,
-  target_monthly_draw: null,
-  vehicle_mode: 'none',
-  vehicle_kind: 'car',
-  vehicle_horsepower: 5,
-  vehicle_annual_km: 0,
-  vehicle_electric: false,
-  optional_retirement: 0,
-  optional_prevoyance: 0,
-  input_mode: 'real',
-  simple_annual_expenses: 0,
-  simple_annual_expenses_vat: 0,
-  simple_flat_allowances: 0,
-  prior_year_social_settlement: 0,
-}
-
 const VAT_REGIME_LABELS: Record<string, string> = {
   exempt_261: 'Exonéré (art. 261-4-1° du CGI)',
   franchise_293b: 'Franchise en base (art. 293 B)',
   vat_20: 'Assujetti à la TVA',
 }
 
-export default function CompensationTab({ year }: { year: number }) {
+export default function CompensationTab({
+  year,
+  finance,
+}: {
+  year: number
+  finance: UseFinanceSettings
+}) {
+  const { form, patch, vatRegime, country, isSaving, isConfigured, save, revision } =
+    finance
   const [data, setData] = useState<SimulationResponse | null>(null)
-  const [form, setForm] = useState<SettingsForm>(DEFAULT_FORM)
-  const [vatRegime, setVatRegime] = useState<string>('exempt_261')
-  const [country, setCountry] = useState<string>('FR')
   const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const { toast } = useToast()
 
-  const fetchAll = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const [settingsResponse, simulationResponse] = await Promise.all([
-        fetch('/api/finance/settings'),
-        fetch(`/api/finance/simulation?year=${year}`),
-      ])
-
-      if (settingsResponse.ok) {
-        const payload = await settingsResponse.json()
-        setVatRegime(payload.vatRegime ?? 'exempt_261')
-        setCountry(payload.country ?? 'FR')
-        if (payload.settings) {
-          setForm({
-            regime: payload.settings.regime ?? 'micro_bnc',
-            retirement_fund: payload.settings.retirement_fund ?? 'ssi',
-            versement_liberatoire: Boolean(payload.settings.versement_liberatoire),
-            acre: Boolean(payload.settings.acre),
-            marital_status: payload.settings.marital_status ?? 'single',
-            dependents: payload.settings.dependents ?? 0,
-            other_household_income: payload.settings.other_household_income ?? 0,
-            safety_margin_rate: payload.settings.safety_margin_rate ?? 5,
-            target_monthly_draw: payload.settings.target_monthly_draw ?? null,
-            vehicle_mode: payload.settings.vehicle_mode ?? 'none',
-            vehicle_kind: payload.settings.vehicle_kind ?? 'car',
-            vehicle_horsepower: payload.settings.vehicle_horsepower ?? 5,
-            vehicle_annual_km: payload.settings.vehicle_annual_km ?? 0,
-            vehicle_electric: Boolean(payload.settings.vehicle_electric),
-            optional_retirement: payload.settings.optional_retirement ?? 0,
-            optional_prevoyance: payload.settings.optional_prevoyance ?? 0,
-            input_mode: payload.settings.input_mode ?? 'real',
-            simple_annual_expenses: payload.settings.simple_annual_expenses ?? 0,
-            simple_annual_expenses_vat: payload.settings.simple_annual_expenses_vat ?? 0,
-            simple_flat_allowances: payload.settings.simple_flat_allowances ?? 0,
-            prior_year_social_settlement:
-              payload.settings.prior_year_social_settlement ?? 0,
-          })
-        } else {
-          // Aucun paramètre enregistré : on ouvre directement la configuration.
-          setShowSettings(true)
-        }
-      }
-
-      if (simulationResponse.ok) {
-        setData(await simulationResponse.json())
-      } else {
-        setData(null)
-      }
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: 'Impossible de charger la simulation',
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }, [year, toast])
-
   useEffect(() => {
-    fetchAll()
-  }, [fetchAll])
+    let cancelled = false
+
+    async function loadSimulation() {
+      setIsLoading(true)
+      try {
+        const response = await fetch(`/api/finance/simulation?year=${year}`)
+        if (cancelled) return
+        setData(response.ok ? await response.json() : null)
+      } catch {
+        if (!cancelled) {
+          toast({
+            variant: 'destructive',
+            title: 'Erreur',
+            description: 'Impossible de charger la simulation',
+          })
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    loadSimulation()
+    return () => {
+      cancelled = true
+    }
+    // `revision` change à chaque enregistrement : la simulation se rejoue alors.
+  }, [year, revision, toast])
+
+  // Première visite : on ouvre directement la configuration.
+  useEffect(() => {
+    if (!isConfigured) setShowSettings(true)
+  }, [isConfigured])
 
   const handleSave = async () => {
-    setIsSaving(true)
-    try {
-      const response = await fetch('/api/finance/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}))
-        throw new Error(body.error || 'Enregistrement impossible')
-      }
-
-      toast({ variant: 'success', title: 'Paramètres enregistrés' })
-      await fetchAll()
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: error instanceof Error ? error.message : 'Enregistrement impossible',
-      })
-    } finally {
-      setIsSaving(false)
-    }
+    await save()
   }
 
   if (country !== 'FR') {
@@ -260,89 +165,12 @@ export default function CompensationTab({ year }: { year: number }) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
-            {/* Mode de saisie */}
-            <div className="space-y-3 rounded-xl border border-border px-4 py-4">
-              <p className="text-sm font-medium">Comment saisir vos charges</p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <ModeCard
-                  active={form.input_mode === 'simple'}
-                  title="Simplifié"
-                  description="Vous entrez vos grandes masses annuelles, comme sur un prévisionnel comptable. Rapide, suffisant pour provisionner."
-                  onClick={() => setForm({ ...form, input_mode: 'simple' })}
-                />
-                <ModeCard
-                  active={form.input_mode === 'real'}
-                  title="Détaillé"
-                  description="Le calcul s’appuie sur les charges saisies dans l’onglet Charges, ligne par ligne. Plus précis, et exploitable par votre comptable."
-                  onClick={() => setForm({ ...form, input_mode: 'real' })}
-                />
-              </div>
-
-              {form.input_mode === 'simple' && (
-                <div className="grid gap-3 sm:grid-cols-3 pt-1">
-                  <div className="space-y-2">
-                    <Label>Charges annuelles</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      step="100"
-                      value={form.simple_annual_expenses}
-                      onChange={(event) =>
-                        setForm({
-                          ...form,
-                          simple_annual_expenses: Number(event.target.value) || 0,
-                        })
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Hors Urssaf et hors forfaits
-                    </p>
-                  </div>
-                  {vatRegime === 'vat_20' && (
-                    <div className="space-y-2">
-                      <Label>Dont TVA supportée</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="100"
-                        value={form.simple_annual_expenses_vat}
-                        onChange={(event) =>
-                          setForm({
-                            ...form,
-                            simple_annual_expenses_vat: Number(event.target.value) || 0,
-                          })
-                        }
-                      />
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <Label>Forfaits sans décaissement</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      step="50"
-                      value={form.simple_flat_allowances}
-                      onChange={(event) =>
-                        setForm({
-                          ...form,
-                          simple_flat_allowances: Number(event.target.value) || 0,
-                        })
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Blanchissage notamment
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Régime fiscal</Label>
                 <Select
                   value={form.regime}
-                  onValueChange={(value) => setForm({ ...form, regime: value })}
+                  onValueChange={(value) => patch({ regime: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -363,7 +191,7 @@ export default function CompensationTab({ year }: { year: number }) {
                 <Label>Caisse de retraite</Label>
                 <Select
                   value={form.retirement_fund}
-                  onValueChange={(value) => setForm({ ...form, retirement_fund: value })}
+                  onValueChange={(value) => patch({ retirement_fund: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -382,7 +210,7 @@ export default function CompensationTab({ year }: { year: number }) {
                 <Label>Situation de famille</Label>
                 <Select
                   value={form.marital_status}
-                  onValueChange={(value) => setForm({ ...form, marital_status: value })}
+                  onValueChange={(value) => patch({ marital_status: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -402,7 +230,7 @@ export default function CompensationTab({ year }: { year: number }) {
                   min={0}
                   value={form.dependents}
                   onChange={(event) =>
-                    setForm({ ...form, dependents: Number(event.target.value) || 0 })
+                    patch({ dependents: Number(event.target.value) || 0 })
                   }
                 />
               </div>
@@ -415,10 +243,7 @@ export default function CompensationTab({ year }: { year: number }) {
                   step="100"
                   value={form.other_household_income}
                   onChange={(event) =>
-                    setForm({
-                      ...form,
-                      other_household_income: Number(event.target.value) || 0,
-                    })
+                    patch({ other_household_income: Number(event.target.value) || 0, })
                   }
                 />
                 <p className="text-xs text-muted-foreground">
@@ -447,38 +272,11 @@ export default function CompensationTab({ year }: { year: number }) {
                   max={50}
                   value={form.safety_margin_rate}
                   onChange={(event) =>
-                    setForm({
-                      ...form,
-                      safety_margin_rate: Number(event.target.value) || 0,
-                    })
+                    patch({ safety_margin_rate: Number(event.target.value) || 0, })
                   }
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5">
-                  Régularisation Urssaf payée cette année
-                  <HelpTip>
-                    Reliquat d&apos;une année antérieure réglé sur cet exercice.
-                    Il se déduit de votre impôt, mais pas de l&apos;assiette qui
-                    sert à calculer vos cotisations — celle-ci se calcule
-                    justement hors cotisations sociales. À ne pas saisir dans
-                    l&apos;onglet Charges comme une dépense ordinaire.
-                  </HelpTip>
-                </Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step="100"
-                  value={form.prior_year_social_settlement}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      prior_year_social_settlement: Number(event.target.value) || 0,
-                    })
-                  }
-                />
-              </div>
             </div>
 
             <div className="flex flex-wrap gap-6">
@@ -487,7 +285,7 @@ export default function CompensationTab({ year }: { year: number }) {
                   <Checkbox
                     checked={form.versement_liberatoire}
                     onCheckedChange={(checked) =>
-                      setForm({ ...form, versement_liberatoire: checked === true })
+                      patch({ versement_liberatoire: checked === true })
                     }
                   />
                   Versement libératoire de l&apos;impôt
@@ -497,102 +295,11 @@ export default function CompensationTab({ year }: { year: number }) {
                 <Checkbox
                   checked={form.acre}
                   onCheckedChange={(checked) =>
-                    setForm({ ...form, acre: checked === true })
+                    patch({ acre: checked === true })
                   }
                 />
                 Bénéficiaire de l&apos;Acre
               </label>
-            </div>
-
-            {/* Véhicule */}
-            <div className="space-y-3 rounded-xl border border-border px-4 py-4">
-              <div className="flex items-center gap-2">
-                <Car className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm font-medium">Frais de véhicule</p>
-              </div>
-
-              <Select
-                value={form.vehicle_mode}
-                onValueChange={(value) => setForm({ ...form, vehicle_mode: value })}
-              >
-                <SelectTrigger className="sm:w-72">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Aucun frais de véhicule</SelectItem>
-                  <SelectItem value="mileage">Barème kilométrique</SelectItem>
-                  <SelectItem value="actual">Frais réels (saisis en charges)</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {form.vehicle_mode === 'mileage' && (
-                <>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="space-y-2">
-                      <Label>Type</Label>
-                      <Select
-                        value={form.vehicle_kind}
-                        onValueChange={(value) => setForm({ ...form, vehicle_kind: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="car">Voiture</SelectItem>
-                          <SelectItem value="motorcycle">Moto</SelectItem>
-                          <SelectItem value="moped">Cyclomoteur</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Puissance (CV)</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={form.vehicle_horsepower}
-                        onChange={(event) =>
-                          setForm({
-                            ...form,
-                            vehicle_horsepower: Number(event.target.value) || 1,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Km professionnels</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="100"
-                        value={form.vehicle_annual_km}
-                        onChange={(event) =>
-                          setForm({
-                            ...form,
-                            vehicle_annual_km: Number(event.target.value) || 0,
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <label className="flex items-center gap-2.5 text-sm cursor-pointer">
-                    <Checkbox
-                      checked={form.vehicle_electric}
-                      onCheckedChange={(checked) =>
-                        setForm({ ...form, vehicle_electric: checked === true })
-                      }
-                    />
-                    Véhicule 100 % électrique (majoration de 20 %)
-                  </label>
-
-                  <p className="text-xs text-muted-foreground">
-                    Le barème couvre déjà carburant, entretien, assurance et
-                    dépréciation : ne les saisissez pas aussi en charges. Péages,
-                    stationnement et intérêts d&apos;emprunt restent déductibles à part.
-                    La puissance figure au champ P.6 de la carte grise.
-                  </p>
-                </>
-              )}
             </div>
 
             {/* Cotisations facultatives */}
@@ -611,10 +318,7 @@ export default function CompensationTab({ year }: { year: number }) {
                     step="100"
                     value={form.optional_retirement}
                     onChange={(event) =>
-                      setForm({
-                        ...form,
-                        optional_retirement: Number(event.target.value) || 0,
-                      })
+                      patch({ optional_retirement: Number(event.target.value) || 0, })
                     }
                   />
                 </div>
@@ -627,10 +331,7 @@ export default function CompensationTab({ year }: { year: number }) {
                       step="100"
                       value={form.optional_prevoyance}
                       onChange={(event) =>
-                        setForm({
-                          ...form,
-                          optional_prevoyance: Number(event.target.value) || 0,
-                        })
+                        patch({ optional_prevoyance: Number(event.target.value) || 0, })
                       }
                     />
                   </div>
@@ -1047,40 +748,6 @@ function HelpTip({ children }: { children: React.ReactNode }) {
         {children}
       </span>
     </span>
-  )
-}
-
-function ModeCard({
-  active,
-  title,
-  description,
-  onClick,
-}: {
-  active: boolean
-  title: string
-  description: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-xl border px-3.5 py-3 text-left transition-colors ${
-        active
-          ? 'border-primary bg-primary/5'
-          : 'border-border hover:border-primary/40 hover:bg-muted/40'
-      }`}
-    >
-      <span className="flex items-center gap-2 text-sm font-medium">
-        <span
-          className={`h-3.5 w-3.5 rounded-full border-2 ${
-            active ? 'border-primary bg-primary' : 'border-muted-foreground/40'
-          }`}
-        />
-        {title}
-      </span>
-      <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
-    </button>
   )
 }
 

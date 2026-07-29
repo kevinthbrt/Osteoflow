@@ -38,7 +38,8 @@ export const changelog: ChangelogEntry[] = [
       { type: 'feature', text: "Nouveau champ « Régularisation Urssaf payée cette année », pour les reliquats d'une année antérieure. Il se déduit de votre impôt mais pas de l'assiette de vos cotisations, celle-ci étant définie hors cotisations sociales." },
       { type: 'fix', text: "Correction importante : saisir des cotisations Urssaf comme une charge ordinaire minorait à tort l'assiette sociale, et donc les cotisations calculées — l'application annonçait une rémunération disponible supérieure à la réalité. Un poste « Cotisations sociales Urssaf » dédié traite désormais ces montants correctement." },
       { type: 'fix', text: "Le barème kilométrique n'est plus compté comme une sortie de trésorerie : l'essence étant réglée à titre privé, il allège l'impôt et les cotisations sans diminuer la trésorerie de l'activité. Même logique pour le nouveau poste « Forfait blanchissage »." },
-      { type: 'improvement', text: "Infobulles d'explication sur la marge de sécurité et sur la régularisation Urssaf, pour savoir quoi y mettre sans être comptable." },
+      { type: 'improvement', text: "Infobulles d'explication sur la marge de sécurité, les forfaits sans décaissement et la régularisation Urssaf, pour savoir quoi y mettre sans être comptable." },
+      { type: 'improvement', text: "Tout ce qui concerne les charges est regroupé dans l'onglet Charges : le choix du mode de saisie, les frais de véhicule et la régularisation Urssaf y ont été déplacés depuis l'onglet Ma rémunération, qui ne conserve que votre situation fiscale et les résultats. En mode simplifié, un bandeau rappelle que les charges détaillées ne sont pas utilisées dans le calcul." },
     ],
   },
   {
