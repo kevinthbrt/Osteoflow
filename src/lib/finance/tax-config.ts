@@ -204,6 +204,11 @@ export const TAX_CONFIG_2026: TaxYearConfig = {
   verifiedOn: '2026-07-29',
   sources: [
     'https://www.urssaf.fr/accueil/outils-documentation/taux-baremes/taux-cotisations-ac-plnr.html',
+    // Tableau « Actuel / Nouveau » des barèmes : c'est lui qui confirme que les
+    // taux retenus ici sont bien ceux d'après la réforme de l'assiette sociale.
+    'https://www.urssaf.fr/accueil/independant/comprendre-payer-cotisations/reforme-cotisations-independants.html',
+    // Décret révisant le barème des cotisations en lien avec cette réforme.
+    'https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000049888566',
     'https://www.service-public.gouv.fr/particuliers/actualites/A18045',
     'https://entreprendre.service-public.fr/vosdroits/F23267',
     'https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000053143451',
