@@ -4,6 +4,8 @@ import { computeIncomeTax, computeParts } from '@/lib/finance/income-tax'
 import { computeSocialCharges } from '@/lib/finance/social'
 import { computeVat } from '@/lib/finance/vat'
 import { simulate } from '@/lib/finance/simulator'
+import { computeMileageAllowance } from '@/lib/finance/mileage'
+import { computeOptionalContributions } from '@/lib/finance/optional-contributions'
 import { DEFAULT_FINANCE_SETTINGS } from '@/lib/finance/types'
 import type { ExpenseTotals, FinanceSettings } from '@/lib/finance/types'
 
@@ -423,5 +425,301 @@ describe('simulation complète', () => {
     })
 
     expect(result.usesFallbackScales).toBe(true)
+  })
+})
+
+describe('barème kilométrique', () => {
+  it('reproduit l’exemple officiel : 4 000 km en 5 CV = 2 544 €', () => {
+    const result = computeMileageAllowance(config, {
+      kind: 'car',
+      horsepower: 5,
+      annualKm: 4000,
+      electric: false,
+    })
+
+    expect(result.allowance).toBeCloseTo(2544, 2)
+  })
+
+  it('applique la formule à forfait de la tranche intermédiaire', () => {
+    // 14 000 km en 5 CV : (14 000 × 0,357) + 1 395 = 6 393 €.
+    const result = computeMileageAllowance(config, {
+      kind: 'car',
+      horsepower: 5,
+      annualKm: 14000,
+      electric: false,
+    })
+
+    expect(result.allowance).toBeCloseTo(6393, 2)
+  })
+
+  it('bascule sur la tranche haute au-delà de 20 000 km', () => {
+    const result = computeMileageAllowance(config, {
+      kind: 'car',
+      horsepower: 5,
+      annualKm: 25000,
+      electric: false,
+    })
+
+    expect(result.allowance).toBeCloseTo(25000 * 0.427, 2)
+  })
+
+  it('retient le barème le plus élevé au-delà de 7 CV', () => {
+    const sevenCv = computeMileageAllowance(config, {
+      kind: 'car',
+      horsepower: 7,
+      annualKm: 4000,
+      electric: false,
+    })
+    const tenCv = computeMileageAllowance(config, {
+      kind: 'car',
+      horsepower: 10,
+      annualKm: 4000,
+      electric: false,
+    })
+
+    expect(sevenCv.allowance).toBeCloseTo(4000 * 0.697, 2)
+    expect(tenCv.allowance).toBeCloseTo(sevenCv.allowance, 2)
+  })
+
+  it('majore de 20 % les véhicules électriques', () => {
+    const thermal = computeMileageAllowance(config, {
+      kind: 'car',
+      horsepower: 5,
+      annualKm: 4000,
+      electric: false,
+    })
+    const electric = computeMileageAllowance(config, {
+      kind: 'car',
+      horsepower: 5,
+      annualKm: 4000,
+      electric: true,
+    })
+
+    expect(electric.allowance).toBeCloseTo(thermal.allowance * 1.2, 2)
+  })
+
+  it('gère les deux-roues avec leurs propres tranches', () => {
+    const moto = computeMileageAllowance(config, {
+      kind: 'motorcycle',
+      horsepower: 4,
+      annualKm: 2000,
+      electric: false,
+    })
+    const moped = computeMileageAllowance(config, {
+      kind: 'moped',
+      horsepower: 1,
+      annualKm: 2000,
+      electric: false,
+    })
+
+    expect(moto.allowance).toBeCloseTo(2000 * 0.468, 2)
+    expect(moped.allowance).toBeCloseTo(2000 * 0.315, 2)
+  })
+
+  it('ne déduit rien sans kilomètres', () => {
+    const result = computeMileageAllowance(config, {
+      kind: 'car',
+      horsepower: 5,
+      annualKm: 0,
+      electric: false,
+    })
+
+    expect(result.allowance).toBe(0)
+  })
+})
+
+describe('cotisations facultatives Madelin et PER', () => {
+  it('plafonne la retraite à 10 % du bénéfice majorés de 15 % au-delà du Pass', () => {
+    const profit = 80000
+    const result = computeOptionalContributions(config, {
+      regime: 'reel_bnc',
+      taxableProfit: profit,
+      retirement: 100000,
+      prevoyance: 0,
+    })
+
+    const expected = profit * 0.1 + (profit - config.pass) * 0.15
+    const line = result.lines.find((l) => l.key === 'retirement')
+
+    expect(line?.ceiling).toBeCloseTo(expected, 2)
+    expect(line?.deducted).toBeCloseTo(expected, 2)
+    expect(line?.excess).toBeCloseTo(100000 - expected, 2)
+  })
+
+  it('garantit un plancher de déduction de 10 % du Pass', () => {
+    const result = computeOptionalContributions(config, {
+      regime: 'reel_bnc',
+      taxableProfit: 5000,
+      retirement: 6000,
+      prevoyance: 0,
+    })
+
+    const line = result.lines.find((l) => l.key === 'retirement')
+    expect(line?.ceiling).toBeCloseTo(config.pass * 0.1, 2)
+  })
+
+  it('plafonne le bénéfice retenu à 8 Pass', () => {
+    const huge = computeOptionalContributions(config, {
+      regime: 'reel_bnc',
+      taxableProfit: 900000,
+      retirement: 200000,
+      prevoyance: 0,
+    })
+
+    const cap = 8 * config.pass
+    const expected = cap * 0.1 + (cap - config.pass) * 0.15
+    const line = huge.lines.find((l) => l.key === 'retirement')
+
+    expect(line?.ceiling).toBeCloseTo(expected, 2)
+  })
+
+  it('plafonne la prévoyance à 3 % de 8 Pass', () => {
+    const result = computeOptionalContributions(config, {
+      regime: 'reel_bnc',
+      taxableProfit: 500000,
+      retirement: 0,
+      prevoyance: 50000,
+    })
+
+    const line = result.lines.find((l) => l.key === 'prevoyance')
+    expect(line?.ceiling).toBeCloseTo(config.pass * 0.24, 2)
+  })
+
+  it('n’ouvre pas de volet prévoyance en micro-BNC', () => {
+    const result = computeOptionalContributions(config, {
+      regime: 'micro_bnc',
+      taxableProfit: 40000,
+      retirement: 3000,
+      prevoyance: 2000,
+    })
+
+    expect(result.lines.map((l) => l.key)).toEqual(['retirement'])
+  })
+})
+
+describe('intégration véhicule et cotisations facultatives', () => {
+  it('déduit le barème kilométrique du bénéfice au régime réel', () => {
+    const withVehicle = simulate({
+      year: 2026,
+      settings: settings({
+        regime: 'reel_bnc',
+        vehicle: { mode: 'mileage', kind: 'car', horsepower: 5, annualKm: 4000, electric: false },
+      }),
+      revenue: 80000,
+      expenses: noExpenses,
+      monthsElapsed: 12,
+    })
+
+    const without = simulate({
+      year: 2026,
+      settings: settings({ regime: 'reel_bnc' }),
+      revenue: 80000,
+      expenses: noExpenses,
+      monthsElapsed: 12,
+    })
+
+    expect(withVehicle.mileage?.allowance).toBeCloseTo(2544, 2)
+    expect(withVehicle.grossProfit).toBeCloseTo(without.grossProfit - 2544, 2)
+    expect(withVehicle.social.total).toBeLessThan(without.social.total)
+  })
+
+  it('alerte sur le cumul barème et charges de véhicule', () => {
+    const result = simulate({
+      year: 2026,
+      settings: settings({
+        regime: 'reel_bnc',
+        vehicle: { mode: 'mileage', kind: 'car', horsepower: 5, annualKm: 8000, electric: false },
+      }),
+      revenue: 80000,
+      expenses: {
+        deductibleHt: 1200,
+        deductibleVat: 240,
+        paidTtc: 1440,
+        byCategory: { vehicule: 1440 },
+      },
+      monthsElapsed: 12,
+    })
+
+    expect(result.warnings.map((w) => w.key)).toContain('mileage_double_count')
+  })
+
+  it('ignore le barème en micro-BNC, où l’abattement couvre déjà les frais', () => {
+    const result = simulate({
+      year: 2026,
+      settings: settings({
+        regime: 'micro_bnc',
+        vehicle: { mode: 'mileage', kind: 'car', horsepower: 5, annualKm: 9000, electric: false },
+      }),
+      revenue: 60000,
+      expenses: noExpenses,
+      monthsElapsed: 12,
+    })
+
+    expect(result.mileage).toBeNull()
+    expect(result.warnings.map((w) => w.key)).toContain('mileage_micro')
+  })
+
+  it('réduit l’impôt sans toucher aux cotisations sociales', () => {
+    const withPer = simulate({
+      year: 2026,
+      settings: settings({ regime: 'reel_bnc', optionalRetirement: 5000 }),
+      revenue: 90000,
+      expenses: noExpenses,
+      monthsElapsed: 12,
+    })
+
+    const without = simulate({
+      year: 2026,
+      settings: settings({ regime: 'reel_bnc' }),
+      revenue: 90000,
+      expenses: noExpenses,
+      monthsElapsed: 12,
+    })
+
+    // Les cotisations facultatives sont réintégrées au revenu brut social :
+    // l'Urssaf ne bouge pas, seul l'impôt baisse.
+    expect(withPer.social.total).toBeCloseTo(without.social.total, 2)
+    expect(withPer.incomeTax.attributableToActivity).toBeLessThan(
+      without.incomeTax.attributableToActivity,
+    )
+    expect(withPer.optionalContributions?.taxSaving).toBeGreaterThan(0)
+  })
+
+  it('sort les versements de la trésorerie disponible', () => {
+    const withPer = simulate({
+      year: 2026,
+      settings: settings({ regime: 'reel_bnc', optionalRetirement: 5000 }),
+      revenue: 90000,
+      expenses: noExpenses,
+      monthsElapsed: 12,
+    })
+
+    const without = simulate({
+      year: 2026,
+      settings: settings({ regime: 'reel_bnc' }),
+      revenue: 90000,
+      expenses: noExpenses,
+      monthsElapsed: 12,
+    })
+
+    const taxSaving = withPer.optionalContributions?.taxSaving ?? 0
+    // Le versement sort en trésorerie, mais l'économie d'impôt en atténue le coût.
+    expect(withPer.availableIncome).toBeCloseTo(
+      without.availableIncome - 5000 + taxSaving,
+      2,
+    )
+  })
+
+  it('signale le dépassement du plafond de déduction', () => {
+    const result = simulate({
+      year: 2026,
+      settings: settings({ regime: 'reel_bnc', optionalRetirement: 60000 }),
+      revenue: 70000,
+      expenses: noExpenses,
+      monthsElapsed: 12,
+    })
+
+    expect(result.warnings.map((w) => w.key)).toContain('optional_excess')
+    expect(result.optionalContributions?.totalExcess).toBeGreaterThan(0)
   })
 })

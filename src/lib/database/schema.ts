@@ -967,6 +967,22 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
       updated_at TEXT DEFAULT (datetime('now'))
     );
   `)
+
+  // Frais de véhicule et cotisations facultatives (Madelin, PER).
+  const financeCols = db.pragma('table_info(finance_settings)') as Array<{ name: string }>
+  const addFinanceColumn = (name: string, definition: string) => {
+    if (!financeCols.some((c) => c.name === name)) {
+      db.exec(`ALTER TABLE finance_settings ADD COLUMN ${name} ${definition};`)
+    }
+  }
+
+  addFinanceColumn('vehicle_mode', "TEXT NOT NULL DEFAULT 'none'")
+  addFinanceColumn('vehicle_kind', "TEXT NOT NULL DEFAULT 'car'")
+  addFinanceColumn('vehicle_horsepower', 'INTEGER NOT NULL DEFAULT 5')
+  addFinanceColumn('vehicle_annual_km', 'REAL NOT NULL DEFAULT 0')
+  addFinanceColumn('vehicle_electric', 'INTEGER NOT NULL DEFAULT 0')
+  addFinanceColumn('optional_retirement', 'REAL NOT NULL DEFAULT 0')
+  addFinanceColumn('optional_prevoyance', 'REAL NOT NULL DEFAULT 0')
 }
 
 /**
@@ -979,7 +995,7 @@ export const BOOLEAN_FIELDS: Record<string, string[]> = {
   email_settings: ['smtp_secure', 'imap_secure', 'sync_enabled', 'is_verified'],
   medical_history_entries: ['is_vigilance'],
   survey_responses: ['would_recommend'],
-  finance_settings: ['versement_liberatoire', 'acre'],
+  finance_settings: ['versement_liberatoire', 'acre', 'vehicle_electric'],
 }
 
 /**

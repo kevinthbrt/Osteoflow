@@ -66,8 +66,10 @@ export async function PUT(request: Request) {
         `INSERT INTO finance_settings (
            practitioner_id, regime, retirement_fund, versement_liberatoire, acre,
            marital_status, dependents, other_household_income, safety_margin_rate,
-           target_monthly_draw, updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+           target_monthly_draw, vehicle_mode, vehicle_kind, vehicle_horsepower,
+           vehicle_annual_km, vehicle_electric, optional_retirement,
+           optional_prevoyance, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
          ON CONFLICT(practitioner_id) DO UPDATE SET
            regime = excluded.regime,
            retirement_fund = excluded.retirement_fund,
@@ -78,6 +80,13 @@ export async function PUT(request: Request) {
            other_household_income = excluded.other_household_income,
            safety_margin_rate = excluded.safety_margin_rate,
            target_monthly_draw = excluded.target_monthly_draw,
+           vehicle_mode = excluded.vehicle_mode,
+           vehicle_kind = excluded.vehicle_kind,
+           vehicle_horsepower = excluded.vehicle_horsepower,
+           vehicle_annual_km = excluded.vehicle_annual_km,
+           vehicle_electric = excluded.vehicle_electric,
+           optional_retirement = excluded.optional_retirement,
+           optional_prevoyance = excluded.optional_prevoyance,
            updated_at = datetime('now')`,
       )
       .run(
@@ -91,6 +100,13 @@ export async function PUT(request: Request) {
         settings.other_household_income,
         settings.safety_margin_rate,
         settings.target_monthly_draw ?? null,
+        settings.vehicle_mode,
+        settings.vehicle_kind,
+        settings.vehicle_horsepower,
+        settings.vehicle_annual_km,
+        settings.vehicle_electric ? 1 : 0,
+        settings.optional_retirement,
+        settings.optional_prevoyance,
       )
 
     return NextResponse.json({ success: true })

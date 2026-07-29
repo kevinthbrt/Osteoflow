@@ -1,3 +1,7 @@
+import type { VehicleKind } from './tax-config'
+
+export type { VehicleKind }
+
 /** Régime fiscal du praticien. */
 export type FiscalRegime = 'micro_bnc' | 'reel_bnc'
 
@@ -42,6 +46,36 @@ export interface FinanceSettings {
   safetyMarginRate: number
   /** Rémunération nette mensuelle visée, pour le suivi d'objectif. */
   targetMonthlyDraw: number | null
+  vehicle: VehicleSettings
+  /** Versements annuels retraite Madelin ou PER. */
+  optionalRetirement: number
+  /** Cotisations annuelles de prévoyance et santé Madelin. */
+  optionalPrevoyance: number
+}
+
+/**
+ * Traitement des frais de véhicule.
+ *
+ * Le choix est exclusif et vaut pour l'année entière et tous les véhicules :
+ * soit le barème kilométrique, soit les frais réels, jamais les deux.
+ */
+export type VehicleMode = 'none' | 'mileage' | 'actual'
+
+export interface VehicleSettings {
+  mode: VehicleMode
+  kind: VehicleKind
+  /** Puissance fiscale, champ P.6 de la carte grise. */
+  horsepower: number
+  annualKm: number
+  electric: boolean
+}
+
+export const DEFAULT_VEHICLE_SETTINGS: VehicleSettings = {
+  mode: 'none',
+  kind: 'car',
+  horsepower: 5,
+  annualKm: 0,
+  electric: false,
 }
 
 export const DEFAULT_FINANCE_SETTINGS: FinanceSettings = {
@@ -56,6 +90,9 @@ export const DEFAULT_FINANCE_SETTINGS: FinanceSettings = {
   otherHouseholdIncome: 0,
   safetyMarginRate: 0.05,
   targetMonthlyDraw: null,
+  vehicle: DEFAULT_VEHICLE_SETTINGS,
+  optionalRetirement: 0,
+  optionalPrevoyance: 0,
 }
 
 /** Une ligne de charge professionnelle. */
@@ -139,6 +176,35 @@ export interface IncomeTaxResult {
   marginalRate: number
 }
 
+export interface MileageSummary {
+  allowance: number
+  effectivePerKm: number
+  formula: string
+  annualKm: number
+}
+
+export interface OptionalContributionsSummary {
+  lines: Array<{
+    key: string
+    label: string
+    paid: number
+    ceiling: number
+    deducted: number
+    excess: number
+  }>
+  totalPaid: number
+  totalDeducted: number
+  totalExcess: number
+  /** Économie d'impôt réellement procurée par ces versements. */
+  taxSaving: number
+}
+
+export interface SimulationWarning {
+  key: string
+  severity: 'info' | 'warning'
+  message: string
+}
+
 export interface SimulationInput {
   year: number
   settings: FinanceSettings
@@ -171,8 +237,14 @@ export interface SimulationResult {
   revenueHt: number
   /** Charges déductibles retenues (HT si assujetti, TTC sinon). */
   deductibleExpenses: number
+  /** Frais de véhicule au barème kilométrique, le cas échéant. */
+  mileage: MileageSummary | null
   /** Bénéfice avant cotisations sociales. */
   grossProfit: number
+  /** Cotisations facultatives Madelin et PER. */
+  optionalContributions: OptionalContributionsSummary | null
+  /** Anomalies détectées dans la saisie, à corriger avant de se fier au calcul. */
+  warnings: SimulationWarning[]
 
   social: SocialResult
   incomeTax: IncomeTaxResult

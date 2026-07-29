@@ -41,6 +41,13 @@ export const financeSettingsSchema = z.object({
   other_household_income: z.number().min(0).max(10000000).default(0),
   safety_margin_rate: z.number().min(0).max(50).default(5),
   target_monthly_draw: z.number().min(0).max(1000000).nullable().optional(),
+  vehicle_mode: z.enum(['none', 'mileage', 'actual']).default('none'),
+  vehicle_kind: z.enum(['car', 'motorcycle', 'moped']).default('car'),
+  vehicle_horsepower: z.number().int().min(1).max(50).default(5),
+  vehicle_annual_km: z.number().min(0).max(200000).default(0),
+  vehicle_electric: z.boolean().default(false),
+  optional_retirement: z.number().min(0).max(200000).default(0),
+  optional_prevoyance: z.number().min(0).max(200000).default(0),
 })
 
 export type FinanceSettingsInput = z.infer<typeof financeSettingsSchema>

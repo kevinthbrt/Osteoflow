@@ -30,6 +30,13 @@ export interface FinanceSettingsRow {
   other_household_income?: number | null
   safety_margin_rate?: number | null
   target_monthly_draw?: number | null
+  vehicle_mode?: string | null
+  vehicle_kind?: string | null
+  vehicle_horsepower?: number | null
+  vehicle_annual_km?: number | null
+  vehicle_electric?: number | boolean | null
+  optional_retirement?: number | null
+  optional_prevoyance?: number | null
 }
 
 function toBoolean(value: number | boolean | null | undefined): boolean {
@@ -63,5 +70,20 @@ export function toFinanceSettings(
     // Le taux est stocké en pourcentage, le moteur raisonne en fraction.
     safetyMarginRate: Math.min(1, Math.max(0, (row.safety_margin_rate ?? 5) / 100)),
     targetMonthlyDraw: row.target_monthly_draw ?? null,
+    vehicle: {
+      mode:
+        row.vehicle_mode === 'mileage' || row.vehicle_mode === 'actual'
+          ? row.vehicle_mode
+          : 'none',
+      kind:
+        row.vehicle_kind === 'motorcycle' || row.vehicle_kind === 'moped'
+          ? row.vehicle_kind
+          : 'car',
+      horsepower: Math.max(1, Math.round(row.vehicle_horsepower ?? 5)),
+      annualKm: Math.max(0, row.vehicle_annual_km ?? 0),
+      electric: toBoolean(row.vehicle_electric),
+    },
+    optionalRetirement: Math.max(0, row.optional_retirement ?? 0),
+    optionalPrevoyance: Math.max(0, row.optional_prevoyance ?? 0),
   }
 }

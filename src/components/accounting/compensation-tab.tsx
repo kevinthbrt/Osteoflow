@@ -31,6 +31,8 @@ import {
   Landmark,
   Receipt,
   Info,
+  Car,
+  ShieldCheck,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
@@ -59,6 +61,13 @@ interface SettingsForm {
   other_household_income: number
   safety_margin_rate: number
   target_monthly_draw: number | null
+  vehicle_mode: string
+  vehicle_kind: string
+  vehicle_horsepower: number
+  vehicle_annual_km: number
+  vehicle_electric: boolean
+  optional_retirement: number
+  optional_prevoyance: number
 }
 
 const DEFAULT_FORM: SettingsForm = {
@@ -71,6 +80,13 @@ const DEFAULT_FORM: SettingsForm = {
   other_household_income: 0,
   safety_margin_rate: 5,
   target_monthly_draw: null,
+  vehicle_mode: 'none',
+  vehicle_kind: 'car',
+  vehicle_horsepower: 5,
+  vehicle_annual_km: 0,
+  vehicle_electric: false,
+  optional_retirement: 0,
+  optional_prevoyance: 0,
 }
 
 const VAT_REGIME_LABELS: Record<string, string> = {
@@ -112,6 +128,13 @@ export default function CompensationTab({ year }: { year: number }) {
             other_household_income: payload.settings.other_household_income ?? 0,
             safety_margin_rate: payload.settings.safety_margin_rate ?? 5,
             target_monthly_draw: payload.settings.target_monthly_draw ?? null,
+            vehicle_mode: payload.settings.vehicle_mode ?? 'none',
+            vehicle_kind: payload.settings.vehicle_kind ?? 'car',
+            vehicle_horsepower: payload.settings.vehicle_horsepower ?? 5,
+            vehicle_annual_km: payload.settings.vehicle_annual_km ?? 0,
+            vehicle_electric: Boolean(payload.settings.vehicle_electric),
+            optional_retirement: payload.settings.optional_retirement ?? 0,
+            optional_prevoyance: payload.settings.optional_prevoyance ?? 0,
           })
         } else {
           // Aucun paramètre enregistré : on ouvre directement la configuration.
@@ -349,6 +372,145 @@ export default function CompensationTab({ year }: { year: number }) {
               </label>
             </div>
 
+            {/* Véhicule */}
+            <div className="space-y-3 rounded-xl border border-border px-4 py-4">
+              <div className="flex items-center gap-2">
+                <Car className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm font-medium">Frais de véhicule</p>
+              </div>
+
+              <Select
+                value={form.vehicle_mode}
+                onValueChange={(value) => setForm({ ...form, vehicle_mode: value })}
+              >
+                <SelectTrigger className="sm:w-72">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucun frais de véhicule</SelectItem>
+                  <SelectItem value="mileage">Barème kilométrique</SelectItem>
+                  <SelectItem value="actual">Frais réels (saisis en charges)</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {form.vehicle_mode === 'mileage' && (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label>Type</Label>
+                      <Select
+                        value={form.vehicle_kind}
+                        onValueChange={(value) => setForm({ ...form, vehicle_kind: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="car">Voiture</SelectItem>
+                          <SelectItem value="motorcycle">Moto</SelectItem>
+                          <SelectItem value="moped">Cyclomoteur</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Puissance (CV)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={form.vehicle_horsepower}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            vehicle_horsepower: Number(event.target.value) || 1,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Km professionnels</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="100"
+                        value={form.vehicle_annual_km}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            vehicle_annual_km: Number(event.target.value) || 0,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2.5 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={form.vehicle_electric}
+                      onCheckedChange={(checked) =>
+                        setForm({ ...form, vehicle_electric: checked === true })
+                      }
+                    />
+                    Véhicule 100 % électrique (majoration de 20 %)
+                  </label>
+
+                  <p className="text-xs text-muted-foreground">
+                    Le barème couvre déjà carburant, entretien, assurance et
+                    dépréciation : ne les saisissez pas aussi en charges. Péages,
+                    stationnement et intérêts d&apos;emprunt restent déductibles à part.
+                    La puissance figure au champ P.6 de la carte grise.
+                  </p>
+                </>
+              )}
+            </div>
+
+            {/* Cotisations facultatives */}
+            <div className="space-y-3 rounded-xl border border-border px-4 py-4">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm font-medium">Cotisations facultatives</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Retraite Madelin ou PER (annuel)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="100"
+                    value={form.optional_retirement}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        optional_retirement: Number(event.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+                {form.regime === 'reel_bnc' && (
+                  <div className="space-y-2">
+                    <Label>Prévoyance et santé Madelin (annuel)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="100"
+                      value={form.optional_prevoyance}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          optional_prevoyance: Number(event.target.value) || 0,
+                        })
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Ces versements réduisent votre impôt, mais pas vos cotisations
+                Urssaf : elles restent calculées sur un revenu qui les réintègre.
+              </p>
+            </div>
+
             <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
               <p className="text-sm">
                 <span className="text-muted-foreground">Régime de TVA : </span>
@@ -379,6 +541,24 @@ export default function CompensationTab({ year }: { year: number }) {
         </Card>
       ) : (
         <>
+          {simulation.warnings.map((warning) => (
+            <div
+              key={warning.key}
+              className={`flex items-start gap-3 rounded-2xl border px-4 py-3 ${
+                warning.severity === 'warning'
+                  ? 'border-amber-500/40 bg-amber-500/10'
+                  : 'border-border bg-muted/30'
+              }`}
+            >
+              {warning.severity === 'warning' ? (
+                <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
+              ) : (
+                <Info className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" />
+              )}
+              <p className="text-sm text-muted-foreground">{warning.message}</p>
+            </div>
+          ))}
+
           {simulation.vat.franchiseWarning !== 'none' && (
             <div className="flex items-start gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3">
               <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
@@ -494,6 +674,21 @@ export default function CompensationTab({ year }: { year: number }) {
                     : `${context.expenseCount} charge${context.expenseCount > 1 ? 's' : ''} saisie${context.expenseCount > 1 ? 's' : ''}`
                 }
               />
+              {simulation.mileage && (
+                <FlowLine
+                  label="Frais de véhicule"
+                  amount={-simulation.mileage.allowance}
+                  hint={`Barème kilométrique · ${simulation.mileage.formula}`}
+                />
+              )}
+              {simulation.optionalContributions &&
+                simulation.optionalContributions.totalPaid > 0 && (
+                  <FlowLine
+                    label="Retraite et prévoyance facultatives"
+                    amount={-simulation.optionalContributions.totalPaid}
+                    hint="Réduit l’impôt, pas les cotisations Urssaf"
+                  />
+                )}
               <FlowLine
                 label="Cotisations sociales"
                 amount={-simulation.social.total}
@@ -615,6 +810,59 @@ export default function CompensationTab({ year }: { year: number }) {
               </CardContent>
             </Card>
           </div>
+
+          {simulation.optionalContributions &&
+            simulation.optionalContributions.totalPaid > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4" />
+                    Cotisations facultatives
+                  </CardTitle>
+                  <CardDescription>
+                    Versements Madelin et PER : leur plafond dépend de votre bénéfice.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  {simulation.optionalContributions.lines.map((line) => (
+                    <div key={line.key} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span>{line.label}</span>
+                        <span className="tabular-nums font-medium">
+                          {formatCurrency(line.deducted)} déduits
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>
+                          Versé {formatCurrency(line.paid)} · plafond{' '}
+                          {formatCurrency(line.ceiling)}
+                        </span>
+                        {line.excess > 0 && (
+                          <span className="text-amber-600">
+                            {formatCurrency(line.excess)} non déductibles
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="flex items-center justify-between pt-3 mt-1 border-t border-border">
+                    <span className="font-medium">Économie d&apos;impôt</span>
+                    <span className="tabular-nums font-bold text-emerald-600">
+                      {formatCurrency(simulation.optionalContributions.taxSaving)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Coût net de l&apos;effort d&apos;épargne :{' '}
+                    {formatCurrency(
+                      simulation.optionalContributions.totalPaid -
+                        simulation.optionalContributions.taxSaving,
+                    )}
+                    . Vos cotisations Urssaf sont inchangées.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
           {form.target_monthly_draw !== null && form.target_monthly_draw > 0 && (
             <TargetCard

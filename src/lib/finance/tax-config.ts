@@ -130,6 +130,66 @@ export interface TaxYearConfig {
     /** Seuil majoré (tolérance) au-delà duquel la TVA s'applique immédiatement. */
     franchiseToleranceThreshold: number
   }
+
+  mileage: MileageScales
+
+  /**
+   * Plafonds de déduction des cotisations facultatives (Madelin, PER).
+   *
+   * Ces cotisations réduisent le bénéfice imposable, mais PAS l'assiette
+   * sociale : le revenu brut social se calcule hors cotisations sociales
+   * obligatoires et CSG déductible seulement, les cotisations facultatives
+   * restant réintégrées.
+   */
+  optionalContributions: {
+    retirement: {
+      /** Part du bénéfice, dans la limite de 8 Pass. */
+      baseRate: number
+      /** Part supplémentaire sur la fraction du bénéfice entre 1 et 8 Pass. */
+      surplusRate: number
+      /** Plafond du bénéfice pris en compte, en Pass. */
+      incomeCapPass: number
+      /** Plancher de déduction, en Pass. */
+      floorPass: number
+    }
+    prevoyance: {
+      /** Part du bénéfice. */
+      baseRate: number
+      /** Part forfaitaire du Pass. */
+      passRate: number
+      /** Plafond global, exprimé en Pass. */
+      capPass: number
+    }
+  }
+}
+
+/** Type de véhicule couvert par le barème kilométrique. */
+export type VehicleKind = 'car' | 'motorcycle' | 'moped'
+
+/**
+ * Tranche du barème kilométrique : coût par kilomètre, éventuellement
+ * augmenté d'un forfait, appliqué selon la distance annuelle parcourue.
+ */
+export interface MileageBand {
+  /** Borne haute de distance annuelle, en km. `null` = illimité. */
+  upToKm: number | null
+  perKm: number
+  /** Forfait ajouté au produit, propre à la tranche intermédiaire. */
+  flat: number
+}
+
+export interface MileageScale {
+  /** Puissance fiscale maximale couverte par ce barème. `null` = au-delà. */
+  upToHp: number | null
+  bands: MileageBand[]
+}
+
+export interface MileageScales {
+  car: MileageScale[]
+  motorcycle: MileageScale[]
+  moped: MileageScale[]
+  /** Majoration appliquée aux véhicules 100 % électriques. */
+  electricBonus: number
 }
 
 /**
@@ -248,6 +308,104 @@ export const TAX_CONFIG_2026: TaxYearConfig = {
     standardRate: 0.2,
     franchiseThreshold: 37500,
     franchiseToleranceThreshold: 41250,
+  },
+
+  // Barème kilométrique 2026 (revenus 2025). Non revalorisé depuis la hausse
+  // de 5,4 % de 2023 : les montants 2024, 2025 et 2026 sont identiques.
+  mileage: {
+    car: [
+      {
+        upToHp: 3,
+        bands: [
+          { upToKm: 5000, perKm: 0.529, flat: 0 },
+          { upToKm: 20000, perKm: 0.316, flat: 1065 },
+          { upToKm: null, perKm: 0.37, flat: 0 },
+        ],
+      },
+      {
+        upToHp: 4,
+        bands: [
+          { upToKm: 5000, perKm: 0.606, flat: 0 },
+          { upToKm: 20000, perKm: 0.34, flat: 1330 },
+          { upToKm: null, perKm: 0.407, flat: 0 },
+        ],
+      },
+      {
+        upToHp: 5,
+        bands: [
+          { upToKm: 5000, perKm: 0.636, flat: 0 },
+          { upToKm: 20000, perKm: 0.357, flat: 1395 },
+          { upToKm: null, perKm: 0.427, flat: 0 },
+        ],
+      },
+      {
+        upToHp: 6,
+        bands: [
+          { upToKm: 5000, perKm: 0.665, flat: 0 },
+          { upToKm: 20000, perKm: 0.374, flat: 1457 },
+          { upToKm: null, perKm: 0.447, flat: 0 },
+        ],
+      },
+      {
+        upToHp: null,
+        bands: [
+          { upToKm: 5000, perKm: 0.697, flat: 0 },
+          { upToKm: 20000, perKm: 0.394, flat: 1515 },
+          { upToKm: null, perKm: 0.47, flat: 0 },
+        ],
+      },
+    ],
+    motorcycle: [
+      {
+        upToHp: 2,
+        bands: [
+          { upToKm: 3000, perKm: 0.395, flat: 0 },
+          { upToKm: 6000, perKm: 0.099, flat: 891 },
+          { upToKm: null, perKm: 0.248, flat: 0 },
+        ],
+      },
+      {
+        upToHp: 5,
+        bands: [
+          { upToKm: 3000, perKm: 0.468, flat: 0 },
+          { upToKm: 6000, perKm: 0.082, flat: 1158 },
+          { upToKm: null, perKm: 0.275, flat: 0 },
+        ],
+      },
+      {
+        upToHp: null,
+        bands: [
+          { upToKm: 3000, perKm: 0.606, flat: 0 },
+          { upToKm: 6000, perKm: 0.079, flat: 1583 },
+          { upToKm: null, perKm: 0.343, flat: 0 },
+        ],
+      },
+    ],
+    moped: [
+      {
+        upToHp: null,
+        bands: [
+          { upToKm: 3000, perKm: 0.315, flat: 0 },
+          { upToKm: 6000, perKm: 0.079, flat: 711 },
+          { upToKm: null, perKm: 0.198, flat: 0 },
+        ],
+      },
+    ],
+    electricBonus: 0.2,
+  },
+
+  optionalContributions: {
+    retirement: {
+      baseRate: 0.1,
+      surplusRate: 0.15,
+      incomeCapPass: 8,
+      floorPass: 0.1,
+    },
+    prevoyance: {
+      baseRate: 0.0375,
+      passRate: 0.07,
+      capPass: 0.24, // 3 % de 8 Pass
+    },
   },
 }
 
