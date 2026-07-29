@@ -602,7 +602,7 @@ export default function CompensationTab({
                   <div className="flex items-center gap-1.5 text-white/80 text-xs font-medium">
                     <Wallet className="h-3.5 w-3.5" />
                     {context.monthsElapsed < 12
-                      ? `Projection ${year}, au rythme des ${context.monthsElapsed} premiers mois`
+                      ? `Projection ${year}, au rythme de vos jours travaillés`
                       : `Année ${year}`}
                   </div>
                   <p className="mt-1 text-4xl font-bold tracking-tight tabular-nums leading-none">
@@ -672,7 +672,7 @@ export default function CompensationTab({
               </CardTitle>
               <CardDescription>
                 {context.monthsElapsed < 12
-                  ? `Année ${year} projetée au rythme des ${context.monthsElapsed} premiers mois.`
+                  ? `Année ${year} projetée au rythme constaté sur vos jours travaillés — le même calcul que la page Objectifs.`
                   : `Année ${year}.`}
               </CardDescription>
             </CardHeader>
@@ -683,7 +683,7 @@ export default function CompensationTab({
                 tone="positive"
                 hint={
                   context.monthsElapsed < 12
-                    ? `${formatCurrency(context.revenueToDate)} constatés sur ${context.monthsElapsed} mois, projetés sur 12`
+                    ? `${formatCurrency(context.revenueToDate)} encaissés à ce jour, projetés sur l'année`
                     : undefined
                 }
               />

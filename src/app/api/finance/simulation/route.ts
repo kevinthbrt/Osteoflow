@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
     const { data: practitioner } = await db
       .from('practitioners')
-      .select('id, vat_regime, country')
+      .select('id, vat_regime, country, working_weekdays, working_days_per_week')
       .eq('user_id', user.id)
       .single()
 
@@ -156,8 +156,38 @@ export async function GET(request: Request) {
     // ressortait dérisoire (le barème progressif appliqué à un revenu partiel)
     // et la provision mensuelle était fausse. C'est aussi ainsi que procède un
     // prévisionnel comptable.
+    //
+    // Le rythme est mesuré en JOURS TRAVAILLÉS écoulés — même helper que la
+    // page Objectifs et le widget Progression — et non en mois calendaires :
+    // diviser par des mois entiers comptait le mois en cours comme fini dès le
+    // 1er, et les deux pages affichaient des projections différentes pour les
+    // mêmes recettes.
     const monthsElapsed = year === now.getFullYear() ? now.getMonth() + 1 : 12
-    const annualisationFactor = 12 / monthsElapsed
+
+    let annualisationFactor = 1
+    if (year === now.getFullYear()) {
+      const { resolveWorkingWeekdays, workingDayRatio } = await import(
+        '@/lib/utils/working-days'
+      )
+      const rawWeekdays = practitioner.working_weekdays
+      const weekdays = resolveWorkingWeekdays(
+        Array.isArray(rawWeekdays)
+          ? rawWeekdays
+          : typeof rawWeekdays === 'string'
+            ? (JSON.parse(rawWeekdays || 'null') as number[] | null)
+            : null,
+        practitioner.working_days_per_week ?? 4,
+      )
+      const elapsedRatio = workingDayRatio(
+        new Date(year, 0, 1),
+        new Date(year + 1, 0, 1),
+        new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+        weekdays,
+      )
+      // Plancher à ~2 semaines : en tout début d'année, le ratio tendrait vers
+      // zéro et ferait exploser la projection.
+      annualisationFactor = 1 / Math.max(elapsedRatio, 14 / 365)
+    }
 
     const annualisedRevenue = revenue * annualisationFactor
 
