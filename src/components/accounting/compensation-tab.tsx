@@ -192,6 +192,14 @@ export default function CompensationTab({
   const grossTransfer =
     monthRevenue - monthlyCashCharges - monthSocial - monthVat - monthSafety
   const monthDraw = grossTransfer - monthIr
+
+  // Même distinction en vue annuelle : le virement pro → perso moyen contient
+  // la provision d'impôt ; le net est ce qui reste une fois celle-ci mise de
+  // côté sur le compte personnel.
+  const annualGrossTransfer = simulation
+    ? simulation.recommendedAnnualDraw + simulation.incomeTax.attributableToActivity
+    : 0
+  const monthlyGrossTransfer = annualGrossTransfer / 12
   const isCurrentMonth =
     context !== undefined &&
     year === new Date().getFullYear() &&
@@ -604,21 +612,44 @@ export default function CompensationTab({
                     {context.monthsElapsed < 12
                       ? `Projection ${year}, au rythme de vos jours travaillés`
                       : `Année ${year}`}
+                    {' · virement pro → perso'}
                   </div>
                   <p className="mt-1 text-4xl font-bold tracking-tight tabular-nums leading-none">
-                    {formatCurrency(simulation.recommendedMonthlyDraw)}
+                    {formatCurrency(monthlyGrossTransfer)}
                     <span className="text-lg font-medium text-white/70"> / mois</span>
                   </p>
                   <p className="mt-1.5 text-xs text-white/75">
-                    Soit {formatCurrency(simulation.recommendedAnnualDraw)} sur l&apos;année,
-                    marge de sécurité déduite
+                    Dont {formatCurrency(simulation.monthlyProvisions.incomeTax)} à garder
+                    pour l&apos;impôt, prélevé sur le compte perso.
                   </p>
-                  {context.monthsElapsed < 12 && (
-                    <p className="mt-3 text-xs text-white/75">
-                      Encaissé à ce jour : {formatCurrency(context.revenueToDate)} →
-                      projeté {formatCurrency(context.annualisedRevenue)} sur 12 mois.
-                    </p>
-                  )}
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-3.5 py-3">
+                      <p className="text-[11px] text-white/75 font-medium">
+                        Net d&apos;impôt, dans votre poche
+                      </p>
+                      <p className="mt-1 text-lg font-bold tabular-nums">
+                        {formatCurrency(simulation.recommendedMonthlyDraw)}
+                        <span className="text-xs font-medium text-white/70"> / mois</span>
+                      </p>
+                      <p className="text-[11px] text-white/60">
+                        {formatCurrency(simulation.recommendedAnnualDraw)} sur l&apos;année
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-3.5 py-3">
+                      <p className="text-[11px] text-white/75 font-medium">
+                        Recettes {context.monthsElapsed < 12 ? 'projetées' : 'encaissées'}
+                      </p>
+                      <p className="mt-1 text-lg font-bold tabular-nums">
+                        {formatCurrency(context.annualisedRevenue)}
+                      </p>
+                      {context.monthsElapsed < 12 && (
+                        <p className="text-[11px] text-white/60">
+                          {formatCurrency(context.revenueToDate)} encaissés à ce jour
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-4 py-3.5">
