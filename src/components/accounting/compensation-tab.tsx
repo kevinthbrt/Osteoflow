@@ -174,8 +174,24 @@ export default function CompensationTab({
   // Vue mensuelle : sur les encaissements du mois, on provisionne au taux
   // annuel et on retient la part mensuelle des charges décaissées.
   const monthRevenue = context?.monthRevenue ?? 0
-  const monthProvision = simulation ? monthRevenue * simulation.provisionRate : 0
-  const monthDraw = monthRevenue - monthProvision - monthlyCashCharges
+  const revenueShare =
+    context && context.annualisedRevenue > 0
+      ? monthRevenue / context.annualisedRevenue
+      : 0
+  const monthSocial = simulation ? simulation.social.total * revenueShare : 0
+  const monthIr = simulation
+    ? simulation.incomeTax.attributableToActivity * revenueShare
+    : 0
+  const monthVat = simulation ? simulation.vat.due * revenueShare : 0
+  const monthSafety = simulation ? simulation.safetyMargin * revenueShare : 0
+
+  // Circuit réel de l'argent : l'Urssaf, la TVA et la marge restent sur le
+  // compte professionnel ; l'impôt, lui, est prélevé sur le compte personnel.
+  // Le virement pro → perso contient donc la provision d'impôt, à garder de
+  // côté une fois arrivée sur le perso.
+  const grossTransfer =
+    monthRevenue - monthlyCashCharges - monthSocial - monthVat - monthSafety
+  const monthDraw = grossTransfer - monthIr
   const isCurrentMonth =
     context !== undefined &&
     year === new Date().getFullYear() &&
@@ -496,61 +512,82 @@ export default function CompensationTab({
           </div>
 
           {view === 'month' ? (
-            /* Vue mensuelle : combien se verser sur le mois choisi */
+            /* Vue mensuelle : le circuit réel de l'argent. L'Urssaf, la TVA et
+               la marge restent sur le compte pro ; l'impôt étant prélevé sur le
+               compte perso, le virement pro → perso contient sa provision. */
             <div className="relative overflow-hidden rounded-2xl gradient-primary text-white p-6 shadow-lg">
               <div className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full bg-white/15 blur-3xl" />
               <div className="relative grid gap-6 lg:grid-cols-[1.1fr_1fr]">
                 <div>
                   <div className="flex items-center gap-1.5 text-white/80 text-xs font-medium">
                     <Wallet className="h-3.5 w-3.5" />
-                    À vous verser en {MONTH_NAMES[context.month - 1]} {year}
+                    Virement vers votre compte perso · {MONTH_NAMES[context.month - 1]} {year}
                   </div>
                   <p className="mt-1 text-4xl font-bold tracking-tight tabular-nums leading-none">
-                    {formatCurrency(Math.max(0, monthDraw))}
+                    {formatCurrency(Math.max(0, grossTransfer))}
                   </p>
                   <p className="mt-1.5 text-xs text-white/75">
                     {isCurrentMonth
                       ? 'Mois en cours : le montant grandit avec vos encaissements.'
-                      : monthDraw < 0
+                      : grossTransfer < 0
                         ? 'Mois creux : les encaissements ne couvrent pas la part mensuelle des charges.'
-                        : 'Encaissements du mois, moins provisions et part mensuelle des charges.'}
+                        : `Dont ${formatCurrency(monthIr)} à garder de côté pour l’impôt, prélevé sur le compte perso.`}
                   </p>
 
-                  <div className="mt-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-3.5 py-3">
-                    <p className="text-[11px] text-white/75 font-medium">
-                      Rythme annuel : rémunération moyenne possible
-                    </p>
-                    <p className="mt-1 text-lg font-bold tabular-nums">
-                      {formatCurrency(simulation.recommendedMonthlyDraw)} / mois
-                    </p>
-                    <p className="text-[11px] text-white/60">
-                      pour {formatCurrency(context.annualisedRevenue)} de recettes
-                      projetées sur {year}
-                    </p>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-3.5 py-3">
+                      <p className="text-[11px] text-white/75 font-medium">
+                        Net d&apos;impôt, dans votre poche
+                      </p>
+                      <p className="mt-1 text-lg font-bold tabular-nums">
+                        {formatCurrency(Math.max(0, monthDraw))}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-3.5 py-3">
+                      <p className="text-[11px] text-white/75 font-medium">
+                        Rythme annuel, net d&apos;impôt
+                      </p>
+                      <p className="mt-1 text-lg font-bold tabular-nums">
+                        {formatCurrency(simulation.recommendedMonthlyDraw)}
+                        <span className="text-xs font-medium text-white/70"> / mois</span>
+                      </p>
+                    </div>
                   </div>
                 </div>
 
                 <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-4 py-3.5">
                   <div className="text-white/80 text-xs font-medium mb-3">
-                    Le mois de {MONTH_NAMES[context.month - 1]}
+                    Le mois de {MONTH_NAMES[context.month - 1]}, pas à pas
                   </div>
                   <div className="space-y-2 text-sm">
                     <ProvisionLine label="Encaissé" amount={monthRevenue} />
                     <ProvisionLine
-                      label={`Provisions (${(simulation.provisionRate * 100).toFixed(0)} % des recettes)`}
-                      amount={-monthProvision}
-                    />
-                    <ProvisionLine
                       label="Charges (moyenne mensuelle)"
                       amount={-monthlyCashCharges}
                     />
+                    <ProvisionLine label="Urssaf à provisionner" amount={-monthSocial} />
+                    {monthVat > 0 && (
+                      <ProvisionLine label="TVA à provisionner" amount={-monthVat} />
+                    )}
+                    {monthSafety > 0 && (
+                      <ProvisionLine label="Marge de sécurité" amount={-monthSafety} />
+                    )}
                     <div className="pt-2 mt-2 border-t border-white/20 flex items-center justify-between font-semibold">
-                      <span>Reste à vous verser</span>
+                      <span>Virement pro → perso</span>
+                      <span className="tabular-nums">{formatCurrency(grossTransfer)}</span>
+                    </div>
+                    <ProvisionLine
+                      label="Impôt (prélevé sur le perso)"
+                      amount={-monthIr}
+                    />
+                    <div className="pt-2 mt-2 border-t border-white/20 flex items-center justify-between font-semibold">
+                      <span>Net dans votre poche</span>
                       <span className="tabular-nums">{formatCurrency(monthDraw)}</span>
                     </div>
                     <p className="text-[11px] text-white/60 pt-1">
-                      Les provisions couvrent Urssaf, impôt{simulation.vat.due > 0 ? ', TVA' : ''} et
-                      marge de sécurité, aux taux calculés sur l&apos;année entière.
+                      Urssaf, TVA et marge restent sur le compte pro ; l&apos;impôt
+                      part avec le virement, à garder de côté sur le perso. Taux
+                      calculés sur l&apos;année entière.
                     </p>
                   </div>
                 </div>
