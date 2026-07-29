@@ -150,18 +150,73 @@ export async function GET(request: Request) {
       settings.priorYearSocialSettlement += socialContributionsRecorded
     }
 
-    // Sur l'année en cours, on ne compte que les mois écoulés pour ne pas
-    // diluer les provisions mensuelles sur des mois qui n'ont pas eu lieu.
-    const monthsElapsed =
-      year === now.getFullYear() ? now.getMonth() + 1 : 12
+    // La simulation se fait toujours sur une année ENTIÈRE, puis se décline en
+    // mensuel. Simuler la seule période écoulée mélangeait des recettes de
+    // quelques mois avec des charges et des barèmes annuels : l'impôt en
+    // ressortait dérisoire (le barème progressif appliqué à un revenu partiel)
+    // et la provision mensuelle était fausse. C'est aussi ainsi que procède un
+    // prévisionnel comptable.
+    const monthsElapsed = year === now.getFullYear() ? now.getMonth() + 1 : 12
+    const annualisationFactor = 12 / monthsElapsed
+
+    const annualisedRevenue = revenue * annualisationFactor
+
+    // Mode simplifié : les montants saisis sont déjà annuels. Mode détaillé :
+    // les charges constatées sur la période sont projetées au même rythme que
+    // les recettes.
+    const expenseFactor = settings.inputMode === 'simple' ? 1 : annualisationFactor
+    const annualisedExpenses: ExpenseTotals = {
+      deductibleHt: expenses.deductibleHt * expenseFactor,
+      deductibleVat: expenses.deductibleVat * expenseFactor,
+      paidTtc: expenses.paidTtc * expenseFactor,
+      flatAllowances: expenses.flatAllowances * expenseFactor,
+      byCategory: Object.fromEntries(
+        Object.entries(expenses.byCategory).map(([key, value]) => [
+          key,
+          value * expenseFactor,
+        ]),
+      ),
+    }
 
     const simulation = simulate({
       year,
       settings,
-      revenue,
-      expenses,
-      monthsElapsed,
+      revenue: annualisedRevenue,
+      expenses: annualisedExpenses,
+      monthsElapsed: 12,
     })
+
+    // Vue mensuelle : encaissements du mois demandé (mois courant par défaut).
+    const requestedMonth = Number(searchParams.get('month'))
+    const selectedMonth =
+      requestedMonth >= 1 && requestedMonth <= 12
+        ? requestedMonth
+        : year === now.getFullYear()
+          ? now.getMonth() + 1
+          : 12
+
+    const monthStr = String(selectedMonth).padStart(2, '0')
+    const lastDayOfMonth = new Date(year, selectedMonth, 0).getDate()
+    const monthRevenueRow = rawDb
+      .prepare(
+        `SELECT COALESCE(SUM(p.amount), 0) AS total
+         FROM payments p
+         JOIN invoices i ON p.invoice_id = i.id
+         WHERE i.cabinet_id IN (${ph})
+           AND p.payment_date >= ? AND p.payment_date <= ?`,
+      )
+      .get(
+        ...cabinetIds,
+        `${year}-${monthStr}-01`,
+        `${year}-${monthStr}-${String(lastDayOfMonth).padStart(2, '0')}`,
+      ) as { total: number }
+    const monthManualRow = rawDb
+      .prepare(
+        `SELECT COALESCE(SUM(amount), 0) AS total
+         FROM manual_revenue_entries
+         WHERE practitioner_id IN (${ph}) AND year = ? AND month = ?`,
+      )
+      .get(...cabinetIds, year, selectedMonth) as { total: number }
 
     const config = getTaxConfig(year)
 
@@ -171,9 +226,13 @@ export async function GET(request: Request) {
       context: {
         year,
         monthsElapsed,
-        revenue,
+        revenueToDate: revenue,
+        annualisedRevenue,
+        month: selectedMonth,
+        monthRevenue: monthRevenueRow.total + monthManualRow.total,
         manualRevenue: manualRow.total,
         expenseCount: expenseRows.length,
+        inputMode: settings.inputMode,
         pass: config.pass,
         scalesVerifiedOn: config.verifiedOn,
         sources: config.sources,

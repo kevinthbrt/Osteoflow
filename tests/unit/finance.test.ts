@@ -920,3 +920,49 @@ describe('mode simplifié', () => {
     expect(result.projection?.revenue).toBeCloseTo(80000, 2)
   })
 })
+
+describe('identité de trésorerie de la cascade', () => {
+  it('recettes − sorties réelles = disponible, poste par poste', () => {
+    const revenue = 90986
+    const r = simulate({
+      year: 2026,
+      settings: settings({
+        regime: 'reel_bnc',
+        safetyMarginRate: 0.05,
+        optionalPrevoyance: 520,
+        priorYearSocialSettlement: 6758,
+        vehicle: { mode: 'mileage', kind: 'car', horsepower: 11, annualKm: 1620, electric: false },
+      }),
+      revenue,
+      expenses: {
+        deductibleHt: 15747,
+        deductibleVat: 0,
+        paidTtc: 15747,
+        flatAllowances: 1290,
+        byCategory: {},
+      },
+      monthsElapsed: 12,
+    })
+
+    // Reconstitution des charges décaissées par identité, comme le fait l'UI.
+    const cashCharges =
+      revenue - r.vat.due - r.social.total - r.incomeTax.attributableToActivity - r.availableIncome
+    const paidOnly =
+      cashCharges - r.priorYearSocialSettlement - (r.optionalContributions?.totalPaid ?? 0)
+
+    // Les déductions sans décaissement n'apparaissent pas dans la trésorerie.
+    expect(paidOnly).toBeCloseTo(15747, 1)
+
+    // La cascade affichée somme exactement au disponible.
+    const waterfall =
+      revenue - r.vat.due - paidOnly - r.priorYearSocialSettlement -
+      (r.optionalContributions?.totalPaid ?? 0) - r.social.total -
+      r.incomeTax.attributableToActivity
+    expect(waterfall).toBeCloseTo(r.availableIncome, 1)
+
+    // Douze mois moyens redonnent le versement annuel recommandé.
+    const monthRevenue = revenue / 12
+    const monthDraw = monthRevenue - monthRevenue * r.provisionRate - cashCharges / 12
+    expect(monthDraw * 12).toBeCloseTo(r.recommendedAnnualDraw, 0)
+  })
+})

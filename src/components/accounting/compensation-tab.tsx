@@ -44,13 +44,22 @@ interface SimulationResponse {
   context: {
     year: number
     monthsElapsed: number
-    revenue: number
+    revenueToDate: number
+    annualisedRevenue: number
+    month: number
+    monthRevenue: number
     expenseCount: number
+    inputMode: string
     pass: number
     scalesVerifiedOn: string
     sources: string[]
   }
 }
+
+const MONTH_NAMES = [
+  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+]
 
 const VAT_REGIME_LABELS: Record<string, string> = {
   exempt_261: 'Exonéré (art. 261-4-1° du CGI)',
@@ -70,6 +79,10 @@ export default function CompensationTab({
   const [data, setData] = useState<SimulationResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
+  const [view, setView] = useState<'month' | 'year'>('month')
+  const [selectedMonth, setSelectedMonth] = useState(() =>
+    year === new Date().getFullYear() ? new Date().getMonth() + 1 : 12,
+  )
   const { toast } = useToast()
 
   useEffect(() => {
@@ -78,7 +91,9 @@ export default function CompensationTab({
     async function loadSimulation() {
       setIsLoading(true)
       try {
-        const response = await fetch(`/api/finance/simulation?year=${year}`)
+        const response = await fetch(
+          `/api/finance/simulation?year=${year}&month=${selectedMonth}`,
+        )
         if (cancelled) return
         setData(response.ok ? await response.json() : null)
       } catch {
@@ -99,7 +114,7 @@ export default function CompensationTab({
       cancelled = true
     }
     // `revision` change à chaque enregistrement : la simulation se rejoue alors.
-  }, [year, revision, toast])
+  }, [year, selectedMonth, revision, toast])
 
   // Première visite : on ouvre directement la configuration.
   useEffect(() => {
@@ -136,6 +151,35 @@ export default function CompensationTab({
 
   const simulation = data?.simulation
   const context = data?.context
+
+  // Décaissements annuels hors Urssaf courante et impôt (charges payées,
+  // régularisation, Madelin/PER), reconstitués par identité de trésorerie.
+  const annualCashCharges =
+    simulation && context
+      ? context.annualisedRevenue -
+        simulation.vat.due -
+        simulation.social.total -
+        simulation.incomeTax.attributableToActivity -
+        simulation.availableIncome
+      : 0
+  const monthlyCashCharges = annualCashCharges / 12
+  // Charges décaissées ordinaires = décaissements totaux moins ce qui est déjà
+  // affiché sur sa propre ligne (régularisation, cotisations facultatives).
+  const paidExpensesOnly = simulation
+    ? annualCashCharges -
+      simulation.priorYearSocialSettlement -
+      (simulation.optionalContributions?.totalPaid ?? 0)
+    : 0
+
+  // Vue mensuelle : sur les encaissements du mois, on provisionne au taux
+  // annuel et on retient la part mensuelle des charges décaissées.
+  const monthRevenue = context?.monthRevenue ?? 0
+  const monthProvision = simulation ? monthRevenue * simulation.provisionRate : 0
+  const monthDraw = monthRevenue - monthProvision - monthlyCashCharges
+  const isCurrentMonth =
+    context !== undefined &&
+    year === new Date().getFullYear() &&
+    context.month === new Date().getMonth() + 1
 
   return (
     <div className="space-y-6">
@@ -409,87 +453,202 @@ export default function CompensationTab({
             </div>
           )}
 
-          {/* Ce que le praticien peut se verser */}
-          <div className="relative overflow-hidden rounded-2xl gradient-primary text-white p-6 shadow-lg">
-            <div className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full bg-white/15 blur-3xl" />
-            <div className="relative grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-              <div>
-                <div className="flex items-center gap-1.5 text-white/80 text-xs font-medium">
-                  <Wallet className="h-3.5 w-3.5" />
-                  Rémunération nette possible · {context.monthsElapsed} mois de {year}
-                </div>
-                <p className="mt-1 text-4xl font-bold tracking-tight tabular-nums leading-none">
-                  {formatCurrency(simulation.recommendedMonthlyDraw)}
-                  <span className="text-lg font-medium text-white/70"> / mois</span>
-                </p>
-                <p className="mt-1.5 text-xs text-white/75">
-                  Soit {formatCurrency(simulation.recommendedAnnualDraw)} sur la période,
-                  marge de sécurité déduite
-                </p>
+          {/* Sélecteur de vue : le mois pour piloter, l'année pour la vue d'ensemble */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex rounded-xl border border-border bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setView('month')}
+                className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                  view === 'month' ? 'bg-background shadow-sm' : 'text-muted-foreground'
+                }`}
+              >
+                Ce mois-ci
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('year')}
+                className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                  view === 'year' ? 'bg-background shadow-sm' : 'text-muted-foreground'
+                }`}
+              >
+                Année {year}
+              </button>
+            </div>
 
-                {simulation.projection && (
+            {view === 'month' && (
+              <Select
+                value={String(context.month)}
+                onValueChange={(value) => setSelectedMonth(Number(value))}
+              >
+                <SelectTrigger className="h-9 w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MONTH_NAMES.slice(0, context.monthsElapsed).map((name, index) => (
+                    <SelectItem key={index + 1} value={String(index + 1)}>
+                      {name.charAt(0).toUpperCase() + name.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {view === 'month' ? (
+            /* Vue mensuelle : combien se verser sur le mois choisi */
+            <div className="relative overflow-hidden rounded-2xl gradient-primary text-white p-6 shadow-lg">
+              <div className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full bg-white/15 blur-3xl" />
+              <div className="relative grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+                <div>
+                  <div className="flex items-center gap-1.5 text-white/80 text-xs font-medium">
+                    <Wallet className="h-3.5 w-3.5" />
+                    À vous verser en {MONTH_NAMES[context.month - 1]} {year}
+                  </div>
+                  <p className="mt-1 text-4xl font-bold tracking-tight tabular-nums leading-none">
+                    {formatCurrency(Math.max(0, monthDraw))}
+                  </p>
+                  <p className="mt-1.5 text-xs text-white/75">
+                    {isCurrentMonth
+                      ? 'Mois en cours : le montant grandit avec vos encaissements.'
+                      : monthDraw < 0
+                        ? 'Mois creux : les encaissements ne couvrent pas la part mensuelle des charges.'
+                        : 'Encaissements du mois, moins provisions et part mensuelle des charges.'}
+                  </p>
+
                   <div className="mt-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-3.5 py-3">
                     <p className="text-[11px] text-white/75 font-medium">
-                      Projection à fin {year}, au rythme actuel
+                      Rythme annuel : rémunération moyenne possible
                     </p>
                     <p className="mt-1 text-lg font-bold tabular-nums">
-                      {formatCurrency(simulation.projection.monthlyDraw)} / mois
+                      {formatCurrency(simulation.recommendedMonthlyDraw)} / mois
                     </p>
                     <p className="text-[11px] text-white/60">
-                      pour {formatCurrency(simulation.projection.revenue)} de recettes
+                      pour {formatCurrency(context.annualisedRevenue)} de recettes
+                      projetées sur {year}
                     </p>
                   </div>
-                )}
-              </div>
-
-              <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-4 py-3.5">
-                <div className="text-white/80 text-xs font-medium mb-3">
-                  À provisionner chaque mois
                 </div>
-                <div className="space-y-2 text-sm">
-                  <ProvisionLine
-                    label="Cotisations sociales"
-                    amount={simulation.monthlyProvisions.social}
-                  />
-                  <ProvisionLine
-                    label="Impôt sur le revenu"
-                    amount={simulation.monthlyProvisions.incomeTax}
-                  />
-                  {simulation.monthlyProvisions.vat > 0 && (
-                    <ProvisionLine
-                      label="TVA à reverser"
-                      amount={simulation.monthlyProvisions.vat}
-                    />
-                  )}
-                  <ProvisionLine
-                    label="Marge de sécurité"
-                    amount={simulation.monthlyProvisions.safety}
-                  />
-                  <div className="pt-2 mt-2 border-t border-white/20 flex items-center justify-between font-semibold">
-                    <span>Total</span>
-                    <span className="tabular-nums">
-                      {formatCurrency(simulation.monthlyProvisions.total)}
-                    </span>
+
+                <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-4 py-3.5">
+                  <div className="text-white/80 text-xs font-medium mb-3">
+                    Le mois de {MONTH_NAMES[context.month - 1]}
                   </div>
-                  <p className="text-[11px] text-white/60 pt-1">
-                    Soit {(simulation.provisionRate * 100).toFixed(0)} % de vos recettes
-                    à mettre de côté.
-                  </p>
+                  <div className="space-y-2 text-sm">
+                    <ProvisionLine label="Encaissé" amount={monthRevenue} />
+                    <ProvisionLine
+                      label={`Provisions (${(simulation.provisionRate * 100).toFixed(0)} % des recettes)`}
+                      amount={-monthProvision}
+                    />
+                    <ProvisionLine
+                      label="Charges (moyenne mensuelle)"
+                      amount={-monthlyCashCharges}
+                    />
+                    <div className="pt-2 mt-2 border-t border-white/20 flex items-center justify-between font-semibold">
+                      <span>Reste à vous verser</span>
+                      <span className="tabular-nums">{formatCurrency(monthDraw)}</span>
+                    </div>
+                    <p className="text-[11px] text-white/60 pt-1">
+                      Les provisions couvrent Urssaf, impôt{simulation.vat.due > 0 ? ', TVA' : ''} et
+                      marge de sécurité, aux taux calculés sur l&apos;année entière.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            /* Vue annuelle : projection de l'année au rythme constaté */
+            <div className="relative overflow-hidden rounded-2xl gradient-primary text-white p-6 shadow-lg">
+              <div className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full bg-white/15 blur-3xl" />
+              <div className="relative grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+                <div>
+                  <div className="flex items-center gap-1.5 text-white/80 text-xs font-medium">
+                    <Wallet className="h-3.5 w-3.5" />
+                    {context.monthsElapsed < 12
+                      ? `Projection ${year}, au rythme des ${context.monthsElapsed} premiers mois`
+                      : `Année ${year}`}
+                  </div>
+                  <p className="mt-1 text-4xl font-bold tracking-tight tabular-nums leading-none">
+                    {formatCurrency(simulation.recommendedMonthlyDraw)}
+                    <span className="text-lg font-medium text-white/70"> / mois</span>
+                  </p>
+                  <p className="mt-1.5 text-xs text-white/75">
+                    Soit {formatCurrency(simulation.recommendedAnnualDraw)} sur l&apos;année,
+                    marge de sécurité déduite
+                  </p>
+                  {context.monthsElapsed < 12 && (
+                    <p className="mt-3 text-xs text-white/75">
+                      Encaissé à ce jour : {formatCurrency(context.revenueToDate)} →
+                      projeté {formatCurrency(context.annualisedRevenue)} sur 12 mois.
+                    </p>
+                  )}
+                </div>
 
-          {/* Enchaînement du calcul */}
+                <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 px-4 py-3.5">
+                  <div className="text-white/80 text-xs font-medium mb-3">
+                    À provisionner chaque mois
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <ProvisionLine
+                      label="Cotisations sociales"
+                      amount={simulation.monthlyProvisions.social}
+                    />
+                    <ProvisionLine
+                      label="Impôt sur le revenu"
+                      amount={simulation.monthlyProvisions.incomeTax}
+                    />
+                    {simulation.monthlyProvisions.vat > 0 && (
+                      <ProvisionLine
+                        label="TVA à reverser"
+                        amount={simulation.monthlyProvisions.vat}
+                      />
+                    )}
+                    <ProvisionLine
+                      label="Marge de sécurité"
+                      amount={simulation.monthlyProvisions.safety}
+                    />
+                    <div className="pt-2 mt-2 border-t border-white/20 flex items-center justify-between font-semibold">
+                      <span>Total</span>
+                      <span className="tabular-nums">
+                        {formatCurrency(simulation.monthlyProvisions.total)}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-white/60 pt-1">
+                      Soit {(simulation.provisionRate * 100).toFixed(0)} % de vos recettes
+                      à mettre de côté.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Enchaînement du calcul, sur l'année entière. Chaque ligne est une
+              vraie entrée ou sortie d'argent : la somme tombe exactement sur le
+              disponible. Les déductions sans décaissement (barème kilométrique,
+              forfaits) sont détaillées à part, car elles réduisent cotisations
+              et impôt sans faire sortir un euro. */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Du chiffre d&apos;affaires à votre poche</CardTitle>
+              <CardTitle className="text-base">
+                Du chiffre d&apos;affaires à votre poche
+              </CardTitle>
+              <CardDescription>
+                {context.monthsElapsed < 12
+                  ? `Année ${year} projetée au rythme des ${context.monthsElapsed} premiers mois.`
+                  : `Année ${year}.`}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-1">
               <FlowLine
                 label="Recettes encaissées"
-                amount={context.revenue}
+                amount={context.annualisedRevenue}
                 tone="positive"
+                hint={
+                  context.monthsElapsed < 12
+                    ? `${formatCurrency(context.revenueToDate)} constatés sur ${context.monthsElapsed} mois, projetés sur 12`
+                    : undefined
+                }
               />
               {simulation.vat.due > 0 && (
                 <FlowLine
@@ -499,28 +658,16 @@ export default function CompensationTab({
                 />
               )}
               <FlowLine
-                label="Charges professionnelles"
-                amount={-simulation.deductibleExpenses}
+                label="Charges décaissées"
+                amount={-paidExpensesOnly}
                 hint={
-                  context.expenseCount === 0
-                    ? 'Aucune charge saisie : l’estimation est optimiste'
-                    : `${context.expenseCount} charge${context.expenseCount > 1 ? 's' : ''} saisie${context.expenseCount > 1 ? 's' : ''}`
+                  context.inputMode === 'simple'
+                    ? 'Montants annuels du mode simplifié'
+                    : context.expenseCount === 0
+                      ? 'Aucune charge saisie : l’estimation est optimiste'
+                      : `${context.expenseCount} charge${context.expenseCount > 1 ? 's' : ''} saisie${context.expenseCount > 1 ? 's' : ''}, projetées sur l’année`
                 }
               />
-              {simulation.mileage && (
-                <FlowLine
-                  label="Frais de véhicule"
-                  amount={-simulation.mileage.allowance}
-                  hint={`Barème kilométrique · ${simulation.mileage.formula} · réglé à titre privé, donc sans sortie de trésorerie`}
-                />
-              )}
-              {simulation.flatAllowances > 0 && (
-                <FlowLine
-                  label="Forfaits déductibles"
-                  amount={-simulation.flatAllowances}
-                  hint="Déduits du bénéfice, sans décaissement professionnel"
-                />
-              )}
               {simulation.priorYearSocialSettlement > 0 && (
                 <FlowLine
                   label="Régularisation Urssaf antérieure"
@@ -552,6 +699,29 @@ export default function CompensationTab({
                   {formatCurrency(simulation.availableIncome)}
                 </span>
               </div>
+
+              {(simulation.mileage || simulation.flatAllowances > 0) && (
+                <div className="mt-3 rounded-xl border border-border bg-muted/30 px-3.5 py-2.5 text-xs text-muted-foreground">
+                  <p className="font-medium text-foreground/80 mb-1">
+                    Déductions sans décaissement — déjà comptées dans les
+                    cotisations et l&apos;impôt ci-dessus
+                  </p>
+                  {simulation.mileage && (
+                    <p>
+                      Barème kilométrique : {formatCurrency(simulation.mileage.allowance)}{' '}
+                      ({simulation.mileage.formula})
+                    </p>
+                  )}
+                  {simulation.flatAllowances > 0 && (
+                    <p>Forfaits (blanchissage…) : {formatCurrency(simulation.flatAllowances)}</p>
+                  )}
+                  <p className="mt-1">
+                    Elles réduisent votre bénéfice imposable sans faire sortir un
+                    euro du compte : c&apos;est pourquoi elles n&apos;apparaissent pas
+                    dans l&apos;enchaînement.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
