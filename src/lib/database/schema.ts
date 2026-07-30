@@ -920,6 +920,98 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     dbp.prepare('UPDATE consultations SET cabinet_id = (SELECT p.practitioner_id FROM patients p WHERE p.id = consultations.patient_id) WHERE cabinet_id IS NULL').run()
     dbp.prepare('UPDATE invoices SET cabinet_id = (SELECT c.cabinet_id FROM consultations c WHERE c.id = invoices.consultation_id) WHERE cabinet_id IS NULL').run()
   }
+
+  // Charges professionnelles. Sans elles, l'application ne connaît que les
+  // recettes : impossible de calculer un bénéfice, donc impossible d'estimer
+  // cotisations, impôt et rémunération disponible.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS expenses (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      cabinet_id TEXT NOT NULL REFERENCES practitioners(id),
+      expense_date TEXT NOT NULL,
+      label TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'autre',
+      amount_ht REAL NOT NULL DEFAULT 0,
+      vat_rate REAL NOT NULL DEFAULT 0,
+      vat_amount REAL NOT NULL DEFAULT 0,
+      amount_ttc REAL NOT NULL DEFAULT 0,
+      deductible_share REAL NOT NULL DEFAULT 100,
+      recurrence TEXT NOT NULL DEFAULT 'once',
+      payment_method TEXT,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec('CREATE INDEX IF NOT EXISTS idx_expenses_cabinet_date ON expenses(cabinet_id, expense_date);')
+  db.exec('CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(cabinet_id, category);')
+
+  // Paramètres fiscaux et sociaux du praticien.
+  //
+  // Le régime de TVA n'est volontairement PAS stocké ici : il vit déjà dans
+  // practitioners.vat_regime, qui pilote les mentions légales des factures.
+  // Le dupliquer produirait des factures et une simulation contradictoires.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS finance_settings (
+      practitioner_id TEXT PRIMARY KEY REFERENCES practitioners(id),
+      regime TEXT NOT NULL DEFAULT 'micro_bnc',
+      retirement_fund TEXT NOT NULL DEFAULT 'ssi',
+      versement_liberatoire INTEGER NOT NULL DEFAULT 0,
+      acre INTEGER NOT NULL DEFAULT 0,
+      marital_status TEXT NOT NULL DEFAULT 'single',
+      dependents INTEGER NOT NULL DEFAULT 0,
+      other_household_income REAL NOT NULL DEFAULT 0,
+      safety_margin_rate REAL NOT NULL DEFAULT 5,
+      target_monthly_draw REAL,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `)
+
+  // Frais de véhicule et cotisations facultatives (Madelin, PER).
+  const financeCols = db.pragma('table_info(finance_settings)') as Array<{ name: string }>
+  const addFinanceColumn = (name: string, definition: string) => {
+    if (!financeCols.some((c) => c.name === name)) {
+      db.exec(`ALTER TABLE finance_settings ADD COLUMN ${name} ${definition};`)
+    }
+  }
+
+  addFinanceColumn('vehicle_mode', "TEXT NOT NULL DEFAULT 'none'")
+  addFinanceColumn('vehicle_kind', "TEXT NOT NULL DEFAULT 'car'")
+  addFinanceColumn('vehicle_horsepower', 'INTEGER NOT NULL DEFAULT 5')
+  addFinanceColumn('vehicle_annual_km', 'REAL NOT NULL DEFAULT 0')
+  addFinanceColumn('vehicle_electric', 'INTEGER NOT NULL DEFAULT 0')
+  addFinanceColumn('optional_retirement', 'REAL NOT NULL DEFAULT 0')
+  addFinanceColumn('optional_prevoyance', 'REAL NOT NULL DEFAULT 0')
+
+  // Mode de saisie simplifié (grandes masses annuelles) et régularisation Urssaf.
+  addFinanceColumn('input_mode', "TEXT NOT NULL DEFAULT 'real'")
+  addFinanceColumn('simple_annual_expenses', 'REAL NOT NULL DEFAULT 0')
+  addFinanceColumn('simple_annual_expenses_vat', 'REAL NOT NULL DEFAULT 0')
+  addFinanceColumn('simple_flat_allowances', 'REAL NOT NULL DEFAULT 0')
+  addFinanceColumn('prior_year_social_settlement', 'REAL NOT NULL DEFAULT 0')
+  addFinanceColumn('simple_depreciation', 'REAL NOT NULL DEFAULT 0')
+
+  // Immobilisations amortissables : un bien durable de plus de 500 € HT ne se
+  // déduit pas en une fois, son coût s'étale sur la durée d'usage. La sortie de
+  // trésorerie et la déduction tombent donc sur des exercices différents.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS fixed_assets (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      cabinet_id TEXT NOT NULL REFERENCES practitioners(id),
+      label TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'autre_immo',
+      service_date TEXT NOT NULL,
+      amount_ht REAL NOT NULL DEFAULT 0,
+      vat_rate REAL NOT NULL DEFAULT 0,
+      vat_amount REAL NOT NULL DEFAULT 0,
+      duration_years INTEGER NOT NULL DEFAULT 5,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec('CREATE INDEX IF NOT EXISTS idx_fixed_assets_cabinet ON fixed_assets(cabinet_id, service_date);')
 }
 
 /**
@@ -932,6 +1024,7 @@ export const BOOLEAN_FIELDS: Record<string, string[]> = {
   email_settings: ['smtp_secure', 'imap_secure', 'sync_enabled', 'is_verified'],
   medical_history_entries: ['is_vigilance'],
   survey_responses: ['would_recommend'],
+  finance_settings: ['versement_liberatoire', 'acre', 'vehicle_electric'],
 }
 
 /**

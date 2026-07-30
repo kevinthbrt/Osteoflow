@@ -19,6 +19,24 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.16.0',
+    date: '2026-07-30',
+    title: 'Savoir enfin combien vous pouvez vous verser',
+    changes: [
+      { type: 'feature', text: "La page Comptabilité s'organise en trois onglets : « Recettes » (votre analyse de chiffre d'affaires, inchangée), « Charges » et « Ma rémunération ». Jusqu'ici l'application ne connaissait que vos recettes — sans charges, impossible de calculer un bénéfice, donc impossible de vous dire ce que vous pouvez vous verser." },
+      { type: 'feature', text: "Onglet Charges : enregistrez vos dépenses professionnelles (loyer, rétrocession, RCP, matériel, comptable, véhicule, télécom, formation…) avec la quote-part réellement professionnelle pour les postes à usage mixte. Deux modes au choix — « Simplifié » pour saisir vos grandes masses annuelles comme sur un prévisionnel comptable, ou « Détaillé » pour la saisie ligne par ligne." },
+      { type: 'feature', text: "Onglet Ma rémunération : l'application estime vos cotisations sociales, votre impôt et votre TVA, puis en déduit ce que vous pouvez vous verser. La vue « Ce mois-ci » suit le circuit réel de votre argent — l'Urssaf et la TVA restent provisionnées sur le compte professionnel, l'impôt part avec le virement vers votre compte personnel — et affiche donc le virement brut, la part d'impôt à garder de côté, et le net qui reste vraiment. La vue « Année » donne la projection complète." },
+      { type: 'feature', text: "Deux régimes couverts : micro-BNC (cotisations sur le chiffre d'affaires, abattement de 34 %, option pour le versement libératoire) et déclaration contrôlée (cotisations sur le bénéfice réel, avec la nouvelle assiette 2026 et son abattement de 26 %). Le choix de la caisse — régime des indépendants ou Cipav selon votre date d'installation — et l'Acre sont pris en compte. L'impôt suit le barème 2026 complet avec votre foyer fiscal : parts, plafonnement du quotient familial, décote et majoration du parent isolé." },
+      { type: 'feature', text: "Frais de véhicule au barème kilométrique officiel (voitures, motos, cyclomoteurs, majoration de 20 % pour l'électrique), avec le montant déductible affiché en direct pendant la saisie. Un garde-fou vous alerte si vous cumulez le barème et des charges de véhicule : le barème couvre déjà carburant, entretien, assurance et dépréciation." },
+      { type: 'feature', text: "Immobilisations et amortissements : table de soin, matériel, mobilier, informatique, agencements. Chaque bien est étalé sur sa durée d'usage, au prorata depuis la mise en service, avec sa progression et le montant restant à amortir. L'achat sort de votre trésorerie l'année de l'acquisition, alors que la déduction s'étale — les deux mouvements sont traités séparément." },
+      { type: 'feature', text: "Cotisations facultatives Madelin et PER : plafond de déduction calculé, fraction éventuellement non déductible signalée, et économie d'impôt réellement obtenue — donc le coût net de votre effort d'épargne. Point important rendu explicite : ces versements réduisent votre impôt, mais pas vos cotisations Urssaf." },
+      { type: 'feature', text: "Simulateur « Et si mon activité changeait ? » : faites varier votre chiffre d'affaires ou votre nombre de consultations par semaine et voyez instantanément l'effet sur votre rémunération, vos cotisations et votre impôt — effets de seuil compris. L'application indique combien vous conservez réellement sur chaque euro gagné en plus. La conversion consultations → recettes s'appuie sur votre panier moyen réel, pas sur un tarif théorique." },
+      { type: 'improvement', text: "La TVA est traitée correctement pour les praticiens qui y sont soumis : la TVA collectée n'est plus comptée comme un revenu, la TVA sur les charges est récupérée, et vous êtes alerté à l'approche puis au franchissement des seuils de franchise en base. Le régime utilisé est celui déjà défini dans vos paramètres de facturation : aucune double saisie, et aucun risque que vos factures et vos estimations se contredisent." },
+      { type: 'improvement', text: "Nouveau champ « Régularisation Urssaf payée cette année », pour les reliquats d'une année antérieure : ils se déduisent de votre impôt mais pas de l'assiette de vos cotisations. Les forfaits sans décaissement (blanchissage, barème kilométrique) réduisent votre bénéfice sans sortir de votre trésorerie. Des infobulles expliquent chaque notion." },
+      { type: 'improvement', text: "La projection annuelle de Ma rémunération est alignée sur celle de la page Objectifs : le rythme est mesuré en jours travaillés écoulés selon vos jours configurés, et non en mois calendaires. Si vos jours travaillés ne sont pas renseignés, l'application vous le signale — toute la projection en dépend." },
+    ],
+  },
+  {
     version: '1.15.2',
     date: '2026-07-23',
     title: 'Correctif d\'affichage dans la messagerie',
