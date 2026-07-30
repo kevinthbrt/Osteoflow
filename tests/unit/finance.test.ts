@@ -6,6 +6,7 @@ import { computeVat } from '@/lib/finance/vat'
 import { simulate } from '@/lib/finance/simulator'
 import { computeMileageAllowance } from '@/lib/finance/mileage'
 import { computeOptionalContributions } from '@/lib/finance/optional-contributions'
+import { buildDepreciationSchedule, computeDepreciation } from '@/lib/finance/depreciation'
 import { DEFAULT_FINANCE_SETTINGS } from '@/lib/finance/types'
 import type { ExpenseTotals, FinanceSettings } from '@/lib/finance/types'
 
@@ -16,6 +17,8 @@ const noExpenses: ExpenseTotals = {
   deductibleVat: 0,
   paidTtc: 0,
   flatAllowances: 0,
+  depreciation: 0,
+  assetPurchases: 0,
   byCategory: {},
 }
 
@@ -303,6 +306,8 @@ describe('simulation complète', () => {
         deductibleVat: 2000,
         paidTtc: 12000,
         flatAllowances: 0,
+        depreciation: 0,
+        assetPurchases: 0,
         byCategory: {},
       },
       monthsElapsed: 12,
@@ -335,6 +340,8 @@ describe('simulation complète', () => {
         deductibleVat: 4000,
         paidTtc: 24000,
         flatAllowances: 0,
+        depreciation: 0,
+        assetPurchases: 0,
         byCategory: {},
       },
       monthsElapsed: 12,
@@ -356,6 +363,8 @@ describe('simulation complète', () => {
         deductibleVat: 4000,
         paidTtc: 24000,
         flatAllowances: 0,
+        depreciation: 0,
+        assetPurchases: 0,
         byCategory: {},
       },
       monthsElapsed: 12,
@@ -640,6 +649,8 @@ describe('intégration véhicule et cotisations facultatives', () => {
         deductibleVat: 240,
         paidTtc: 1440,
         flatAllowances: 0,
+        depreciation: 0,
+        assetPurchases: 0,
         byCategory: { vehicule: 1440 },
       },
       monthsElapsed: 12,
@@ -738,6 +749,8 @@ describe('régularisation Urssaf d’une année antérieure', () => {
       deductibleVat: 0,
       paidTtc: 19947,
       flatAllowances: 0,
+      depreciation: 0,
+      assetPurchases: 0,
       byCategory: {},
     },
     monthsElapsed: 12,
@@ -806,6 +819,8 @@ describe('forfaits sans décaissement', () => {
         deductibleVat: 0,
         paidTtc: 18657,
         flatAllowances: 1290,
+        depreciation: 0,
+        assetPurchases: 0,
         byCategory: {},
       },
       monthsElapsed: 12,
@@ -820,6 +835,8 @@ describe('forfaits sans décaissement', () => {
         deductibleVat: 0,
         paidTtc: 18657,
         flatAllowances: 0,
+        depreciation: 0,
+        assetPurchases: 0,
         byCategory: {},
       },
       monthsElapsed: 12,
@@ -866,7 +883,7 @@ describe('mode simplifié', () => {
       settings: settings({
         regime: 'reel_bnc',
         inputMode: 'simple',
-        simple: { annualExpenses: 19947, annualExpensesVat: 0, flatAllowances: 1290 },
+        simple: { annualExpenses: 19947, annualExpensesVat: 0, flatAllowances: 1290, depreciation: 0 },
       }),
       revenue: 85000,
       expenses: {
@@ -874,6 +891,8 @@ describe('mode simplifié', () => {
         deductibleVat: 0,
         paidTtc: 19947,
         flatAllowances: 1290,
+        depreciation: 0,
+        assetPurchases: 0,
         byCategory: {},
       },
       monthsElapsed: 12,
@@ -888,6 +907,8 @@ describe('mode simplifié', () => {
         deductibleVat: 0,
         paidTtc: 19947,
         flatAllowances: 1290,
+        depreciation: 0,
+        assetPurchases: 0,
         byCategory: {},
       },
       monthsElapsed: 12,
@@ -902,7 +923,7 @@ describe('mode simplifié', () => {
       settings: settings({
         regime: 'reel_bnc',
         inputMode: 'simple',
-        simple: { annualExpenses: 20000, annualExpensesVat: 0, flatAllowances: 0 },
+        simple: { annualExpenses: 20000, annualExpensesVat: 0, flatAllowances: 0, depreciation: 0 },
       }),
       revenue: 40000,
       expenses: {
@@ -910,6 +931,8 @@ describe('mode simplifié', () => {
         deductibleVat: 0,
         paidTtc: 20000,
         flatAllowances: 0,
+        depreciation: 0,
+        assetPurchases: 0,
         byCategory: {},
       },
       monthsElapsed: 6,
@@ -939,6 +962,8 @@ describe('identité de trésorerie de la cascade', () => {
         deductibleVat: 0,
         paidTtc: 15747,
         flatAllowances: 1290,
+        depreciation: 0,
+        assetPurchases: 0,
         byCategory: {},
       },
       monthsElapsed: 12,
@@ -964,5 +989,111 @@ describe('identité de trésorerie de la cascade', () => {
     const monthRevenue = revenue / 12
     const monthDraw = monthRevenue - monthRevenue * r.provisionRate - cashCharges / 12
     expect(monthDraw * 12).toBeCloseTo(r.recommendedAnnualDraw, 0)
+  })
+})
+
+describe('amortissement des immobilisations', () => {
+  const table = {
+    id: 'a1',
+    label: 'Table de soin',
+    category: 'table',
+    serviceDate: '2026-07-01',
+    amountHt: 3500,
+    vatAmount: 700,
+    durationYears: 7,
+  }
+
+  it('étale le coût sur la durée d’usage, prorata temporis la première année', () => {
+    const schedule = buildDepreciationSchedule(table)
+
+    // Mise en service au 1er juillet : 180 jours sur 360, soit une demi-annuité.
+    const annuity = 3500 / 7
+    expect(schedule[0].year).toBe(2026)
+    expect(schedule[0].dotation).toBeCloseTo(annuity / 2, 2)
+    expect(schedule[1].dotation).toBeCloseTo(annuity, 2)
+
+    // Un exercice de plus que la durée, à cause du démarrage en cours d'année.
+    expect(schedule).toHaveLength(8)
+    expect(schedule[7].dotation).toBeCloseTo(annuity / 2, 2)
+  })
+
+  it('amortit exactement la base, sans reste', () => {
+    const schedule = buildDepreciationSchedule(table)
+    const total = schedule.reduce((sum, row) => sum + row.dotation, 0)
+
+    expect(total).toBeCloseTo(3500, 2)
+    expect(schedule[schedule.length - 1].residual).toBeCloseTo(0, 2)
+  })
+
+  it('amortit sur la durée exacte quand la mise en service est au 1er janvier', () => {
+    const schedule = buildDepreciationSchedule({ ...table, serviceDate: '2026-01-01' })
+
+    expect(schedule).toHaveLength(7)
+    expect(schedule[0].dotation).toBeCloseTo(3500 / 7, 2)
+  })
+
+  it('sépare l’acquisition de la dotation sur l’année d’achat', () => {
+    const acquisition = computeDepreciation([table], 2026)
+    const later = computeDepreciation([table], 2028)
+
+    // L'année de l'achat : décaissement intégral, mais demi-annuité déduite.
+    expect(acquisition.totalPurchasesTtc).toBeCloseTo(4200, 2)
+    expect(acquisition.totalDotation).toBeCloseTo(3500 / 7 / 2, 2)
+
+    // Ensuite : plus aucun décaissement, mais une annuité pleine.
+    expect(later.totalPurchasesTtc).toBe(0)
+    expect(later.totalDotation).toBeCloseTo(3500 / 7, 2)
+  })
+
+  it('ne déduit plus rien une fois le bien totalement amorti', () => {
+    expect(computeDepreciation([table], 2040).totalDotation).toBe(0)
+  })
+
+  it('ne déduit rien avant la mise en service', () => {
+    expect(computeDepreciation([table], 2025).totalDotation).toBe(0)
+  })
+
+  it('déduit la dotation du bénéfice sans toucher à la trésorerie', () => {
+    const withAsset = simulate({
+      year: 2028,
+      settings: settings({ regime: 'reel_bnc' }),
+      revenue: 90000,
+      expenses: { ...noExpenses, depreciation: 500 },
+      monthsElapsed: 12,
+    })
+    const without = simulate({
+      year: 2028,
+      settings: settings({ regime: 'reel_bnc' }),
+      revenue: 90000,
+      expenses: noExpenses,
+      monthsElapsed: 12,
+    })
+
+    expect(withAsset.grossProfit).toBeCloseTo(without.grossProfit - 500, 2)
+    expect(withAsset.social.total).toBeLessThan(without.social.total)
+    // Aucun décaissement : le disponible augmente, grâce à l'économie d'impôt.
+    expect(withAsset.availableIncome).toBeGreaterThan(without.availableIncome)
+  })
+
+  it('sort l’acquisition de la trésorerie sans la déduire en totalité', () => {
+    const buying = simulate({
+      year: 2026,
+      settings: settings({ regime: 'reel_bnc' }),
+      revenue: 90000,
+      expenses: { ...noExpenses, depreciation: 250, assetPurchases: 4200 },
+      monthsElapsed: 12,
+    })
+    const notBuying = simulate({
+      year: 2026,
+      settings: settings({ regime: 'reel_bnc' }),
+      revenue: 90000,
+      expenses: { ...noExpenses, depreciation: 250 },
+      monthsElapsed: 12,
+    })
+
+    // Même bénéfice, mêmes cotisations : seule la trésorerie encaisse le choc.
+    expect(buying.grossProfit).toBeCloseTo(notBuying.grossProfit, 2)
+    expect(buying.social.total).toBeCloseTo(notBuying.social.total, 2)
+    expect(buying.availableIncome).toBeCloseTo(notBuying.availableIncome - 4200, 2)
   })
 })

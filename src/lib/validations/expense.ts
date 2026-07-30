@@ -1,10 +1,39 @@
 import { z } from 'zod'
 import { EXPENSE_CATEGORIES } from '@/lib/finance/categories'
+import { ASSET_CATEGORIES } from '@/lib/finance/depreciation'
 
 const categoryKeys = EXPENSE_CATEGORIES.map((category) => category.key) as [
   string,
   ...string[],
 ]
+
+const assetCategoryKeys = ASSET_CATEGORIES.map((category) => category.key) as [
+  string,
+  ...string[],
+]
+
+export const fixedAssetSchema = z.object({
+  label: z
+    .string()
+    .trim()
+    .min(1, 'Le libellé est requis')
+    .max(200, 'Le libellé ne peut pas dépasser 200 caractères'),
+  category: z.enum(assetCategoryKeys).default('autre_immo'),
+  service_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date invalide'),
+  amount_ht: z
+    .number()
+    .positive('Le montant doit être positif')
+    .max(10000000, 'Montant trop élevé'),
+  vat_rate: z.number().min(0).max(1),
+  duration_years: z
+    .number()
+    .int()
+    .min(1, 'La durée doit être d’au moins 1 an')
+    .max(50, 'La durée ne peut pas dépasser 50 ans'),
+  notes: z.string().max(1000).nullable().optional(),
+})
+
+export type FixedAssetInput = z.infer<typeof fixedAssetSchema>
 
 export const expenseSchema = z.object({
   expense_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date invalide'),
@@ -52,6 +81,7 @@ export const financeSettingsSchema = z.object({
   simple_annual_expenses: z.number().min(0).max(5000000).default(0),
   simple_annual_expenses_vat: z.number().min(0).max(1000000).default(0),
   simple_flat_allowances: z.number().min(0).max(1000000).default(0),
+  simple_depreciation: z.number().min(0).max(1000000).default(0),
   prior_year_social_settlement: z.number().min(0).max(1000000).default(0),
 })
 

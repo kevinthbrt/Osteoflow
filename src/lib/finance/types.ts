@@ -77,12 +77,15 @@ export interface SimpleEstimates {
   annualExpensesVat: number
   /** Forfaits déduits sans décaissement (blanchissage…). */
   flatAllowances: number
+  /** Dotation aux amortissements annuelle, si aucune immobilisation n'est saisie. */
+  depreciation: number
 }
 
 export const DEFAULT_SIMPLE_ESTIMATES: SimpleEstimates = {
   annualExpenses: 0,
   annualExpensesVat: 0,
   flatAllowances: 0,
+  depreciation: 0,
 }
 
 /**
@@ -264,6 +267,17 @@ export interface ExpenseTotals {
    * professionnelle : la dépense, quand elle existe, est supportée à titre privé.
    */
   flatAllowances: number
+  /**
+   * Dotation aux amortissements de l'exercice : déductible du bénéfice, sans
+   * décaissement — l'argent est sorti l'année de l'acquisition.
+   */
+  depreciation: number
+  /**
+   * Acquisitions d'immobilisations payées sur l'exercice, toutes taxes
+   * comprises : sortie de trésorerie, mais non déductible en tant que telle
+   * puisque c'est l'amortissement qui porte la déduction.
+   */
+  assetPurchases: number
   byCategory: Record<string, number>
 }
 
@@ -283,6 +297,10 @@ export interface SimulationResult {
   deductibleExpenses: number
   /** Forfaits déduits sans décaissement. */
   flatAllowances: number
+  /** Dotation aux amortissements de l'exercice. */
+  depreciation: number
+  /** Immobilisations acquises et payées sur l'exercice. */
+  assetPurchases: number
   /** Régularisation Urssaf d'une année antérieure, payée sur l'exercice. */
   priorYearSocialSettlement: number
   /** Frais de véhicule au barème kilométrique, le cas échéant. */

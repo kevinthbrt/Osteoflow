@@ -59,6 +59,7 @@ import {
   getExpenseCategory,
 } from '@/lib/finance/categories'
 import ChargesSettings from '@/components/accounting/charges-settings'
+import AssetsSection from '@/components/accounting/assets-section'
 import type { UseFinanceSettings } from '@/hooks/use-finance-settings'
 
 interface ExpenseRow {
@@ -301,6 +302,8 @@ export default function ExpensesTab({
           </p>
         </div>
       )}
+
+      <AssetsSection year={year} onChanged={onChanged} />
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <p className="text-sm font-medium">Charges détaillées</p>

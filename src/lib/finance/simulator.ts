@@ -58,9 +58,12 @@ export function simulate(input: SimulationInput): SimulationResult {
   const mileage = buildMileage(config, input, warnings, expenses.byCategory)
   const mileageAllowance = mileage?.allowance ?? 0
   const flatAllowances = Math.max(0, expenses.flatAllowances)
+  const depreciation = Math.max(0, expenses.depreciation)
+  const assetPurchases = Math.max(0, expenses.assetPurchases)
   const priorYearSettlement = Math.max(0, settings.priorYearSocialSettlement)
 
-  const deductibleExpenses = recordedExpenses + mileageAllowance + flatAllowances
+  const deductibleExpenses =
+    recordedExpenses + mileageAllowance + flatAllowances + depreciation
 
   // Assiette sociale : la régularisation Urssaf n'en est PAS déduite, le revenu
   // brut social étant défini hors cotisations sociales.
@@ -89,11 +92,15 @@ export function simulate(input: SimulationInput): SimulationResult {
   // kilométrique et les forfaits sont des déductions sans décaissement
   // professionnel — l'essence est réglée à titre privé — donc ils ne sortent pas
   // de la trésorerie de l'activité.
+  // L'acquisition d'une immobilisation sort en totalité de la trésorerie
+  // l'année de l'achat, alors que sa déduction s'étale sur la durée d'usage :
+  // les deux mouvements sont donc portés par des lignes distinctes.
   const optionalPaid = optionalContributions?.totalPaid ?? 0
   const availableIncome =
     revenue -
     vat.due -
     expenses.paidTtc -
+    assetPurchases -
     priorYearSettlement -
     optionalPaid -
     social.total -
@@ -129,6 +136,8 @@ export function simulate(input: SimulationInput): SimulationResult {
     revenueHt,
     deductibleExpenses,
     flatAllowances,
+    depreciation,
+    assetPurchases,
     priorYearSocialSettlement: priorYearSettlement,
     mileage,
     grossProfit,
@@ -389,6 +398,9 @@ function buildProjection(input: SimulationInput): SimulationResult['projection']
       deductibleVat: input.expenses.deductibleVat * expenseFactor,
       paidTtc: input.expenses.paidTtc * expenseFactor,
       flatAllowances: input.expenses.flatAllowances * expenseFactor,
+      // Dotations et acquisitions sont datées : elles sont déjà annuelles.
+      depreciation: input.expenses.depreciation,
+      assetPurchases: input.expenses.assetPurchases,
       byCategory: input.expenses.byCategory,
     },
   })

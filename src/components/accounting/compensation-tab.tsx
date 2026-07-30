@@ -736,6 +736,13 @@ export default function CompensationTab({
                       : `${context.expenseCount} charge${context.expenseCount > 1 ? 's' : ''} saisie${context.expenseCount > 1 ? 's' : ''}, projetées sur l’année`
                 }
               />
+              {simulation.assetPurchases > 0 && (
+                <FlowLine
+                  label="Achat d’immobilisations"
+                  amount={-simulation.assetPurchases}
+                  hint="Sortie de trésorerie intégrale ; la déduction s’étale sur la durée d’usage"
+                />
+              )}
               {simulation.priorYearSocialSettlement > 0 && (
                 <FlowLine
                   label="Régularisation Urssaf antérieure"
@@ -768,7 +775,9 @@ export default function CompensationTab({
                 </span>
               </div>
 
-              {(simulation.mileage || simulation.flatAllowances > 0) && (
+              {(simulation.mileage ||
+                simulation.flatAllowances > 0 ||
+                simulation.depreciation > 0) && (
                 <div className="mt-3 rounded-xl border border-border bg-muted/30 px-3.5 py-2.5 text-xs text-muted-foreground">
                   <p className="font-medium text-foreground/80 mb-1">
                     Déductions sans décaissement — déjà comptées dans les
@@ -782,6 +791,12 @@ export default function CompensationTab({
                   )}
                   {simulation.flatAllowances > 0 && (
                     <p>Forfaits (blanchissage…) : {formatCurrency(simulation.flatAllowances)}</p>
+                  )}
+                  {simulation.depreciation > 0 && (
+                    <p>
+                      Dotation aux amortissements :{' '}
+                      {formatCurrency(simulation.depreciation)}
+                    </p>
                   )}
                   <p className="mt-1">
                     Elles réduisent votre bénéfice imposable sans faire sortir un

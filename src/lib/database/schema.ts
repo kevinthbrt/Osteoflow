@@ -990,6 +990,28 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   addFinanceColumn('simple_annual_expenses_vat', 'REAL NOT NULL DEFAULT 0')
   addFinanceColumn('simple_flat_allowances', 'REAL NOT NULL DEFAULT 0')
   addFinanceColumn('prior_year_social_settlement', 'REAL NOT NULL DEFAULT 0')
+  addFinanceColumn('simple_depreciation', 'REAL NOT NULL DEFAULT 0')
+
+  // Immobilisations amortissables : un bien durable de plus de 500 € HT ne se
+  // déduit pas en une fois, son coût s'étale sur la durée d'usage. La sortie de
+  // trésorerie et la déduction tombent donc sur des exercices différents.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS fixed_assets (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      cabinet_id TEXT NOT NULL REFERENCES practitioners(id),
+      label TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'autre_immo',
+      service_date TEXT NOT NULL,
+      amount_ht REAL NOT NULL DEFAULT 0,
+      vat_rate REAL NOT NULL DEFAULT 0,
+      vat_amount REAL NOT NULL DEFAULT 0,
+      duration_years INTEGER NOT NULL DEFAULT 5,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec('CREATE INDEX IF NOT EXISTS idx_fixed_assets_cabinet ON fixed_assets(cabinet_id, service_date);')
 }
 
 /**

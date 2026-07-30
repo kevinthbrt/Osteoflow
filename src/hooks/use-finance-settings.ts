@@ -33,6 +33,7 @@ export interface FinanceSettingsForm {
   simple_annual_expenses: number
   simple_annual_expenses_vat: number
   simple_flat_allowances: number
+  simple_depreciation: number
   prior_year_social_settlement: number
 }
 
@@ -57,6 +58,7 @@ export const DEFAULT_FINANCE_FORM: FinanceSettingsForm = {
   simple_annual_expenses: 0,
   simple_annual_expenses_vat: 0,
   simple_flat_allowances: 0,
+  simple_depreciation: 0,
   prior_year_social_settlement: 0,
 }
 
@@ -122,6 +124,7 @@ export function useFinanceSettings(): UseFinanceSettings {
             simple_annual_expenses: payload.settings.simple_annual_expenses ?? 0,
             simple_annual_expenses_vat: payload.settings.simple_annual_expenses_vat ?? 0,
             simple_flat_allowances: payload.settings.simple_flat_allowances ?? 0,
+            simple_depreciation: payload.settings.simple_depreciation ?? 0,
             prior_year_social_settlement:
               payload.settings.prior_year_social_settlement ?? 0,
           })

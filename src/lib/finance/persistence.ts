@@ -41,6 +41,7 @@ export interface FinanceSettingsRow {
   simple_annual_expenses?: number | null
   simple_annual_expenses_vat?: number | null
   simple_flat_allowances?: number | null
+  simple_depreciation?: number | null
   prior_year_social_settlement?: number | null
 }
 
@@ -96,6 +97,7 @@ export function toFinanceSettings(
       annualExpenses: Math.max(0, row.simple_annual_expenses ?? 0),
       annualExpensesVat: Math.max(0, row.simple_annual_expenses_vat ?? 0),
       flatAllowances: Math.max(0, row.simple_flat_allowances ?? 0),
+      depreciation: Math.max(0, row.simple_depreciation ?? 0),
     },
   }
 }

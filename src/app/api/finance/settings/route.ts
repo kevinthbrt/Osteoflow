@@ -70,8 +70,8 @@ export async function PUT(request: Request) {
            vehicle_annual_km, vehicle_electric, optional_retirement,
            optional_prevoyance, input_mode, simple_annual_expenses,
            simple_annual_expenses_vat, simple_flat_allowances,
-           prior_year_social_settlement, updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+           simple_depreciation, prior_year_social_settlement, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
          ON CONFLICT(practitioner_id) DO UPDATE SET
            regime = excluded.regime,
            retirement_fund = excluded.retirement_fund,
@@ -93,6 +93,7 @@ export async function PUT(request: Request) {
            simple_annual_expenses = excluded.simple_annual_expenses,
            simple_annual_expenses_vat = excluded.simple_annual_expenses_vat,
            simple_flat_allowances = excluded.simple_flat_allowances,
+           simple_depreciation = excluded.simple_depreciation,
            prior_year_social_settlement = excluded.prior_year_social_settlement,
            updated_at = datetime('now')`,
       )
@@ -118,6 +119,7 @@ export async function PUT(request: Request) {
         settings.simple_annual_expenses,
         settings.simple_annual_expenses_vat,
         settings.simple_flat_allowances,
+        settings.simple_depreciation,
         settings.prior_year_social_settlement,
       )
 

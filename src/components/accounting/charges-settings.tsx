@@ -75,7 +75,7 @@ export default function ChargesSettings({
         </div>
 
         {form.input_mode === 'simple' && (
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-4">
             <div className="space-y-2">
               <Label>Charges annuelles</Label>
               <Input
@@ -126,6 +126,26 @@ export default function ChargesSettings({
                 value={form.simple_flat_allowances}
                 onChange={(event) =>
                   patch({ simple_flat_allowances: Number(event.target.value) || 0 })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                Dotation aux amortissements
+                <HelpTip>
+                  Part annuelle du coût de vos biens durables (table, matériel,
+                  agencements). Laissez à zéro si vous les saisissez un par un
+                  ci-dessous : le plan d&apos;amortissement détaillé prend alors
+                  le relais.
+                </HelpTip>
+              </Label>
+              <Input
+                type="number"
+                min={0}
+                step="50"
+                value={form.simple_depreciation}
+                onChange={(event) =>
+                  patch({ simple_depreciation: Number(event.target.value) || 0 })
                 }
               />
             </div>

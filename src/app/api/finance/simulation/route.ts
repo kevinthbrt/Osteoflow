@@ -105,6 +105,8 @@ export async function GET(request: Request) {
       deductibleVat: 0,
       paidTtc: 0,
       flatAllowances: 0,
+      depreciation: 0,
+      assetPurchases: 0,
       byCategory: {},
     }
 
@@ -148,6 +150,52 @@ export async function GET(request: Request) {
 
     if (socialContributionsRecorded > 0) {
       settings.priorYearSocialSettlement += socialContributionsRecorded
+    }
+
+    // Amortissements : la dotation de l'exercice se déduit du bénéfice, tandis
+    // que l'acquisition sort de la trésorerie l'année de l'achat. Les deux
+    // mouvements sont indépendants du mode de saisie des charges courantes.
+    const { computeDepreciation } = await import('@/lib/finance/depreciation')
+    const assetRows = rawDb
+      .prepare(
+        `SELECT id, label, category, service_date, amount_ht, vat_amount, duration_years
+         FROM fixed_assets WHERE cabinet_id IN (${ph})`,
+      )
+      .all(...cabinetIds) as Array<{
+      id: string
+      label: string
+      category: string
+      service_date: string
+      amount_ht: number
+      vat_amount: number
+      duration_years: number
+    }>
+
+    const depreciation = computeDepreciation(
+      assetRows.map((row) => ({
+        id: row.id,
+        label: row.label,
+        category: row.category,
+        serviceDate: row.service_date,
+        amountHt: row.amount_ht,
+        vatAmount: row.vat_amount,
+        durationYears: row.duration_years,
+      })),
+      year,
+    )
+
+    // En mode simplifié, une dotation saisie à la main remplace le plan
+    // d'amortissement détaillé — comme la ligne « dotation aux amortissements »
+    // d'un prévisionnel comptable.
+    expenses.depreciation =
+      settings.inputMode === 'simple' && assetRows.length === 0
+        ? settings.simple.depreciation
+        : depreciation.totalDotation
+    expenses.assetPurchases = depreciation.totalPurchasesTtc
+
+    // Assujetti : la TVA sur les acquisitions est récupérable.
+    if (settings.vatRegime === 'assujetti') {
+      expenses.deductibleVat += depreciation.purchasesVat
     }
 
     // La simulation se fait toujours sur une année ENTIÈRE, puis se décline en
@@ -200,6 +248,9 @@ export async function GET(request: Request) {
       deductibleVat: expenses.deductibleVat * expenseFactor,
       paidTtc: expenses.paidTtc * expenseFactor,
       flatAllowances: expenses.flatAllowances * expenseFactor,
+      // Dotations et acquisitions sont datées : déjà annuelles, jamais projetées.
+      depreciation: expenses.depreciation,
+      assetPurchases: expenses.assetPurchases,
       byCategory: Object.fromEntries(
         Object.entries(expenses.byCategory).map(([key, value]) => [
           key,
@@ -263,6 +314,13 @@ export async function GET(request: Request) {
         manualRevenue: manualRow.total,
         expenseCount: expenseRows.length,
         inputMode: settings.inputMode,
+        depreciation: {
+          lines: depreciation.lines,
+          totalDotation: depreciation.totalDotation,
+          totalPurchasesTtc: depreciation.totalPurchasesTtc,
+          totalResidual: depreciation.totalResidual,
+          assetCount: assetRows.length,
+        },
         pass: config.pass,
         scalesVerifiedOn: config.verifiedOn,
         sources: config.sources,
