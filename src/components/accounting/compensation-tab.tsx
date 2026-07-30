@@ -38,10 +38,19 @@ import { formatCurrency } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import type { SimulationResult } from '@/lib/finance/types'
 import type { UseFinanceSettings } from '@/hooks/use-finance-settings'
+import type { ExpenseTotals, FinanceSettings } from '@/lib/finance/types'
+import ComparisonCard from '@/components/accounting/comparison-card'
 
 interface SimulationResponse {
   simulation: SimulationResult
+  settings: FinanceSettings
   context: {
+    expenses: ExpenseTotals
+    practice: {
+      averagePrice: number | null
+      workingDaysPerWeek: number
+      vacationWeeks: number
+    }
     year: number
     monthsElapsed: number
     revenueToDate: number
@@ -910,6 +919,17 @@ export default function CompensationTab({
               </CardContent>
             </Card>
           </div>
+
+          {data?.settings && (
+            <ComparisonCard
+              year={year}
+              settings={data.settings}
+              expenses={context.expenses}
+              practice={context.practice}
+              baselineRevenue={context.annualisedRevenue}
+              baselineMonthlyDraw={simulation.recommendedMonthlyDraw}
+            />
+          )}
 
           {simulation.optionalContributions &&
             simulation.optionalContributions.totalPaid > 0 && (

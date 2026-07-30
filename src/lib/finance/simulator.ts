@@ -203,6 +203,17 @@ function buildMileage(
     })
   }
 
+  // En saisie simplifiée, aucune ventilation par poste ne permet de détecter le
+  // cumul : les charges sont un montant global. On ne peut que rappeler la règle.
+  if (input.settings.inputMode === 'simple') {
+    warnings.push({
+      key: 'mileage_simple_mode',
+      severity: 'info',
+      message:
+        'Barème kilométrique actif : vérifiez que vos charges annuelles n’incluent pas déjà carburant, entretien, assurance ni dépréciation du véhicule — le barème les couvre.',
+    })
+  }
+
   return {
     allowance: result.allowance,
     effectivePerKm: result.effectivePerKm,

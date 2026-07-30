@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
     const { data: practitioner } = await db
       .from('practitioners')
-      .select('id, vat_regime, country, working_weekdays, working_days_per_week')
+      .select('id, vat_regime, country, working_weekdays, working_days_per_week, vacation_weeks_per_year, average_consultation_price')
       .eq('user_id', user.id)
       .single()
 
@@ -186,12 +186,44 @@ export async function GET(request: Request) {
 
     // En mode simplifié, une dotation saisie à la main remplace le plan
     // d'amortissement détaillé — comme la ligne « dotation aux amortissements »
-    // d'un prévisionnel comptable.
-    expenses.depreciation =
+    // d'un prévisionnel comptable. Dès qu'une immobilisation est enregistrée,
+    // le plan détaillé fait foi : c'est le plus précis des deux.
+    const usesTypedDepreciation =
       settings.inputMode === 'simple' && assetRows.length === 0
-        ? settings.simple.depreciation
-        : depreciation.totalDotation
+    expenses.depreciation = usesTypedDepreciation
+      ? settings.simple.depreciation
+      : depreciation.totalDotation
     expenses.assetPurchases = depreciation.totalPurchasesTtc
+
+    // Le montant saisi à la main est écrasé par le plan : mieux vaut le dire que
+    // laisser le praticien croire que sa saisie compte encore.
+    const crossModeWarnings: Array<{
+      key: string
+      severity: 'info' | 'warning'
+      message: string
+    }> = []
+
+    if (
+      settings.inputMode === 'simple' &&
+      assetRows.length > 0 &&
+      settings.simple.depreciation > 0
+    ) {
+      crossModeWarnings.push({
+        key: 'depreciation_conflict',
+        severity: 'warning',
+        message:
+          'Vous avez saisi une dotation annuelle ET des immobilisations détaillées. Le plan d’amortissement fait foi, votre montant saisi est ignoré : remettez-le à zéro pour lever l’ambiguïté.',
+      })
+    }
+
+    if (settings.inputMode === 'simple' && depreciation.totalPurchasesTtc > 0) {
+      crossModeWarnings.push({
+        key: 'asset_purchase_simple_mode',
+        severity: 'info',
+        message:
+          'Une immobilisation a été acquise cette année : son décaissement est compté à part. Vérifiez qu’il n’est pas aussi inclus dans vos charges annuelles.',
+      })
+    }
 
     // Assujetti : la TVA sur les acquisitions est récupérable.
     if (settings.vatRegime === 'assujetti') {
@@ -267,6 +299,8 @@ export async function GET(request: Request) {
       monthsElapsed: 12,
     })
 
+    simulation.warnings.push(...crossModeWarnings)
+
     // Vue mensuelle : encaissements du mois demandé (mois courant par défaut).
     const requestedMonth = Number(searchParams.get('month'))
     const selectedMonth =
@@ -314,6 +348,14 @@ export async function GET(request: Request) {
         manualRevenue: manualRow.total,
         expenseCount: expenseRows.length,
         inputMode: settings.inputMode,
+        // Entrées résolues, pour rejouer la simulation côté client sans
+        // aller-retour serveur (mode comparaison).
+        expenses: annualisedExpenses,
+        practice: {
+          averagePrice: practitioner.average_consultation_price ?? null,
+          workingDaysPerWeek: practitioner.working_days_per_week ?? 4,
+          vacationWeeks: practitioner.vacation_weeks_per_year ?? 5,
+        },
         depreciation: {
           lines: depreciation.lines,
           totalDotation: depreciation.totalDotation,
