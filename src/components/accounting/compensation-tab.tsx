@@ -48,6 +48,9 @@ interface SimulationResponse {
     expenses: ExpenseTotals
     practice: {
       averagePrice: number | null
+      averagePriceSource: 'observed' | 'configured'
+      consultationCount: number
+      configuredAveragePrice: number | null
       workingDaysPerWeek: number
       vacationWeeks: number
     }

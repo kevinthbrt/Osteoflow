@@ -10,13 +10,18 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Scale, RotateCcw, TrendingUp, TrendingDown } from 'lucide-react'
+import { Scale, RotateCcw, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
 import { simulate } from '@/lib/finance/simulator'
 import type { ExpenseTotals, FinanceSettings } from '@/lib/finance/types'
 
 interface PracticeContext {
   averagePrice: number | null
+  /** `observed` : panier moyen constaté ; `configured` : tarif saisi dans Objectifs. */
+  averagePriceSource: 'observed' | 'configured'
+  consultationCount: number
+  configuredAveragePrice: number | null
   workingDaysPerWeek: number
   vacationWeeks: number
 }
@@ -76,6 +81,9 @@ export default function ComparisonCard({
       }),
     [year, settings, simulatedRevenue, expenses],
   )
+
+  const newPatientsPerWeek =
+    averagePrice > 0 ? simulatedRevenue / averagePrice / workingWeeks : 0
 
   const newMonthlyDraw = simulated.recommendedMonthlyDraw
   const drawDelta = newMonthlyDraw - baselineMonthlyDraw
@@ -158,7 +166,6 @@ export default function ComparisonCard({
             />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>−40 %</span>
-              <span>{formatCurrency(simulatedRevenue)} de recettes</span>
               <span>+40 %</span>
             </div>
           </div>
@@ -183,18 +190,67 @@ export default function ComparisonCard({
             />
             {patientsDisabled ? (
               <p className="text-xs text-amber-600">
-                Renseignez votre tarif moyen dans Objectifs pour convertir des
-                consultations en recettes.
+                Aucune consultation facturée cette année et aucun tarif de référence
+                dans Objectifs : impossible de convertir des consultations en
+                recettes.
               </p>
             ) : (
-              <p className="text-xs text-muted-foreground">
-                Environ {currentPatientsPerWeek.toFixed(1)} consultations par semaine
-                aujourd&apos;hui, à {formatCurrency(averagePrice)} en moyenne sur{' '}
-                {workingWeeks} semaines travaillées.
-              </p>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                <span>
+                  {currentPatientsPerWeek.toFixed(1)} → {newPatientsPerWeek.toFixed(1)}{' '}
+                  consultations par semaine
+                </span>
+                <span aria-hidden>·</span>
+                <span>
+                  {formatCurrency(averagePrice)}{' '}
+                  {practice.averagePriceSource === 'observed' ? (
+                    <Badge variant="secondary" className="text-[10px] font-normal">
+                      panier moyen réel sur {practice.consultationCount} consultations
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] font-normal">
+                      tarif de référence d’Objectifs
+                    </Badge>
+                  )}
+                </span>
+                <span aria-hidden>·</span>
+                <span>{workingWeeks} semaines travaillées</span>
+              </div>
             )}
           </div>
         )}
+
+        {/* Effet sur le chiffre d'affaires, visible quel que soit le mode. */}
+        <div className="rounded-xl border border-border px-4 py-3">
+          <p className="text-xs text-muted-foreground mb-1">
+            Chiffre d&apos;affaires annuel
+          </p>
+          <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            <span className="text-sm tabular-nums text-muted-foreground line-through decoration-muted-foreground/40">
+              {formatCurrency(baselineRevenue)}
+            </span>
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xl font-bold tabular-nums">
+              {formatCurrency(simulatedRevenue)}
+            </span>
+            {isChanged && (
+              <span
+                className={`text-sm font-semibold tabular-nums ${
+                  revenueDelta > 0 ? 'text-emerald-600' : 'text-destructive'
+                }`}
+              >
+                {revenueDelta > 0 ? '+' : ''}
+                {formatCurrency(revenueDelta)}
+              </span>
+            )}
+          </div>
+          {isChanged && (
+            <p className="text-xs text-muted-foreground mt-1">
+              soit {revenueDelta > 0 ? '+' : ''}
+              {formatCurrency(revenueDelta / 12)} par mois de recettes
+            </p>
+          )}
+        </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-border px-3.5 py-3">
@@ -241,8 +297,7 @@ export default function ComparisonCard({
               ) : (
                 <TrendingDown className="h-4 w-4 text-destructive" />
               )}
-              {revenueDelta > 0 ? '+' : ''}
-              {formatCurrency(revenueDelta)} de recettes sur l&apos;année
+              Ce que devient votre note
             </div>
 
             <div className="flex items-center justify-between text-muted-foreground">

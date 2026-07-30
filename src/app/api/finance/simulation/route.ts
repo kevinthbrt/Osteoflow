@@ -74,6 +74,28 @@ export async function GET(request: Request) {
       )
       .get(...cabinetIds, year) as { total: number }
 
+    // Panier moyen RÉEL de l'année : encaissements rapportés au nombre de
+    // consultations facturées. Le tarif saisi dans Objectifs est une hypothèse
+    // de pilotage ; ici on veut ce qui s'est effectivement passé, remises et
+    // tarifs différenciés compris.
+    const consultationRow = rawDb
+      .prepare(
+        `SELECT COUNT(DISTINCT i.id) AS invoices, COALESCE(SUM(p.amount), 0) AS total
+         FROM payments p
+         JOIN invoices i ON p.invoice_id = i.id
+         WHERE i.cabinet_id IN (${ph})
+           AND p.payment_date >= ? AND p.payment_date <= ?`,
+      )
+      .get(...cabinetIds, firstOfYear, lastOfYear) as {
+      invoices: number
+      total: number
+    }
+
+    const observedAveragePrice =
+      consultationRow.invoices > 0
+        ? consultationRow.total / consultationRow.invoices
+        : null
+
     const revenue = revenueRow.total + manualRow.total
 
     // Charges de l'année, avec la quote-part professionnelle appliquée.
@@ -352,7 +374,12 @@ export async function GET(request: Request) {
         // aller-retour serveur (mode comparaison).
         expenses: annualisedExpenses,
         practice: {
-          averagePrice: practitioner.average_consultation_price ?? null,
+          // Panier moyen constaté, à défaut le tarif de référence d'Objectifs.
+          averagePrice:
+            observedAveragePrice ?? practitioner.average_consultation_price ?? null,
+          averagePriceSource: observedAveragePrice ? 'observed' : 'configured',
+          consultationCount: consultationRow.invoices,
+          configuredAveragePrice: practitioner.average_consultation_price ?? null,
           workingDaysPerWeek: practitioner.working_days_per_week ?? 4,
           vacationWeeks: practitioner.vacation_weeks_per_year ?? 5,
         },
