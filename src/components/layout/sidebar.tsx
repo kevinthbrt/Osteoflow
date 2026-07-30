@@ -32,14 +32,28 @@ interface ElectronAPI {
   installUpdate: () => void
 }
 
-const navigation = [
+/**
+ * Pastille « Nouveau » sur les entrées de menu introduites par une version
+ * récente. Elle disparaît définitivement dès que la page a été ouverte : le
+ * but est d'attirer l'œil une fois, pas de décorer le menu en permanence.
+ */
+const NEW_BADGE_SEEN_KEY = 'myosteoflow_seen_new_nav'
+const appVersion = packageJson.version
+
+const navigation: Array<{
+  name: string
+  href: string
+  icon: typeof LayoutDashboard
+  description: string
+  newIn?: string
+}> = [
   { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard, description: 'Vue d\'ensemble' },
   { name: 'Ma journée', href: '/day-plan', icon: ListChecks, description: 'Patients du jour' },
   { name: 'Patients et consultations', href: '/patients', icon: Users, description: 'Patients & consultations' },
   { name: 'Messagerie et relances', href: '/messages', icon: MessageCircle, description: 'Communications' },
   { name: 'Suivi patients', href: '/surveys', icon: ClipboardList, description: 'Sondages & emails' },
   { name: 'Communication', href: '/communication', icon: FileText, description: 'Courriers & documents' },
-  { name: 'Comptabilité', href: '/accounting', icon: BarChart3, description: 'Rapports' },
+  { name: 'Comptabilité', href: '/accounting', icon: BarChart3, description: 'Rapports', newIn: '1.16.0' },
   { name: 'Objectifs', href: '/objectives', icon: Target, description: 'Suivi des objectifs' },
   { name: 'Statistiques', href: '/statistics', icon: TrendingUp, description: 'Analyses & tendances' },
   { name: 'E-Learning', href: '/elearning', icon: GraduationCap, description: 'Formations OsteoUpgrade' },
@@ -48,6 +62,29 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const [seenNewNav, setSeenNewNav] = useState<string[]>([])
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(NEW_BADGE_SEEN_KEY)
+      setSeenNewNav(stored ? (JSON.parse(stored) as string[]) : [])
+    } catch {
+      setSeenNewNav([])
+    }
+  }, [])
+
+  const markNavSeen = (href: string) => {
+    setSeenNewNav((previous) => {
+      if (previous.includes(href)) return previous
+      const next = [...previous, href]
+      try {
+        localStorage.setItem(NEW_BADGE_SEEN_KEY, JSON.stringify(next))
+      } catch {
+        // Un stockage indisponible ne doit pas empêcher la navigation.
+      }
+      return next
+    })
+  }
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [updateReady, setUpdateReady] = useState<string | null>(null)
@@ -129,7 +166,10 @@ export function Sidebar() {
                 <Link
                   key={item.name}
                   href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    if (item.newIn) markNavSeen(item.href)
+                  }}
                   data-tour={`nav-${item.href.replace('/', '')}`}
                   className={cn(
                     'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
@@ -147,6 +187,11 @@ export function Sidebar() {
                     <item.icon className="h-4 w-4" />
                   </div>
                   <span>{item.name}</span>
+                  {item.newIn === appVersion && !seenNewNav.includes(item.href) && (
+                    <span className="ml-auto rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                      Nouveau
+                    </span>
+                  )}
                   {isActive && (
                     <Sparkles className="h-3.5 w-3.5 text-white/70 ml-auto" />
                   )}

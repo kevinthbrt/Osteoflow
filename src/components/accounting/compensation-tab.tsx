@@ -34,6 +34,7 @@ import {
   ShieldCheck,
   HelpCircle,
 } from 'lucide-react'
+import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import type { SimulationResult } from '@/lib/finance/types'
@@ -62,6 +63,11 @@ interface SimulationResponse {
     monthRevenue: number
     expenseCount: number
     inputMode: string
+    setup: {
+      workingWeekdaysConfigured: boolean
+      averagePriceConfigured: boolean
+      objectivesHref: string
+    }
     pass: number
     scalesVerifiedOn: string
     sources: string[]
@@ -454,6 +460,23 @@ export default function CompensationTab({
         </Card>
       ) : (
         <>
+          {!context.setup.workingWeekdaysConfigured && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3">
+              <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600" />
+              <p className="text-sm text-muted-foreground flex-1">
+                <span className="font-medium text-foreground">
+                  Vos jours travaillés ne sont pas renseignés.
+                </span>{' '}
+                La projection annuelle suppose pour l&apos;instant que vous
+                travaillez les premiers jours de la semaine — si ce n&apos;est pas
+                le cas, tous les montants de cette page sont décalés.
+              </p>
+              <Button variant="outline" size="sm" className="shrink-0" asChild>
+                <Link href={context.setup.objectivesHref}>Renseigner</Link>
+              </Button>
+            </div>
+          )}
+
           {simulation.warnings.map((warning) => (
             <div
               key={warning.key}

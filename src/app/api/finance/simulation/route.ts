@@ -266,6 +266,23 @@ export async function GET(request: Request) {
     // mêmes recettes.
     const monthsElapsed = year === now.getFullYear() ? now.getMonth() + 1 : 12
 
+    // Réglages d'Objectifs dont dépend directement ce calcul. Sans jours
+    // travaillés, la projection repose sur une hypothèse (« les N premiers
+    // jours de la semaine ») que le praticien n'a jamais validée : mieux vaut
+    // le lui dire que de présenter le résultat comme acquis.
+    const parsedWeekdays = Array.isArray(practitioner.working_weekdays)
+      ? practitioner.working_weekdays
+      : typeof practitioner.working_weekdays === 'string'
+        ? ((JSON.parse(practitioner.working_weekdays || 'null') as number[] | null) ?? null)
+        : null
+    const setup = {
+      workingWeekdaysConfigured: Array.isArray(parsedWeekdays) && parsedWeekdays.length > 0,
+      averagePriceConfigured:
+        observedAveragePrice !== null ||
+        (practitioner.average_consultation_price ?? 0) > 0,
+      objectivesHref: '/settings?tab=objectives',
+    }
+
     let annualisationFactor = 1
     if (year === now.getFullYear()) {
       const { resolveWorkingWeekdays, workingDayRatio } = await import(
@@ -370,6 +387,7 @@ export async function GET(request: Request) {
         manualRevenue: manualRow.total,
         expenseCount: expenseRows.length,
         inputMode: settings.inputMode,
+        setup,
         // Entrées résolues, pour rejouer la simulation côté client sans
         // aller-retour serveur (mode comparaison).
         expenses: annualisedExpenses,
