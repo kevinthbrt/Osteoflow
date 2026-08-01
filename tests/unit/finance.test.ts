@@ -1097,3 +1097,55 @@ describe('amortissement des immobilisations', () => {
     expect(buying.availableIncome).toBeCloseTo(notBuying.availableIncome - 4200, 2)
   })
 })
+
+describe('confrontation à un échéancier Urssaf 2026 réel', () => {
+  // Dossier BNC réel, échéancier prévisionnel 2026 établi par un cabinet
+  // d'expertise comptable (« Cotisation provisionnelle 2026 », total 2 655 €).
+  //
+  // Revenu brut social : 8 916 €. Il inclut la CFP, que le plan comptable
+  // classe en « autres impôts » mais que l'Urssaf réintègre — c'est une
+  // contribution sociale, pas une taxe déductible.
+  const REVENU_BRUT = 8916
+
+  const echeancier: Record<string, number> = {
+    maladie: 0,
+    indemnites_journalieres: 96,
+    retraite_base: 1179,
+    retraite_complementaire: 534,
+    invalidite_deces: 86,
+    allocations_familiales: 0,
+    csg_crds: 640,
+    cfp: 120,
+  }
+
+  const result = computeSocialCharges(config, {
+    regime: 'reel_bnc',
+    retirementFund: 'ssi',
+    acre: false,
+    base: REVENU_BRUT,
+  })
+
+  it('retient la même assiette après abattement de 26 %', () => {
+    expect(result.assiette).toBeCloseTo(6598, 0)
+  })
+
+  it.each(Object.entries(echeancier))(
+    'reproduit la ligne %s à l’euro près',
+    (key, expected) => {
+      const line = result.lines.find((l) => l.key === key)
+      expect(line, `ligne ${key} absente`).toBeDefined()
+      expect(Math.round(line!.amount)).toBe(expected)
+    },
+  )
+
+  it('retombe sur le total de l’échéancier', () => {
+    expect(Math.round(result.total)).toBe(2655)
+  })
+
+  it('applique le plancher des indemnités journalières comme l’Urssaf', () => {
+    // 96 € = 0,50 % de 40 % du Pass, alors que l'assiette réelle est bien
+    // inférieure : c'est l'assiette minimale qui s'applique.
+    const line = result.lines.find((l) => l.key === 'indemnites_journalieres')
+    expect(line?.amount).toBeCloseTo(0.4 * config.pass * 0.005, 0)
+  })
+})

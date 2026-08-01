@@ -88,7 +88,7 @@ export default function ChargesSettings({
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Hors Urssaf et hors forfaits
+                Hors Urssaf et CFP, hors forfaits
               </p>
             </div>
             {vatRegime === 'vat_20' && (

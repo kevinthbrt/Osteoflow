@@ -117,15 +117,15 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
     label: 'Impôts et taxes déductibles',
     defaultDeductibleShare: 100,
     defaultVatRate: 0,
-    hint: 'CFE notamment. L’impôt sur le revenu n’est jamais déductible',
+    hint: 'CFE notamment. N’y mettez ni la CFP ni l’Urssaf — la CFP est calculée automatiquement, et les cotisations ont leur propre poste',
   },
   {
     key: 'cotisations_sociales',
-    label: 'Cotisations sociales Urssaf',
+    label: 'Cotisations sociales et CFP Urssaf',
     defaultDeductibleShare: 100,
     defaultVatRate: 0,
     reducesSocialBase: false,
-    hint: 'Appels et régularisations Urssaf. Déductibles de votre impôt, mais pas de l’assiette qui sert à calculer ces mêmes cotisations',
+    hint: 'Appels et régularisations Urssaf, contribution formation (CFP) comprise. Déductibles de votre impôt, mais pas de l’assiette qui sert à les calculer — même quand votre comptable les classe en « autres impôts »',
   },
   {
     key: 'forfait_blanchissage',
