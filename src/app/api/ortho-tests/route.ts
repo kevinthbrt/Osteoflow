@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getOsteoflowAuthHeaders } from '@/lib/osteoupgrade/proxy-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,8 +12,11 @@ export async function GET() {
       return NextResponse.json({ error: 'Configuration serveur invalide (OSTEOFLOW_PROXY_SECRET manquant)' }, { status: 500 })
     }
 
+    // Le jeton de session identifie l'utilisateur : la bibliothèque de tests
+    // relève d'OsteoUpgrade, le serveur doit pouvoir vérifier que l'offre
+    // l'inclut. Sans ces en-têtes il servait le contenu à tout le monde.
     const res = await fetch(PROXY_URL, {
-      headers: { 'x-osteoflow-secret': secret },
+      headers: { 'x-osteoflow-secret': secret, ...getOsteoflowAuthHeaders() },
       signal: AbortSignal.timeout(15000),
     })
 
