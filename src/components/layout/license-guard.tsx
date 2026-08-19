@@ -29,10 +29,17 @@ export function LicenseGuard() {
 
     api.onLicenseExpired(async (payload: { message: string; code: string }) => {
       const isConcurrent = payload.code === 'CONCURRENT_SESSION'
+      // L'offre OsteoUpgrade seule n'inclut pas MyOsteoFlow : l'abonnement est
+      // actif, parler d'expiration serait faux.
+      const sansOsteoflow = payload.code === 'PLAN_WITHOUT_OSTEOFLOW'
 
       toast({
         variant: 'destructive',
-        title: isConcurrent ? 'Session en double détectée' : 'Abonnement expiré',
+        title: isConcurrent
+          ? 'Session en double détectée'
+          : sansOsteoflow
+            ? 'Offre sans MyOsteoFlow'
+            : 'Abonnement expiré',
         description:
           payload.message +
           ` Vous allez être redirigé dans ${REDIRECT_DELAY_MS / 1000} secondes.`,

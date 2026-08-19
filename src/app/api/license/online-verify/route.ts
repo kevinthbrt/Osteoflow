@@ -37,6 +37,11 @@ export async function POST() {
       if (data.role) {
         upsertConfig('license_role', data.role)
       }
+      // Le heartbeat rapporte les droits à jour : un abonné qui ajoute ou
+      // retire OsteoUpgrade voit son interface suivre sans se reconnecter.
+      if (data.entitlements && typeof data.entitlements === 'object') {
+        upsertConfig('license_entitlements', JSON.stringify(data.entitlements))
+      }
     }
 
     return NextResponse.json(data)

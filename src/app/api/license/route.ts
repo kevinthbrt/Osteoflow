@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getDatabase } from '@/lib/database/connection'
 import crypto from 'crypto'
+import { entitlementsFromLicense, parseEntitlements } from '@/lib/entitlements'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,6 +9,7 @@ const LICENSE_KEYS = [
   'license_token',
   'license_email',
   'license_role',
+  'license_entitlements',
   'license_expires_at',
   'license_last_verified_at',
   'license_device_id',
@@ -71,13 +73,20 @@ export async function GET() {
     grace_period_expired: gracePeriodExpired,
     email: config.license_email || null,
     role: config.license_role || null,
+    // Droits réels de l'offre souscrite. Absents tant que l'utilisateur ne
+    // s'est pas reconnecté depuis une version antérieure : le helper retombe
+    // alors sur le rôle.
+    entitlements: entitlementsFromLicense(
+      config.license_role,
+      parseEntitlements(config.license_entitlements)
+    ),
     pin_active: pinActive,
     has_pin: !!config.license_pin_hash,
   })
 }
 
 export async function POST(request: Request) {
-  const { token, email, role, expires_at } = await request.json()
+  const { token, email, role, expires_at, entitlements } = await request.json()
 
   if (!token || !email || !role || !expires_at) {
     return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
@@ -87,6 +96,11 @@ export async function POST(request: Request) {
   upsertConfig('license_email', email)
   upsertConfig('license_role', role)
   upsertConfig('license_expires_at', expires_at)
+  // `entitlements` n'est renvoyé que par les versions récentes du serveur ;
+  // son absence laisse simplement le repli sur le rôle s'appliquer.
+  if (entitlements && typeof entitlements === 'object') {
+    upsertConfig('license_entitlements', JSON.stringify(entitlements))
+  }
   upsertConfig('license_last_verified_at', new Date().toISOString())
 
   deleteConfig('license_pin_hash')

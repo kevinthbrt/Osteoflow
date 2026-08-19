@@ -19,6 +19,8 @@ import { ProgressWidget } from './widgets/progress-widget'
 import { DayPlanWidget } from './widgets/day-plan-widget'
 import { ReviewWidget, FeaturedFormationWidget, type WidgetsData } from './widgets/osteoupgrade-widgets'
 import { FlashcardsWidget } from './widgets/flashcards-widget'
+import { OsteoUpgradeUpsellWidget } from './widgets/osteoupgrade-upsell'
+import { useEntitlements } from '@/hooks/use-entitlements'
 import { RelaunchWidget } from './widgets/relaunch-widget'
 import { BannerWeather } from './banner-weather'
 import { ProfileCompletionWidget } from './profile-completion-widget'
@@ -65,6 +67,10 @@ export function Dashboard({
   const [patientSearch, setPatientSearch] = useState('')
   const router = useRouter()
 
+  // L'offre MyOsteoFlow seule n'inclut pas le contenu OsteoUpgrade : ses
+  // endpoints répondent 403. On remplace les widgets par un encart d'offre
+  // plutôt que d'afficher des cartes vides.
+  const { osteoupgrade: aOsteoUpgrade } = useEntitlements()
   const [widgets, setWidgets] = useState<WidgetsData | null>(null)
   const [widgetsLoading, setWidgetsLoading] = useState(true)
   const [widgetsRefreshKey, setWidgetsRefreshKey] = useState(0)
@@ -76,7 +82,7 @@ export function Dashboard({
       .then(setWidgets)
       .catch(() => setWidgets(null))
       .finally(() => setWidgetsLoading(false))
-  }, [widgetsRefreshKey])
+  }, [widgetsRefreshKey, aOsteoUpgrade])
 
   const filteredPatients = useMemo(() => {
     const q = patientSearch.trim().toLowerCase()
@@ -132,28 +138,36 @@ export function Dashboard({
       {/* ── 3 colonnes : OsteoUpgrade | Vidéo | OsteoFlash ── */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
 
-        {/* Gauche : Revue + Nouveauté empilées */}
+        {/* Gauche : Revue + Nouveauté empilées, ou proposition d'offre */}
         <div className="lg:col-span-1 flex flex-col gap-4">
-          <ReviewWidget
-            review={widgets?.review ?? null}
-            loading={widgetsLoading}
-            onRefresh={() => setWidgetsRefreshKey((k) => k + 1)}
-          />
-          <FeaturedFormationWidget
-            formation={widgets?.featured_formation ?? null}
-            loading={widgetsLoading}
-            practitionerEmail={practitionerEmail}
-          />
+          {aOsteoUpgrade ? (
+            <>
+              <ReviewWidget
+                review={widgets?.review ?? null}
+                loading={widgetsLoading}
+                onRefresh={() => setWidgetsRefreshKey((k) => k + 1)}
+              />
+              <FeaturedFormationWidget
+                formation={widgets?.featured_formation ?? null}
+                loading={widgetsLoading}
+                practitionerEmail={practitionerEmail}
+              />
+            </>
+          ) : (
+            <OsteoUpgradeUpsellWidget />
+          )}
         </div>
 
-        {/* Centre : Vidéo */}
-        <div className="lg:col-span-2">
-          <VideoWidget />
-        </div>
+        {/* Centre : Vidéo (contenu OsteoUpgrade) */}
+        {aOsteoUpgrade && (
+          <div className="lg:col-span-2">
+            <VideoWidget />
+          </div>
+        )}
 
-        {/* Droite : OsteoFlash + Relances */}
-        <div className="lg:col-span-1 flex flex-col gap-4">
-          <FlashcardsWidget />
+        {/* Droite : OsteoFlash (OsteoUpgrade) + Relances */}
+        <div className={aOsteoUpgrade ? 'lg:col-span-1 flex flex-col gap-4' : 'lg:col-span-3 flex flex-col gap-4'}>
+          {aOsteoUpgrade && <FlashcardsWidget />}
           <RelaunchWidget />
         </div>
       </div>
