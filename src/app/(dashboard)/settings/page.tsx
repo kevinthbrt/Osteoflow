@@ -27,6 +27,7 @@ import { getCurrencySymbol } from '@/lib/utils/currency'
 import type { Practitioner, SessionType } from '@/types/database'
 import { CustomClinicalContentTab } from '@/components/settings/custom-clinical-content-tab'
 import { ImportDataTab } from '@/components/settings/import-data-tab'
+import { ExportDataTab } from '@/components/settings/export-data-tab'
 import { localApiHeaders } from '@/lib/local-api-token'
 
 interface PatientListItem {
@@ -192,6 +193,7 @@ const SETTINGS_NAV: {
     key: 'donnees', label: 'Données & sécurité', icon: HardDrive, items: [
       { value: 'storage', label: 'Sauvegarde' },
       { value: 'import', label: 'Import de données' },
+      { value: 'export', label: 'Export de données' },
       { value: 'security', label: 'Sécurité (PIN)' },
       { value: 'audit', label: 'Journal' },
       { value: 'gdpr', label: 'RGPD' },
@@ -2092,6 +2094,11 @@ function SettingsPageInner() {
         {/* Import Tab */}
         <TabsContent value="import">
           <ImportTab />
+        </TabsContent>
+
+        {/* Export Tab */}
+        <TabsContent value="export">
+          <ExportDataTab />
         </TabsContent>
 
         <TabsContent value="clinical-content">

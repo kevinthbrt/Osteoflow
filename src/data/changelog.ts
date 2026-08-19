@@ -19,6 +19,18 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.17.0',
+    date: '2026-08-18',
+    title: 'Extraire vos données en CSV, à la carte',
+    changes: [
+      { type: 'feature', text: "Nouvel onglet Paramètres > Données & sécurité > « Export de données » : vos patients, consultations, factures, paiements, charges et immobilisations s'extraient en CSV, ouvrable dans Excel, Numbers ou LibreOffice. Jusqu'ici seule la comptabilité savait s'exporter — le reste de votre base restait prisonnier de l'application." },
+      { type: 'feature', text: "Vous cochez exactement ce que vous voulez : d'abord les types de données, puis colonne par colonne. Un fichier CSV par type de données, avec les colonnes utiles déjà cochées pour ne pas repartir d'une page blanche." },
+      { type: 'feature', text: "Filtre de période commun à tout l'export, appliqué à la date qui a du sens pour chaque type de données : date de consultation, d'émission de facture, d'encaissement, de dépense. Les dossiers archivés sont exclus sauf si vous demandez à les inclure." },
+      { type: 'improvement', text: "Les colonnes contenant des données de santé (anamnèse, examen, antécédents, conseils) portent une pastille « santé » et sont décochées par défaut : un export destiné au comptable ou à un tableur de suivi n'a aucune raison de les embarquer. Si vous en cochez une, l'application rappelle qu'un CSV n'est ni chiffré ni protégé par mot de passe." },
+      { type: 'improvement', text: "Les fichiers sont formatés pour Excel en configuration française — séparateur point-virgule, virgule décimale, accents corrects — et les contenus libres ne peuvent pas y être réinterprétés comme des formules." },
+    ],
+  },
+  {
     version: '1.16.0',
     date: '2026-07-30',
     title: 'Savoir enfin combien vous pouvez vous verser',
