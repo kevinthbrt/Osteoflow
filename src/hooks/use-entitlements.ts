@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import type { Entitlements } from '@/lib/entitlements'
+import { simulationActive } from '@/lib/plan-simulation'
+
+export type EtatEntitlements = Entitlements & { loading: boolean; role: string | null; simule: boolean }
 
 /**
  * Droits d'accès du compte connecté, lus depuis la licence locale.
@@ -10,12 +13,18 @@ import type { Entitlements } from '@/lib/entitlements'
  * puis masquer un widget serait plus déstabilisant que l'inverse, et le
  * serveur reste de toute façon l'autorité — un compte sans OsteoUpgrade
  * reçoit un 403 même si l'interface se trompait.
+ *
+ * Un compte administrateur peut simuler l'absence d'OsteoUpgrade
+ * (cf. lib/plan-simulation.ts) : la simulation ne peut que retirer un droit,
+ * jamais en accorder un.
  */
-export function useEntitlements(): Entitlements & { loading: boolean } {
-  const [etat, setEtat] = useState<Entitlements & { loading: boolean }>({
+export function useEntitlements(): EtatEntitlements {
+  const [etat, setEtat] = useState<EtatEntitlements>({
     osteoflow: true,
     osteoupgrade: true,
     loading: true,
+    role: null,
+    simule: false,
   })
 
   useEffect(() => {
@@ -25,10 +34,14 @@ export function useEntitlements(): Entitlements & { loading: boolean } {
       .then((data) => {
         if (annule) return
         const e = data?.entitlements
+        const role = data?.role ?? null
+        const simule = role === 'admin' && simulationActive()
         setEtat({
           osteoflow: e?.osteoflow !== false,
-          osteoupgrade: e?.osteoupgrade !== false,
+          osteoupgrade: simule ? false : e?.osteoupgrade !== false,
           loading: false,
+          role,
+          simule,
         })
       })
       .catch(() => {

@@ -13,6 +13,7 @@ import { TourWrapper } from '@/components/layout/tour-wrapper'
 import { SupportWidget } from '@/components/support/support-widget'
 import { BroadcastModal } from '@/components/layout/broadcast-modal'
 import { CurrencySync } from '@/components/providers/currency-sync'
+import { SimulationOffre } from '@/components/layout/simulation-offre'
 
 export const dynamic = 'force-dynamic'
 
@@ -95,6 +96,7 @@ export default async function DashboardLayout({
         <LicenseGuard />
         <InactivityTimer timeoutMs={inactivityTimeoutMs} />
         <SupportWidget userEmail={licenseEmail} />
+        <SimulationOffre />
       </div>
     </TourWrapper>
   )
