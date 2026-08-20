@@ -21,6 +21,8 @@ import {
   FileDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useEntitlements } from '@/hooks/use-entitlements'
+import { OsteoUpgradeLocked } from '@/components/osteoupgrade/osteoupgrade-locked'
 
 /* ── Types ── */
 type QuizAnswer = {
@@ -325,6 +327,7 @@ export function CoursePlayer({
   practitionerEmail: string
 }) {
   const router = useRouter()
+  const { osteoupgrade: aOsteoUpgrade, loading: droitsEnCours } = useEntitlements()
   const [formation, setFormation] = useState<Formation | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -360,7 +363,11 @@ export function CoursePlayer({
     }
   }, [formationId, practitionerEmail])
 
-  useEffect(() => { loadFormation() }, [loadFormation])
+  useEffect(() => {
+    // Sans OsteoUpgrade, la RPC ne renverrait rien : inutile d'appeler.
+    if (droitsEnCours || !aOsteoUpgrade) return
+    loadFormation()
+  }, [loadFormation, aOsteoUpgrade, droitsEnCours])
 
   const accessible = formation ? computeAccessible(formation) : new Set<string>()
   const allSubparts = formation?.chapters.flatMap((c) => c.subparts) ?? []
@@ -431,6 +438,10 @@ export function CoursePlayer({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: practitionerEmail, subpart_id: selectedSubpart.id, completed: true }),
     }).catch(() => {})
+  }
+
+  if (!droitsEnCours && !aOsteoUpgrade) {
+    return <OsteoUpgradeLocked titre={"Cette formation fait partie d'OsteoUpgrade"} />
   }
 
   if (loading) {
