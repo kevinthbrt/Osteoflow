@@ -19,6 +19,19 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.18.0',
+    date: '2026-08-19',
+    title: 'Votre application s\'adapte à votre offre',
+    changes: [
+      { type: 'feature', text: "OsteoUpgrade propose désormais trois formules : MyOsteoFlow seul, OsteoUpgrade seul, ou les deux réunis. L'application sait à laquelle vous avez souscrit et n'affiche plus que ce à quoi vous avez réellement accès." },
+      { type: 'improvement', text: "Si votre formule ne comprend pas OsteoUpgrade, le tableau de bord ne montre plus la revue de littérature, la formation mise en avant, la vidéo du moment ni OsteoFlash. Jusqu'ici ces encarts s'affichaient pour tout le monde et restaient désespérément vides. Un encart les remplace et détaille ce que la formule complète ajoute." },
+      { type: 'improvement', text: "L'onglet E-Learning affiche désormais un écran clair si votre formule ne comprend pas OsteoUpgrade. Jusqu'ici la page s'ouvrait quand même et ne listait que les rares formations en accès libre, sans dire pourquoi — ce qui ressemblait davantage à une panne qu'à une limite d'offre." },
+      { type: 'improvement', text: "Le bouton « Tests orthos » du formulaire de consultation n'apparaît que si votre formule donne accès à la bibliothèque OsteoUpgrade. L'aide au raisonnement clinique, elle, continue de vous proposer des tests quelle que soit votre formule — vous savez quel test faire, le descriptif détaillé restant réservé à OsteoUpgrade." },
+      { type: 'improvement', text: "Vos droits se mettent à jour tout seuls : si vous changez de formule depuis votre espace abonnement, l'application s'aligne dans la demi-heure sans que vous ayez à vous déconnecter et vous reconnecter." },
+      { type: 'fix', text: "Message de connexion plus juste : un compte abonné à OsteoUpgrade seul se voyait annoncer un abonnement expiré alors qu'il est bien actif. L'application explique désormais que c'est la formule qui ne couvre pas MyOsteoFlow, et comment y remédier." },
+    ],
+  },
+  {
     version: '1.17.0',
     date: '2026-08-18',
     title: 'Extraire vos données en CSV, à la carte',

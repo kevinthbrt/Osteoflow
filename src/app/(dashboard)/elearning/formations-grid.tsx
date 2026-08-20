@@ -11,6 +11,8 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useEntitlements } from '@/hooks/use-entitlements'
+import { OsteoUpgradeLocked } from '@/components/osteoupgrade/osteoupgrade-locked'
 
 type Formation = {
   id: string
@@ -135,11 +137,15 @@ function FormationCard({
 
 export function FormationsGrid({ practitionerEmail }: { practitionerEmail: string }) {
   const router = useRouter()
+  const { osteoupgrade: aOsteoUpgrade, loading: droitsEnCours } = useEntitlements()
   const [formations, setFormations] = useState<Formation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
   useEffect(() => {
+    // Inutile d'appeler le serveur sans le droit : la RPC ne renverrait que
+    // les formations marquées en accès libre, soit une grille presque vide.
+    if (droitsEnCours || !aOsteoUpgrade) return
     setLoading(true)
     setError(false)
     const params = new URLSearchParams({ email: practitionerEmail })
@@ -153,7 +159,7 @@ export function FormationsGrid({ practitionerEmail }: { practitionerEmail: strin
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false))
-  }, [practitionerEmail])
+  }, [practitionerEmail, aOsteoUpgrade, droitsEnCours])
 
   const featured = formations.filter((f) => f.is_featured_osteoflow)
   const others = formations.filter((f) => !f.is_featured_osteoflow)
@@ -161,6 +167,10 @@ export function FormationsGrid({ practitionerEmail }: { practitionerEmail: strin
   const totalCompleted = formations.reduce((sum, f) => sum + f.completed, 0)
   const totalModules = formations.reduce((sum, f) => sum + f.total, 0)
   const overallPct = totalModules > 0 ? Math.round((totalCompleted / totalModules) * 100) : 0
+
+  if (!droitsEnCours && !aOsteoUpgrade) {
+    return <OsteoUpgradeLocked titre={"Les formations font partie d'OsteoUpgrade"} />
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

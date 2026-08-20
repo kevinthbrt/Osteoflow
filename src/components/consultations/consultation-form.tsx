@@ -55,6 +55,7 @@ import { AiExerciseGenerationDialog } from '@/components/exercises/ai-exercise-g
 import { PatientPrescriptionsListDialog } from '@/components/exercises/patient-prescriptions-list-dialog'
 import { TestsSuggestionsPanel } from '@/components/consultations/tests-suggestions-panel'
 import { OrthoTestsPickerDialog } from '@/components/consultations/ortho-tests-picker-dialog'
+import { useEntitlements } from '@/hooks/use-entitlements'
 import { AtMentionDropdown } from '@/components/consultations/at-mention-dropdown'
 import {
   POST_SESSION_ADVICE_OPTIONS,
@@ -208,6 +209,10 @@ export function ConsultationForm({
   const [hypothesesLoading, setHypothesesLoading] = useState(false)
   const [hypothesesError, setHypothesesError] = useState<string | null>(null)
   const [orthoPickerRegionFilter, setOrthoPickerRegionFilter] = useState<string | undefined>(undefined)
+  // La bibliothèque de tests orthopédiques relève d'OsteoUpgrade : sans cette
+  // offre, le serveur répond 403. On masque le bouton plutôt que d'ouvrir une
+  // fenêtre qui resterait vide.
+  const { osteoupgrade: aOsteoUpgrade } = useEntitlements()
   const [techMentionRegion, setTechMentionRegion] = useState<string | null>(null)
   const [techItems, setTechItems] = useState<{ id: string; name: string; region: string | null; description: string | null; use_count: number }[]>([])
   // @ec inline dropdown
@@ -1708,16 +1713,18 @@ export function ConsultationForm({
                   title="Examen clinique et traitement"
                   tone={SECTION_TONES.examen}
                   action={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
-                      onClick={() => setShowOrthoTestsPicker(true)}
-                    >
-                      <Stethoscope className="h-4 w-4" />
-                      Tests orthos
-                    </Button>
+                    aOsteoUpgrade ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+                        onClick={() => setShowOrthoTestsPicker(true)}
+                      >
+                        <Stethoscope className="h-4 w-4" />
+                        Tests orthos
+                      </Button>
+                    ) : null
                   }
                 />
                 <Textarea
