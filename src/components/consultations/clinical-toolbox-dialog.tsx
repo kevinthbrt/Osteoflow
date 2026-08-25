@@ -22,6 +22,7 @@ import {
   type ClinicalQuestionnaire,
   type QuestionnaireAnswers,
   type QuestionnaireCategory,
+  type QuestionnaireScore,
   type QuestionnaireLevel,
   type QuestionnaireTarget,
   answered,
@@ -38,7 +39,15 @@ interface ClinicalToolboxDialogProps {
   /** Ouvre directement cet outil plutôt que le catalogue. */
   initialQuestionnaireId?: string
   /** Insère le compte rendu dans le champ demandé du formulaire de consultation. */
-  onInject: (text: string, target: QuestionnaireTarget) => void
+  /**
+   * `result` porte l'outil et sa cotation : de quoi alimenter un raisonnement
+   * en cours, quand l'appelant en tient un.
+   */
+  onInject: (
+    text: string,
+    target: QuestionnaireTarget,
+    result?: { questionnaireId: string; score: QuestionnaireScore },
+  ) => void
 }
 
 /** Teintes du bandeau de résultat, du plus rassurant au plus alarmant. */
@@ -124,7 +133,7 @@ export function ClinicalToolboxDialog({
     const text = formatQuestionnaireResult(active, answers, { detailed })
     if (!text) return
     const destination = target ?? active.target
-    onInject(text, destination)
+    onInject(text, destination, { questionnaireId: active.id, score: active.score(answers) })
     setInsertedIds((previous) => (previous.includes(active.id) ? previous : [...previous, active.id]))
     toast({
       title: `${active.abbreviation} inséré`,

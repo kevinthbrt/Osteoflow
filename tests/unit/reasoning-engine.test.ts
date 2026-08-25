@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest'
+import { LUMBAR_ACTIONS, LUMBAR_HYPOTHESES } from '@/lib/reasoning'
 import {
+  SIGNALS,
   activeHypotheses,
   applySignal,
   evaluate,
+  openSignalsOf,
   reason,
   scoreHypothesis,
   signalsOf,
@@ -202,13 +205,30 @@ describe('prochaines actions', () => {
     )
   })
 
-  it('cesse de proposer ce qui est déjà renseigné', () => {
+  it('cesse de proposer un test dont le résultat est déjà connu', () => {
     const result = reason({
       signals: { 'lombaire.centralisation': true, 'lombaire.aggrave_toux': true },
       hypotheses,
       actions,
     })
     expect(result.nextActions).toEqual([])
+  })
+
+  it('continue de proposer un questionnaire de référence, qui ne sert pas à départager', () => {
+    // L'EIFEL ne tranche aucune hypothèse : il documente l'état du patient et
+    // sert de point de comparaison à la séance suivante.
+    const avecQuestionnaire: HypothesisDefinition[] = [
+      { ...hypotheses[0], actions: ['action.mckenzie', 'action.eifel'] },
+    ]
+    const result = reason({
+      signals: { 'lombaire.centralisation': true, 'lombaire.aggrave_toux': true },
+      hypotheses: avecQuestionnaire,
+      actions: [
+        ...actions,
+        { id: 'action.eifel', kind: 'questionnaire', label: 'EIFEL', questionnaireId: 'eifel' },
+      ],
+    })
+    expect(result.nextActions.map((suggestion) => suggestion.action.id)).toEqual(['action.eifel'])
   })
 
   it('s\'en tient au nombre d\'actions demandé', () => {
@@ -326,5 +346,204 @@ describe('propagation des implications', () => {
     const after = applySignal(before, 'lombaire.irradiation_sous_genou', true)
     expect(before).toEqual({ 'general.fievre': false })
     expect(after['general.fievre']).toBe(false)
+  })
+})
+
+describe('signaux qui s\'excluent', () => {
+  it('désigner un siège de douleur écarte les autres', () => {
+    const signals = applySignal({}, 'lombaire.localisation_fessiere', true)
+    expect(signals['lombaire.localisation_fessiere']).toBe(true)
+    expect(signals['lombaire.localisation_mediane']).toBe(false)
+    expect(signals['lombaire.localisation_paravertebrale']).toBe(false)
+    expect(signals['lombaire.localisation_diffuse']).toBe(false)
+  })
+
+  it('ne touche pas aux autres régions', () => {
+    const signals = applySignal({}, 'lombaire.localisation_mediane', true)
+    expect(signals['cervical.localisation_paravertebrale']).toBeUndefined()
+  })
+
+  it('n\'écarte rien sur une réponse négative', () => {
+    // « Ce n'est pas médian » ne dit pas où c'est.
+    const signals = applySignal({}, 'lombaire.localisation_mediane', false)
+    expect(signals['lombaire.localisation_fessiere']).toBeUndefined()
+  })
+
+  it('rend la voie mécanique atteignable sans extraction automatique', () => {
+    // Un poste sans IA doit pouvoir mener le raisonnement de bout en bout.
+    let signals = applySignal({}, 'lombaire.irradiation_jambe', false)
+    signals = applySignal(signals, 'lombaire.rythme_inflammatoire', false)
+    signals = applySignal(signals, 'lombaire.localisation_fessiere', true)
+    const result = reason({ signals, hypotheses: LUMBAR_HYPOTHESES })
+    expect(result.hypotheses[0].id).toBe('lombaire.sacro-iliaque')
+  })
+})
+
+describe('formulation des questions', () => {
+  /**
+   * Le copilote ne propose que deux boutons, Oui et Non. Une question dont la
+   * réponse « oui » ne veut pas dire exactement « ce signal est vrai » produit
+   * un relevé faux — ce qui est pire qu'un relevé absent, puisque le
+   * raisonnement part alors dans la mauvaise direction.
+   */
+  const questions = Object.entries(SIGNALS)
+    .filter(([, definition]) => definition.question)
+    .map(([id, definition]) => ({ id, question: definition.question! }))
+
+  it('couvre une bonne partie du vocabulaire', () => {
+    expect(questions.length).toBeGreaterThan(25)
+  })
+
+  it('pose une seule question à la fois', () => {
+    const doubles = questions.filter(({ question }) => (question.match(/\?/g) ?? []).length !== 1)
+    expect(doubles.map((entry) => entry.id)).toEqual([])
+  })
+
+  it('termine par un point d\'interrogation', () => {
+    const malformées = questions.filter(({ question }) => !question.trim().endsWith('?'))
+    expect(malformées.map((entry) => entry.id)).toEqual([])
+  })
+
+  it('n\'appelle jamais une réponse ouverte', () => {
+    // « Depuis combien de temps… », « Qu'est-ce qui fait le plus mal… » :
+    // ces tournures attendent une durée ou un choix, pas un oui.
+    const ouvertes = /^(qu'est-ce|que\b|quel|quelle|quels|quelles|combien|depuis combien|comment|où|pourquoi|lequel|laquelle)/i
+    const fautives = questions.filter(({ question }) => ouvertes.test(question.trim()))
+    expect(fautives.map((entry) => entry.id)).toEqual([])
+  })
+
+  it('n\'oppose jamais deux branches dans un choix', () => {
+    // « … le dos ou la jambe ? » : « oui » ne désigne aucune des deux.
+    const alternative = /\b(?:est-ce|:)\s[^?]*\bou\b[^?]*\?$|\bou (?:la |le |les |l')?(?:douleur|jambe|bras|dos|cou)\s*\?$/i
+    const fautives = questions.filter(({ question }) => alternative.test(question.trim()))
+    expect(fautives.map((entry) => entry.id)).toEqual([])
+  })
+})
+
+describe('questions à choix', () => {
+  const mecanique: HypothesisDefinition = {
+    id: 'test.mecanique',
+    label: 'Mécanique',
+    region: 'lombaire',
+    kind: 'mechanical',
+    criteria: [
+      { when: 'lombaire.localisation_fessiere', weight: 20, label: 'douleur fessière' },
+      { when: 'lombaire.localisation_mediane', weight: 20, label: 'douleur médiane' },
+    ],
+  }
+
+  it('pose une seule question pour un groupe qui s\'exclut', () => {
+    const result = reason({ signals: {}, hypotheses: [mecanique], actionLimit: 5 })
+    const choix = result.nextActions.filter((suggestion) => suggestion.action.kind === 'choice')
+    expect(choix).toHaveLength(1)
+    expect(choix[0].action.label).toBe('Où siège la douleur ?')
+    expect(choix[0].action.options?.map((option) => option.label)).toEqual([
+      'Médiane',
+      'Paravertébrale',
+      'Fessière',
+      'Diffuse',
+    ])
+  })
+
+  it('ne pose plus de question oui/non pour ces signaux', () => {
+    const result = reason({ signals: {}, hypotheses: [mecanique], actionLimit: 5 })
+    const binaires = result.nextActions.filter((suggestion) =>
+      suggestion.action.id.startsWith('question:lombaire.localisation'),
+    )
+    expect(binaires).toEqual([])
+  })
+
+  it('disparaît une fois le siège désigné', () => {
+    const signals = applySignal({}, 'lombaire.localisation_fessiere', true)
+    const result = reason({ signals, hypotheses: [mecanique], actionLimit: 5 })
+    expect(result.nextActions.filter((suggestion) => suggestion.action.kind === 'choice')).toEqual([])
+  })
+})
+
+describe('signaux encore utiles', () => {
+  it('ignore une branche déjà tranchée', () => {
+    // `all(not(A), B)` : une fois A faux, la négation est acquise et seul B
+    // reste à chercher.
+    const expr: SignalExpr = {
+      all: [
+        { not: { all: ['lombaire.irradiation_jambe', 'lombaire.irradiation_sous_genou'] } },
+        'lombaire.centralisation',
+      ],
+    }
+    expect(openSignalsOf(expr, { 'lombaire.irradiation_jambe': false })).toEqual([
+      'lombaire.centralisation',
+    ])
+  })
+
+  it('les réclame tous tant que rien n\'est tranché', () => {
+    const expr: SignalExpr = { all: ['lombaire.irradiation_jambe', 'lombaire.centralisation'] }
+    expect(openSignalsOf(expr, {}).sort()).toEqual([
+      'lombaire.centralisation',
+      'lombaire.irradiation_jambe',
+    ])
+  })
+
+  it('ne réclame plus rien d\'une expression décidée', () => {
+    const expr: SignalExpr = { any: ['lombaire.irradiation_jambe', 'lombaire.centralisation'] }
+    expect(openSignalsOf(expr, { 'lombaire.irradiation_jambe': true })).toEqual([])
+  })
+
+  it('ne propose plus le trajet de la douleur quand l\'irradiation est écartée', () => {
+    let signals = applySignal({}, 'lombaire.irradiation_jambe', false)
+    signals = applySignal(signals, 'lombaire.rythme_inflammatoire', false)
+    const result = reason({
+      signals,
+      hypotheses: LUMBAR_HYPOTHESES,
+      actions: LUMBAR_ACTIONS,
+      actionLimit: 8,
+    })
+    const proposés = result.nextActions.map((suggestion) => suggestion.action.id)
+    expect(proposés).not.toContain('question:lombaire.irradiation_sous_genou')
+    expect(proposés).not.toContain('question:lombaire.jambe_plus_douloureuse')
+    // À la place, la question qui fait réellement avancer : le siège.
+    expect(proposés[0]).toBe('choice:lombaire.localisation')
+  })
+})
+
+describe('ordre de la consultation', () => {
+  it('demande avant d\'examiner, à poids égal', () => {
+    // Le Lasègue et la question renseignent le même signe : on commence par
+    // demander.
+    const result = reason({
+      signals: {},
+      hypotheses: LUMBAR_HYPOTHESES,
+      actions: LUMBAR_ACTIONS,
+      actionLimit: 6,
+    })
+    const kinds = result.nextActions.map((suggestion) => suggestion.action.kind)
+    const premierTest = kinds.indexOf('test')
+    const dernièreQuestion = Math.max(kinds.lastIndexOf('question'), kinds.lastIndexOf('choice'))
+    if (premierTest !== -1 && dernièreQuestion !== -1) {
+      expect(premierTest).toBeGreaterThan(dernièreQuestion)
+    }
+    expect(['question', 'choice']).toContain(kinds[0])
+  })
+
+  it('laisse passer devant une orientation urgente', () => {
+    const signals = { 'lombaire.queue_de_cheval': true }
+    const result = reason({ signals, hypotheses: LUMBAR_HYPOTHESES, actions: LUMBAR_ACTIONS })
+    expect(result.nextActions[0].action.id).toBe('lombaire.urgence-neurochirurgicale')
+  })
+})
+
+describe('ce qui a déjà été fait', () => {
+  it('ne repropose pas un questionnaire déjà rempli', () => {
+    const signals = { 'lombaire.irradiation_jambe': false, 'lombaire.rythme_inflammatoire': false }
+    const avant = reason({ signals, hypotheses: LUMBAR_HYPOTHESES, actions: LUMBAR_ACTIONS, actionLimit: 8 })
+    expect(avant.nextActions.map((s) => s.action.id)).toContain('lombaire.start-back')
+
+    const après = reason({
+      signals,
+      hypotheses: LUMBAR_HYPOTHESES,
+      actions: LUMBAR_ACTIONS,
+      done: ['lombaire.start-back'],
+      actionLimit: 8,
+    })
+    expect(après.nextActions.map((s) => s.action.id)).not.toContain('lombaire.start-back')
   })
 })

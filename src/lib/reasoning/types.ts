@@ -55,7 +55,7 @@ export interface HypothesisDefinition {
   note?: string
 }
 
-export type ActionKind = 'question' | 'test' | 'questionnaire' | 'exam' | 'referral'
+export type ActionKind = 'question' | 'choice' | 'test' | 'questionnaire' | 'exam' | 'referral'
 
 export interface ActionDefinition {
   id: string
@@ -68,6 +68,8 @@ export interface ActionDefinition {
   /** Outil de la caisse à outils à ouvrir, le cas échéant. */
   questionnaireId?: string
   urgency?: 'urgent' | 'if_persistent' | 'not_indicated'
+  /** Réponses possibles d'une question à choix — une seule peut être vraie. */
+  options?: { signal: SignalId; label: string }[]
   note?: string
 }
 
@@ -112,6 +114,11 @@ export interface ReasoningInput {
   signals: Partial<Record<SignalId, boolean>>
   hypotheses: HypothesisDefinition[]
   actions?: ActionDefinition[]
+  /**
+   * Actions déjà réalisées : un questionnaire rempli ou un test fait ne se
+   * repropose pas, même s'il reste pertinent pour l'hypothèse.
+   */
+  done?: string[]
   /** Nombre d'actions proposées. Trois par défaut : au-delà, on noie le praticien. */
   actionLimit?: number
 }

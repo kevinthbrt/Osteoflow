@@ -1,4 +1,11 @@
-import { type SignalId, signalQuestion, signalLabel } from './signals'
+import {
+  EXCLUSIVE_GROUPS,
+  exclusiveGroupOf,
+  exclusiveMembers,
+  signalLabel,
+  signalQuestion,
+  type SignalId,
+} from './signals'
 import type {
   ActionDefinition,
   Criterion,
@@ -72,6 +79,37 @@ export function evaluate(expr: SignalExpr, signals: SignalSet): Tribool {
   if (confirmed >= expr.atLeast) return 'yes'
   if (confirmed + undecided < expr.atLeast) return 'no'
   return 'unknown'
+}
+
+/**
+ * Signaux qui peuvent encore changer la valeur d'une expression.
+ *
+ * `signalsOf` répond « quels signaux cette expression mentionne » ; ici on
+ * demande « lesquels reste-t-il à chercher ». La nuance est décisive : dans
+ * `all(not(RADICULAIRE), localisation)`, une fois l'irradiation écartée, plus
+ * rien ne sert de demander si la douleur descend sous le genou — cette branche
+ * est tranchée. Sans ce filtre, le copilote réclame des signes dont il n'a plus
+ * l'usage, et il les réclame en priorité puisqu'ils pèsent lourd.
+ */
+export function openSignalsOf(expr: SignalExpr, signals: SignalSet): SignalId[] {
+  const found = new Set<SignalId>()
+
+  const walk = (node: SignalExpr) => {
+    const value = evaluate(node, signals)
+    if (value !== 'unknown') return
+
+    if (typeof node === 'string') {
+      found.add(node)
+      return
+    }
+    if ('not' in node) return walk(node.not)
+    if ('all' in node) return node.all.forEach(walk)
+    if ('any' in node) return node.any.forEach(walk)
+    node.among.forEach(walk)
+  }
+
+  walk(expr)
+  return [...found]
 }
 
 /** Signaux mentionnés par une expression, sans doublon. */
@@ -171,6 +209,7 @@ function rankActions(
   definitions: HypothesisDefinition[],
   catalog: ActionDefinition[],
   signals: SignalSet,
+  done: Set<string>,
   limit: number,
 ): SuggestedAction[] {
   const inPlay = scored.filter((hypothesis) => hypothesis.status !== 'excluded').slice(0, 5)
@@ -195,7 +234,7 @@ function rankActions(
     const definition = byId.get(hypothesis.id)
     if (!definition) continue
     for (const criterion of openCriteria(definition, signals)) {
-      for (const signal of signalsOf(criterion.when)) {
+      for (const signal of openSignalsOf(criterion.when, signals)) {
         if (signals[signal] !== undefined) continue
         const entry = stakes.get(signal) ?? { value: 0, hypotheses: new Set<string>() }
         entry.value += Math.abs(criterion.weight)
@@ -207,28 +246,49 @@ function rankActions(
 
   const suggestions = new Map<string, SuggestedAction>()
 
-  // Actions du catalogue rattachées aux hypothèses en lice.
+  // Actions du catalogue rattachées aux hypothèses en lice. Une action reste
+  // proposable même si aucun critère ne dépend de ce qu'elle renseigne : un
+  // questionnaire de référence ou une orientation sont des suites à donner,
+  // pas seulement des moyens de départager.
   const relevant = new Set<string>()
+  const leaderActions = new Set(byId.get(inPlay[0].id)?.actions ?? [])
   for (const hypothesis of inPlay) {
     for (const actionId of byId.get(hypothesis.id)?.actions ?? []) relevant.add(actionId)
   }
   for (const action of catalog) {
-    if (!relevant.has(action.id)) continue
+    if (!relevant.has(action.id) || done.has(action.id)) continue
     const resolved = (action.resolves ?? []).filter((signal) => signals[signal] === undefined)
     const value = resolved.reduce((total, signal) => total + (stakes.get(signal)?.value ?? 0), 0)
     const discriminates = new Set<string>()
     for (const signal of resolved) {
       for (const label of stakes.get(signal)?.hypotheses ?? []) discriminates.add(label)
     }
-    // Un examen ou une orientation garde sa place même sans signal à résoudre :
-    // c'est une suite à donner, pas une question.
-    const isFollowUp = action.kind === 'exam' || action.kind === 'referral'
-    if (value === 0 && !isFollowUp) continue
+    // Un test n'existe que pour trancher : une fois ce qu'il renseigne connu,
+    // le reproposer est du bruit. Un questionnaire de référence, un examen ou
+    // une orientation gardent leur place, ce sont des suites à donner.
+    const answered = (action.resolves?.length ?? 0) > 0 && resolved.length === 0
+    if (action.kind === 'test' && answered) continue
+
     suggestions.set(action.id, { action, discriminates: [...discriminates], value })
   }
 
   // Questions déduites du vocabulaire : tout signal en jeu qui se demande.
+  // Les signaux qui s'excluent se posent en une seule question à choix, sinon
+  // le praticien devrait écarter les autres réponses une par une.
+  const groupStakes = new Map<string, { value: number; hypotheses: Set<string> }>()
+
   for (const [signal, stake] of stakes) {
+    const group = exclusiveGroupOf(signal)
+    if (group && EXCLUSIVE_GROUPS[group]) {
+      const entry = groupStakes.get(group) ?? { value: 0, hypotheses: new Set<string>() }
+      // Le poids d'une question à choix est celui de toutes les branches
+      // qu'elle départage : désigner le siège de la douleur tranche entre
+      // plusieurs hypothèses d'un coup, là où un test n'en éclaire qu'une.
+      entry.value += stake.value
+      for (const label of stake.hypotheses) entry.hypotheses.add(label)
+      groupStakes.set(group, entry)
+      continue
+    }
     const question = signalQuestion(signal)
     if (!question) continue
     const id = `question:${signal}`
@@ -246,11 +306,45 @@ function rankActions(
     })
   }
 
+  for (const [group, stake] of groupStakes) {
+    const options = exclusiveMembers(group).filter((member) => signals[member.id] === undefined)
+    if (options.length === 0) continue
+    suggestions.set(`choice:${group}`, {
+      action: {
+        id: `choice:${group}`,
+        kind: 'choice',
+        label: EXCLUSIVE_GROUPS[group],
+        resolves: options.map((option) => option.id),
+        options: options.map((option) => ({ signal: option.id, label: option.label })),
+      },
+      discriminates: [...stake.hypotheses],
+      value: stake.value,
+    })
+  }
+
+  /**
+   * À poids égal, l'ordre naturel de la consultation : on demande, puis on
+   * examine, puis on documente. Proposer un Lasègue avant d'avoir demandé où
+   * siège la douleur inverse le déroulé réel.
+   */
+  const KIND_ORDER: Record<string, number> = {
+    question: 0,
+    choice: 0,
+    test: 1,
+    questionnaire: 2,
+    exam: 3,
+    referral: 4,
+  }
+
   return [...suggestions.values()]
     .sort(
       (a, b) =>
+        // Une orientation urgente d'abord, puis ce qui départage le plus, puis
+        // les suites propres à l'hypothèse de tête.
         Number(urgent.has(b.action.id)) - Number(urgent.has(a.action.id)) ||
         b.value - a.value ||
+        (KIND_ORDER[a.action.kind] ?? 9) - (KIND_ORDER[b.action.kind] ?? 9) ||
+        Number(leaderActions.has(b.action.id)) - Number(leaderActions.has(a.action.id)) ||
         a.action.label.localeCompare(b.action.label, 'fr'),
     )
     .slice(0, limit)
@@ -273,7 +367,7 @@ export function activeHypotheses(result: ReasoningResult): ScoredHypothesis[] {
  * qui a été écarté, et ce qu'il serait le plus utile de chercher ensuite.
  */
 export function reason(input: ReasoningInput): ReasoningResult {
-  const { signals, hypotheses, actions = [], actionLimit = 3 } = input
+  const { signals, hypotheses, actions = [], done = [], actionLimit = 3 } = input
   const scored = hypotheses.map((definition) => scoreHypothesis(definition, signals))
 
   const redFlags = scored
@@ -292,6 +386,13 @@ export function reason(input: ReasoningInput): ReasoningResult {
     redFlags,
     hypotheses: differential,
     excluded,
-    nextActions: rankActions([...redFlags, ...differential], hypotheses, actions, signals, actionLimit),
+    nextActions: rankActions(
+      [...redFlags, ...differential],
+      hypotheses,
+      actions,
+      signals,
+      new Set(done),
+      actionLimit,
+    ),
   }
 }

@@ -22,7 +22,13 @@ import { TopographyPanel } from '@/components/consultations/topography-panel'
 import { CommandPalette, type Command } from './command-palette'
 import { Copilot, type SignalTrace } from './copilot'
 import { formatDuration, useDictation } from './use-dictation'
-import { applySignal, detectRegion, type Region, type SignalId } from '@/lib/reasoning'
+import {
+  applySignal,
+  detectRegion,
+  signalsFromQuestionnaire,
+  type Region,
+  type SignalId,
+} from '@/lib/reasoning'
 import type { Patient } from '@/types/database'
 
 interface ConsultationCockpitProps {
@@ -98,10 +104,12 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
   const [regionOverride, setRegionOverride] = useState<Region | null>(null)
   const [extracting, setExtracting] = useState(false)
   const [aiUnavailable, setAiUnavailable] = useState(false)
+  const [doneActions, setDoneActions] = useState<string[]>([])
 
   const [showPalette, setShowPalette] = useState(false)
   const [showToolbox, setShowToolbox] = useState(false)
   const [toolboxQuestionnaire, setToolboxQuestionnaire] = useState<string | undefined>()
+  const [pendingAction, setPendingAction] = useState<string | undefined>()
   const [showOrthoTests, setShowOrthoTests] = useState(false)
   const [showTopography, setShowTopography] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -205,6 +213,10 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
       })
     },
   })
+
+  const markDone = useCallback((actionId: string) => {
+    setDoneActions((current) => (current.includes(actionId) ? current : [...current, actionId]))
+  }, [])
 
   const answerSignal = useCallback((signal: SignalId, value: boolean) => {
     setSignals((current) => applySignal(current, signal, value))
@@ -515,10 +527,12 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
           traces={traces}
           busy={extracting}
           started={started}
+          done={doneActions}
           aiUnavailable={aiUnavailable}
           onAnswer={answerSignal}
-          onOpenQuestionnaire={(questionnaireId) => {
+          onOpenQuestionnaire={(questionnaireId, actionId) => {
             setToolboxQuestionnaire(questionnaireId)
+            setPendingAction(actionId)
             setShowToolbox(true)
           }}
           onRegionChange={setRegionOverride}
@@ -530,8 +544,25 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
       <ClinicalToolboxDialog
         open={showToolbox}
         initialQuestionnaireId={toolboxQuestionnaire}
-        onClose={() => { setShowToolbox(false); setToolboxQuestionnaire(undefined) }}
-        onInject={(text, target) => appendTo(target, text)}
+        onClose={() => { setShowToolbox(false); setToolboxQuestionnaire(undefined); setPendingAction(undefined) }}
+        onInject={(text, target, result) => {
+          appendTo(target, text)
+          if (pendingAction) markDone(pendingAction)
+          if (!result) return
+          // Un questionnaire rempli vaut mieux qu'une question posée au vol :
+          // ce qu'il tranche prend la place de la réponse du praticien.
+          const learned = signalsFromQuestionnaire(result.questionnaireId, result.score)
+          const entries = Object.entries(learned) as [SignalId, boolean][]
+          if (entries.length === 0) return
+          setSignals((current) =>
+            entries.reduce((accumulator, [signal, value]) => applySignal(accumulator, signal, value), current),
+          )
+          setTraces((current) => {
+            const next = { ...current }
+            for (const [signal] of entries) next[signal] = { source: 'test' }
+            return next
+          })
+        }}
       />
       <OrthoTestsPickerDialog
         open={showOrthoTests}

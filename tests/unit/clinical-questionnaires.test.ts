@@ -8,6 +8,7 @@ import {
   type ClinicalQuestionnaire,
   type QuestionnaireAnswers,
 } from '@/lib/consultations/questionnaires'
+import { signalsFromQuestionnaire } from '@/lib/reasoning'
 
 /** Coche la même valeur sur tous les items, pour les bornes du score. */
 function answerAll(questionnaire: ClinicalQuestionnaire, pick: 'min' | 'max'): QuestionnaireAnswers {
@@ -251,5 +252,43 @@ describe('formatQuestionnaireResult', () => {
 
   it('ne rend rien tant que le questionnaire n\'est pas cotable', () => {
     expect(formatQuestionnaireResult(dn4, { brulure: 1 })).toBe('')
+  })
+})
+
+describe('retour des questionnaires vers le raisonnement', () => {
+  const startBack = requireQuestionnaire('start-back')
+
+  function scoreWith(overrides: QuestionnaireAnswers) {
+    const answers: QuestionnaireAnswers = {}
+    for (const item of startBack.items) answers[item.id] = 0
+    return startBack.score({ ...answers, ...overrides })
+  }
+
+  it('traduit un risque faible en absence de facteur psychosocial', () => {
+    expect(signalsFromQuestionnaire('start-back', scoreWith({}))).toEqual({
+      'psychosocial.risque_chronicisation': false,
+      'psychosocial.drapeaux_jaunes_2plus': false,
+    })
+  })
+
+  it('distingue le risque moyen du risque élevé', () => {
+    const moyen = scoreWith({ q1: 1, q2: 1, q3: 1, q4: 1 })
+    expect(signalsFromQuestionnaire('start-back', moyen)).toEqual({
+      'psychosocial.risque_chronicisation': true,
+      'psychosocial.drapeaux_jaunes_2plus': false,
+    })
+
+    const eleve = scoreWith({ q5: 1, q6: 1, q7: 1, q8: 1 })
+    expect(signalsFromQuestionnaire('start-back', eleve)).toEqual({
+      'psychosocial.risque_chronicisation': true,
+      'psychosocial.drapeaux_jaunes_2plus': true,
+    })
+  })
+
+  it('ne traduit rien quand la correspondance n\'est pas celle de l\'échelle', () => {
+    const dn4 = requireQuestionnaire('dn4')
+    const answers: QuestionnaireAnswers = {}
+    for (const item of dn4.items) answers[item.id] = 1
+    expect(signalsFromQuestionnaire('dn4', dn4.score(answers))).toEqual({})
   })
 })

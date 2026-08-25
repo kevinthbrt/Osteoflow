@@ -23,6 +23,13 @@ export type SignalGroup =
 
 export interface SignalDefinition {
   /**
+   * Groupe de signaux qui s'excluent : une douleur médiane n'est pas
+   * paravertébrale. Répondre « oui » à l'un met les autres à « non ».
+   */
+  exclusive?: string
+  /** Libellé court, pour un bouton dans une question à choix. */
+  choiceLabel?: string
+  /**
    * Signaux nécessairement vrais si celui-ci l'est. Une douleur qui descend
    * sous le genou descend dans la jambe : inutile de poser les deux questions.
    */
@@ -46,7 +53,7 @@ const definitions = {
   'terrain.age_50_facteurs_cancer': {
     label: 'plus de 50 ans avec facteurs de risque de cancer',
     group: 'terrain',
-    question: 'Y a-t-il un tabagisme ou des expositions professionnelles à risque ?',
+    question: 'Le patient a-t-il plus de 50 ans avec des facteurs de risque de cancer (tabac, expositions) ?',
   },
   'terrain.antecedent_cancer': {
     label: 'antécédent de cancer',
@@ -102,12 +109,12 @@ const definitions = {
   'general.douleur_repos_constante': {
     label: 'douleur constante au repos, sans position antalgique',
     group: 'douleur',
-    question: 'Existe-t-il une position qui soulage, ou la douleur est-elle constante ?',
+    question: 'La douleur est-elle constante, sans position qui la soulage ?',
   },
   'general.douleur_persistante_traitement': {
     label: 'douleur persistante ou aggravée malgré le traitement depuis plus d\'un mois',
     group: 'douleur',
-    question: 'La douleur persiste-t-elle ou s\'aggrave-t-elle malgré le traitement ?',
+    question: 'La douleur persiste-t-elle ou s\'aggrave-t-elle malgré le traitement depuis plus d\'un mois ?',
   },
   'general.traumatisme_recent': {
     label: 'traumatisme récent',
@@ -127,7 +134,7 @@ const definitions = {
   'lombaire.duree_aigue': {
     label: 'épisode aigu de moins de 8 semaines',
     group: 'douleur',
-    question: 'Depuis combien de temps la douleur évolue-t-elle ?',
+    question: 'La douleur évolue-t-elle depuis moins de 8 semaines ?',
   },
   'lombaire.queue_de_cheval': {
     label: 'signes de syndrome de la queue de cheval',
@@ -148,7 +155,7 @@ const definitions = {
   'lombaire.jambe_plus_douloureuse': {
     label: 'douleur de jambe plus intense que la douleur lombaire',
     group: 'topographie',
-    question: 'Qu\'est-ce qui fait le plus mal : le dos ou la jambe ?',
+    question: 'La douleur de la jambe est-elle plus forte que celle du dos ?',
   },
   'lombaire.unilateral': {
     label: 'atteinte unilatérale',
@@ -183,7 +190,7 @@ const definitions = {
   'lombaire.rythme_inflammatoire': {
     label: 'rythme inflammatoire (raideur matinale prolongée, réveils nocturnes, amélioration à l\'effort)',
     group: 'douleur',
-    question: 'La raideur matinale dure-t-elle plus de 30 minutes ? La douleur s\'améliore-t-elle à l\'activité ?',
+    question: 'La raideur matinale dure-t-elle plus de 30 minutes ?',
   },
   'lombaire.criteres_asas_4plus': {
     label: 'au moins 4 critères ASAS de rachialgie inflammatoire',
@@ -203,10 +210,34 @@ const definitions = {
     label: 'tableau clinique de spondyloarthrite (critères ASAS cliniques)',
     group: 'general',
   },
-  'lombaire.localisation_mediane': { label: 'douleur médiane, sur les épineuses', group: 'topographie' },
-  'lombaire.localisation_paravertebrale': { label: 'douleur paravertébrale', group: 'topographie' },
-  'lombaire.localisation_fessiere': { label: 'douleur fessière ou sacro-iliaque', group: 'topographie' },
-  'lombaire.localisation_diffuse': { label: 'douleur paravertébrale bilatérale diffuse', group: 'topographie' },
+  'lombaire.localisation_mediane': {
+    label: 'douleur médiane, sur les épineuses',
+    group: 'topographie',
+    question: 'La douleur siège-t-elle sur la ligne médiane, sur les épineuses ?',
+    choiceLabel: 'Médiane',
+    exclusive: 'lombaire.localisation',
+  },
+  'lombaire.localisation_paravertebrale': {
+    label: 'douleur paravertébrale',
+    group: 'topographie',
+    question: 'La douleur siège-t-elle à côté de la colonne, d\'un seul côté ?',
+    choiceLabel: 'Paravertébrale',
+    exclusive: 'lombaire.localisation',
+  },
+  'lombaire.localisation_fessiere': {
+    label: 'douleur fessière ou sacro-iliaque',
+    group: 'topographie',
+    question: 'La douleur siège-t-elle dans la fesse ou sur la sacro-iliaque ?',
+    choiceLabel: 'Fessière',
+    exclusive: 'lombaire.localisation',
+  },
+  'lombaire.localisation_diffuse': {
+    label: 'douleur paravertébrale bilatérale diffuse',
+    group: 'topographie',
+    question: 'La douleur est-elle diffuse et bilatérale de part et d\'autre de la colonne ?',
+    choiceLabel: 'Diffuse',
+    exclusive: 'lombaire.localisation',
+  },
   'lombaire.centralisation': {
     label: 'phénomène de centralisation aux mouvements répétés',
     group: 'examen',
@@ -220,7 +251,7 @@ const definitions = {
   'cervical.duree_aigue': {
     label: 'épisode aigu de moins de 8 semaines',
     group: 'douleur',
-    question: 'Depuis combien de temps la douleur cervicale évolue-t-elle ?',
+    question: 'La cervicalgie évolue-t-elle depuis moins de 8 semaines ?',
   },
   'cervical.symptomes_myelopathie': {
     label: 'symptômes évocateurs de myélopathie (maladresse des mains, troubles de la marche, Lhermitte)',
@@ -248,7 +279,7 @@ const definitions = {
   'cervical.bras_plus_douloureux': {
     label: 'douleur de bras plus intense que la douleur cervicale',
     group: 'topographie',
-    question: 'Qu\'est-ce qui fait le plus mal : le cou ou le bras ?',
+    question: 'La douleur du bras est-elle plus forte que celle du cou ?',
   },
   'cervical.cephalees': {
     label: 'céphalées associées',
@@ -270,8 +301,20 @@ const definitions = {
     group: 'douleur',
     question: 'La raideur cervicale matinale dure-t-elle plus de 30 minutes ?',
   },
-  'cervical.localisation_suboccipitale': { label: 'douleur sous-occipitale', group: 'topographie' },
-  'cervical.localisation_paravertebrale': { label: 'douleur paravertébrale cervicale', group: 'topographie' },
+  'cervical.localisation_suboccipitale': {
+    label: 'douleur sous-occipitale',
+    group: 'topographie',
+    question: 'La douleur siège-t-elle sous l\'occiput, à la jonction tête-cou ?',
+    choiceLabel: 'Sous-occipitale',
+    exclusive: 'cervical.localisation',
+  },
+  'cervical.localisation_paravertebrale': {
+    label: 'douleur paravertébrale cervicale',
+    group: 'topographie',
+    question: 'La douleur siège-t-elle à côté de la colonne cervicale, d\'un seul côté ?',
+    choiceLabel: 'Paravertébrale',
+    exclusive: 'cervical.localisation',
+  },
   'cervical.criteres_cephalee_1plus': {
     label: 'au moins 1 critère de céphalée cervicogénique',
     group: 'examen',
@@ -325,6 +368,28 @@ export type SignalId = keyof typeof definitions
 /** Relevé courant. Une clé absente ou `undefined` signifie « pas encore exploré ». */
 export type SignalSet = Partial<Record<SignalId, boolean>>
 
+/**
+ * Questions à choix. Un groupe de signaux qui s'excluent se pose en une fois,
+ * avec un bouton par réponse : quatre questions oui/non successives pour un
+ * seul siège de douleur, dont une seule visible à la fois, ne se répondent pas.
+ */
+export const EXCLUSIVE_GROUPS: Record<string, string> = {
+  'lombaire.localisation': 'Où siège la douleur ?',
+  'cervical.localisation': 'Où siège la douleur cervicale ?',
+}
+
+/** Membres d'un groupe exclusif, dans l'ordre de déclaration. */
+export function exclusiveMembers(group: string): { id: SignalId; label: string }[] {
+  return (Object.entries(definitions) as [SignalId, SignalDefinition][])
+    .filter(([, definition]) => definition.exclusive === group)
+    .map(([id, definition]) => ({ id, label: definition.choiceLabel ?? definition.label }))
+}
+
+/** Groupe exclusif auquel appartient un signal, le cas échéant. */
+export function exclusiveGroupOf(id: SignalId): string | undefined {
+  return (definitions[id] as SignalDefinition | undefined)?.exclusive
+}
+
 export function signalLabel(id: SignalId): string {
   return definitions[id]?.label ?? id
 }
@@ -348,6 +413,17 @@ export function applySignal(
 ): SignalSet {
   const next: SignalSet = { ...signals, [id]: value }
   if (!value) return next
+
+  // Exclusivité : désigner un siège de douleur écarte les autres.
+  const group = (definitions[id] as SignalDefinition | undefined)?.exclusive
+  if (group) {
+    for (const [candidate, definition] of Object.entries(definitions)) {
+      if (candidate !== id && (definition as SignalDefinition).exclusive === group) {
+        next[candidate as SignalId] = false
+      }
+    }
+  }
+
   const queue = [...((definitions[id] as SignalDefinition | undefined)?.implies ?? [])]
   const seen = new Set<string>([id])
   while (queue.length > 0) {

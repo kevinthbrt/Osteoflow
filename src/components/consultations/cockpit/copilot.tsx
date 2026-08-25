@@ -27,12 +27,14 @@ interface CopilotProps {
   signals: Partial<Record<SignalId, boolean>>
   traces: Partial<Record<SignalId, SignalTrace>>
   busy: boolean
+  /** Actions déjà réalisées pendant cette consultation. */
+  done: string[]
   /** L'extraction automatique n'est pas configurée sur ce poste. */
   aiUnavailable?: boolean
   /** Rien n'a encore été dit : ce n'est pas le moment de poser des questions. */
   started: boolean
   onAnswer: (signal: SignalId, value: boolean) => void
-  onOpenQuestionnaire: (questionnaireId: string) => void
+  onOpenQuestionnaire: (questionnaireId: string, actionId: string) => void
   onRegionChange: (region: Region) => void
 }
 
@@ -120,10 +122,11 @@ function ActionRow({
 }: {
   suggestion: SuggestedAction
   onAnswer: (signal: SignalId, value: boolean) => void
-  onOpenQuestionnaire: (questionnaireId: string) => void
+  onOpenQuestionnaire: (questionnaireId: string, actionId: string) => void
 }) {
   const { action } = suggestion
-  const target = action.resolves?.[0]
+  // Un questionnaire se remplit, il ne se répond pas par oui ou par non.
+  const target = action.questionnaireId ? undefined : action.resolves?.[0]
 
   return (
     <div className="py-2">
@@ -132,8 +135,19 @@ function ActionRow({
         <p className="text-[11px] text-muted-foreground/60 mt-0.5">{action.performance}</p>
       )}
 
-      <div className="flex items-center gap-1 mt-1.5">
-        {target ? (
+      <div className="flex flex-wrap items-center gap-1 mt-1.5">
+        {action.options ? (
+          action.options.map((option) => (
+            <button
+              key={option.signal}
+              type="button"
+              onClick={() => onAnswer(option.signal, true)}
+              className="text-[11px] font-medium px-2 py-1 rounded-md border border-border/70 hover:border-primary hover:bg-primary/[0.07] hover:text-primary transition-colors"
+            >
+              {option.label}
+            </button>
+          ))
+        ) : target ? (
           <>
             <button
               type="button"
@@ -157,7 +171,7 @@ function ActionRow({
         {action.questionnaireId && (
           <button
             type="button"
-            onClick={() => onOpenQuestionnaire(action.questionnaireId!)}
+            onClick={() => onOpenQuestionnaire(action.questionnaireId!, action.id)}
             className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md border border-border/70 hover:border-primary hover:text-primary transition-colors"
           >
             <ClipboardList className="h-3 w-3" />
@@ -165,7 +179,7 @@ function ActionRow({
           </button>
         )}
 
-        {!target && !action.questionnaireId && (
+        {!target && !action.options && !action.questionnaireId && (
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
             <ArrowRight className="h-3 w-3" />
             {action.urgency === 'urgent' ? 'à faire maintenant' : 'à prévoir'}
@@ -190,6 +204,7 @@ export function Copilot({
   traces,
   busy,
   started,
+  done,
   aiUnavailable,
   onAnswer,
   onOpenQuestionnaire,
@@ -202,9 +217,10 @@ export function Copilot({
         signals,
         hypotheses: knowledge.hypotheses,
         actions: knowledge.actions,
+        done,
         actionLimit: 3,
       }),
-    [signals, knowledge],
+    [signals, knowledge, done],
   )
 
   // On n'affiche que ce qui repose sur un argument. Une hypothèse sans le
