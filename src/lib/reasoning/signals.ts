@@ -22,6 +22,11 @@ export type SignalGroup =
   | 'psychosocial'
 
 export interface SignalDefinition {
+  /**
+   * Signaux nécessairement vrais si celui-ci l'est. Une douleur qui descend
+   * sous le genou descend dans la jambe : inutile de poser les deux questions.
+   */
+  implies?: string[]
   /** Formulation affirmative, telle qu'elle sera reprise dans le compte rendu. */
   label: string
   group: SignalGroup
@@ -138,6 +143,7 @@ const definitions = {
     label: 'irradiation sous le genou',
     group: 'topographie',
     question: 'La douleur descend-elle sous le genou ?',
+    implies: ['lombaire.irradiation_jambe'],
   },
   'lombaire.jambe_plus_douloureuse': {
     label: 'douleur de jambe plus intense que la douleur lombaire',
@@ -257,6 +263,7 @@ const definitions = {
   'cervical.wad_grade_3': {
     label: 'atteinte neurologique objectivée (WAD grade III)',
     group: 'neurologique',
+    implies: ['cervical.whiplash'],
   },
   'cervical.rythme_inflammatoire': {
     label: 'rythme inflammatoire cervical',
@@ -272,6 +279,7 @@ const definitions = {
   'cervical.criteres_cephalee_3plus': {
     label: 'au moins 3 critères de céphalée cervicogénique',
     group: 'examen',
+    implies: ['cervical.criteres_cephalee_1plus'],
   },
   'cervical.criteres_facettaires_2plus': {
     label: 'au moins 2 critères facettaires cervicaux',
@@ -323,4 +331,31 @@ export function signalLabel(id: SignalId): string {
 
 export function signalQuestion(id: SignalId): string | undefined {
   return (definitions[id] as SignalDefinition | undefined)?.question
+}
+
+/**
+ * Enregistre une réponse et propage ce qu'elle implique. Répondre « oui, ça
+ * descend sous le genou » répond du même coup à « est-ce que ça descend dans la
+ * jambe » — sans quoi le copilote reposerait aussitôt une question déjà réglée.
+ *
+ * L'implication ne joue que dans le sens affirmatif : « non, pas sous le
+ * genou » ne dit rien de l'irradiation dans la cuisse.
+ */
+export function applySignal(
+  signals: SignalSet,
+  id: SignalId,
+  value: boolean,
+): SignalSet {
+  const next: SignalSet = { ...signals, [id]: value }
+  if (!value) return next
+  const queue = [...((definitions[id] as SignalDefinition | undefined)?.implies ?? [])]
+  const seen = new Set<string>([id])
+  while (queue.length > 0) {
+    const implied = queue.shift()!
+    if (seen.has(implied) || !(implied in definitions)) continue
+    seen.add(implied)
+    next[implied as SignalId] = true
+    queue.push(...((definitions[implied as SignalId] as SignalDefinition).implies ?? []))
+  }
+  return next
 }

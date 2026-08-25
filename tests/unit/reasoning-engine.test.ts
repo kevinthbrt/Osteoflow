@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   activeHypotheses,
+  applySignal,
   evaluate,
   reason,
   scoreHypothesis,
@@ -298,5 +299,32 @@ describe('hypothèses réellement en lice', () => {
       hypotheses: [avecArgument],
     })
     expect(activeHypotheses(result).map((hypothesis) => hypothesis.id)).toEqual(['test.piste'])
+  })
+})
+
+describe('propagation des implications', () => {
+  it('répond du même coup à la question englobante', () => {
+    const signals = applySignal({}, 'lombaire.irradiation_sous_genou', true)
+    expect(signals['lombaire.irradiation_sous_genou']).toBe(true)
+    expect(signals['lombaire.irradiation_jambe']).toBe(true)
+  })
+
+  it('ne propage rien sur une réponse négative', () => {
+    // « Pas sous le genou » ne dit rien de l'irradiation dans la cuisse.
+    const signals = applySignal({}, 'lombaire.irradiation_sous_genou', false)
+    expect(signals['lombaire.irradiation_sous_genou']).toBe(false)
+    expect(signals['lombaire.irradiation_jambe']).toBeUndefined()
+  })
+
+  it('suit une chaîne d\'implications sans se perdre', () => {
+    const signals = applySignal({}, 'cervical.wad_grade_3', true)
+    expect(signals['cervical.whiplash']).toBe(true)
+  })
+
+  it('ne modifie pas le relevé d\'origine', () => {
+    const before = { 'general.fievre': false } as const
+    const after = applySignal(before, 'lombaire.irradiation_sous_genou', true)
+    expect(before).toEqual({ 'general.fievre': false })
+    expect(after['general.fievre']).toBe(false)
   })
 })

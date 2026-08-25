@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -35,6 +35,8 @@ import {
 interface ClinicalToolboxDialogProps {
   open: boolean
   onClose: () => void
+  /** Ouvre directement cet outil plutôt que le catalogue. */
+  initialQuestionnaireId?: string
   /** Insère le compte rendu dans le champ demandé du formulaire de consultation. */
   onInject: (text: string, target: QuestionnaireTarget) => void
 }
@@ -50,7 +52,12 @@ const LEVEL_STYLES: Record<QuestionnaireLevel, string> = {
 
 const TARGETS: QuestionnaireTarget[] = ['anamnesis', 'examination', 'advice']
 
-export function ClinicalToolboxDialog({ open, onClose, onInject }: ClinicalToolboxDialogProps) {
+export function ClinicalToolboxDialog({
+  open,
+  onClose,
+  onInject,
+  initialQuestionnaireId,
+}: ClinicalToolboxDialogProps) {
   const { toast } = useToast()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<QuestionnaireCategory | null>(null)
@@ -71,6 +78,15 @@ export function ClinicalToolboxDialog({ open, onClose, onInject }: ClinicalToolb
       questionnaires: results.filter((questionnaire) => questionnaire.category === key),
     })).filter((group) => group.questionnaires.length > 0)
   }, [results])
+
+  // Ouverture directe sur un outil : le copilote propose « DN4 », le clic doit
+  // donner le DN4 — pas le catalogue avec le DN4 quelque part dedans.
+  useEffect(() => {
+    if (open && initialQuestionnaireId) {
+      setActiveId(initialQuestionnaireId)
+      setTarget(null)
+    }
+  }, [open, initialQuestionnaireId])
 
   function handleClose() {
     onClose()
