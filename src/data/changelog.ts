@@ -19,6 +19,18 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.19.0',
+    date: '2026-08-25',
+    title: 'La caisse à outils s\'invite dans la consultation',
+    changes: [
+      { type: 'feature', text: "Nouveau bouton « Caisse à outils » dans le contenu clinique de la consultation : vingt questionnaires et règles de décision validés se remplissent en quelques clics, sans quitter le dossier. DN4 et S-LANSS pour la douleur neuropathique, Oswestry, EIFEL et STarT Back pour le rachis lombaire, NDI et HIT-6 pour le cervical et les céphalées, QuickDASH et SPADI pour le membre supérieur, LEFS pour le membre inférieur, TSK-11, échelle de dramatisation et HADS pour le versant psychosocial, index de sévérité de l'insomnie et Épworth pour le sommeil." },
+      { type: 'feature', text: "Le score se calcule au fur et à mesure et s'affiche avec son interprétation clinique, ses sous-scores et sa référence. Plus besoin de compter les points à la main ni de retrouver le seuil : la caisse à outils rappelle, par exemple, qu'un DN4 à 4 sur 10 signe une douleur neuropathique probable." },
+      { type: 'feature', text: "Un clic sur « Insérer » ajoute le compte rendu du questionnaire dans la consultation, au choix dans l'anamnèse, l'examen clinique ou les conseils. Une option permet de reporter aussi le détail des réponses, item par item, pour un courrier au médecin traitant ou pour comparer d'une séance à l'autre." },
+      { type: 'feature', text: "Les drapeaux rouges de la lombalgie, les règles d'Ottawa (cheville, pied, genou) et la règle canadienne du rachis cervical figurent aussi dans la caisse à outils. Elles ne se contentent pas d'additionner des points : elles concluent à l'orientation ou à l'imagerie dès qu'un critère l'impose." },
+      { type: 'improvement', text: "Une recherche et des filtres par région retrouvent l'outil voulu en tapant « dn4 », « épaule » ou « sommeil ». Les réponses déjà saisies sont conservées tant que la consultation reste ouverte : vous pouvez refermer la caisse à outils pour vérifier un point de l'anamnèse et reprendre le questionnaire là où vous l'aviez laissé." },
+    ],
+  },
+  {
     version: '1.18.0',
     date: '2026-08-19',
     title: 'Votre application s\'adapte à votre offre',

@@ -32,7 +32,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, MapPin, GitBranch, Dumbbell, Sparkles, Brain, Activity, Lightbulb, Mail, Printer, Download, ArrowLeft, ArrowRight, CalendarClock, HeartPulse } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, MapPin, GitBranch, Dumbbell, Sparkles, Brain, Activity, Lightbulb, Mail, Printer, Download, ArrowLeft, ArrowRight, CalendarClock, HeartPulse, ClipboardList } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate, calculateAge, cn } from '@/lib/utils'
 import { getCurrencySymbol } from '@/lib/utils/currency'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
@@ -55,6 +55,7 @@ import { AiExerciseGenerationDialog } from '@/components/exercises/ai-exercise-g
 import { PatientPrescriptionsListDialog } from '@/components/exercises/patient-prescriptions-list-dialog'
 import { TestsSuggestionsPanel } from '@/components/consultations/tests-suggestions-panel'
 import { OrthoTestsPickerDialog } from '@/components/consultations/ortho-tests-picker-dialog'
+import { ClinicalToolboxDialog } from '@/components/consultations/clinical-toolbox-dialog'
 import { useEntitlements } from '@/hooks/use-entitlements'
 import { AtMentionDropdown } from '@/components/consultations/at-mention-dropdown'
 import {
@@ -169,6 +170,7 @@ export function ConsultationForm({
   const [prescriptionsRefreshKey, setPrescriptionsRefreshKey] = useState(0)
   const [showTestsSuggestions, setShowTestsSuggestions] = useState(false)
   const [showOrthoTestsPicker, setShowOrthoTestsPicker] = useState(false)
+  const [showToolbox, setShowToolbox] = useState(false)
   const [showFinalizeModal, setShowFinalizeModal] = useState(false)
   // "Finaliser la consultation" wizard (create mode only) — one deliberate
   // step at a time so nothing gets skipped: facturation, envoi de la
@@ -354,6 +356,16 @@ export function ConsultationForm({
       body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
     }).catch(() => {})
   }, [mode, getValues])
+
+  /** Ajoute un bloc de texte à la fin d'un champ libre, sans écraser la saisie. */
+  const appendToField = useCallback(
+    (field: 'anamnesis' | 'examination' | 'advice', text: string) => {
+      const current = getValues(field) || ''
+      const separator = current.trim() ? '\n\n' : ''
+      setValue(field, current + separator + text, { shouldDirty: true })
+    },
+    [getValues, setValue],
+  )
 
   // Auto-save draft every 30s + restore on unlock (create mode only)
   useEffect(() => {
@@ -1457,6 +1469,16 @@ export function ConsultationForm({
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="gap-1.5 border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 hover:text-teal-800 dark:border-teal-800/50 dark:bg-teal-950/40 dark:text-teal-300 dark:hover:bg-teal-900/50"
+                    onClick={() => setShowToolbox(true)}
+                  >
+                    <ClipboardList className="h-4 w-4" />
+                    Caisse à outils
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
                     className="gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:text-sky-800 dark:border-sky-800/50 dark:bg-sky-950/40 dark:text-sky-300 dark:hover:bg-sky-900/50"
                     onClick={() => setShowTopography(true)}
                   >
@@ -1889,6 +1911,12 @@ export function ConsultationForm({
       />
       <TopographyPanel open={showTopography} onClose={() => setShowTopography(false)} />
 
+      <ClinicalToolboxDialog
+        open={showToolbox}
+        onClose={() => setShowToolbox(false)}
+        onInject={(text, target) => appendToField(target, text)}
+      />
+
       <OrthoTestsPickerDialog
         open={showOrthoTestsPicker}
         onClose={() => { setShowOrthoTestsPicker(false); setOrthoPickerRegionFilter(undefined) }}
@@ -1945,38 +1973,18 @@ export function ConsultationForm({
         open={showDecisionTree}
         onClose={() => setShowDecisionTree(false)}
         onApply={(summary, examination, advice) => {
-          const current = getValues('anamnesis') || ''
-          const separator = current.trim() ? '\n\n' : ''
-          setValue('anamnesis', current + separator + summary, { shouldDirty: true })
-          if (examination) {
-            const currentExam = getValues('examination') || ''
-            const examSep = currentExam.trim() ? '\n\n' : ''
-            setValue('examination', currentExam + examSep + examination, { shouldDirty: true })
-          }
-          if (advice) {
-            const currentAdvice = getValues('advice') || ''
-            const adviceSep = currentAdvice.trim() ? '\n\n' : ''
-            setValue('advice', currentAdvice + adviceSep + advice, { shouldDirty: true })
-          }
+          appendToField('anamnesis', summary)
+          if (examination) appendToField('examination', examination)
+          if (advice) appendToField('advice', advice)
         }}
       />
       <NeckPainTree
         open={showNeckTree}
         onClose={() => setShowNeckTree(false)}
         onApply={(summary, examination, advice) => {
-          const current = getValues('anamnesis') || ''
-          const separator = current.trim() ? '\n\n' : ''
-          setValue('anamnesis', current + separator + summary, { shouldDirty: true })
-          if (examination) {
-            const currentExam = getValues('examination') || ''
-            const examSep = currentExam.trim() ? '\n\n' : ''
-            setValue('examination', currentExam + examSep + examination, { shouldDirty: true })
-          }
-          if (advice) {
-            const currentAdvice = getValues('advice') || ''
-            const adviceSep = currentAdvice.trim() ? '\n\n' : ''
-            setValue('advice', currentAdvice + adviceSep + advice, { shouldDirty: true })
-          }
+          appendToField('anamnesis', summary)
+          if (examination) appendToField('examination', examination)
+          if (advice) appendToField('advice', advice)
         }}
       />
       <ExercisePrescriptionDialog
