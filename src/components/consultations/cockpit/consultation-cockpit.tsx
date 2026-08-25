@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import { ClinicalToolboxDialog } from '@/components/consultations/clinical-toolbox-dialog'
 import { OrthoTestsPickerDialog } from '@/components/consultations/ortho-tests-picker-dialog'
 import { TopographyPanel } from '@/components/consultations/topography-panel'
+import { AnamnesisSummary } from './anamnesis-summary'
 import { CommandPalette, type Command } from './command-palette'
 import { Copilot, type SignalTrace } from './copilot'
 import { formatDuration, useDictation } from './use-dictation'
@@ -104,6 +105,9 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
   const [regionOverride, setRegionOverride] = useState<Region | null>(null)
   const [extracting, setExtracting] = useState(false)
   const [aiUnavailable, setAiUnavailable] = useState(false)
+  const [anamnesisView, setAnamnesisView] = useState<'elements' | 'texte'>('texte')
+  /** Le praticien a choisi lui-même sa vue : on ne la lui reprend plus. */
+  const viewChosenRef = useRef(false)
   const [doneActions, setDoneActions] = useState<string[]>([])
 
   const [showPalette, setShowPalette] = useState(false)
@@ -208,6 +212,9 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
     onText: (text) => {
       setAnamnesis((current) => {
         const combined = current.trim() ? `${current.trimEnd()} ${text}` : text
+        // On réanalyse le texte entier plutôt que le seul segment : une phrase
+        // à cheval sur deux segments se relit correctement, et une extraction
+        // ratée se rattrape au passage suivant.
         void extract(combined)
         return combined
       })
@@ -305,7 +312,14 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
 
   const started = anamnesis.trim().length > 0
   const recording = dictation.state === 'recording'
-  const transcribing = dictation.state === 'transcribing'
+  const transcribing = dictation.pendingSegments > 0
+  const relevéCount = Object.values(signals).filter((value) => value !== undefined).length
+
+  // Dès qu'il y a de quoi lire, on montre le relevé : c'est ce qui rend la
+  // dictée exploitable en séance. Le texte reste à une bascule.
+  useEffect(() => {
+    if (!viewChosenRef.current && relevéCount > 0) setAnamnesisView('elements')
+  }, [relevéCount])
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-background">
@@ -398,7 +412,26 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
                     </label>
                     {section.field === 'anamnesis' && (
                       <div className="flex items-center gap-2">
-                        {anamnesis.trim() && !recording && !transcribing && (
+                        {relevéCount > 0 && (
+                          <div className="flex gap-0.5 p-0.5 rounded-lg bg-foreground/[0.04]">
+                            {(['elements', 'texte'] as const).map((view) => (
+                              <button
+                                key={view}
+                                type="button"
+                                onClick={() => { viewChosenRef.current = true; setAnamnesisView(view) }}
+                                className={cn(
+                                  'text-[10.5px] font-medium px-2 py-0.5 rounded-md transition-colors',
+                                  anamnesisView === view
+                                    ? 'bg-background shadow-sm text-foreground'
+                                    : 'text-muted-foreground hover:text-foreground',
+                                )}
+                              >
+                                {view === 'elements' ? 'Éléments' : 'Texte'}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {anamnesis.trim() && !recording && (
                           <button
                             type="button"
                             onClick={() => void extract(anamnesis)}
@@ -411,7 +444,6 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
                         <button
                           type="button"
                           onClick={dictation.toggle}
-                          disabled={transcribing}
                           className={cn(
                             'flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md transition-colors',
                             recording
@@ -419,15 +451,18 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
                               : 'text-muted-foreground/60 hover:text-foreground hover:bg-foreground/[0.05]',
                           )}
                         >
-                          {transcribing ? (
+                          {recording ? (
+                            <>
+                              <span className="relative flex h-2 w-2">
+                                <span className="absolute inline-flex h-full w-full rounded-full bg-white/70 animate-ping" />
+                                <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+                              </span>
+                              {formatDuration(dictation.elapsed)}
+                            </>
+                          ) : transcribing ? (
                             <>
                               <Loader2 className="h-3 w-3 animate-spin" />
                               Transcription…
-                            </>
-                          ) : recording ? (
-                            <>
-                              <Square className="h-2.5 w-2.5 fill-current" />
-                              {formatDuration(dictation.elapsed)}
                             </>
                           ) : (
                             <>
@@ -440,24 +475,28 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
                     )}
                   </div>
 
-                  <GrowingTextarea
-                    id={`cockpit-${section.field}`}
-                    value={
-                      section.field === 'anamnesis'
-                        ? anamnesis
-                        : section.field === 'examination'
-                          ? examination
-                          : advice
-                    }
-                    onChange={
-                      section.field === 'anamnesis'
-                        ? setAnamnesis
-                        : section.field === 'examination'
-                          ? setExamination
-                          : setAdvice
-                    }
-                    placeholder={section.placeholder}
-                  />
+                  {section.field === 'anamnesis' && anamnesisView === 'elements' ? (
+                    <AnamnesisSummary signals={signals} traces={traces} />
+                  ) : (
+                    <GrowingTextarea
+                      id={`cockpit-${section.field}`}
+                      value={
+                        section.field === 'anamnesis'
+                          ? anamnesis
+                          : section.field === 'examination'
+                            ? examination
+                            : advice
+                      }
+                      onChange={
+                        section.field === 'anamnesis'
+                          ? setAnamnesis
+                          : section.field === 'examination'
+                            ? setExamination
+                            : setAdvice
+                      }
+                      placeholder={section.placeholder}
+                    />
+                  )}
 
                   {section.field === 'anamnesis' && dictation.error && (
                     <p className="mt-2 text-[11.5px] text-rose-600 dark:text-rose-400">
@@ -474,7 +513,6 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
                 <button
                   type="button"
                   onClick={dictation.toggle}
-                  disabled={transcribing}
                   className={cn(
                     'group relative flex items-center justify-center h-20 w-20 rounded-full transition-all',
                     recording
@@ -485,10 +523,10 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
                   {recording && (
                     <span className="absolute inset-0 rounded-full bg-rose-500/30 animate-ping" />
                   )}
-                  {transcribing ? (
-                    <Loader2 className="h-7 w-7 animate-spin" />
-                  ) : recording ? (
+                  {recording ? (
                     <Square className="h-6 w-6 fill-current" />
+                  ) : transcribing ? (
+                    <Loader2 className="h-7 w-7 animate-spin" />
                   ) : (
                     <Mic className="h-7 w-7" />
                   )}
@@ -501,7 +539,9 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
                       : 'Dictez l’anamnèse'}
                 </p>
                 <p className="mt-1 text-[12.5px] text-muted-foreground/60">
-                  {recording ? 'Cliquez pour arrêter' : 'ou commencez à écrire ci-dessous'}
+                  {recording
+                    ? 'Parlez sans vous arrêter — le copilote suit'
+                    : 'ou commencez à écrire ci-dessous'}
                 </p>
                 {dictation.error && (
                   <p className="mt-3 text-[11.5px] text-rose-600 dark:text-rose-400 max-w-xs">

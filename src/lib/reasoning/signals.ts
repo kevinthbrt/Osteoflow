@@ -86,7 +86,7 @@ const definitions = {
     question: 'Y a-t-il eu une chirurgie du rachis récente ?',
   },
   'terrain.profil_vasculaire_aaa': {
-    label: 'profil vasculaire évocateur d\'anévrisme (homme de plus de 50 ans, tabagisme)',
+    label: 'profil vasculaire évocateur d\'anévrisme',
     group: 'terrain',
   },
   'terrain.facteurs_vasculaires_50': {
@@ -102,7 +102,7 @@ const definitions = {
   },
   'general.fievre': { label: 'fièvre', group: 'general', question: 'Y a-t-il de la fièvre ?' },
   'general.douleur_nocturne': {
-    label: 'douleur nocturne réveillant en seconde partie de nuit',
+    label: 'douleur nocturne',
     group: 'douleur',
     question: 'La douleur réveille-t-elle en seconde partie de nuit ?',
   },
@@ -112,7 +112,7 @@ const definitions = {
     question: 'La douleur est-elle constante, sans position qui la soulage ?',
   },
   'general.douleur_persistante_traitement': {
-    label: 'douleur persistante ou aggravée malgré le traitement depuis plus d\'un mois',
+    label: 'douleur persistante malgré le traitement',
     group: 'douleur',
     question: 'La douleur persiste-t-elle ou s\'aggrave-t-elle malgré le traitement depuis plus d\'un mois ?',
   },
@@ -188,7 +188,7 @@ const definitions = {
     question: 'La toux ou l\'éternuement réveillent-ils la douleur ?',
   },
   'lombaire.rythme_inflammatoire': {
-    label: 'rythme inflammatoire (raideur matinale prolongée, réveils nocturnes, amélioration à l\'effort)',
+    label: 'rythme inflammatoire',
     group: 'douleur',
     question: 'La raideur matinale dure-t-elle plus de 30 minutes ?',
   },
@@ -254,7 +254,7 @@ const definitions = {
     question: 'La cervicalgie évolue-t-elle depuis moins de 8 semaines ?',
   },
   'cervical.symptomes_myelopathie': {
-    label: 'symptômes évocateurs de myélopathie (maladresse des mains, troubles de la marche, Lhermitte)',
+    label: 'symptômes évocateurs de myélopathie',
     group: 'neurologique',
     question: 'Y a-t-il une maladresse des mains, des troubles de l\'équilibre ou des décharges en flexion du cou ?',
   },
@@ -367,6 +367,67 @@ export type SignalId = keyof typeof definitions
 
 /** Relevé courant. Une clé absente ou `undefined` signifie « pas encore exploré ». */
 export type SignalSet = Partial<Record<SignalId, boolean>>
+
+export const GROUP_LABELS: Record<SignalGroup, string> = {
+  terrain: 'Terrain',
+  general: 'État général',
+  douleur: 'Douleur',
+  topographie: 'Topographie',
+  neurologique: 'Neurologique',
+  examen: 'Examen',
+  psychosocial: 'Psychosocial',
+}
+
+/** Ordre d'affichage du relevé : du contexte vers l'examen. */
+const GROUP_ORDER: SignalGroup[] = [
+  'topographie',
+  'douleur',
+  'neurologique',
+  'general',
+  'terrain',
+  'examen',
+  'psychosocial',
+]
+
+export interface SignalSummary {
+  /** Ce qui a été relevé, groupé par nature. */
+  present: { group: SignalGroup; label: string; items: { id: SignalId; label: string }[] }[]
+  /** Ce qui a été explicitement écarté — utile et souvent oublié d'un compte rendu. */
+  absent: { id: SignalId; label: string }[]
+}
+
+/**
+ * Met le relevé en forme pour l'affichage.
+ *
+ * Le présent et l'absent sont séparés plutôt que niés dans le texte : « pas de
+ * fièvre » se formule mal en français à partir d'un libellé affirmatif, et un
+ * compte rendu clinique ne peut pas se permettre une négation ambiguë.
+ */
+export function summariseSignals(signals: SignalSet): SignalSummary {
+  const present = new Map<SignalGroup, { id: SignalId; label: string }[]>()
+  const absent: { id: SignalId; label: string }[] = []
+
+  for (const [id, value] of Object.entries(signals) as [SignalId, boolean | undefined][]) {
+    const definition = definitions[id] as SignalDefinition | undefined
+    if (value === undefined || !definition) continue
+    if (value) {
+      const bucket = present.get(definition.group) ?? []
+      bucket.push({ id, label: definition.label })
+      present.set(definition.group, bucket)
+    } else {
+      absent.push({ id, label: definition.label })
+    }
+  }
+
+  return {
+    present: GROUP_ORDER.filter((group) => present.has(group)).map((group) => ({
+      group,
+      label: GROUP_LABELS[group],
+      items: present.get(group)!,
+    })),
+    absent,
+  }
+}
 
 /**
  * Questions à choix. Un groupe de signaux qui s'excluent se pose en une fois,

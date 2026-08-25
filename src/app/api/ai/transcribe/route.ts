@@ -16,12 +16,17 @@ const PROXY_BASE = 'https://osteoupgrade.vercel.app'
 // ─── Mode 2 : clé Groq locale (développement / utilisateur avec clé perso) ────
 // Définir GROQ_API_KEY dans .env.local. Gratuit jusqu'à 7200 s/jour par clé.
 
-async function transcribeViaProxy(arrayBuffer: ArrayBuffer, secret: string): Promise<string> {
+async function transcribeViaProxy(
+  arrayBuffer: ArrayBuffer,
+  secret: string,
+  prompt?: string,
+): Promise<string> {
   const formData = new FormData()
   // File n'est pas disponible globalement en Node.js 18 (Electron).
   // Blob + 3ème arg de FormData.append = équivalent portable.
   const blob = new Blob([arrayBuffer], { type: 'audio/webm' })
   formData.append('file', blob, 'audio.webm')
+  if (prompt) formData.append('prompt', prompt)
 
   const res = await fetch(`${PROXY_BASE}/api/osteoflow/transcribe`, {
     method: 'POST',
@@ -42,7 +47,11 @@ async function transcribeViaProxy(arrayBuffer: ArrayBuffer, secret: string): Pro
   return (data.transcript ?? '').trim()
 }
 
-async function transcribeViaGroq(arrayBuffer: ArrayBuffer, apiKey: string): Promise<string> {
+async function transcribeViaGroq(
+  arrayBuffer: ArrayBuffer,
+  apiKey: string,
+  prompt?: string,
+): Promise<string> {
   const Groq = (await import('groq-sdk')).default
   const groq = new Groq({ apiKey })
 
@@ -51,6 +60,7 @@ async function transcribeViaGroq(arrayBuffer: ArrayBuffer, apiKey: string): Prom
     model: 'whisper-large-v3-turbo',
     language: 'fr',
     response_format: 'text',
+    ...(prompt ? { prompt } : {}),
   })
 
   return (typeof transcription === 'string' ? transcription : (transcription as any).text ?? '').trim()
@@ -72,6 +82,19 @@ export async function POST(req: Request) {
       )
     }
 
+    // Fin de la transcription précédente, transmise par la dictée continue :
+    // Whisper s'en sert pour recoller une phrase coupée entre deux segments et
+    // pour garder le vocabulaire déjà employé.
+    let prompt: string | undefined
+    const rawContext = req.headers.get('x-transcribe-context')
+    if (rawContext) {
+      try {
+        prompt = decodeURIComponent(rawContext).slice(-400)
+      } catch {
+        /* en-tête mal encodé : on transcrit sans contexte */
+      }
+    }
+
     let text: string
 
     const groqKey = process.env.GROQ_API_KEY
@@ -79,10 +102,10 @@ export async function POST(req: Request) {
 
     if (proxySecret) {
       // Mode proxy — production commerciale (pas de clé Groq nécessaire côté client)
-      text = await transcribeViaProxy(arrayBuffer, proxySecret)
+      text = await transcribeViaProxy(arrayBuffer, proxySecret, prompt)
     } else if (groqKey) {
       // Mode clé locale — développement ou utilisateur avec sa propre clé
-      text = await transcribeViaGroq(arrayBuffer, groqKey)
+      text = await transcribeViaGroq(arrayBuffer, groqKey, prompt)
     } else {
       return NextResponse.json(
         { error: 'Transcription non configurée. Ajoutez GROQ_API_KEY dans .env.local.' },

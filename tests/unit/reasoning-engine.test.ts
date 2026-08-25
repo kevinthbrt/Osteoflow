@@ -8,6 +8,7 @@ import {
   openSignalsOf,
   reason,
   scoreHypothesis,
+  summariseSignals,
   signalsOf,
   type ActionDefinition,
   type HypothesisDefinition,
@@ -545,5 +546,25 @@ describe('ce qui a déjà été fait', () => {
       actionLimit: 8,
     })
     expect(après.nextActions.map((s) => s.action.id)).not.toContain('lombaire.start-back')
+  })
+})
+
+describe('mise en forme du relevé', () => {
+  it('sépare ce qui est relevé de ce qui est écarté', () => {
+    const summary = summariseSignals({
+      'lombaire.irradiation_sous_genou': true,
+      'lombaire.debut_brutal': true,
+      'general.fievre': false,
+      'terrain.antecedent_cancer': false,
+    })
+    expect(summary.present.map((entry) => entry.label)).toEqual(['Topographie', 'Douleur'])
+    expect(summary.present[0].items.map((item) => item.label)).toEqual(['irradiation sous le genou'])
+    expect(summary.absent.map((item) => item.label)).toEqual(['fièvre', 'antécédent de cancer'])
+  })
+
+  it('ignore ce qui n\'a pas été exploré', () => {
+    const summary = summariseSignals({ 'general.fievre': undefined })
+    expect(summary.present).toEqual([])
+    expect(summary.absent).toEqual([])
   })
 })
