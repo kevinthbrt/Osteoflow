@@ -50,6 +50,7 @@ const definitions = {
   'terrain.age_moins_60': { label: 'âge inférieur à 60 ans', group: 'terrain' },
   'terrain.age_plus_65': { label: 'âge supérieur à 65 ans', group: 'terrain' },
   'terrain.age_plus_70': { label: 'âge supérieur à 70 ans', group: 'terrain' },
+  'terrain.sexe_feminin': { label: 'sexe féminin', group: 'terrain' },
   'terrain.age_50_facteurs_cancer': {
     label: 'plus de 50 ans avec facteurs de risque de cancer',
     group: 'terrain',
@@ -124,6 +125,11 @@ const definitions = {
   'general.deficit_neuro_post_traumatique': {
     label: 'déficit neurologique associé au traumatisme',
     group: 'neurologique',
+  },
+  'general.contusion_abrasion': {
+    label: 'contusion ou abrasion cutanée en regard du rachis',
+    group: 'general',
+    question: 'Y a-t-il une ecchymose ou une éraflure en regard de la colonne ?',
   },
   'general.douleur_mediane_epineuse': {
     label: 'douleur très localisée sur les épineuses',
@@ -242,6 +248,18 @@ const definitions = {
     label: 'phénomène de centralisation aux mouvements répétés',
     group: 'examen',
   },
+  'lombaire.lasegue_positif': {
+    label: 'Lasègue positif',
+    group: 'examen',
+  },
+  'lombaire.lasegue_croise_positif': {
+    label: 'Lasègue croisé positif',
+    group: 'examen',
+  },
+  'lombaire.deficit_moteur': {
+    label: 'déficit moteur du membre inférieur',
+    group: 'neurologique',
+  },
   'lombaire.criteres_revel_3plus': {
     label: 'au moins 3 critères de Revel sur 7',
     group: 'examen',
@@ -332,6 +350,26 @@ const definitions = {
     label: 'traumatisme cervical récent, même mineur (manipulation, sport, coup du lapin)',
     group: 'general',
     question: 'Y a-t-il eu un mouvement ou un choc cervical récent, même anodin ?',
+  },
+  'cervical.spurling_positif': {
+    label: 'Spurling positif',
+    group: 'examen',
+  },
+  'cervical.distraction_positif': {
+    label: 'test de distraction cervicale positif',
+    group: 'examen',
+  },
+  'cervical.ulnt_positif': {
+    label: 'test de tension neurale du membre supérieur positif',
+    group: 'examen',
+  },
+  'cervical.rotation_limitee_60': {
+    label: 'rotation cervicale limitée à moins de 60° du côté atteint',
+    group: 'examen',
+  },
+  'cervical.frt_positif': {
+    label: 'flexion-rotation test positif',
+    group: 'examen',
   },
   'cervical.cephalee_brutale': {
     label: 'céphalée brutale inhabituelle et sévère',
@@ -457,12 +495,16 @@ export function exclusiveGroupOf(id: SignalId): string | undefined {
  * Poser au praticien une question dont la réponse est dans la fiche est la
  * façon la plus sûre de faire perdre confiance à un copilote.
  */
-export function signalsFromAge(age: number): SignalSet {
-  return {
+export function signalsFromRecord(age: number, gender?: string | null): SignalSet {
+  const signals: SignalSet = {
     'terrain.age_moins_60': age < 60,
     'terrain.age_plus_65': age > 65,
     'terrain.age_plus_70': age > 70,
   }
+  // Le sexe féminin fait partie de la combinaison validée pour la fracture
+  // vertébrale (Downie 2013) ; il est dans la fiche patient.
+  if (gender === 'F' || gender === 'M') signals['terrain.sexe_feminin'] = gender === 'F'
+  return signals
 }
 
 export function signalLabel(id: SignalId): string {

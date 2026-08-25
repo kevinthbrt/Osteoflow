@@ -44,6 +44,21 @@ const TRAUMA_AVEC_DEFICIT: SignalExpr = {
 
 const DEUX_FACTEURS_FRACTURE: SignalExpr = { atLeast: 2, among: [...FACTEURS_FRACTURE] }
 
+/**
+ * Combinaison validée par Downie et al. (BMJ 2013) : au moins trois de ces
+ * quatre facteurs portent la probabilité post-test de fracture à 90 %. Aucun
+ * d'entre eux ne vaut grand-chose isolément.
+ */
+const COMBINAISON_FRACTURE: SignalExpr = {
+  atLeast: 3,
+  among: [
+    'terrain.sexe_feminin',
+    'terrain.age_plus_70',
+    'general.traumatisme_recent',
+    'terrain.corticotherapie',
+  ],
+}
+
 const NEOPLASIE_AVEC_ANTECEDENT: SignalExpr = {
   all: ['terrain.antecedent_cancer', { atLeast: 1, among: [...FACTEURS_NEOPLASIE] }],
 }
@@ -115,9 +130,11 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
     label: 'Fracture vertébrale',
     region: 'lombaire',
     kind: 'red-flag',
-    requires: { any: [TRAUMA_AVEC_DEFICIT, DEUX_FACTEURS_FRACTURE] },
+    requires: { any: ['general.contusion_abrasion', COMBINAISON_FRACTURE, TRAUMA_AVEC_DEFICIT, DEUX_FACTEURS_FRACTURE] },
     criteria: [
-      { when: TRAUMA_AVEC_DEFICIT, weight: 40, label: 'traumatisme associé à un déficit neurologique (LR+ 31,1)' },
+      { when: 'general.contusion_abrasion', weight: 45, label: 'contusion ou abrasion en regard du rachis — probabilité post-test de fracture 62 % (Downie 2013)' },
+      { when: COMBINAISON_FRACTURE, weight: 45, label: 'au moins trois facteurs parmi sexe féminin, plus de 70 ans, traumatisme et corticothérapie — probabilité post-test 90 % (Downie 2013)' },
+      { when: TRAUMA_AVEC_DEFICIT, weight: 40, label: 'traumatisme associé à un déficit neurologique — probabilité post-test 43 % (Downie 2013)' },
       { when: DEUX_FACTEURS_FRACTURE, weight: 20, label: 'au moins deux facteurs de risque de fracture combinés' },
       { when: 'terrain.age_plus_70', weight: 2, label: 'âge supérieur à 70 ans' },
       { when: 'terrain.osteoporose', weight: 2, label: 'ostéoporose connue' },
@@ -198,6 +215,10 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
     requires: RADICULAIRE,
     criteria: [
       { when: PROFIL_DISCAL, weight: 20, label: 'profil discal : au moins deux caractéristiques évocatrices avant 60 ans' },
+      { when: 'lombaire.lasegue_croise_positif', weight: 8, label: 'Lasègue croisé positif — Sp 0,90 (Cochrane 2010)' },
+      { when: 'lombaire.lasegue_positif', weight: 2, label: 'Lasègue positif — Sn 0,92 mais Sp 0,28 : un positif isolé pèse peu' },
+      { when: { not: 'lombaire.lasegue_positif' }, weight: -8, label: 'Lasègue négatif — Sn 0,92 : rend une hernie peu probable' },
+      { when: 'lombaire.deficit_moteur', weight: 4, label: 'déficit moteur objectivé' },
       { when: 'lombaire.unilateral', weight: 1, label: 'atteinte unilatérale' },
       { when: 'lombaire.aggrave_assis', weight: 1, label: 'aggravation en position assise' },
       { when: 'lombaire.debut_brutal', weight: 1, label: 'début brutal' },
@@ -339,14 +360,21 @@ export const LUMBAR_ACTIONS: ActionDefinition[] = [
     id: 'lombaire.lasegue',
     kind: 'test',
     label: 'Lasègue ipsilatéral (SLR)',
-    performance: 'Sn 92 %',
-    resolves: ['lombaire.jambe_plus_douloureuse'],
+    performance: 'Sn 0,92 · Sp 0,28 — un négatif écarte, un positif ne confirme pas',
+    resolves: ['lombaire.lasegue_positif'],
   },
-  { id: 'lombaire.lasegue-croise', kind: 'test', label: 'Lasègue croisé', performance: 'Sp 90 %' },
+  {
+    id: 'lombaire.lasegue-croise',
+    kind: 'test',
+    label: 'Lasègue croisé',
+    performance: 'Sn 0,28 · Sp 0,90 — un positif pèse, un négatif n\'écarte rien',
+    resolves: ['lombaire.lasegue_croise_positif'],
+  },
   {
     id: 'lombaire.examen-neurologique',
     kind: 'test',
     label: 'Examen neurologique du membre inférieur (force, réflexes, sensibilité)',
+    resolves: ['lombaire.deficit_moteur'],
     note: 'Dorsiflexion et flexion plantaire, rotulien et achilléen, territoires L4, L5 et S1',
   },
   {
@@ -359,7 +387,7 @@ export const LUMBAR_ACTIONS: ActionDefinition[] = [
     id: 'lombaire.extension-lombaire',
     kind: 'test',
     label: 'Extension lombaire — reproduit-elle la douleur ?',
-    resolves: ['lombaire.aggrave_marche'],
+    note: 'Une extension reproductrice renforce l\'hypothèse sténosante',
   },
   {
     id: 'lombaire.cluster-si',

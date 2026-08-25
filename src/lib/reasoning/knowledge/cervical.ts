@@ -45,6 +45,19 @@ const RADICULAIRE: SignalExpr = {
   all: ['cervical.irradiation_bras', 'cervical.bras_plus_douloureux'],
 }
 
+/**
+ * Cluster de Wainner (2003) pour la radiculopathie cervicale : Spurling,
+ * distraction, tension neurale et rotation limitée à moins de 60°. Trois
+ * critères sur quatre donnent un LR+ de 6,1 ; les quatre, un LR+ de 30,3 pour
+ * une spécificité de 0,99. Aucun de ces tests ne vaut cela isolément.
+ */
+const CLUSTER_WAINNER = [
+  'cervical.spurling_positif',
+  'cervical.distraction_positif',
+  'cervical.ulnt_positif',
+  'cervical.rotation_limitee_60',
+] as SignalExpr[]
+
 const CEPHALEE_CERVICOGENIQUE: SignalExpr = {
   all: [
     { any: ['cervical.localisation_suboccipitale', 'cervical.cephalees'] },
@@ -168,9 +181,19 @@ export const CERVICAL_HYPOTHESES: HypothesisDefinition[] = [
     requires: RADICULAIRE,
     criteria: [
       { when: RADICULAIRE, weight: 20, label: 'irradiation dans le bras, plus douloureuse que la cervicalgie' },
+      { when: { atLeast: 4, among: CLUSTER_WAINNER }, weight: 8, label: 'cluster de Wainner complet — LR+ 30,3, Sp 0,99 (Wainner 2003)' },
+      { when: { all: [{ atLeast: 3, among: CLUSTER_WAINNER }, { not: { atLeast: 4, among: CLUSTER_WAINNER } }] }, weight: 4, label: 'trois critères de Wainner sur quatre — LR+ 6,1 (Wainner 2003)' },
       { when: 'cervical.paresthesies_bras', weight: 1, label: 'paresthésies du membre supérieur' },
     ],
-    actions: ['cervical.spurling', 'cervical.ulnt', 'cervical.bakody', 'cervical.traction', 'cervical.dn4'],
+    actions: [
+      'cervical.spurling',
+      'cervical.distraction',
+      'cervical.ulnt',
+      'cervical.rotation',
+      'cervical.bakody',
+      'cervical.traction',
+      'cervical.dn4',
+    ],
   },
   {
     id: 'cervical.wad-iii',
@@ -214,6 +237,7 @@ export const CERVICAL_HYPOTHESES: HypothesisDefinition[] = [
     criteria: [
       { when: CEPHALEE_CERVICOGENIQUE, weight: 8, label: 'céphalée d\'origine cervicale : au moins un critère présent' },
       { when: 'cervical.criteres_cephalee_3plus', weight: 2, label: 'au moins trois critères de céphalée cervicogénique' },
+      { when: 'cervical.frt_positif', weight: 4, label: 'flexion-rotation test positif — Sn 0,91 · Sp 0,90 pour une atteinte C1-C2 (Hall & Robinson 2004)' },
     ],
     actions: ['cervical.frt', 'cervical.hit6'],
   },
@@ -253,15 +277,29 @@ export const CERVICAL_ACTIONS: ActionDefinition[] = [
     id: 'cervical.spurling',
     kind: 'test',
     label: 'Test de Spurling',
-    performance: 'Sn 38-98 %, Sp 84-100 %',
-    resolves: ['cervical.bras_plus_douloureux'],
+    performance: 'Sn 0,38-0,50 · Sp 0,86-0,95 — à lire dans le cluster de Wainner',
+    resolves: ['cervical.spurling_positif'],
+  },
+  {
+    id: 'cervical.distraction',
+    kind: 'test',
+    label: 'Test de distraction cervicale',
+    performance: 'Critère du cluster de Wainner',
+    resolves: ['cervical.distraction_positif'],
+  },
+  {
+    id: 'cervical.rotation',
+    kind: 'test',
+    label: 'Rotation cervicale active du côté atteint — atteint-elle 60° ?',
+    performance: 'Critère du cluster de Wainner',
+    resolves: ['cervical.rotation_limitee_60'],
   },
   {
     id: 'cervical.ulnt',
     kind: 'test',
     label: 'ULNT — les 4 tests de tension neurale',
-    performance: 'Sn 97 %, Sp 51 %',
-    resolves: ['cervical.paresthesies_bras'],
+    performance: 'Sn 0,97 · Sp 0,51 — un négatif écarte, un positif ne confirme pas',
+    resolves: ['cervical.ulnt_positif'],
   },
   { id: 'cervical.bakody', kind: 'test', label: 'Abduction d\'épaule (signe de Bakody)', performance: 'Sn 49 %, Sp 76 %' },
   { id: 'cervical.traction', kind: 'test', label: 'Traction cervicale manuelle', performance: 'SMD −0,66' },
@@ -269,13 +307,14 @@ export const CERVICAL_ACTIONS: ActionDefinition[] = [
     id: 'cervical.frt',
     kind: 'test',
     label: 'Flexion-rotation test',
-    resolves: ['cervical.criteres_cephalee_3plus'],
+    performance: 'Sn 0,91 · Sp 0,90 pour une atteinte C1-C2 (Hall & Robinson 2004)',
+    resolves: ['cervical.frt_positif'],
   },
   {
     id: 'cervical.extension-rotation',
     kind: 'test',
     label: 'Extension avec rotation ipsilatérale',
-    resolves: ['cervical.criteres_facettaires_2plus'],
+    note: 'Un des critères facettaires cervicaux',
   },
   {
     id: 'cervical.regle-ottawa-cspine',

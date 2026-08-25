@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { LUMBAR_ACTIONS, LUMBAR_HYPOTHESES } from '@/lib/reasoning'
+import {
+  CERVICAL_ACTIONS,
+  CERVICAL_HYPOTHESES,
+  LUMBAR_ACTIONS,
+  LUMBAR_HYPOTHESES,
+} from '@/lib/reasoning'
 import {
   SIGNALS,
   activeHypotheses,
@@ -8,7 +13,7 @@ import {
   openSignalsOf,
   reason,
   scoreHypothesis,
-  signalsFromAge,
+  signalsFromRecord,
   summariseSignals,
   signalsOf,
   type ActionDefinition,
@@ -572,26 +577,150 @@ describe('mise en forme du relevé', () => {
 
 describe('ce que le dossier sait déjà', () => {
   it('déduit les tranches d\'âge de la date de naissance', () => {
-    expect(signalsFromAge(35)).toEqual({
+    expect(signalsFromRecord(35, 'F')).toEqual({
       'terrain.age_moins_60': true,
       'terrain.age_plus_65': false,
       'terrain.age_plus_70': false,
+      'terrain.sexe_feminin': true,
     })
-    expect(signalsFromAge(72)).toEqual({
+    expect(signalsFromRecord(72, 'M')).toEqual({
       'terrain.age_moins_60': false,
       'terrain.age_plus_65': true,
       'terrain.age_plus_70': true,
+      'terrain.sexe_feminin': false,
     })
   })
 
   it('ne demande plus l\'âge une fois le dossier lu', () => {
     const result = reason({
-      signals: signalsFromAge(35),
+      signals: signalsFromRecord(35, 'F'),
       hypotheses: LUMBAR_HYPOTHESES,
       actions: LUMBAR_ACTIONS,
       actionLimit: 8,
     })
     const questions = result.nextActions.map((suggestion) => suggestion.action.id)
     expect(questions.filter((id) => id.includes('age_'))).toEqual([])
+  })
+})
+
+describe('ce qu\'un test renseigne', () => {
+  /**
+   * Un test mesure ce qu'il mesure. Le câbler sur un élément d'anamnèse — le
+   * Lasègue sur « la jambe fait plus mal que le dos », le Spurling sur la même
+   * chose — fait enregistrer comme déclaré par le patient ce qui vient de
+   * l'examen, et fait disparaître la question qu'il aurait fallu poser.
+   */
+  it('ne renseigne jamais un élément qui se demande au patient', () => {
+    const fautifs: string[] = []
+    for (const action of [...LUMBAR_ACTIONS, ...CERVICAL_ACTIONS]) {
+      if (action.kind !== 'test') continue
+      for (const signal of action.resolves ?? []) {
+        if (SIGNALS[signal]?.question) fautifs.push(`${action.id} → ${signal}`)
+      }
+    }
+    expect(fautifs).toEqual([])
+  })
+
+  it('renseigne un signal d\'examen quand il en renseigne un', () => {
+    for (const action of [...LUMBAR_ACTIONS, ...CERVICAL_ACTIONS]) {
+      if (action.kind !== 'test') continue
+      for (const signal of action.resolves ?? []) {
+        expect(['examen', 'neurologique'], `${action.id} → ${signal}`).toContain(
+          SIGNALS[signal]?.group,
+        )
+      }
+    }
+  })
+})
+
+describe('règles fondées sur la littérature', () => {
+  it('fait monter la radiculopathie cervicale avec le cluster de Wainner', () => {
+    const base = { 'cervical.irradiation_bras': true, 'cervical.bras_plus_douloureux': true }
+    const score = (signals: Record<string, boolean>) =>
+      reason({ signals, hypotheses: CERVICAL_HYPOTHESES }).hypotheses.find(
+        (h) => h.id === 'cervical.radiculopathie',
+      )!.score
+
+    const aucun = score({
+      ...base,
+      'cervical.spurling_positif': false,
+      'cervical.distraction_positif': false,
+      'cervical.ulnt_positif': false,
+      'cervical.rotation_limitee_60': false,
+    })
+    const trois = score({
+      ...base,
+      'cervical.spurling_positif': true,
+      'cervical.distraction_positif': true,
+      'cervical.ulnt_positif': true,
+      'cervical.rotation_limitee_60': false,
+    })
+    const quatre = score({
+      ...base,
+      'cervical.spurling_positif': true,
+      'cervical.distraction_positif': true,
+      'cervical.ulnt_positif': true,
+      'cervical.rotation_limitee_60': true,
+    })
+    expect(aucun).toBeLessThan(trois)
+    expect(trois).toBeLessThan(quatre)
+  })
+
+  it('ne compte pas deux fois le cluster complet', () => {
+    // Le critère « trois sur quatre » exclut le cas où les quatre sont là.
+    const quatre = reason({
+      signals: {
+        'cervical.irradiation_bras': true,
+        'cervical.bras_plus_douloureux': true,
+        'cervical.spurling_positif': true,
+        'cervical.distraction_positif': true,
+        'cervical.ulnt_positif': true,
+        'cervical.rotation_limitee_60': true,
+      },
+      hypotheses: CERVICAL_HYPOTHESES,
+    }).hypotheses.find((h) => h.id === 'cervical.radiculopathie')!
+    expect(quatre.argumentsFor.filter((a) => a.includes('Wainner'))).toHaveLength(1)
+  })
+
+  it('lève le drapeau fracture sur une contusion en regard du rachis', () => {
+    const result = reason({
+      signals: { 'general.contusion_abrasion': true },
+      hypotheses: LUMBAR_HYPOTHESES,
+    })
+    expect(result.redFlags.map((f) => f.id)).toContain('lombaire.fracture')
+  })
+
+  it('lève le drapeau fracture sur trois des quatre facteurs de Downie', () => {
+    const result = reason({
+      signals: {
+        'terrain.sexe_feminin': true,
+        'terrain.age_plus_70': true,
+        'terrain.corticotherapie': true,
+        'general.traumatisme_recent': false,
+        'general.contusion_abrasion': false,
+      },
+      hypotheses: LUMBAR_HYPOTHESES,
+    })
+    const fracture = result.redFlags.find((f) => f.id === 'lombaire.fracture')
+    expect(fracture).toBeDefined()
+    expect(fracture!.argumentsFor.some((a) => a.includes('Downie'))).toBe(true)
+  })
+
+  it('fait baisser la hernie discale sur un Lasègue négatif', () => {
+    const base = {
+      'lombaire.irradiation_jambe': true,
+      'lombaire.irradiation_sous_genou': true,
+      'lombaire.jambe_plus_douloureuse': true,
+      'terrain.age_moins_60': true,
+      'lombaire.unilateral': true,
+      'lombaire.aggrave_assis': true,
+    }
+    const score = (signals: Record<string, boolean>) =>
+      reason({ signals, hypotheses: LUMBAR_HYPOTHESES }).hypotheses.find(
+        (h) => h.id === 'lombaire.hernie-discale',
+      )!.score
+    expect(score({ ...base, 'lombaire.lasegue_positif': false })).toBeLessThan(
+      score({ ...base, 'lombaire.lasegue_positif': true }),
+    )
   })
 })
