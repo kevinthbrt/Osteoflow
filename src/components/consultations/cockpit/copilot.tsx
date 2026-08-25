@@ -14,7 +14,7 @@ import {
   type SuggestedAction,
 } from '@/lib/reasoning'
 
-export type SignalSource = 'dictée' | 'praticien' | 'test'
+export type SignalSource = 'dictée' | 'praticien' | 'test' | 'dossier'
 
 export interface SignalTrace {
   source: SignalSource

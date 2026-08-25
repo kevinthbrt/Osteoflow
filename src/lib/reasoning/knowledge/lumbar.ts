@@ -318,6 +318,16 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
     requires: MECANIQUE,
     criteria: [
       { when: MECANIQUE, weight: 5, label: 'absence d\'argument pour une cause spécifique' },
+      {
+        when: 'psychosocial.risque_chronicisation',
+        weight: 2,
+        label: 'facteurs de risque de chronicisation identifiés',
+      },
+      {
+        when: 'psychosocial.drapeaux_jaunes_2plus',
+        weight: 2,
+        label: 'drapeaux jaunes au premier plan — abord cognitif à associer au traitement',
+      },
     ],
     actions: ['lombaire.start-back', 'lombaire.eifel', 'lombaire.pas-imagerie'],
     note: 'Diagnostic d\'exclusion : 80 à 90 % des lombalgies.',

@@ -8,6 +8,7 @@ import {
   openSignalsOf,
   reason,
   scoreHypothesis,
+  signalsFromAge,
   summariseSignals,
   signalsOf,
   type ActionDefinition,
@@ -566,5 +567,31 @@ describe('mise en forme du relevé', () => {
     const summary = summariseSignals({ 'general.fievre': undefined })
     expect(summary.present).toEqual([])
     expect(summary.absent).toEqual([])
+  })
+})
+
+describe('ce que le dossier sait déjà', () => {
+  it('déduit les tranches d\'âge de la date de naissance', () => {
+    expect(signalsFromAge(35)).toEqual({
+      'terrain.age_moins_60': true,
+      'terrain.age_plus_65': false,
+      'terrain.age_plus_70': false,
+    })
+    expect(signalsFromAge(72)).toEqual({
+      'terrain.age_moins_60': false,
+      'terrain.age_plus_65': true,
+      'terrain.age_plus_70': true,
+    })
+  })
+
+  it('ne demande plus l\'âge une fois le dossier lu', () => {
+    const result = reason({
+      signals: signalsFromAge(35),
+      hypotheses: LUMBAR_HYPOTHESES,
+      actions: LUMBAR_ACTIONS,
+      actionLimit: 8,
+    })
+    const questions = result.nextActions.map((suggestion) => suggestion.action.id)
+    expect(questions.filter((id) => id.includes('age_'))).toEqual([])
   })
 })

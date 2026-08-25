@@ -26,6 +26,7 @@ import { formatDuration, useDictation } from './use-dictation'
 import {
   applySignal,
   detectRegion,
+  signalsFromAge,
   signalsFromQuestionnaire,
   type Region,
   type SignalId,
@@ -100,8 +101,16 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
   const [examination, setExamination] = useState('')
   const [advice, setAdvice] = useState('')
 
-  const [signals, setSignals] = useState<Partial<Record<SignalId, boolean>>>({})
-  const [traces, setTraces] = useState<Partial<Record<SignalId, SignalTrace>>>({})
+  // L'âge est dans le dossier : le demander ferait perdre confiance au copilote.
+  const patientAge = useMemo(() => calculateAge(patient.birth_date), [patient.birth_date])
+  const [signals, setSignals] = useState<Partial<Record<SignalId, boolean>>>(() =>
+    signalsFromAge(patientAge),
+  )
+  const [traces, setTraces] = useState<Partial<Record<SignalId, SignalTrace>>>(() =>
+    Object.fromEntries(
+      Object.keys(signalsFromAge(patientAge)).map((signal) => [signal, { source: 'dossier' }]),
+    ),
+  )
   const [regionOverride, setRegionOverride] = useState<Region | null>(null)
   const [extracting, setExtracting] = useState(false)
   const [aiUnavailable, setAiUnavailable] = useState(false)

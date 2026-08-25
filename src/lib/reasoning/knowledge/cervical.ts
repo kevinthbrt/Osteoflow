@@ -237,6 +237,11 @@ export const CERVICAL_HYPOTHESES: HypothesisDefinition[] = [
     kind: 'exclusion',
     criteria: [
       { when: { not: RADICULAIRE }, weight: 3, label: 'absence d\'argument pour une cause spécifique' },
+      {
+        when: 'psychosocial.risque_chronicisation',
+        weight: 2,
+        label: 'facteurs de risque de chronicisation identifiés',
+      },
     ],
     actions: ['cervical.ndi', 'cervical.pas-imagerie'],
     note: 'Diagnostic d\'exclusion.',

@@ -451,6 +451,20 @@ export function exclusiveGroupOf(id: SignalId): string | undefined {
   return (definitions[id] as SignalDefinition | undefined)?.exclusive
 }
 
+/**
+ * Ce que le dossier patient dit déjà, sans avoir à le demander.
+ *
+ * Poser au praticien une question dont la réponse est dans la fiche est la
+ * façon la plus sûre de faire perdre confiance à un copilote.
+ */
+export function signalsFromAge(age: number): SignalSet {
+  return {
+    'terrain.age_moins_60': age < 60,
+    'terrain.age_plus_65': age > 65,
+    'terrain.age_plus_70': age > 70,
+  }
+}
+
 export function signalLabel(id: SignalId): string {
   return definitions[id]?.label ?? id
 }
