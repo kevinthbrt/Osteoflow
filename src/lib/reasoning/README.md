@@ -47,7 +47,30 @@ est atteint ou devenu inatteignable. Une hypothèse s'écarte donc au premier
    et le catalogue d'actions (tests, questionnaires, examens, orientations).
 3. Écrire les tests de non-régression sur les parcours discriminants.
 
-Sur les poids : ce ne sont pas des probabilités. Ils reproduisent un ordre de
+## Poids ordinaux et rapports de vraisemblance
+
+Un critère porte soit un **poids ordinal**, soit un **rapport de vraisemblance
+sourcé** — jamais les deux, jamais aucun. Un test le vérifie.
+
+Le rapport est la forme préférable partout où la littérature en publie un. Il
+se multiplie au lieu de se comparer, ce qui rend les modifications locales :
+ajouter une hypothèse ou un signe ne demande pas de réétalonner les autres.
+C'est ce qui permettra de passer de dix-huit hypothèses à quatre-vingts sans
+que chaque ajout devienne un chantier. Et un critère faux pèse aussi quand le
+LR− est connu — un Lasègue négatif écarte réellement une hernie, là où un
+positif ne dit presque rien.
+
+**La source est obligatoire.** Un rapport sans référence est refusé par les
+tests : c'est ce qui sépare un chiffre d'une intuition. Quand la valeur publiée
+est une probabilité post-test plutôt qu'un rapport, la convertir exigerait une
+prévalence supposée — donc inventée. On garde alors un poids ordinal et on cite
+la probabilité dans le libellé.
+
+Aucune probabilité post-test n'est calculée aujourd'hui : cela demanderait une
+prévalence sourcée par hypothèse, que personne n'a publiée pour une patientèle
+d'ostéopathie. Le modèle la porte (`prior`), le calcul attend les chiffres.
+
+Sur les poids ordinaux : ce ne sont pas des probabilités. Ils reproduisent un ordre de
 priorité clinique — une hypothèse spécifique passe devant un diagnostic
 d'exclusion, un profil complet devant un profil partiel. `requires` sert aux
 conditions dirimantes (fausse, l'hypothèse est écartée ; inconnue, elle reste en

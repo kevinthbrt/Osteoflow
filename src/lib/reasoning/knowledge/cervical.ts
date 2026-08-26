@@ -181,8 +181,21 @@ export const CERVICAL_HYPOTHESES: HypothesisDefinition[] = [
     requires: RADICULAIRE,
     criteria: [
       { when: RADICULAIRE, weight: 20, label: 'irradiation dans le bras, plus douloureuse que la cervicalgie' },
-      { when: { atLeast: 4, among: CLUSTER_WAINNER }, weight: 8, label: 'cluster de Wainner complet — LR+ 30,3, Sp 0,99 (Wainner 2003)' },
-      { when: { all: [{ atLeast: 3, among: CLUSTER_WAINNER }, { not: { atLeast: 4, among: CLUSTER_WAINNER } }] }, weight: 4, label: 'trois critères de Wainner sur quatre — LR+ 6,1 (Wainner 2003)' },
+      {
+        when: { atLeast: 4, among: CLUSTER_WAINNER },
+        label: 'cluster de Wainner complet',
+        lr: { positive: 30.3, source: 'Wainner et al., Spine 2003;28(1):52-62 — Sp 0,99' },
+      },
+      {
+        when: {
+          all: [
+            { atLeast: 3, among: CLUSTER_WAINNER },
+            { not: { atLeast: 4, among: CLUSTER_WAINNER } },
+          ],
+        },
+        label: 'trois critères de Wainner sur quatre',
+        lr: { positive: 6.1, source: 'Wainner et al., Spine 2003;28(1):52-62' },
+      },
       { when: 'cervical.paresthesies_bras', weight: 1, label: 'paresthésies du membre supérieur' },
     ],
     actions: [
@@ -237,7 +250,15 @@ export const CERVICAL_HYPOTHESES: HypothesisDefinition[] = [
     criteria: [
       { when: CEPHALEE_CERVICOGENIQUE, weight: 8, label: 'céphalée d\'origine cervicale : au moins un critère présent' },
       { when: 'cervical.criteres_cephalee_3plus', weight: 2, label: 'au moins trois critères de céphalée cervicogénique' },
-      { when: 'cervical.frt_positif', weight: 4, label: 'flexion-rotation test positif — Sn 0,91 · Sp 0,90 pour une atteinte C1-C2 (Hall & Robinson 2004)' },
+      {
+        when: 'cervical.frt_positif',
+        label: 'flexion-rotation test',
+        lr: {
+          positive: 9.1,
+          negative: 0.1,
+          source: 'Hall & Robinson, Man Ther 2004 — Sn 0,91 · Sp 0,90 pour une restriction C1-C2',
+        },
+      },
     ],
     actions: ['cervical.frt', 'cervical.hit6'],
   },

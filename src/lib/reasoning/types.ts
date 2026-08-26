@@ -18,14 +18,41 @@ export type SignalExpr =
   | { any: SignalExpr[] }
   | { atLeast: number; among: SignalExpr[] }
 
+/**
+ * Rapport de vraisemblance publié.
+ *
+ * C'est la forme sous laquelle la littérature diagnostique s'exprime, et la
+ * seule qui permette d'ajouter une hypothèse sans réétalonner toutes les
+ * autres : un rapport se multiplie, il ne se compare pas.
+ *
+ * La source est obligatoire. Une valeur sans référence est refusée par les
+ * tests : c'est ce qui distingue un chiffre d'une intuition.
+ */
+export interface Likelihood {
+  /** Rapport de vraisemblance quand le critère est vrai (LR+). */
+  positive: number
+  /**
+   * Rapport quand il est faux (LR−). Omis si l'étude ne le fournit pas — un
+   * critère faux reste alors muet, comme un critère ordinaire.
+   */
+  negative?: number
+  /** Référence exacte de la valeur. */
+  source: string
+}
+
 export interface Criterion {
   when: SignalExpr
   /**
-   * Poids dans le score. Positif : argument en faveur. Négatif : argument
-   * contre. Seules les expressions vraies comptent — une expression fausse
-   * n'est pas un argument, elle est simplement muette.
+   * Poids ordinal : une priorité clinique, pas une probabilité. À n'employer
+   * que faute de rapport de vraisemblance publié. Seules les expressions
+   * vraies comptent — une expression fausse n'est pas un argument.
    */
-  weight: number
+  weight?: number
+  /**
+   * Rapport de vraisemblance sourcé. Quand il est présent il remplace le
+   * poids, et un critère faux pèse aussi si le LR− est connu.
+   */
+  lr?: Likelihood
   /** Formulation clinique de l'argument, reprise telle quelle à l'affichage. */
   label: string
 }
@@ -51,6 +78,12 @@ export interface HypothesisDefinition {
   criteria: Criterion[]
   /** Actions du catalogue que cette hypothèse appelle. */
   actions?: string[]
+  /**
+   * Prévalence de départ dans la population vue en cabinet. Sans elle, aucune
+   * probabilité post-test n'est calculée : mieux vaut pas de chiffre qu'un
+   * chiffre bâti sur une prévalence supposée.
+   */
+  prior?: { value: number; source: string }
   /** Précaution ou rappel affiché avec l'hypothèse. */
   note?: string
 }
@@ -88,6 +121,12 @@ export interface ScoredHypothesis {
   argumentsAgainst: string[]
   /** Critères encore inconnus : ce qu'il reste à explorer pour trancher. */
   unexplored: string[]
+  /**
+   * Probabilité post-test, calculée seulement si l'hypothèse porte une
+   * prévalence sourcée et que tout ce qui a pesé vient d'un rapport de
+   * vraisemblance publié. Absente le reste du temps, et c'est voulu.
+   */
+  probability?: number
   note?: string
 }
 

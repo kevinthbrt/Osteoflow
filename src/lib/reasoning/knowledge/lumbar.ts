@@ -231,9 +231,27 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
     requires: RADICULAIRE,
     criteria: [
       { when: PROFIL_DISCAL, weight: 20, label: 'profil discal : au moins deux caractéristiques évocatrices avant 60 ans' },
-      { when: 'lombaire.lasegue_croise_positif', weight: 8, label: 'Lasègue croisé positif — Sp 0,90 (Cochrane 2010)' },
-      { when: 'lombaire.lasegue_positif', weight: 2, label: 'Lasègue positif — Sn 0,92 mais Sp 0,28 : un positif isolé pèse peu' },
-      { when: { not: 'lombaire.lasegue_positif' }, weight: -8, label: 'Lasègue négatif — Sn 0,92 : rend une hernie peu probable' },
+      {
+        when: 'lombaire.lasegue_croise_positif',
+        label: 'Lasègue croisé',
+        lr: {
+          positive: 2.8,
+          negative: 0.8,
+          source: 'van der Windt et al., Cochrane 2010, CD007431 — Sn 0,28 · Sp 0,90',
+        },
+      },
+      {
+        // Un Lasègue positif ne vaut presque rien (LR+ 1,28), un négatif écarte
+        // sérieusement (LR− 0,29). Le rapport dit ce que la seule sensibilité
+        // laissait mal lire.
+        when: 'lombaire.lasegue_positif',
+        label: 'Lasègue',
+        lr: {
+          positive: 1.28,
+          negative: 0.29,
+          source: 'van der Windt et al., Cochrane 2010, CD007431 — Sn 0,92 · Sp 0,28',
+        },
+      },
       { when: 'lombaire.deficit_moteur', weight: 4, label: 'déficit moteur objectivé' },
       { when: 'lombaire.unilateral', weight: 1, label: 'atteinte unilatérale' },
       { when: 'lombaire.aggrave_assis', weight: 1, label: 'aggravation en position assise' },

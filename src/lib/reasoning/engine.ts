@@ -129,6 +129,36 @@ export function signalsOf(expr: SignalExpr): SignalId[] {
   return [...found]
 }
 
+/**
+ * Échelle de conversion d'un rapport de vraisemblance en points de score.
+ *
+ * Multiplier des rapports revient à additionner leurs logarithmes : on reste
+ * donc dans un score additif, mais chaque contribution devient dérivée d'une
+ * valeur publiée au lieu d'être choisie à la main. Le facteur cale l'échelle
+ * sur celle des poids ordinaux qui subsistent — un LR+ de 30 pèse une
+ * vingtaine de points, un LR− de 0,3 en retire sept.
+ */
+const ECHELLE_LR = 4
+
+/** Points apportés par un critère, selon qu'il repose sur un LR ou un poids. */
+function contribution(criterion: Criterion, value: Tribool): number | null {
+  if (criterion.lr) {
+    if (value === 'yes') return ECHELLE_LR * Math.log2(criterion.lr.positive)
+    if (value === 'no' && criterion.lr.negative !== undefined) {
+      return ECHELLE_LR * Math.log2(criterion.lr.negative)
+    }
+    return null
+  }
+  if (value === 'yes' && criterion.weight !== undefined) return criterion.weight
+  return null
+}
+
+/** Meilleur apport encore atteignable par un critère indécis. */
+function apportPotentiel(criterion: Criterion): number {
+  if (criterion.lr) return Math.max(0, ECHELLE_LR * Math.log2(criterion.lr.positive))
+  return Math.max(0, criterion.weight ?? 0)
+}
+
 function statusOf(definition: HypothesisDefinition, signals: SignalSet): HypothesisStatus {
   if (!definition.requires) return 'retained'
   const gate = evaluate(definition.requires, signals)
@@ -150,15 +180,20 @@ export function scoreHypothesis(
 
   for (const criterion of definition.criteria) {
     const value = evaluate(criterion.when, signals)
-    if (value === 'yes') {
-      score += criterion.weight
-      if (criterion.weight >= 0) argumentsFor.push(criterion.label)
+    const apport = contribution(criterion, value)
+
+    if (apport !== null) {
+      score += apport
+      if (apport >= 0) argumentsFor.push(criterion.label)
       else argumentsAgainst.push(criterion.label)
     } else if (value === 'unknown') {
       unexplored.push(criterion.label)
-      if (criterion.weight > 0) reachable += criterion.weight
+      reachable += apportPotentiel(criterion)
     }
   }
+
+  score = Math.round(score * 10) / 10
+  reachable = Math.round(reachable * 10) / 10
 
   return {
     id: definition.id,
@@ -193,7 +228,7 @@ function openCriteria(definition: HypothesisDefinition, signals: SignalSet): Cri
   if (definition.requires && evaluate(definition.requires, signals) === 'unknown') {
     // La condition d'entrée pèse autant que le meilleur critère : tant qu'elle
     // n'est pas tranchée, rien d'autre ne compte vraiment.
-    const heaviest = Math.max(0, ...definition.criteria.map((criterion) => criterion.weight))
+    const heaviest = Math.max(0, ...definition.criteria.map(apportPotentiel))
     open.push({ when: definition.requires, weight: heaviest, label: definition.label })
   }
   return open
@@ -237,7 +272,7 @@ function rankActions(
       for (const signal of openSignalsOf(criterion.when, signals)) {
         if (signals[signal] !== undefined) continue
         const entry = stakes.get(signal) ?? { value: 0, hypotheses: new Set<string>() }
-        entry.value += Math.abs(criterion.weight)
+        entry.value += Math.abs(apportPotentiel(criterion)) || 1
         entry.hypotheses.add(hypothesis.label)
         stakes.set(signal, entry)
       }

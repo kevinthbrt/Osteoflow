@@ -794,3 +794,72 @@ describe('rôle des signaux', () => {
     expect(sansQuestion).toEqual(['terrain.grossesse'])
   })
 })
+
+describe('rapports de vraisemblance', () => {
+  /**
+   * La règle qui garde le vocabulaire honnête : un chiffre sans référence est
+   * une intuition déguisée. Le test la fait respecter mécaniquement.
+   */
+  it('exige une source pour chaque valeur publiée', () => {
+    const sansSource: string[] = []
+    for (const hypothesis of [...LUMBAR_HYPOTHESES, ...CERVICAL_HYPOTHESES]) {
+      for (const criterion of hypothesis.criteria) {
+        if (criterion.lr && !criterion.lr.source.trim()) {
+          sansSource.push(`${hypothesis.id} — ${criterion.label}`)
+        }
+      }
+      if (hypothesis.prior && !hypothesis.prior.source.trim()) {
+        sansSource.push(`${hypothesis.id} — prévalence`)
+      }
+    }
+    expect(sansSource).toEqual([])
+  })
+
+  it('donne à chaque critère un poids ou un rapport, jamais les deux ni aucun', () => {
+    const mal: string[] = []
+    for (const hypothesis of [...LUMBAR_HYPOTHESES, ...CERVICAL_HYPOTHESES]) {
+      for (const criterion of hypothesis.criteria) {
+        const aPoids = criterion.weight !== undefined
+        const aRapport = criterion.lr !== undefined
+        if (aPoids === aRapport) mal.push(`${hypothesis.id} — ${criterion.label}`)
+      }
+    }
+    expect(mal).toEqual([])
+  })
+
+  it('fait peser un critère faux quand le rapport négatif est connu', () => {
+    const score = (signals: Record<string, boolean>) =>
+      reason({ signals, hypotheses: LUMBAR_HYPOTHESES }).hypotheses.find(
+        (h) => h.id === 'lombaire.hernie-discale',
+      )!.score
+    const base = {
+      'lombaire.irradiation_jambe': true,
+      'lombaire.irradiation_sous_genou': true,
+      'lombaire.jambe_plus_douloureuse': true,
+    }
+    // Lasègue : LR− 0,29, donc un négatif retire des points ; LR+ 1,28, donc un
+    // positif n'en apporte presque aucun. C'est exactement ce que dit l'étude.
+    const negatif = score({ ...base, 'lombaire.lasegue_positif': false })
+    const inconnu = score({ ...base })
+    const positif = score({ ...base, 'lombaire.lasegue_positif': true })
+    expect(negatif).toBeLessThan(inconnu)
+    expect(positif - inconnu).toBeLessThan(inconnu - negatif)
+  })
+
+  it('classe le cluster de Wainner selon son rapport, pas selon un poids choisi', () => {
+    const radiculo = (signals: Record<string, boolean>) =>
+      reason({ signals, hypotheses: CERVICAL_HYPOTHESES }).hypotheses.find(
+        (h) => h.id === 'cervical.radiculopathie',
+      )!.score
+    const base = { 'cervical.irradiation_bras': true, 'cervical.bras_plus_douloureux': true }
+    const cluster = {
+      'cervical.spurling_positif': true,
+      'cervical.distraction_positif': true,
+      'cervical.ulnt_positif': true,
+    }
+    const trois = radiculo({ ...base, ...cluster, 'cervical.rotation_limitee_60': false })
+    const quatre = radiculo({ ...base, ...cluster, 'cervical.rotation_limitee_60': true })
+    // LR+ 6,1 contre 30,3 : l'écart doit se retrouver dans le score.
+    expect(quatre - trois).toBeGreaterThan(5)
+  })
+})
