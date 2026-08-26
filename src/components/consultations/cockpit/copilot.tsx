@@ -29,8 +29,8 @@ interface CopilotProps {
   busy: boolean
   /** Actions déjà réalisées pendant cette consultation. */
   done: string[]
-  /** L'extraction automatique n'est pas configurée sur ce poste. */
-  aiUnavailable?: boolean
+  /** État de l'analyse automatique de la dictée. */
+  aiStatus?: 'ok' | 'unconfigured' | 'error'
   /** Rien n'a encore été dit : ce n'est pas le moment de poser des questions. */
   started: boolean
   onAnswer: (signal: SignalId, value: boolean) => void
@@ -205,7 +205,7 @@ export function Copilot({
   busy,
   started,
   done,
-  aiUnavailable,
+  aiStatus = 'ok',
   onAnswer,
   onOpenQuestionnaire,
   onRegionChange,
@@ -232,7 +232,12 @@ export function Copilot({
   const toExplore = argued.length === 0 ? inPlay.slice(0, 2) : []
   // Sans extraction automatique, le copilote reste utilisable : il faut juste
   // le dire, sinon la dictée semble ignorée.
-  const aiRelevé = aiUnavailable ? ' · relevé manuel' : ''
+  const aiRelevé =
+    aiStatus === 'unconfigured'
+      ? ' · relevé manuel (analyse non configurée)'
+      : aiStatus === 'error'
+        ? ' · relevé manuel (analyse indisponible)'
+        : ''
   const relevé = Object.values(signals).filter((value) => value !== undefined).length
 
   return (
@@ -364,7 +369,12 @@ export function Copilot({
       </div>
 
       <div className="px-5 py-2.5 border-t border-border/40 shrink-0">
-        <p className="text-[10.5px] text-muted-foreground/50 leading-snug">
+        <p
+          className={cn(
+            'text-[10.5px] leading-snug',
+            aiStatus === 'error' ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground/50',
+          )}
+        >
           {relevé} signe{relevé > 1 ? 's' : ''} relevé{relevé > 1 ? 's' : ''} · {REGION_LABELS[region]}
           {aiRelevé}
         </p>

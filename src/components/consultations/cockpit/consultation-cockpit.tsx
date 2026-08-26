@@ -113,7 +113,7 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
   )
   const [regionOverride, setRegionOverride] = useState<Region | null>(null)
   const [extracting, setExtracting] = useState(false)
-  const [aiUnavailable, setAiUnavailable] = useState(false)
+  const [aiStatus, setAiStatus] = useState<'ok' | 'unconfigured' | 'error'>('ok')
   const [anamnesisView, setAnamnesisView] = useState<'elements' | 'texte'>('texte')
   /** Le praticien a choisi lui-même sa vue : on ne la lui reprend plus. */
   const viewChosenRef = useRef(false)
@@ -185,7 +185,13 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
           body: JSON.stringify({ text, reason }),
         })
         const data = await res.json()
-        if (data.unconfigured) setAiUnavailable(true)
+        // Une analyse qui échoue en silence est pire qu'une analyse absente :
+        // le praticien dicte et croit que le copilote a écouté.
+        if (!res.ok) {
+          setAiStatus('error')
+          return
+        }
+        setAiStatus(data.unconfigured ? 'unconfigured' : 'ok')
         const extracted = (data.signals ?? []) as { id: SignalId; value: boolean; verbatim?: string }[]
         if (extracted.length === 0) return
 
@@ -209,7 +215,8 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
           return next
         })
       } catch {
-        /* l'extraction est un confort : le copilote reste utilisable à la main */
+        // Le copilote reste pilotable à la main : on le signale, on n'échoue pas.
+        setAiStatus('error')
       } finally {
         setExtracting(false)
       }
@@ -577,7 +584,7 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
           busy={extracting}
           started={started}
           done={doneActions}
-          aiUnavailable={aiUnavailable}
+          aiStatus={aiStatus}
           onAnswer={answerSignal}
           onOpenQuestionnaire={(questionnaireId, actionId) => {
             setToolboxQuestionnaire(questionnaireId)
