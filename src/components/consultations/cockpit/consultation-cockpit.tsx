@@ -228,11 +228,24 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
         // Ce que le praticien a répondu lui-même fait autorité : l'extraction
         // complète le relevé, elle ne le corrige pas.
         setSignals((current) => {
-          const next = { ...current }
+          // Le relevé passe par `applySignal`, comme une réponse ou un test.
+          // C'est lui qui porte les deux propagations du vocabulaire : désigner
+          // un siège de douleur écarte les autres, et un signal en implique
+          // d'autres. Sans cela, le copilote continuait de demander où siège la
+          // douleur alors que la dictée venait de le dire.
+          let next = current
           for (const signal of extracted) {
             const trace = tracesRef.current[signal.id]
             if (trace && trace.source !== 'dictée') continue
-            next[signal.id] = signal.value
+            next = applySignal(next, signal.id, signal.value)
+          }
+
+          // La propagation peut écrire sur un signal que le praticien a tranché
+          // lui-même. Sa réponse reste la référence : on la rétablit.
+          for (const [id, trace] of Object.entries(tracesRef.current)) {
+            if (!trace || trace.source === 'dictée') continue
+            const signal = id as SignalId
+            if (current[signal] !== undefined) next[signal] = current[signal]
           }
           return next
         })

@@ -1078,6 +1078,15 @@ export function summariseSignals(signals: SignalSet): SignalSummary {
   const present = new Map<SignalGroup, { id: SignalId; label: string }[]>()
   const absent: { id: SignalId; label: string }[] = []
 
+  // Groupes exclusifs déjà tranchés : une fois le siège désigné, énumérer les
+  // trois autres en « écarté » n'apprend rien et noie les vraies négations —
+  // celles que le patient a réellement démenties.
+  const groupesTranches = new Set<string>()
+  for (const [id, value] of Object.entries(signals) as [SignalId, boolean | undefined][]) {
+    const groupe = (definitions[id] as SignalDefinition | undefined)?.exclusive
+    if (value === true && groupe) groupesTranches.add(groupe)
+  }
+
   for (const [id, value] of Object.entries(signals) as [SignalId, boolean | undefined][]) {
     const definition = definitions[id] as SignalDefinition | undefined
     if (value === undefined || !definition) continue
@@ -1086,6 +1095,7 @@ export function summariseSignals(signals: SignalSet): SignalSummary {
       bucket.push({ id, label: definition.label })
       present.set(definition.group, bucket)
     } else {
+      if (definition.exclusive && groupesTranches.has(definition.exclusive)) continue
       absent.push({ id, label: negativeLabel(id) })
     }
   }
@@ -1137,6 +1147,11 @@ export function signalsFromRecord(
     'terrain.age_moins_60': age < 60,
     'terrain.age_plus_65': age > 65,
     'terrain.age_plus_70': age > 70,
+    // Le différentiel pédiatrique et sportif est distinct de celui de l'adulte
+    // — spondylolyse plutôt que pathologie discale. La date de naissance est au
+    // dossier : inutile de laisser cette branche ouverte chez un adulte, elle
+    // ferait proposer des tests qui n'ont plus lieu d'être.
+    'terrain.adolescent_sportif': age < 20 ? undefined : false,
   }
   // Le sexe féminin fait partie de la combinaison validée pour la fracture
   // vertébrale (Downie 2013) ; il est dans la fiche patient.

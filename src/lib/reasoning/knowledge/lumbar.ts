@@ -1131,6 +1131,10 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
     requires: MECANIQUE,
     criteria: [
       { when: MECANIQUE, label: 'absence d\'argument pour une cause spécifique' },
+      {
+        when: 'lombaire.localisation_diffuse',
+        label: 'douleur axiale diffuse, sans siège précis — présentation la plus courante',
+      },
       { when: 'lombaire.episodes_anterieurs', label: 'épisodes antérieurs — la récidive est la règle dans la lombalgie commune' },
       { when: 'lombaire.geste_declenchant', label: 'geste ou effort déclenchant' },
     ],

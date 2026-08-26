@@ -23,8 +23,14 @@ interface AnamnesisSummaryProps {
  */
 export function AnamnesisSummary({ signals, traces }: AnamnesisSummaryProps) {
   const summary = summariseSignals(signals)
+  // « Écarté » dit ce que la consultation a démenti, pas ce que la fiche
+  // contenait déjà. Lister « moins de 65 ans · moins de 70 ans · patient
+  // adulte » à côté d'un vrai « pas d'irradiation dans la jambe » noie le seul
+  // élément qui compte : le praticien a bien posé la question, et la réponse
+  // était non.
+  const absent = summary.absent.filter((item) => traces[item.id]?.source !== 'dossier')
 
-  if (summary.present.length === 0 && summary.absent.length === 0) {
+  if (summary.present.length === 0 && absent.length === 0) {
     return (
       <p className="text-[13px] text-muted-foreground/50 leading-relaxed">
         Aucun élément relevé pour l’instant — dictez, ou basculez sur le texte pour écrire.
@@ -55,13 +61,13 @@ export function AnamnesisSummary({ signals, traces }: AnamnesisSummaryProps) {
         </div>
       ))}
 
-      {summary.absent.length > 0 && (
+      {absent.length > 0 && (
         <div className="flex gap-3 pt-1">
           <span className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground/35 w-24 shrink-0 pt-[3px]">
             Écarté
           </span>
           <p className="text-[13px] leading-relaxed text-muted-foreground/55 flex-1">
-            {summary.absent.map((item) => item.label).join(' · ')}
+            {absent.map((item) => item.label).join(' · ')}
           </p>
         </div>
       )}

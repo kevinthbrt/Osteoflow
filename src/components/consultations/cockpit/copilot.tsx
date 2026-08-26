@@ -244,7 +244,10 @@ export function Copilot({
   const inPlay = activeHypotheses(result)
   const argued = inPlay.filter(hasArguments).slice(0, 3)
   const shortlist = argued.length > 0 ? argued : []
-  const toExplore = argued.length === 0 ? inPlay.slice(0, 2) : []
+  // Rien qui repose encore sur un argument : on montre quand même les pistes de
+  // tête et ce qui leur manque. Un panneau vide donnerait à croire que le
+  // copilote n'a rien trouvé, alors qu'il n'a pas encore de quoi trancher.
+  const toExplore = argued.length === 0 ? result.hypotheses.slice(0, 2) : []
   // Sans extraction automatique, le copilote reste utilisable : il faut juste
   // le dire, sinon la dictée semble ignorée.
   const aiRelevé =

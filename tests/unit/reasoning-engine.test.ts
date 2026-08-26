@@ -542,8 +542,11 @@ describe('ordre de la consultation', () => {
 
 describe('ce qui a déjà été fait', () => {
   it('ne repropose pas un questionnaire déjà rempli', () => {
+    // La limite est large à dessein : la stratification pronostique est la
+    // couche 4, elle passe après tout ce qui départage le différentiel. Ce
+    // qu'on vérifie ici est qu'elle disparaît une fois remplie, pas son rang.
     const signals = { 'lombaire.irradiation_jambe': false, 'lombaire.rythme_inflammatoire': false }
-    const avant = reason({ signals, hypotheses: LUMBAR_HYPOTHESES, actions: LUMBAR_ACTIONS, actionLimit: 8 })
+    const avant = reason({ signals, hypotheses: LUMBAR_HYPOTHESES, actions: LUMBAR_ACTIONS, actionLimit: 12 })
     expect(avant.nextActions.map((s) => s.action.id)).toContain('lombaire.start-back')
 
     const après = reason({
@@ -551,7 +554,7 @@ describe('ce qui a déjà été fait', () => {
       hypotheses: LUMBAR_HYPOTHESES,
       actions: LUMBAR_ACTIONS,
       done: ['lombaire.start-back'],
-      actionLimit: 8,
+      actionLimit: 12,
     })
     expect(après.nextActions.map((s) => s.action.id)).not.toContain('lombaire.start-back')
   })
@@ -586,14 +589,20 @@ describe('ce que le dossier sait déjà', () => {
       'terrain.age_moins_60': true,
       'terrain.age_plus_65': false,
       'terrain.age_plus_70': false,
+      // Le différentiel pédiatrique et sportif se referme sur l'âge du dossier.
+      'terrain.adolescent_sportif': false,
       'terrain.sexe_feminin': true,
     })
+    // Chez un adolescent la branche reste ouverte : c'est une question de
+    // pratique sportive, pas seulement d'âge.
+    expect(signalsFromRecord(15, 'M')['terrain.adolescent_sportif']).toBeUndefined()
     expect(signalsFromRecord(30, 'F', '2099-01-01')['terrain.grossesse']).toBe(true)
     expect(signalsFromRecord(30, 'F', '2000-01-01')['terrain.grossesse']).toBe(false)
     expect(signalsFromRecord(72, 'M')).toEqual({
       'terrain.age_moins_60': false,
       'terrain.age_plus_65': true,
       'terrain.age_plus_70': true,
+      'terrain.adolescent_sportif': false,
       'terrain.sexe_feminin': false,
     })
   })

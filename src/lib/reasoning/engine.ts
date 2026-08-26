@@ -206,6 +206,13 @@ function apportDe(criterion: Criterion, value: Tribool, kind: HypothesisKind): A
   if (value === 'yes' && criterion.weight !== undefined) {
     return { criterion, points: criterion.weight, rapport: null }
   }
+  // Critère purement descriptif — le cas du diagnostic d'exclusion, qui ne se
+  // score pas. Il doit tout de même s'afficher : sans lui, l'hypothèse
+  // résiduelle apparaîtrait sans le moindre argument, donc comme une piste
+  // qu'on n'aurait pas travaillée.
+  if (value === 'yes' && criterion.lr === undefined) {
+    return { criterion, points: 0, rapport: null }
+  }
   return null
 }
 
@@ -469,8 +476,15 @@ function rankActions(
   }
 
   const byId = byIdOf(definitions)
-  /** Poids total en jeu pour chaque signal encore inconnu, et hypothèses concernées. */
-  const stakes = new Map<SignalId, { value: number; hypotheses: Set<string> }>()
+  /**
+   * Enjeu de chaque signal encore inconnu, détaillé par hypothèse.
+   *
+   * Le détail n'est pas décoratif : une action qui renseigne plusieurs signaux
+   * d'une même hypothèse ne la fait pas avancer plusieurs fois. Sans cette
+   * ventilation, un test qui coche trois cases d'une même porte d'entrée passait
+   * devant la question qui départage trois hypothèses distinctes.
+   */
+  const stakes = new Map<SignalId, Map<string, number>>()
 
   for (const hypothesis of inPlay) {
     const definition = byId.get(hypothesis.id)
@@ -490,10 +504,28 @@ function rankActions(
     }
 
     for (const [signal, enjeu] of parSignal) {
-      const entry = stakes.get(signal) ?? { value: 0, hypotheses: new Set<string>() }
-      entry.value += enjeu
-      entry.hypotheses.add(hypothesis.label)
+      const entry = stakes.get(signal) ?? new Map<string, number>()
+      entry.set(hypothesis.label, Math.max(entry.get(hypothesis.label) ?? 0, enjeu))
       stakes.set(signal, entry)
+    }
+  }
+
+  /**
+   * Ce qu'une action débloque réellement : pour chaque hypothèse, le meilleur
+   * des signaux qu'elle renseigne — puis la somme sur les hypothèses. Une
+   * action vaut par le nombre de pistes qu'elle départage, pas par le nombre de
+   * cases qu'elle coche.
+   */
+  function apportAction(resolus: SignalId[]): { value: number; discriminates: string[] } {
+    const parHypothese = new Map<string, number>()
+    for (const signal of resolus) {
+      for (const [label, enjeu] of stakes.get(signal) ?? []) {
+        parHypothese.set(label, Math.max(parHypothese.get(label) ?? 0, enjeu))
+      }
+    }
+    return {
+      value: [...parHypothese.values()].reduce((total, enjeu) => total + enjeu, 0),
+      discriminates: [...parHypothese.keys()],
     }
   }
 
@@ -511,35 +543,25 @@ function rankActions(
   for (const action of catalog) {
     if (!relevant.has(action.id) || done.has(action.id)) continue
     const resolved = (action.resolves ?? []).filter((signal) => signals[signal] === undefined)
-    const value = resolved.reduce((total, signal) => total + (stakes.get(signal)?.value ?? 0), 0)
-    const discriminates = new Set<string>()
-    for (const signal of resolved) {
-      for (const label of stakes.get(signal)?.hypotheses ?? []) discriminates.add(label)
-    }
+    const { value, discriminates } = apportAction(resolved)
     // Un test n'existe que pour trancher : une fois ce qu'il renseigne connu,
     // le reproposer est du bruit. Un questionnaire de référence, un examen ou
     // une orientation gardent leur place, ce sont des suites à donner.
     const answered = (action.resolves?.length ?? 0) > 0 && resolved.length === 0
     if (action.kind === 'test' && answered) continue
 
-    suggestions.set(action.id, { action, discriminates: [...discriminates], value })
+    suggestions.set(action.id, { action, discriminates, value })
   }
 
   // Questions déduites du vocabulaire : tout signal en jeu qui se demande.
   // Les signaux qui s'excluent se posent en une seule question à choix, sinon
   // le praticien devrait écarter les autres réponses une par une.
-  const groupStakes = new Map<string, { value: number; hypotheses: Set<string> }>()
+  const groupes = new Set<string>()
 
-  for (const [signal, stake] of stakes) {
+  for (const signal of stakes.keys()) {
     const group = exclusiveGroupOf(signal)
     if (group && EXCLUSIVE_GROUPS[group]) {
-      const entry = groupStakes.get(group) ?? { value: 0, hypotheses: new Set<string>() }
-      // Le poids d'une question à choix est celui de toutes les branches
-      // qu'elle départage : désigner le siège de la douleur tranche entre
-      // plusieurs hypothèses d'un coup, là où un test n'en éclaire qu'une.
-      entry.value += stake.value
-      for (const label of stake.hypotheses) entry.hypotheses.add(label)
-      groupStakes.set(group, entry)
+      groupes.add(group)
       continue
     }
     const question = signalQuestion(signal)
@@ -554,12 +576,14 @@ function rankActions(
         resolves: [signal],
         note: signalLabel(signal),
       },
-      discriminates: [...stake.hypotheses],
-      value: stake.value,
+      ...apportAction([signal]),
     })
   }
 
-  for (const [group, stake] of groupStakes) {
+  // Une question à choix vaut ce qu'elle départage : désigner le siège de la
+  // douleur tranche entre plusieurs hypothèses d'un coup, là où un test n'en
+  // éclaire qu'une.
+  for (const group of groupes) {
     const options = exclusiveMembers(group).filter((member) => signals[member.id] === undefined)
     if (options.length === 0) continue
     suggestions.set(`choice:${group}`, {
@@ -570,8 +594,7 @@ function rankActions(
         resolves: options.map((option) => option.id),
         options: options.map((option) => ({ signal: option.id, label: option.label })),
       },
-      discriminates: [...stake.hypotheses],
-      value: stake.value,
+      ...apportAction(options.map((option) => option.id)),
     })
   }
 
@@ -628,7 +651,13 @@ function rankActions(
  */
 export function activeHypotheses(result: ReasoningResult): ScoredHypothesis[] {
   return result.hypotheses.filter(
-    (hypothesis) => hypothesis.score > 0 || hypothesis.status === 'retained',
+    (hypothesis) =>
+      hypothesis.score > 0 ||
+      hypothesis.status === 'retained' ||
+      // Un argument relevé suffit, même si l'hypothèse n'en tire aucun point :
+      // c'est le cas du diagnostic d'exclusion, qui ne se score pas mais reste
+      // la piste la plus probable une fois le spécifique éliminé.
+      hypothesis.argumentsFor.length > 0,
   )
 }
 
