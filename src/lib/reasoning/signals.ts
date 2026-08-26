@@ -442,9 +442,14 @@ const definitions = {
     question: 'La douleur descend-elle dans la fesse ?',
   },
   'lombaire.irradiation_anterieure_cuisse': {
-    label: 'irradiation à la face antérieure de cuisse ou à l\'aine',
+    // Un signal, un fait. L'aine a le sien (`lombaire.douleur_inguinale`) :
+    // les confondre dans un même libellé rendait la réponse inexploitable, et
+    // interdisait de rattacher cette irradiation au membre inférieur.
+    label: 'irradiation à la face antérieure de cuisse',
+    negativeLabel: 'pas d\'irradiation à la face antérieure de cuisse',
     group: 'topographie',
-    question: 'La douleur descend-elle devant la cuisse ou vers l\'aine ?',
+    question: 'La douleur descend-elle devant la cuisse ?',
+    implies: ['lombaire.irradiation_jambe'],
   },
   'lombaire.faiblesse_ressentie_jambe': {
     label: 'sensation de faiblesse dans la jambe',
@@ -724,6 +729,10 @@ const definitions = {
     negativeLabel: 'pas de claudication neurogène',
     group: 'douleur',
     question: 'La douleur de jambe apparaît-elle à la marche et cède-t-elle en s\'asseyant ou en se penchant en avant ?',
+    // Une claudication neurogène est une douleur de jambe. Sans ce lien, le
+    // copilote continuait d'interroger la sténose chez un patient qui venait
+    // de dire que la douleur ne descend pas dans la jambe.
+    implies: ['lombaire.irradiation_jambe'],
   },
   'lombaire.douleur_bilaterale_membres': {
     label: 'douleur bilatérale des fesses ou des jambes',

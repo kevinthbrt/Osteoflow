@@ -220,6 +220,31 @@ const SIGNE_RADICULAIRE_OBJECTIF: SignalExpr = {
  */
 const POIDS_MIME = { fort: 8, modere: 4, faible: 1 } as const
 
+/**
+ * Porte d'entrée commune des mimes périphériques.
+ *
+ * Le chapitre 7 bis les présente comme une source de faux positifs
+ * radiculaires : ils servent à expliquer une douleur de jambe qu'on
+ * attribuerait à tort à une racine. Sans douleur de membre, il n'y a rien à
+ * expliquer — et proposer de palper une tubérosité ischiatique ou une
+ * aponévrose plantaire à quelqu'un qui a mal en barre au bas du dos n'a aucun
+ * sens.
+ */
+const DOULEUR_DE_MEMBRE: SignalExpr = {
+  any: ['lombaire.irradiation_jambe', 'lombaire.irradiation_anterieure_cuisse'],
+}
+
+/**
+ * Règle de rédaction des mimes : tout critère de soutien est conditionné au
+ * signe caractéristique du mime.
+ *
+ * Sans cela, une aggravation en position assise — banale, partagée par la
+ * lombalgie commune et la douleur discogénique — suffisait à faire monter une
+ * tendinopathie des ischio-jambiers dont personne n'avait palpé la tubérosité.
+ * Le document est explicite : le poids d'un mime agit en soustraction du score
+ * radiculaire, jamais en confirmation positive absolue.
+ */
+
 export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
   // ── Couche 1 : drapeaux rouges ────────────────────────────────────────────
   {
@@ -1019,7 +1044,7 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
     label: 'Syndrome douloureux du grand trochanter',
     region: 'lombaire',
     kind: 'mechanical',
-    requires: 'lombaire.palpation_trochanter_douloureuse',
+    requires: { all: [DOULEUR_DE_MEMBRE, 'lombaire.palpation_trochanter_douloureuse'] },
     criteria: [
       {
         when: 'lombaire.palpation_trochanter_douloureuse',
@@ -1027,8 +1052,20 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
         source: 'jorgensen.2025',
         label: 'palpation du grand trochanter douloureuse et reproductible — meilleur discriminant du groupe',
       },
-      { when: 'lombaire.douleur_decubitus_lateral', weight: POIDS_MIME.modere, source: 'jorgensen.2025', label: 'douleur en décubitus latéral' },
-      { when: 'terrain.sexe_feminin', weight: POIDS_MIME.faible, source: 'jorgensen.2025', label: 'sexe féminin' },
+      {
+        when: {
+          all: ['lombaire.palpation_trochanter_douloureuse', 'lombaire.douleur_decubitus_lateral'],
+        },
+        weight: POIDS_MIME.modere,
+        source: 'jorgensen.2025',
+        label: 'douleur en décubitus latéral sur le côté atteint',
+      },
+      {
+        when: { all: ['lombaire.palpation_trochanter_douloureuse', 'terrain.sexe_feminin'] },
+        weight: POIDS_MIME.faible,
+        source: 'jorgensen.2025',
+        label: 'sexe féminin',
+      },
     ],
     actions: ['lombaire.palpation-trochanter'],
     note: 'Imite une radiculopathie L3-L5. Coexiste avec elle dans 18 à 35 % des cas : ne l\'écarte pas.',
@@ -1038,7 +1075,7 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
     label: 'Tendinopathie proximale des ischio-jambiers',
     region: 'lombaire',
     kind: 'mechanical',
-    requires: 'lombaire.palpation_tuberosite_ischiatique',
+    requires: { all: [DOULEUR_DE_MEMBRE, 'lombaire.palpation_tuberosite_ischiatique'] },
     criteria: [
       {
         when: 'lombaire.palpation_tuberosite_ischiatique',
@@ -1046,7 +1083,12 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
         source: 'jorgensen.2025',
         label: 'palpation de la tubérosité ischiatique douloureuse et reproductible',
       },
-      { when: 'lombaire.aggrave_assis', weight: POIDS_MIME.modere, source: 'jorgensen.2025', label: 'aggravation en position assise prolongée' },
+      {
+        when: { all: ['lombaire.palpation_tuberosite_ischiatique', 'lombaire.aggrave_assis'] },
+        weight: POIDS_MIME.modere,
+        source: 'jorgensen.2025',
+        label: 'aggravation en position assise prolongée',
+      },
     ],
     actions: ['lombaire.palpation-ischiatique'],
     note: 'Imite une radiculopathie S1 : fesse basse et face postérieure de cuisse.',
@@ -1057,7 +1099,11 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
     region: 'lombaire',
     kind: 'mechanical',
     requires: {
-      all: ['lombaire.paresthesies_anterolaterale_cuisse', { not: 'lombaire.deficit_moteur' }],
+      all: [
+        DOULEUR_DE_MEMBRE,
+        'lombaire.paresthesies_anterolaterale_cuisse',
+        { not: 'lombaire.deficit_moteur' },
+      ],
     },
     criteria: [
       {
@@ -1086,7 +1132,7 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
     label: 'Fasciite plantaire',
     region: 'lombaire',
     kind: 'mechanical',
-    requires: 'lombaire.douleur_plantaire_premiers_pas',
+    requires: { all: [DOULEUR_DE_MEMBRE, 'lombaire.douleur_plantaire_premiers_pas'] },
     criteria: [
       {
         when: 'lombaire.douleur_plantaire_premiers_pas',
@@ -1123,16 +1169,20 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
     criteria: [
       { when: 'lombaire.douleur_inguinale', weight: POIDS_MIME.modere, source: 'jorgensen.2025', label: 'douleur inguinale' },
       {
-        when: 'lombaire.irradiation_anterieure_cuisse',
+        when: {
+          all: ['lombaire.douleur_inguinale', 'lombaire.irradiation_anterieure_cuisse'],
+        },
         weight: POIDS_MIME.modere,
         source: 'jorgensen.2025',
         label: 'douleur de la cuisse antéro-latérale',
       },
       {
-        when: 'lombaire.limitation_amplitude_hanche',
+        when: {
+          all: ['lombaire.douleur_inguinale', 'lombaire.limitation_amplitude_hanche'],
+        },
         weight: POIDS_MIME.modere,
         source: 'jorgensen.2025',
-        label: 'limitation douloureuse des amplitudes de hanche',
+        label: 'douleur inguinale avec limitation d\'amplitude de hanche',
       },
     ],
     actions: ['lombaire.amplitudes-hanche'],

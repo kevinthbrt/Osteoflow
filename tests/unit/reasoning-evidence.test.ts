@@ -262,7 +262,13 @@ describe('signes corrélés (chapitre 5)', () => {
 
   it('laisse le rapport du cluster remplacer celui de ses membres', () => {
     const si = LUMBAR_HYPOTHESES.find((h) => h.id === 'lombaire.sacro-iliaque')!
-    const base = { 'lombaire.localisation_fessiere': true }
+    // La porte d'entrée doit être franchie : une hypothèse dont la classe
+    // n'est pas établie ne cumule aucun point.
+    const base = {
+      'lombaire.localisation_fessiere': true,
+      'lombaire.irradiation_jambe': false,
+      'lombaire.rythme_inflammatoire': false,
+    }
     const testIsole = scoreHypothesis(si, {
       ...base,
       'lombaire.distraction_positif': true,

@@ -158,12 +158,12 @@ describe('la boucle se referme', () => {
     const apresRythme = etape(signals)
     expect(apresRythme).not.toContain('question:lombaire.rythme_inflammatoire')
 
-    // Tant que l'irradiation n'est pas tranchée, la voie mécanique reste
-    // indécise et la hernie garde la tête : le moteur ne conclut pas au
-    // résiduel sur une branche qu'il n'a pas fermée.
-    expect(
-      reason({ signals, hypotheses: LUMBAR_HYPOTHESES }).hypotheses[0].id,
-    ).toBe('lombaire.hernie-discale')
+    // Tant que l'irradiation n'est pas tranchée, aucune hypothèse spécifique
+    // n'a franchi sa porte d'entrée : le résiduel garde la tête, et le moteur
+    // continue de demander ce qui permettrait de l'en déloger.
+    const enCours = reason({ signals, hypotheses: LUMBAR_HYPOTHESES })
+    expect(enCours.hypotheses[0].id).toBe('lombaire.non-specifique')
+    expect(enCours.hypotheses.find((h) => h.id === 'lombaire.hernie-discale')!.score).toBe(0)
 
     signals = applySignal(signals, 'lombaire.irradiation_jambe', false)
 
@@ -289,5 +289,153 @@ describe('vocabulaire sans angle mort', () => {
       .filter(([id, d]) => d.group === 'examen' && !d.question && !resolus.has(id) && isReasoningSignal(id))
       .map(([id]) => id)
     expect(inaccessibles).toEqual([])
+  })
+})
+
+
+/**
+ * Troisième consultation réelle : « je me suis fait mal en ramassant ma brosse
+ * à dents, je me suis penché et paf », deux semaines, « un peu mal dans la
+ * fesse mais franchement c'est vraiment le dos », « une barre en bas des
+ * lombaires, ça va des deux côtés », raideur au réveil qui cède au dérouillage.
+ *
+ * Le copilote plaçait en tête une tendinopathie proximale des ischio-jambiers,
+ * sur le seul argument « aggravation en position assise prolongée » — sans que
+ * personne ait palpé la tubérosité ischiatique, et chez un patient sans aucune
+ * douleur de jambe. Trois défauts se cumulaient : un critère de soutien qui
+ * marquait sans le signe caractéristique du mime, une hypothèse qui cumulait
+ * des points sans avoir franchi sa porte d'entrée, et un diagnostic résiduel
+ * qui, ne se scorant jamais, se faisait doubler par n'importe quel argument
+ * isolé.
+ */
+function lumbagoAigu(): Partial<Record<SignalId, boolean>> {
+  let signals = { ...signalsFromRecord(29, 'M') }
+  for (const [id, valeur] of [
+    ['lombaire.duree_aigue', true],
+    ['lombaire.debut_brutal', true],
+    ['lombaire.geste_declenchant', true],
+    ['lombaire.localisation_diffuse', true],
+    ['lombaire.irradiation_fessiere', true],
+    ['lombaire.irradiation_jambe', false],
+    ['lombaire.aggrave_assis', true],
+    ['lombaire.rythme_inflammatoire', false],
+  ] as const) {
+    signals = applySignal(signals, id, valeur)
+  }
+  return signals
+}
+
+describe('lumbago aigu après un faux mouvement', () => {
+  it('retient la lombalgie non spécifique, pas un mime de radiculopathie', () => {
+    const result = reason({
+      signals: lumbagoAigu(),
+      hypotheses: LUMBAR_HYPOTHESES,
+      actions: LUMBAR_ACTIONS,
+    })
+    expect(result.hypotheses[0].id).toBe('lombaire.non-specifique')
+    expect(result.excluded.map((h) => h.id)).toContain('lombaire.ischio-jambiers')
+  })
+
+  it('n\'interroge plus la sténose une fois la douleur de jambe démentie', () => {
+    // La claudication neurogène est une douleur de jambe : sans jambe
+    // douloureuse, il n'y a rien à demander.
+    const result = reason({
+      signals: lumbagoAigu(),
+      hypotheses: LUMBAR_HYPOTHESES,
+      actions: LUMBAR_ACTIONS,
+      actionLimit: 8,
+    })
+    expect(result.excluded.map((h) => h.id)).toContain('lombaire.stenose')
+    expect(result.nextActions.map((s) => s.action.id)).not.toContain(
+      'question:lombaire.claudication_neurogene',
+    )
+  })
+
+  it('ne propose pas de palper une aponévrose plantaire pour un mal de dos', () => {
+    const proposes = reason({
+      signals: lumbagoAigu(),
+      hypotheses: LUMBAR_HYPOTHESES,
+      actions: LUMBAR_ACTIONS,
+      actionLimit: 8,
+    }).nextActions.map((s) => s.action.id)
+    expect(proposes).not.toContain('lombaire.palpation-plantaire')
+    expect(proposes).not.toContain('question:lombaire.douleur_plantaire_premiers_pas')
+  })
+
+  it('passe aux drapeaux jaunes une fois le différentiel réglé', () => {
+    // Couche 4 du document : la stratification pronostique vient après, pas
+    // pendant. C'est le bon moment quand plus rien ne départage.
+    const proposes = reason({
+      signals: lumbagoAigu(),
+      hypotheses: LUMBAR_HYPOTHESES,
+      actions: LUMBAR_ACTIONS,
+      actionLimit: 4,
+    }).nextActions.map((s) => s.action.id)
+    expect(proposes).toContain('lombaire.start-back')
+  })
+})
+
+describe('porte d\'entrée et diagnostic résiduel', () => {
+  it('ne laisse aucune hypothèse cumuler des points sans avoir franchi sa porte', () => {
+    const ischio = LUMBAR_HYPOTHESES.find((h) => h.id === 'lombaire.ischio-jambiers')!
+    // Position assise douloureuse seule : le signe caractéristique du mime
+    // n'a pas été cherché, l'hypothèse ne marque rien.
+    const scored = scoreHypothesis(ischio, { 'lombaire.aggrave_assis': true })
+    expect(scored.status).not.toBe('retained')
+    expect(scored.score).toBe(0)
+    expect(scored.argumentsFor).toEqual([])
+  })
+
+  it('conditionne tout critère de soutien d\'un mime à son signe caractéristique', () => {
+    // Vérifié sur la donnée, pas sur un cas : un mime dont un critère peut
+    // être vrai sans son signe caractéristique rouvrirait la même faille.
+    const mimes: [string, string[]][] = [
+      ['lombaire.grand-trochanter', ['lombaire.palpation_trochanter_douloureuse']],
+      ['lombaire.ischio-jambiers', ['lombaire.palpation_tuberosite_ischiatique']],
+      [
+        'lombaire.fasciite-plantaire',
+        ['lombaire.douleur_plantaire_premiers_pas', 'lombaire.palpation_plantaire_douloureuse'],
+      ],
+      ['lombaire.meralgie', ['lombaire.paresthesies_anterolaterale_cuisse']],
+      ['lombaire.hanche', ['lombaire.douleur_inguinale']],
+    ]
+
+    for (const [id, caracteristiques] of mimes) {
+      const hypothesis = LUMBAR_HYPOTHESES.find((h) => h.id === id)!
+      for (const criterion of hypothesis.criteria) {
+        const signaux = signalsOf(criterion.when)
+        // Chaque critère cite au moins un des signes qui définissent le mime.
+        // Jamais un critère flottant, que n'importe quel tableau banal
+        // suffirait à faire marquer.
+        expect(
+          caracteristiques.some((signe) => signaux.includes(signe as never)),
+          `${id} — ${criterion.label}`,
+        ).toBe(true)
+      }
+    }
+  })
+
+  it('laisse le résiduel en tête tant que rien de spécifique n\'est retenu', () => {
+    const result = reason({
+      signals: lumbagoAigu(),
+      hypotheses: LUMBAR_HYPOTHESES,
+      actions: LUMBAR_ACTIONS,
+    })
+    const residuel = result.hypotheses[0]
+    expect(residuel.kind).toBe('exclusion')
+    // Il ne gagne pas : il reste. Les autres n'ont simplement pas franchi
+    // leur porte d'entrée.
+    expect(residuel.score).toBe(0)
+    for (const autre of result.hypotheses.slice(1)) {
+      expect(autre.status, autre.id).not.toBe('retained')
+    }
+  })
+
+  it('rend la main dès qu\'une hypothèse spécifique franchit sa porte', () => {
+    let signals = lumbagoAigu()
+    signals = applySignal(signals, 'lombaire.localisation_paravertebrale', true)
+    const result = reason({ signals, hypotheses: LUMBAR_HYPOTHESES, actions: LUMBAR_ACTIONS })
+    expect(result.hypotheses[0].id).toBe('lombaire.facettaire')
+    expect(result.hypotheses[0].score).toBeGreaterThan(0)
   })
 })

@@ -366,7 +366,18 @@ export function scoreHypothesis(
   score = Math.round(score * 10) / 10
   reachable = Math.round(reachable * 10) / 10
 
+  /**
+   * La porte d'entrée gouverne le score.
+   *
+   * C'est l'architecture même du document : on classe — non spécifique,
+   * radiculaire, cause spécifique — avant de sous-typer. Une hypothèse dont la
+   * classe n'est pas établie n'a pas à accumuler des points ; ses arguments
+   * restent affichés, mais comme des pistes, pas comme un total. Sans cette
+   * règle, un signe banal partagé par toute la région suffit à faire monter un
+   * diagnostic dont le signe caractéristique n'a même pas été cherché.
+   */
   const excluded = status === 'excluded'
+  if (status !== 'retained') score = 0
 
   return {
     id: definition.id,
@@ -406,11 +417,23 @@ function niveauAlerte(
   )
 }
 
-/** Les retenues passent devant les en-attente ; à statut égal, le score tranche. */
-const STATUS_RANK: Record<HypothesisStatus, number> = { retained: 0, pending: 1, excluded: 2 }
+/**
+ * Ordre du différentiel.
+ *
+ * Le diagnostic résiduel occupe un rang à lui. Il ne se score pas — il est ce
+ * qui reste, pas ce qui gagne — et sans rang propre, la moindre hypothèse
+ * portant un argument isolé le doublait. Or tant que rien de spécifique n'a
+ * franchi sa porte d'entrée, c'est lui la réponse : neuf lombalgies sur dix.
+ */
+function rangDe(hypothesis: ScoredHypothesis): number {
+  if (hypothesis.status === 'excluded') return 3
+  if (hypothesis.status === 'retained' && hypothesis.score > 0) return 0
+  if (hypothesis.kind === 'exclusion') return 1
+  return 2
+}
 
 function compareHypotheses(a: ScoredHypothesis, b: ScoredHypothesis): number {
-  if (STATUS_RANK[a.status] !== STATUS_RANK[b.status]) return STATUS_RANK[a.status] - STATUS_RANK[b.status]
+  if (rangDe(a) !== rangDe(b)) return rangDe(a) - rangDe(b)
   if (b.score !== a.score) return b.score - a.score
   if (b.potential !== a.potential) return b.potential - a.potential
   return a.label.localeCompare(b.label, 'fr')
