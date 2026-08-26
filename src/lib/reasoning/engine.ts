@@ -8,8 +8,10 @@ import {
 } from './signals'
 import type {
   ActionDefinition,
+  AlertLevel,
   Criterion,
   HypothesisDefinition,
+  HypothesisKind,
   HypothesisStatus,
   ReasoningInput,
   ReasoningResult,
@@ -140,23 +142,162 @@ export function signalsOf(expr: SignalExpr): SignalId[] {
  */
 const ECHELLE_LR = 4
 
-/** Points apportés par un critère, selon qu'il repose sur un LR ou un poids. */
-function contribution(criterion: Criterion, value: Tribool): number | null {
+/**
+ * Paliers d'informativité du rapport de vraisemblance.
+ *
+ * Entre 0,5 et 2, un rapport ne déplace pas assez la probabilité pour valoir
+ * mieux que du bruit : le retenir donnerait à un signe une influence que
+ * l'étude ne lui reconnaît pas. La règle vaut dans les deux sens, et c'est
+ * elle qui produit d'elle-même le comportement attendu de chaque test — un
+ * Lasègue positif ne confirme rien (LR+ 1,28, ignoré) alors qu'un Lasègue
+ * négatif écarte sérieusement (LR− 0,29, retenu) ; un Lasègue croisé fait
+ * l'inverse.
+ */
+const LR_NEUTRE_BAS = 0.5
+const LR_NEUTRE_HAUT = 2
+
+function informatif(rapport: number): boolean {
+  return rapport <= LR_NEUTRE_BAS || rapport >= LR_NEUTRE_HAUT
+}
+
+/** Contribution retenue d'un critère : des points, et le rapport dont ils dérivent. */
+interface Apport {
+  criterion: Criterion
+  points: number
+  /** Rapport de vraisemblance appliqué, ou `null` si le critère n'en porte pas. */
+  rapport: number | null
+}
+
+/**
+ * Points apportés par un critère.
+ *
+ * Deux règles de sécurité s'appliquent avant tout calcul :
+ *
+ *  1. Sur un drapeau rouge, seule une réponse positive compte. Une réponse
+ *     négative au dépistage n'abaisse jamais la probabilité d'une pathologie
+ *     grave — sur une prévalence de départ déjà très basse, le moteur n'a pas
+ *     à « rassurer », il n'a qu'un seuil d'alerte à franchir ou non.
+ *  2. Un rapport non informatif ne pèse pas, quel qu'en soit le sens.
+ */
+function apportDe(criterion: Criterion, value: Tribool, kind: HypothesisKind): Apport | null {
+  if (kind === 'red-flag' && value !== 'yes') return null
+
   if (criterion.lr) {
-    if (value === 'yes') return ECHELLE_LR * Math.log2(criterion.lr.positive)
-    if (value === 'no' && criterion.lr.negative !== undefined) {
-      return ECHELLE_LR * Math.log2(criterion.lr.negative)
+    if (value === 'yes' && informatif(criterion.lr.positive)) {
+      return {
+        criterion,
+        points: ECHELLE_LR * Math.log2(criterion.lr.positive),
+        rapport: criterion.lr.positive,
+      }
+    }
+    if (
+      value === 'no' &&
+      criterion.lr.negative !== undefined &&
+      informatif(criterion.lr.negative)
+    ) {
+      return {
+        criterion,
+        points: ECHELLE_LR * Math.log2(criterion.lr.negative),
+        rapport: criterion.lr.negative,
+      }
     }
     return null
   }
-  if (value === 'yes' && criterion.weight !== undefined) return criterion.weight
+  if (value === 'yes' && criterion.weight !== undefined) {
+    return { criterion, points: criterion.weight, rapport: null }
+  }
   return null
+}
+
+/**
+ * Une seule contribution par groupe de signes corrélés.
+ *
+ * Les signes lombaires ne sont pas conditionnellement indépendants : douleur
+ * dermatomale, Lasègue et réflexe aboli décrivent largement la même
+ * observation. Les enchaîner par multiplication reviendrait à la compter trois
+ * fois et à fabriquer une certitude. Le rapport publié du cluster prime ; à
+ * défaut, la contribution la plus ample l'emporte et les autres sont
+ * abandonnées.
+ */
+function unSeulParGroupe<T>(apports: T[], clefDe: (item: T) => Criterion): T[] {
+  const libres: T[] = []
+  const groupes = new Map<string, T[]>()
+
+  for (const apport of apports) {
+    const groupe = clefDe(apport).correlation
+    if (!groupe) {
+      libres.push(apport)
+      continue
+    }
+    groupes.set(groupe, [...(groupes.get(groupe) ?? []), apport])
+  }
+
+  for (const membres of groupes.values()) {
+    const cluster = membres.find((membre) => clefDe(membre).cluster)
+    if (cluster) {
+      libres.push(cluster)
+      continue
+    }
+    libres.push(
+      membres.reduce((meilleur, candidat) =>
+        enjeuDe(clefDe(candidat)) > enjeuDe(clefDe(meilleur)) ? candidat : meilleur,
+      ),
+    )
+  }
+
+  return libres
 }
 
 /** Meilleur apport encore atteignable par un critère indécis. */
 function apportPotentiel(criterion: Criterion): number {
-  if (criterion.lr) return Math.max(0, ECHELLE_LR * Math.log2(criterion.lr.positive))
+  if (criterion.lr) {
+    if (!informatif(criterion.lr.positive)) return 0
+    return Math.max(0, ECHELLE_LR * Math.log2(criterion.lr.positive))
+  }
   return Math.max(0, criterion.weight ?? 0)
+}
+
+/**
+ * Amplitude qu'un critère peut encore faire bouger, dans un sens ou dans
+ * l'autre. Sert à classer les actions, pas à scorer : un test dont le seul
+ * intérêt est d'écarter une hypothèse doit être proposé aussi volontiers qu'un
+ * test qui la confirme.
+ */
+function enjeuDe(criterion: Criterion, kind?: HypothesisKind): number {
+  if (criterion.lr) {
+    const confirme = informatif(criterion.lr.positive)
+      ? Math.abs(ECHELLE_LR * Math.log2(criterion.lr.positive))
+      : 0
+    if (kind === 'red-flag') return confirme
+    const ecarte =
+      criterion.lr.negative !== undefined && informatif(criterion.lr.negative)
+        ? Math.abs(ECHELLE_LR * Math.log2(criterion.lr.negative))
+        : 0
+    return Math.max(confirme, ecarte)
+  }
+  return Math.abs(criterion.weight ?? 0)
+}
+
+/**
+ * Probabilité post-test par chaînage des cotes.
+ *
+ * C'est la seule façon correcte d'accumuler des rapports : on part de la
+ * prévalence dans le cadre de soins, on multiplie les cotes, on revient à une
+ * probabilité. La valeur n'est produite que si la prévalence est sourcée et si
+ * tout ce qui a pesé vient d'un rapport publié — un seul poids ordinal dans le
+ * calcul et le résultat n'aurait plus de sens.
+ */
+function probabilitePostTest(
+  prior: { value: number } | undefined,
+  apports: Apport[],
+): number | undefined {
+  if (!prior) return undefined
+  if (apports.some((apport) => apport.rapport === null)) return undefined
+  const cote = apports.reduce(
+    (courante, apport) => courante * (apport.rapport as number),
+    prior.value / (1 - prior.value),
+  )
+  return Math.round((cote / (1 + cote)) * 10_000) / 10_000
 }
 
 function statusOf(definition: HypothesisDefinition, signals: SignalSet): HypothesisStatus {
@@ -172,28 +313,53 @@ export function scoreHypothesis(
   signals: SignalSet,
 ): ScoredHypothesis {
   const status = statusOf(definition, signals)
-  const argumentsFor: string[] = []
-  const argumentsAgainst: string[] = []
-  const unexplored: string[] = []
-  let score = 0
-  let reachable = 0
+  const bruts: Apport[] = []
+  const indecis: Criterion[] = []
 
   for (const criterion of definition.criteria) {
     const value = evaluate(criterion.when, signals)
-    const apport = contribution(criterion, value)
+    const apport = apportDe(criterion, value, definition.kind)
+    if (apport) bruts.push(apport)
+    else if (value === 'unknown') indecis.push(criterion)
+  }
 
-    if (apport !== null) {
-      score += apport
-      if (apport >= 0) argumentsFor.push(criterion.label)
-      else argumentsAgainst.push(criterion.label)
-    } else if (value === 'unknown') {
-      unexplored.push(criterion.label)
-      reachable += apportPotentiel(criterion)
-    }
+  // Le dédoublonnage des signes corrélés s'applique aussi bien à ce qui pèse
+  // déjà qu'à ce qui reste atteignable : sans cela, une hypothèse afficherait
+  // un potentiel que le calcul ne lui accordera jamais.
+  const retenus = unSeulParGroupe(bruts, (apport) => apport.criterion)
+  const ouverts = unSeulParGroupe(indecis, (criterion) => criterion)
+
+  const argumentsFor: string[] = []
+  const argumentsAgainst: string[] = []
+  let score = 0
+
+  for (const apport of retenus) {
+    score += apport.points
+    if (apport.points >= 0) argumentsFor.push(apport.criterion.label)
+    else argumentsAgainst.push(apport.criterion.label)
+  }
+
+  let reachable = ouverts.reduce((total, criterion) => total + apportPotentiel(criterion), 0)
+
+  /**
+   * Le diagnostic d'exclusion ne se score pas.
+   *
+   * La lombalgie non spécifique est ce qui reste quand rien de spécifique n'a
+   * été retenu, jamais une hypothèse qui gagne des points. Lui en accorder la
+   * ferait concourir avec les autres et, pire, la ferait monter à mesure que
+   * l'anamnèse s'enrichit — exactement l'inverse de ce qu'elle signifie. Ses
+   * critères restent affichés : ils décrivent le tableau, ils ne l'établissent
+   * pas.
+   */
+  if (definition.kind === 'exclusion') {
+    score = 0
+    reachable = 0
   }
 
   score = Math.round(score * 10) / 10
   reachable = Math.round(reachable * 10) / 10
+
+  const excluded = status === 'excluded'
 
   return {
     id: definition.id,
@@ -201,13 +367,36 @@ export function scoreHypothesis(
     region: definition.region,
     kind: definition.kind,
     status,
-    score: status === 'excluded' ? 0 : score,
-    potential: status === 'excluded' ? 0 : score + reachable,
+    score: excluded ? 0 : score,
+    potential: excluded ? 0 : score + reachable,
     argumentsFor,
     argumentsAgainst,
-    unexplored,
+    unexplored: ouverts.map((criterion) => criterion.label),
+    probability: excluded ? undefined : probabilitePostTest(definition.prior, retenus),
+    alert: excluded ? undefined : niveauAlerte(definition, retenus),
     note: definition.note,
   }
+}
+
+/**
+ * Niveau d'alerte d'une hypothèse à drapeau rouge : le plus haut de ses
+ * critères vérifiés. Un drapeau retenu sans niveau explicite reste en
+ * vigilance — c'est le cas d'un facteur isolé peu spécifique.
+ */
+const RANG_ALERTE: Record<AlertLevel, number> = { immediate: 0, elevee: 1, vigilance: 2 }
+
+function niveauAlerte(
+  definition: HypothesisDefinition,
+  retenus: Apport[],
+): AlertLevel | undefined {
+  if (definition.kind !== 'red-flag') return undefined
+  const niveaux = retenus
+    .map((apport) => apport.criterion.alert)
+    .filter((niveau): niveau is AlertLevel => niveau !== undefined)
+  if (niveaux.length === 0) return 'vigilance'
+  return niveaux.reduce((haut, candidat) =>
+    RANG_ALERTE[candidat] < RANG_ALERTE[haut] ? candidat : haut,
+  )
 }
 
 /** Les retenues passent devant les en-attente ; à statut égal, le score tranche. */
@@ -222,13 +411,17 @@ function compareHypotheses(a: ScoredHypothesis, b: ScoredHypothesis): number {
 
 /** Critères d'une hypothèse encore indécidables, avec le poids qu'ils mettent en jeu. */
 function openCriteria(definition: HypothesisDefinition, signals: SignalSet): Criterion[] {
-  const open = definition.criteria.filter(
-    (criterion) => evaluate(criterion.when, signals) === 'unknown',
+  const open = unSeulParGroupe(
+    definition.criteria.filter((criterion) => evaluate(criterion.when, signals) === 'unknown'),
+    (criterion) => criterion,
   )
   if (definition.requires && evaluate(definition.requires, signals) === 'unknown') {
     // La condition d'entrée pèse autant que le meilleur critère : tant qu'elle
     // n'est pas tranchée, rien d'autre ne compte vraiment.
-    const heaviest = Math.max(0, ...definition.criteria.map(apportPotentiel))
+    const heaviest = Math.max(
+      0,
+      ...definition.criteria.map((criterion) => enjeuDe(criterion, definition.kind)),
+    )
     open.push({ when: definition.requires, weight: heaviest, label: definition.label })
   }
   return open
@@ -247,7 +440,21 @@ function rankActions(
   done: Set<string>,
   limit: number,
 ): SuggestedAction[] {
-  const inPlay = scored.filter((hypothesis) => hypothesis.status !== 'excluded').slice(0, 5)
+  // Les drapeaux rouges et la stratification pronostique ne se font jamais
+  // évincer par le différentiel : le premier parce qu'il prime sur tout, la
+  // seconde parce qu'elle ne concourt pas avec lui. Seul le différentiel est
+  // tronqué, sans quoi une hypothèse de second rang chasserait le questionnaire
+  // de chronicisation de la liste des suites à donner.
+  const enLice = (predicat: (hypothesis: ScoredHypothesis) => boolean) =>
+    scored.filter((hypothesis) => hypothesis.status !== 'excluded' && predicat(hypothesis))
+
+  const inPlay = [
+    ...enLice((hypothesis) => hypothesis.kind === 'red-flag'),
+    ...enLice(
+      (hypothesis) => hypothesis.kind !== 'red-flag' && hypothesis.kind !== 'profil',
+    ).slice(0, 5),
+    ...enLice((hypothesis) => hypothesis.kind === 'profil'),
+  ]
   if (inPlay.length === 0) return []
 
   /**
@@ -268,14 +475,25 @@ function rankActions(
   for (const hypothesis of inPlay) {
     const definition = byId.get(hypothesis.id)
     if (!definition) continue
+
+    // Au sein d'une même hypothèse, un signal ne vaut qu'une fois : ce qu'il
+    // débloque de mieux. Un signal qui figure à la fois dans la condition
+    // d'entrée et dans un critère décrit un seul et même apport — l'additionner
+    // ferait passer un test d'examen devant la question qui ouvre la branche.
+    const parSignal = new Map<SignalId, number>()
     for (const criterion of openCriteria(definition, signals)) {
+      const enjeu = enjeuDe(criterion, definition.kind) || 1
       for (const signal of openSignalsOf(criterion.when, signals)) {
         if (signals[signal] !== undefined) continue
-        const entry = stakes.get(signal) ?? { value: 0, hypotheses: new Set<string>() }
-        entry.value += Math.abs(apportPotentiel(criterion)) || 1
-        entry.hypotheses.add(hypothesis.label)
-        stakes.set(signal, entry)
+        parSignal.set(signal, Math.max(parSignal.get(signal) ?? 0, enjeu))
       }
+    }
+
+    for (const [signal, enjeu] of parSignal) {
+      const entry = stakes.get(signal) ?? { value: 0, hypotheses: new Set<string>() }
+      entry.value += enjeu
+      entry.hypotheses.add(hypothesis.label)
+      stakes.set(signal, entry)
     }
   }
 
@@ -371,6 +589,23 @@ function rankActions(
     referral: 4,
   }
 
+  /**
+   * Sur un drapeau rouge retenu, l'ordre s'inverse. Ce qui compte alors n'est
+   * plus d'affiner mais de sortir du champ de compétence : on oriente, et
+   * l'imagerie vient à l'appui de l'orientation, pas à sa place.
+   */
+  const KIND_ORDER_URGENT: Record<string, number> = {
+    referral: 0,
+    exam: 1,
+    test: 2,
+    questionnaire: 3,
+    question: 4,
+    choice: 4,
+  }
+
+  const ordreDe = (action: ActionDefinition) =>
+    (urgent.has(action.id) ? KIND_ORDER_URGENT[action.kind] : KIND_ORDER[action.kind]) ?? 9
+
   return [...suggestions.values()]
     .sort(
       (a, b) =>
@@ -378,7 +613,7 @@ function rankActions(
         // les suites propres à l'hypothèse de tête.
         Number(urgent.has(b.action.id)) - Number(urgent.has(a.action.id)) ||
         b.value - a.value ||
-        (KIND_ORDER[a.action.kind] ?? 9) - (KIND_ORDER[b.action.kind] ?? 9) ||
+        ordreDe(a.action) - ordreDe(b.action) ||
         Number(leaderActions.has(b.action.id)) - Number(leaderActions.has(a.action.id)) ||
         a.action.label.localeCompare(b.action.label, 'fr'),
     )
@@ -410,7 +645,19 @@ export function reason(input: ReasoningInput): ReasoningResult {
     .sort(compareHypotheses)
 
   const differential = scored
-    .filter((hypothesis) => hypothesis.kind !== 'red-flag' && hypothesis.status !== 'excluded')
+    .filter(
+      (hypothesis) =>
+        hypothesis.kind !== 'red-flag' &&
+        hypothesis.kind !== 'profil' &&
+        hypothesis.status !== 'excluded',
+    )
+    .sort(compareHypotheses)
+
+  // La stratification pronostique se lit à côté du différentiel, pas dedans :
+  // la mêler reviendrait à faire concourir « risque de chronicisation » avec
+  // « hernie discale », qui ne répondent pas à la même question.
+  const profiles = scored
+    .filter((hypothesis) => hypothesis.kind === 'profil' && hypothesis.status !== 'excluded')
     .sort(compareHypotheses)
 
   const excluded = scored
@@ -421,8 +668,9 @@ export function reason(input: ReasoningInput): ReasoningResult {
     redFlags,
     hypotheses: differential,
     excluded,
+    profiles,
     nextActions: rankActions(
-      [...redFlags, ...differential],
+      [...redFlags, ...differential, ...profiles],
       hypotheses,
       actions,
       signals,

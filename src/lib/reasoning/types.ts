@@ -1,4 +1,5 @@
 import type { SignalId } from './signals'
+import type { SourceKey } from './sources'
 
 /**
  * Valeur d'un fait clinique. La distinction entre « non » et « pas encore
@@ -36,8 +37,8 @@ export interface Likelihood {
    * critère faux reste alors muet, comme un critère ordinaire.
    */
   negative?: number
-  /** Référence exacte de la valeur. */
-  source: string
+  /** Clé de la bibliographie. Une valeur sans référence résolvable est refusée. */
+  source: SourceKey
 }
 
 export interface Criterion {
@@ -53,17 +54,66 @@ export interface Criterion {
    * poids, et un critère faux pèse aussi si le LR− est connu.
    */
   lr?: Likelihood
+  /**
+   * Groupe de signes corrélés au sein d'une même hypothèse.
+   *
+   * Les signes lombaires ne sont pas conditionnellement indépendants : une
+   * douleur dermatomale, un Lasègue positif et un réflexe aboli décrivent en
+   * grande partie le même phénomène. Les multiplier revient à compter trois
+   * fois la même observation. Au sein d'un groupe, le moteur ne retient qu'une
+   * seule contribution.
+   */
+  correlation?: string
+  /**
+   * Règle de décision validée sur l'ensemble du groupe corrélé. Quand elle est
+   * tranchée, elle prend la place de tous ses membres : le rapport publié du
+   * cluster vaut mieux que le produit des rapports individuels.
+   */
+  cluster?: boolean
+  /**
+   * Référence d'un critère qui ne s'exprime pas en rapport de vraisemblance —
+   * une probabilité post-test publiée, une règle de décision. La provenance
+   * doit rester traçable même quand la valeur n'est pas multipliable.
+   */
+  source?: SourceKey
+  /**
+   * Conduite qu'impose ce critère quand il est vrai, sur un drapeau rouge.
+   * L'hypothèse retient le niveau le plus haut de ses critères vérifiés.
+   */
+  alert?: AlertLevel
   /** Formulation clinique de l'argument, reprise telle quelle à l'affichage. */
   label: string
 }
 
 export type Region = 'lombaire' | 'cervical'
 
+/**
+ * Niveau d'alerte d'un drapeau rouge (chapitre 3 du document de référence).
+ *
+ * Un score continu n'a pas de sens ici : sur une prévalence de départ de
+ * quelques pour mille, même un rapport élevé laisse une probabilité post-test
+ * modeste. Ce qui compte n'est pas « quelle probabilité », mais « quelle
+ * conduite » — et il n'y en a que trois.
+ */
+export type AlertLevel =
+  /** Un seul élément suffit : réorientation sans attendre d'accumulation. */
+  | 'immediate'
+  /** Combinaison validée à rapport élevé : imagerie ou adressage rapide. */
+  | 'elevee'
+  /** Drapeau isolé peu spécifique : réévaluer, chercher activement un second. */
+  | 'vigilance'
+
 export type HypothesisKind =
   | 'red-flag'
   | 'specific'
   | 'mechanical'
+  /** Diagnostic résiduel : ce qui reste faute de mieux, jamais scoré. */
   | 'exclusion'
+  /**
+   * Stratification pronostique (couche 4). Ne concourt pas au différentiel :
+   * les drapeaux jaunes prédisent l'évolution, pas la nature de la lésion.
+   */
+  | 'profil'
 
 export interface HypothesisDefinition {
   id: string
@@ -83,7 +133,7 @@ export interface HypothesisDefinition {
    * probabilité post-test n'est calculée : mieux vaut pas de chiffre qu'un
    * chiffre bâti sur une prévalence supposée.
    */
-  prior?: { value: number; source: string }
+  prior?: { value: number; source: SourceKey }
   /** Précaution ou rappel affiché avec l'hypothèse. */
   note?: string
 }
@@ -127,6 +177,8 @@ export interface ScoredHypothesis {
    * vraisemblance publié. Absente le reste du temps, et c'est voulu.
    */
   probability?: number
+  /** Conduite à tenir sur un drapeau rouge retenu. */
+  alert?: AlertLevel
   note?: string
 }
 
@@ -145,6 +197,11 @@ export interface ReasoningResult {
   hypotheses: ScoredHypothesis[]
   /** Hypothèses écartées, conservées pour tracer ce qui a été éliminé. */
   excluded: ScoredHypothesis[]
+  /**
+   * Stratification pronostique, tenue à part du différentiel. Un risque élevé
+   * de chronicisation oriente la prise en charge sans rien dire du diagnostic.
+   */
+  profiles: ScoredHypothesis[]
   /** Prochaines actions, de la plus discriminante à la moins utile. */
   nextActions: SuggestedAction[]
 }

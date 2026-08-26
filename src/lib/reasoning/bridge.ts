@@ -39,6 +39,13 @@ export function lumbarTreeStateToSignals(state: TreeState): SignalSet {
 
   if (state.q_duration) signals['lombaire.duree_aigue'] = state.q_duration === 'acute'
   signals['lombaire.queue_de_cheval'] = tri(state.q1_cauda_equina)
+  // L'arbre posait la question en bloc — troubles sphinctériens, anesthésie en
+  // selle, déficit progressif. Le moteur les distingue désormais : une réponse
+  // globale renseigne donc chacun d'eux, sans quoi l'hypothèse resterait en
+  // attente là où l'arbre l'avait écartée.
+  signals['lombaire.retention_urinaire'] = tri(state.q1_cauda_equina)
+  signals['lombaire.anesthesie_selle'] = tri(state.q1_cauda_equina)
+  signals['lombaire.incontinence_recente'] = tri(state.q1_cauda_equina)
 
   if (state.q2_fracture !== null) {
     applyChecks(signals, state.q2_checks, {

@@ -8,6 +8,7 @@ import {
   knowledgeFor,
   reason as runReasoning,
   REGION_LABELS,
+  type AlertLevel,
   type Region,
   type ScoredHypothesis,
   type SignalId,
@@ -190,6 +191,20 @@ function ActionRow({
   )
 }
 
+/**
+ * Conduite à tenir, en toutes lettres.
+ *
+ * Un pourcentage n'aide pas devant un drapeau rouge : sur une prévalence de
+ * quelques pour mille, même un rapport élevé laisse une probabilité post-test
+ * modeste, et l'afficher inviterait à temporiser. Ce qui décide, c'est le
+ * niveau d'alerte — et il n'y en a que trois.
+ */
+const ALERTE_LABEL: Record<AlertLevel, string> = {
+  immediate: 'Orientation immédiate',
+  elevee: 'Alerte élevée — adressage rapide',
+  vigilance: 'Vigilance — rechercher un second drapeau',
+}
+
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <p className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/50 mb-1">
@@ -239,6 +254,10 @@ export function Copilot({
         ? ' · relevé manuel (analyse indisponible)'
         : ''
   const relevé = Object.values(signals).filter((value) => value !== undefined).length
+  // La stratification pronostique ne s'affiche qu'une fois établie : une
+  // rubrique vide donnerait à croire qu'on n'a rien trouvé, alors qu'on n'a
+  // rien cherché.
+  const profils = result.profiles.filter((profil) => profil.score > 0)
 
   return (
     <aside className="w-[340px] shrink-0 border-l border-border/50 bg-muted/[0.18] flex flex-col">
@@ -282,6 +301,11 @@ export function Copilot({
                     {argument}
                   </p>
                 ))}
+                {flag.alert && (
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-rose-700 dark:text-rose-300 pt-0.5">
+                    {ALERTE_LABEL[flag.alert]}
+                  </p>
+                )}
                 {flag.note && (
                   <p className="text-[11.5px] leading-snug font-medium text-rose-800 dark:text-rose-200 pt-0.5">
                     {flag.note}
@@ -329,6 +353,27 @@ export function Copilot({
                 ? 'Dictez l’anamnèse.\nLe copilote suit.'
                 : 'Pas encore d’argument suffisant.\nRépondez à une question ci-dessous.'}
             </p>
+          </div>
+        )}
+
+        {profils.length > 0 && (
+          <div>
+            <SectionTitle>Profil</SectionTitle>
+            <div className="divide-y divide-border/40">
+              {profils.map((profil) => (
+                <div key={profil.id} className="py-2">
+                  <p className="text-[13px] leading-snug font-medium">{profil.label}</p>
+                  {profil.argumentsFor.slice(0, 3).map((argument) => (
+                    <p
+                      key={argument}
+                      className="text-[11.5px] leading-snug text-muted-foreground/70 mt-0.5"
+                    >
+                      {argument}
+                    </p>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

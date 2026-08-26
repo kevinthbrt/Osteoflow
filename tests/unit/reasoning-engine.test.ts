@@ -761,9 +761,12 @@ describe('formulation de ce qui est écarté', () => {
 
 describe('drapeaux jaunes relevés à l\'interrogatoire', () => {
   it('pèsent à partir de deux éléments, pas d\'un seul', () => {
+    // Ils pèsent désormais sur la stratification pronostique, tenue à part du
+    // différentiel : un risque de chronicisation élevé oriente la prise en
+    // charge sans rien dire de la nature de la lésion.
     const score = (signals: Record<string, boolean>) =>
-      reason({ signals, hypotheses: LUMBAR_HYPOTHESES }).hypotheses.find(
-        (h) => h.id === 'lombaire.non-specifique',
+      reason({ signals, hypotheses: LUMBAR_HYPOTHESES }).profiles.find(
+        (h) => h.id === 'lombaire.chronicisation',
       )!.score
     const base = { 'lombaire.irradiation_jambe': false, 'lombaire.rythme_inflammatoire': false }
     const aucun = score({ ...base })
@@ -816,11 +819,18 @@ describe('rapports de vraisemblance', () => {
   })
 
   it('donne à chaque critère un poids ou un rapport, jamais les deux ni aucun', () => {
+    // Une exception, et une seule : le diagnostic d'exclusion ne se score pas.
+    // Ses critères décrivent le tableau sans l'établir, donc ils ne portent ni
+    // poids ni rapport — leur en donner reviendrait à le faire concourir.
     const mal: string[] = []
     for (const hypothesis of [...LUMBAR_HYPOTHESES, ...CERVICAL_HYPOTHESES]) {
       for (const criterion of hypothesis.criteria) {
         const aPoids = criterion.weight !== undefined
         const aRapport = criterion.lr !== undefined
+        if (hypothesis.kind === 'exclusion') {
+          if (aPoids || aRapport) mal.push(`${hypothesis.id} — ${criterion.label} (scoré)`)
+          continue
+        }
         if (aPoids === aRapport) mal.push(`${hypothesis.id} — ${criterion.label}`)
       }
     }

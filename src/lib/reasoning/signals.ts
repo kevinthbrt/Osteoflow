@@ -702,6 +702,317 @@ const definitions = {
     label: 'facteurs de risque de chronicisation',
     group: 'psychosocial',
   },
+
+  // ── Sténose lombaire : items verbaux (Suri, JAMA 2010) ────────────────────
+  // Les rapports de vraisemblance les plus solides de toute la région sont
+  // ici, et ils portent sur des phrases que le patient dit spontanément.
+  'lombaire.pas_de_douleur_assis': {
+    label: 'absence de douleur en position assise',
+    negativeLabel: 'douleur présente en position assise',
+    group: 'douleur',
+    question: 'La douleur disparaît-elle complètement quand le patient est assis ?',
+  },
+  'lombaire.claudication_neurogene': {
+    label: 'claudication neurogène (douleur de jambe à la marche, soulagée à l\'arrêt en flexion)',
+    negativeLabel: 'pas de claudication neurogène',
+    group: 'douleur',
+    question: 'La douleur de jambe apparaît-elle à la marche et cède-t-elle en s\'asseyant ou en se penchant en avant ?',
+  },
+  'lombaire.douleur_bilaterale_membres': {
+    label: 'douleur bilatérale des fesses ou des jambes',
+    negativeLabel: 'douleur unilatérale des membres',
+    group: 'topographie',
+    question: 'La douleur touche-t-elle les deux fesses ou les deux jambes ?',
+  },
+  'lombaire.trouble_urinaire_inexplique': {
+    label: 'trouble urinaire inexpliqué',
+    negativeLabel: 'pas de trouble urinaire',
+    group: 'general',
+    question: 'Le patient a-t-il des troubles urinaires récents sans cause connue ?',
+  },
+  'lombaire.demarche_base_elargie': {
+    label: 'démarche à base élargie',
+    negativeLabel: 'démarche de largeur normale',
+    group: 'examen',
+  },
+  'lombaire.romberg_anormal': {
+    label: 'signe de Romberg anormal',
+    negativeLabel: 'Romberg normal',
+    group: 'examen',
+  },
+  'lombaire.demarche_steppage': {
+    label: 'démarche en steppage',
+    negativeLabel: 'pas de steppage',
+    group: 'examen',
+  },
+
+  // ── Radiculopathie : items d'anamnèse (Bateman, Muscle & Nerve 2025) ──────
+  'lombaire.douleur_dermatomale': {
+    label: 'douleur de topographie dermatomale',
+    negativeLabel: 'douleur sans topographie dermatomale',
+    group: 'topographie',
+    question: 'La douleur suit-elle un trajet précis et constant, comme une bande, dans la jambe ?',
+  },
+  'lombaire.perte_sensitive_ressentie': {
+    label: 'perte de sensibilité ressentie dans le membre',
+    negativeLabel: 'pas de trouble sensitif ressenti',
+    group: 'neurologique',
+    question: 'Le patient ressent-il une zone endormie ou moins sensible dans la jambe ?',
+  },
+  'lombaire.reflexe_achilleen_aboli': {
+    label: 'réflexe achilléen aboli ou diminué (S1)',
+    negativeLabel: 'réflexe achilléen présent et symétrique',
+    group: 'examen',
+  },
+  'lombaire.reflexe_rotulien_aboli': {
+    label: 'réflexe rotulien aboli ou diminué (L4)',
+    negativeLabel: 'réflexe rotulien présent et symétrique',
+    group: 'examen',
+  },
+  'lombaire.rapidh_11plus': {
+    label: 'critères RAPIDH ≥ 11/20',
+    negativeLabel: 'critères RAPIDH < 11/20',
+    group: 'examen',
+  },
+
+  // ── Douleur discogénique (chapitre 5.1) ───────────────────────────────────
+  'lombaire.preference_directionnelle': {
+    label: 'préférence directionnelle aux mouvements répétés',
+    negativeLabel: 'pas de préférence directionnelle',
+    group: 'examen',
+  },
+  'lombaire.tonosu_31plus': {
+    label: 'questionnaire d\'entretien de Tonosu ≥ 31/47',
+    negativeLabel: 'questionnaire de Tonosu < 31/47',
+    group: 'douleur',
+  },
+
+  // ── Sacro-iliaque (chapitre 5.4) ──────────────────────────────────────────
+  'lombaire.distraction_positif': {
+    label: 'test de distraction sacro-iliaque positif',
+    negativeLabel: 'test de distraction négatif',
+    group: 'examen',
+  },
+  'lombaire.cluster_laslett_3plus': {
+    label: 'au moins trois tests de provocation sacro-iliaque positifs (Laslett)',
+    negativeLabel: 'moins de trois tests de provocation sacro-iliaque positifs',
+    group: 'examen',
+  },
+
+  // ── Spondylolisthésis, instabilité, spondylolyse (chapitre 5.5) ───────────
+  'lombaire.low_midline_sill_sign': {
+    label: 'low midline sill sign',
+    negativeLabel: 'pas de low midline sill sign',
+    group: 'examen',
+  },
+  'lombaire.interspinous_gap_change': {
+    label: 'variation de l\'écart interépineux en flexion-extension',
+    negativeLabel: 'pas de variation de l\'écart interépineux',
+    group: 'examen',
+  },
+  'lombaire.step_off_palpable': {
+    label: 'décrochage (« step-off ») palpable sur les épineuses',
+    negativeLabel: 'pas de décrochage palpable',
+    group: 'examen',
+  },
+  'lombaire.test_cigogne_positif': {
+    label: 'test de la cigogne positif',
+    negativeLabel: 'test de la cigogne négatif',
+    group: 'examen',
+  },
+
+  // ── Filtre viscéral et vasculaire (chapitre 7) ────────────────────────────
+  // En accès direct, le thérapeute est le premier filtre médical. Ces signaux
+  // n'entrent dans aucun sous-typage mécanique : ils servent à sortir du
+  // champ de compétence, pas à l'affiner.
+  'lombaire.douleur_non_positionnelle': {
+    label: 'douleur non modifiée par la position ni par le mouvement',
+    negativeLabel: 'douleur modifiée par la position ou le mouvement',
+    group: 'douleur',
+    question: 'La douleur change-t-elle avec la position ou le mouvement ?',
+  },
+  'general.douleur_abdominale_associee': {
+    label: 'douleur abdominale ou pelvienne associée',
+    negativeLabel: 'pas de douleur abdominale associée',
+    group: 'general',
+    question: 'Le patient a-t-il aussi mal au ventre ou dans le bas-ventre ?',
+  },
+  'general.douleur_flanc': {
+    label: 'douleur de flanc irradiant vers l\'aine',
+    negativeLabel: 'pas de douleur de flanc',
+    group: 'topographie',
+    question: 'La douleur part-elle du flanc et descend-elle vers l\'aine ?',
+  },
+  'general.lien_repas': {
+    label: 'douleur liée aux repas',
+    negativeLabel: 'douleur sans lien avec les repas',
+    group: 'general',
+    question: 'La douleur est-elle liée aux repas ?',
+  },
+  'general.nausees_vomissements': {
+    label: 'nausées ou vomissements',
+    negativeLabel: 'pas de nausées ni vomissements',
+    group: 'general',
+    question: 'Le patient a-t-il des nausées ou des vomissements ?',
+  },
+  'general.troubles_mictionnels': {
+    label: 'troubles mictionnels (brûlures, pollakiurie, dysurie)',
+    negativeLabel: 'pas de trouble mictionnel',
+    group: 'general',
+    question: 'Le patient a-t-il des brûlures ou une gêne en urinant ?',
+  },
+  'general.hematurie': {
+    label: 'hématurie',
+    negativeLabel: 'pas d\'hématurie',
+    group: 'general',
+    question: 'Le patient a-t-il vu du sang dans ses urines ?',
+  },
+  'general.lien_menstruel': {
+    label: 'douleur rythmée par le cycle menstruel',
+    negativeLabel: 'douleur sans lien avec le cycle',
+    group: 'general',
+    question: 'La douleur suit-elle le cycle menstruel ?',
+  },
+  'general.eruption_dermatomale': {
+    label: 'éruption vésiculeuse dans le territoire douloureux',
+    negativeLabel: 'pas d\'éruption cutanée',
+    group: 'general',
+    question: 'Y a-t-il une éruption cutanée, comme des petites vésicules, sur la zone douloureuse ?',
+  },
+  'general.douleur_dechirante': {
+    label: 'douleur déchirante d\'installation brutale',
+    negativeLabel: 'pas de douleur déchirante',
+    group: 'douleur',
+    question: 'La douleur est-elle apparue brutalement, comme un déchirement ?',
+  },
+  'terrain.masse_abdominale_pulsatile': {
+    label: 'masse abdominale pulsatile',
+    negativeLabel: 'pas de masse abdominale pulsatile',
+    group: 'examen',
+  },
+  'terrain.tabagisme': {
+    label: 'tabagisme',
+    negativeLabel: 'pas de tabagisme',
+    group: 'terrain',
+    question: 'Le patient fume-t-il ou a-t-il fumé ?',
+  },
+  'lombaire.claudication_distance_fixe': {
+    label: 'douleur de marche survenant à distance fixe, indépendamment de la posture',
+    negativeLabel: 'douleur de marche dépendante de la posture',
+    group: 'douleur',
+    question: 'La douleur de marche revient-elle toujours après la même distance, quelle que soit la position du dos ?',
+  },
+
+  // ── Mimes périphériques de la radiculopathie (chapitre 7 bis) ─────────────
+  // Ces signes font baisser le score radiculaire sans jamais l'exclure : mime
+  // et radiculopathie coexistent dans 18 à 35 % des cas.
+  'lombaire.palpation_trochanter_douloureuse': {
+    label: 'palpation du grand trochanter douloureuse et reproductible',
+    negativeLabel: 'palpation trochantérienne indolore',
+    group: 'examen',
+  },
+  'lombaire.douleur_decubitus_lateral': {
+    label: 'douleur en décubitus latéral sur le côté atteint',
+    negativeLabel: 'pas de douleur en décubitus latéral',
+    group: 'douleur',
+    question: 'Le patient a-t-il mal quand il est couché sur ce côté ?',
+  },
+  'lombaire.palpation_tuberosite_ischiatique': {
+    label: 'palpation de la tubérosité ischiatique douloureuse et reproductible',
+    negativeLabel: 'palpation ischiatique indolore',
+    group: 'examen',
+  },
+  'lombaire.douleur_inguinale': {
+    label: 'douleur inguinale',
+    negativeLabel: 'pas de douleur inguinale',
+    group: 'topographie',
+    question: 'Le patient a-t-il mal dans le pli de l\'aine ?',
+  },
+  'lombaire.limitation_amplitude_hanche': {
+    label: 'limitation douloureuse des amplitudes de hanche',
+    negativeLabel: 'amplitudes de hanche libres',
+    group: 'examen',
+  },
+  'lombaire.paresthesies_anterolaterale_cuisse': {
+    label: 'paresthésies ou brûlure de la face antérolatérale de cuisse, sans déficit moteur',
+    negativeLabel: 'pas de paresthésies antérolatérales de cuisse',
+    group: 'neurologique',
+    question: 'Le patient décrit-il des fourmillements ou des brûlures sur le devant et le côté de la cuisse ?',
+  },
+  'lombaire.palpation_plantaire_douloureuse': {
+    label: 'douleur reproduite à la palpation de l\'aponévrose plantaire',
+    negativeLabel: 'palpation plantaire indolore',
+    group: 'examen',
+  },
+  'lombaire.extension_reproduit_douleur': {
+    label: 'douleur reproduite à l\'extension lombaire',
+    negativeLabel: 'extension lombaire indolore',
+    group: 'examen',
+  },
+  'lombaire.douleur_plantaire_premiers_pas': {
+    label: 'douleur plantaire aux premiers pas, reproduite à la palpation',
+    negativeLabel: 'pas de douleur plantaire aux premiers pas',
+    group: 'douleur',
+    question: 'Le patient a-t-il mal sous le pied aux premiers pas du matin ?',
+  },
+
+  // ── Population pédiatrique et sportive (chapitre 10) ──────────────────────
+  'terrain.adolescent_sportif': {
+    label: 'adolescent ou jeune sportif',
+    negativeLabel: 'patient adulte',
+    group: 'terrain',
+  },
+  'lombaire.sport_hyperextension_rotation': {
+    label: 'sport en hyperextension ou rotation répétée',
+    negativeLabel: 'pas de sport en hyperextension répétée',
+    group: 'terrain',
+    question: 'Le patient pratique-t-il un sport avec des cambrures ou des rotations répétées ?',
+  },
+  'lombaire.aggrave_extension': {
+    label: 'douleur reproduite en extension lombaire',
+    negativeLabel: 'extension lombaire indolore',
+    group: 'douleur',
+    question: 'La douleur est-elle reproduite quand le patient se cambre en arrière ?',
+  },
+
+  // ── Syndrome de la queue de cheval : items détaillés (chapitre 3.4) ───────
+  // Le seuil d'alerte le plus bas de tout le moteur. Un seul item verbal
+  // critique suffit à sortir du champ de la thérapie manuelle : ici, on
+  // n'attend pas l'accumulation.
+  'lombaire.retention_urinaire': {
+    label: 'rétention urinaire ou dysfonction vésicale récente',
+    negativeLabel: 'pas de trouble vésical récent',
+    group: 'neurologique',
+    question: 'Le patient a-t-il du mal à vider sa vessie, ou ne sent-il plus l\'envie d\'uriner ?',
+  },
+  'lombaire.anesthesie_selle': {
+    label: 'anesthésie en selle',
+    negativeLabel: 'pas d\'anesthésie en selle',
+    group: 'neurologique',
+    question: 'Le patient a-t-il une zone endormie au niveau du périnée ou de l\'entrejambe ?',
+  },
+  'lombaire.incontinence_recente': {
+    label: 'incontinence urinaire ou fécale récente',
+    negativeLabel: 'pas d\'incontinence récente',
+    group: 'neurologique',
+    question: 'Le patient a-t-il eu des fuites urinaires ou des selles récentes qu\'il ne contrôlait pas ?',
+  },
+  'lombaire.tonus_anal_diminue': {
+    label: 'tonus anal diminué ou déficit sensitif S3-S5',
+    negativeLabel: 'tonus anal conservé',
+    group: 'examen',
+  },
+  'lombaire.areflexie_achilleenne_bilaterale': {
+    label: 'aréflexie achilléenne bilatérale',
+    negativeLabel: 'réflexes achilléens présents',
+    group: 'examen',
+  },
+  'lombaire.deficit_neuro_progressif': {
+    label: 'déficit neurologique rapidement progressif',
+    negativeLabel: 'déficit neurologique stable',
+    group: 'neurologique',
+    question: 'Le déficit s\'aggrave-t-il rapidement depuis quelques jours ?',
+  },
 } as const satisfies Record<string, SignalDefinition>
 
 export const SIGNALS: Record<string, SignalDefinition> = definitions

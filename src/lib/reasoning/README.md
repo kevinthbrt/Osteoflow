@@ -23,8 +23,63 @@ Deux responsabilités séparées, et cette séparation est le cœur du dispositi
 | `types.ts` | Types du moteur : expressions, critères, hypothèses, actions. |
 | `engine.ts` | Évaluation ternaire, cotation, classement, choix des prochaines actions. |
 | `knowledge/` | Une base de connaissance par région. C'est de la donnée, pas du code. |
+| `sources.ts` | Bibliographie. Toute valeur chiffrée y renvoie par une clé typée. |
 | `bridge.ts` | Traduit un parcours d'arbre décisionnel en signaux. |
 | `legacy/` | Logique des arbres historiques, extraite des composants. Sert de référence. |
+
+## Source de vérité
+
+La région lombaire suit le document de référence **« Base lombaire — moteur
+d'anamnèse »**, qui en spécifie l'architecture en quatre couches :
+
+1. **Filtre drapeaux rouges** — bloque toute conclusion de prise en charge
+   manuelle. Le champ de compétence s'arrête ici.
+2. **Classification en trois catégories** — non spécifique, radiculaire,
+   cause spécifique.
+3. **Sous-typage pondéré** par accumulation de signes congruents.
+4. **Stratification psychosociale** — pronostic, pas diagnostic.
+
+Chaque valeur du document a été remontée à sa publication primaire avant d'être
+codée. Deux attributions s'y sont révélées fausses et sont rectifiées dans
+`sources.ts` : le modèle RAPIDH revient à Genevay et al. (Spine J 2017) et non à
+Chiodo & Jorgensen 2025, et la revue Cochrane 2023 des drapeaux rouges a pour
+premier auteur Han CS, non Williams. Le champ `verification` de chaque entrée
+dit si la source primaire a été consultée (`primaire`), corrigée (`corrigee`),
+ou reste à consulter (`document`).
+
+## Les cinq règles de calibration
+
+Elles viennent du chapitre 8 du document et sont appliquées par le moteur, pas
+par la base de connaissance. Une base mal écrite ne peut donc pas les contourner.
+
+1. **Chaînage des cotes, jamais d'addition de points arbitraires.** Un poids est
+   un rapport de vraisemblance ; le score additif n'est que son logarithme.
+2. **Paliers d'informativité.** Un rapport compris entre 0,5 et 2 ne pèse pas.
+   C'est cette seule règle qui fait qu'un Lasègue positif ne confirme rien
+   (LR+ 1,28) alors qu'un Lasègue négatif écarte (LR− 0,29).
+3. **Pas de rapport négatif sur un drapeau rouge.** Un dépistage négatif
+   n'abaisse jamais la probabilité d'une pathologie grave : le moteur ne
+   rassure pas, il franchit ou non un seuil d'alerte.
+4. **Le cluster prime sur le produit des rapports corrélés.** Les signes
+   lombaires ne sont pas conditionnellement indépendants ; au sein d'un groupe
+   `correlation`, une seule contribution est retenue.
+5. **Trois niveaux d'alerte, pas un score continu.** `immediate`, `elevee`,
+   `vigilance` — sur une prévalence de quelques pour mille, un pourcentage
+   inviterait à temporiser.
+
+Deux corollaires portés par les types : le diagnostic d'exclusion
+(`kind: 'exclusion'`) ne se score jamais — il est ce qui reste, pas ce qui
+gagne — et la stratification pronostique (`kind: 'profil'`) sort du différentiel,
+parce qu'un risque de chronicisation ne concourt pas avec une hernie discale.
+
+## Ce qui reste non mesuré
+
+Onze poids lombaires ne citent aucune source : ce sont les priorités
+structurelles héritées de l'arbre décisionnel historique (profil discal, profil
+sténosant, entrée radiculaire, sièges de la douleur). Aucune publication ne
+couvre ces profils composites. Ils sont nommés un par un dans
+`tests/unit/reasoning-evidence.test.ts`, et ce test échoue si un nombre choisi à
+la main apparaît ailleurs.
 
 ## Trois valeurs, pas deux
 

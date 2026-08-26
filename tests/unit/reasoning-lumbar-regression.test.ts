@@ -101,11 +101,46 @@ describe('voie radiculaire — les 128 combinaisons discriminantes', () => {
     ])
   })
 
-  it('conclut comme l\'arbre sur chacune', () => {
+  /**
+   * Divergence assumée avec l'arbre, et la seule.
+   *
+   * L'arbre ne concluait à une sténose qu'au-delà de trois caractéristiques
+   * sur cinq ; en deçà, il se rabattait sur « radiculopathie à préciser ».
+   * Le moteur retient désormais la sténose dès le signe du caddie isolé, parce
+   * que l'amélioration en antéflexion porte un rapport de vraisemblance de 6,4
+   * (Suri, JAMA 2010) là où l'arbre lui accordait une voix sur cinq.
+   *
+   * Le test ne se contente pas de tolérer ces cas : il vérifie qu'aucune autre
+   * divergence n'existe et que celles-ci obéissent toutes à cette règle. Toute
+   * dérive accidentelle du moteur ressortira donc quand même.
+   */
+  it('conclut comme l\'arbre, sauf sur le signe du caddie isolé', () => {
     const mismatches = combos
       .map((state) => ({ state, attendu: expectedHypothesis(state), obtenu: topHypothesis(state) }))
       .filter((row) => row.attendu !== row.obtenu)
-    expect(mismatches.map((row) => `${row.attendu} ≠ ${row.obtenu}`)).toEqual([])
+
+    for (const row of mismatches) {
+      expect(row.attendu).toBe('lombaire.radiculopathie')
+      expect(row.obtenu).toBe('lombaire.stenose')
+      expect(row.state.q7_shopping_cart).toBe('yes')
+    }
+    expect(mismatches).toHaveLength(6)
+  })
+
+  it('ne fait jamais concourir la radiculopathie non spécifiée avec ses sous-types', () => {
+    // La radiculopathie « à préciser » est le résiduel de la branche : les
+    // items discriminants appartiennent aux entités qu'elle chapeaute. Si elle
+    // se met à accumuler des arguments propres, elle les coiffe toutes et le
+    // sous-typage n'a plus lieu.
+    const scores = combos.map((state) => {
+      const result = reason({
+        signals: lumbarTreeStateToSignals(state),
+        hypotheses: LUMBAR_HYPOTHESES,
+        actions: LUMBAR_ACTIONS,
+      })
+      return result.hypotheses.find((h) => h.id === 'lombaire.radiculopathie')?.score ?? 0
+    })
+    expect([...new Set(scores)]).toEqual([10])
   })
 
   it('n\'écarte jamais les trois hypothèses radiculaires à la fois', () => {

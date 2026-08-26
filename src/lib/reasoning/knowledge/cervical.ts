@@ -184,7 +184,7 @@ export const CERVICAL_HYPOTHESES: HypothesisDefinition[] = [
       {
         when: { atLeast: 4, among: CLUSTER_WAINNER },
         label: 'cluster de Wainner complet',
-        lr: { positive: 30.3, source: 'Wainner et al., Spine 2003;28(1):52-62 — Sp 0,99' },
+        lr: { positive: 30.3, source: 'wainner.2003' },
       },
       {
         when: {
@@ -194,7 +194,7 @@ export const CERVICAL_HYPOTHESES: HypothesisDefinition[] = [
           ],
         },
         label: 'trois critères de Wainner sur quatre',
-        lr: { positive: 6.1, source: 'Wainner et al., Spine 2003;28(1):52-62' },
+        lr: { positive: 6.1, source: 'wainner.2003' },
       },
       { when: 'cervical.paresthesies_bras', weight: 1, label: 'paresthésies du membre supérieur' },
     ],
@@ -256,7 +256,7 @@ export const CERVICAL_HYPOTHESES: HypothesisDefinition[] = [
         lr: {
           positive: 9.1,
           negative: 0.1,
-          source: 'Hall & Robinson, Man Ther 2004 — Sn 0,91 · Sp 0,90 pour une restriction C1-C2',
+          source: 'hall.2004',
         },
       },
     ],
@@ -281,11 +281,25 @@ export const CERVICAL_HYPOTHESES: HypothesisDefinition[] = [
     region: 'cervical',
     kind: 'exclusion',
     criteria: [
-      { when: { not: RADICULAIRE }, weight: 3, label: 'absence d\'argument pour une cause spécifique' },
+      { when: { not: RADICULAIRE }, label: 'absence d\'argument pour une cause spécifique' },
+    ],
+    actions: ['cervical.ndi', 'cervical.pas-imagerie'],
+    note: 'Diagnostic d\'exclusion : il ne se score pas, il est ce qui reste quand rien de spécifique n\'a été retenu.',
+  },
+  {
+    // Couche 4 : la stratification pronostique se lit à côté du différentiel.
+    // Un drapeau jaune isolé ne pèse pas — c'est leur accumulation qui prédit
+    // le passage à la chronicité.
+    id: 'cervical.chronicisation',
+    label: 'Risque de chronicisation',
+    region: 'cervical',
+    kind: 'profil',
+    criteria: [
       {
         when: 'psychosocial.risque_chronicisation',
-        weight: 2,
-        label: 'facteurs de risque de chronicisation identifiés',
+        weight: 10,
+        source: 'cashin.2026',
+        label: 'risque de chronicisation identifié au questionnaire',
       },
       {
         when: {
@@ -298,12 +312,18 @@ export const CERVICAL_HYPOTHESES: HypothesisDefinition[] = [
             'psychosocial.arret_travail',
           ],
         },
-        weight: 2,
+        weight: 6,
+        source: 'cashin.2026',
         label: 'au moins deux drapeaux jaunes relevés à l\'interrogatoire',
       },
+      {
+        when: 'psychosocial.arret_travail',
+        weight: 4,
+        source: 'cashin.2026',
+        label: 'arrêt de travail en cours — prédicteur d\'incapacité prolongée',
+      },
     ],
-    actions: ['cervical.ndi', 'cervical.pas-imagerie'],
-    note: 'Diagnostic d\'exclusion.',
+    actions: ['cervical.ndi'],
   },
 ]
 
