@@ -178,16 +178,40 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
   // ── Extraction des signaux ───────────────────────────────────────────────
   const tracesRef = useRef(traces)
   tracesRef.current = traces
+  const signalsRef = useRef(signals)
+  signalsRef.current = signals
+
+  /** Texte déjà soumis à l'analyse, pour n'envoyer ensuite que la suite. */
+  const texteAnalyseRef = useRef('')
 
   const extract = useCallback(
-    async (text: string) => {
+    async (text: string, { complet = false }: { complet?: boolean } = {}) => {
       if (!text.trim()) return
+
+      // Relire tout le texte à chaque segment fait grossir l'appel à mesure que
+      // l'anamnèse s'allonge, pour une information qui, elle, n'augmente que du
+      // dernier passage. On n'envoie donc que la suite, avec ce qui est déjà
+      // relevé en rappel — sauf si le praticien a réécrit en amont, auquel cas
+      // les repères ne valent plus rien et on repart du texte entier.
+      const suite = !complet && text.startsWith(texteAnalyseRef.current)
+      const CHEVAUCHEMENT = 200
+      const envoi = suite
+        ? text.slice(Math.max(0, texteAnalyseRef.current.length - CHEVAUCHEMENT))
+        : text
+      if (suite && envoi.trim().length < 15) return
+
+      const known = suite
+        ? (Object.entries(signalsRef.current) as [SignalId, boolean | undefined][])
+            .filter(([, value]) => value !== undefined)
+            .map(([id, value]) => ({ id, value: value as boolean }))
+        : []
+
       setExtracting(true)
       try {
         const res = await fetch('/api/ai/extract-signals', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, reason }),
+          body: JSON.stringify({ text: envoi, reason, known }),
         })
         const data = await res.json()
         // Une analyse qui échoue en silence est pire qu'une analyse absente :
@@ -197,6 +221,7 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
           return
         }
         setAiStatus(data.unconfigured ? 'unconfigured' : 'ok')
+        texteAnalyseRef.current = text
         const extracted = (data.signals ?? []) as { id: SignalId; value: boolean; verbatim?: string }[]
         if (extracted.length === 0) return
 
@@ -360,7 +385,7 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
   const commands: Command[] = useMemo(
     () => [
       { id: 'dictee', label: dictation.state === 'recording' ? 'Arrêter la dictée' : 'Dicter l\'anamnèse', shortcut: '⌘D', run: dictation.toggle },
-      { id: 'analyser', label: 'Relire l\'anamnèse et mettre à jour le copilote', run: () => void extract(anamnesis) },
+      { id: 'analyser', label: 'Relire toute l\'anamnèse et mettre à jour le copilote', run: () => void extract(anamnesis, { complet: true }) },
       { id: 'toolbox', label: 'Caisse à outils — questionnaires', hint: 'DN4, Oswestry, STarT Back…', run: () => { setToolboxQuestionnaire(undefined); setShowToolbox(true) } },
       { id: 'ortho', label: 'Tests orthopédiques', run: () => setShowOrthoTests(true) },
       { id: 'topo', label: 'Topographie de la douleur', run: () => setShowTopography(true) },
@@ -432,7 +457,7 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
               setExamination(restorable.examination)
               setAdvice(restorable.advice)
               setRestorable(null)
-              if (restorable.anamnesis) void extract(restorable.anamnesis)
+              if (restorable.anamnesis) void extract(restorable.anamnesis, { complet: true })
             }}
             className="text-[12px] font-semibold text-amber-900 dark:text-amber-200 hover:underline"
           >
@@ -495,7 +520,7 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
                         {anamnesis.trim() && !recording && (
                           <button
                             type="button"
-                            onClick={() => void extract(anamnesis)}
+                            onClick={() => void extract(anamnesis, { complet: true })}
                             className="flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-primary transition-colors"
                           >
                             <Sparkles className="h-3 w-3" />

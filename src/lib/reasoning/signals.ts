@@ -169,6 +169,202 @@ const definitions = {
     group: 'examen',
   },
 
+  // ── Facteurs aggravants et soulageants ────────────────────────────────────
+  // Deux praticiens ne posent pas les mêmes questions : la liste vise ce qu'un
+  // interrogatoire peut relever, pas ce que le moteur sait exploiter. Ceux qui
+  // ne départagent rien sont marqués « compte-rendu ».
+  'facteur.aggrave_flexion': {
+    label: 'aggravation en flexion antérieure',
+    group: 'douleur',
+    question: 'Se pencher en avant aggrave-t-il la douleur ?',
+    role: 'compte-rendu',
+  },
+  'facteur.aggrave_extension': {
+    label: 'aggravation en extension',
+    group: 'douleur',
+    question: 'Se cambrer en arrière aggrave-t-il la douleur ?',
+    role: 'compte-rendu',
+  },
+  'facteur.aggrave_rotation': {
+    label: 'aggravation en rotation ou torsion',
+    group: 'douleur',
+    question: 'Les mouvements de rotation aggravent-ils la douleur ?',
+    role: 'compte-rendu',
+  },
+  'facteur.aggrave_debout': {
+    label: 'aggravation en station debout prolongée',
+    group: 'douleur',
+    question: 'Rester debout longtemps aggrave-t-il la douleur ?',
+    role: 'compte-rendu',
+  },
+  'facteur.aggrave_charge': {
+    label: 'aggravation au port de charge',
+    group: 'douleur',
+    question: 'Porter une charge aggrave-t-il la douleur ?',
+    role: 'compte-rendu',
+  },
+  'facteur.aggrave_effort': {
+    label: 'aggravation à l\'effort physique',
+    group: 'douleur',
+    question: 'L\'effort physique aggrave-t-il la douleur ?',
+    role: 'compte-rendu',
+  },
+  'facteur.aggrave_stress': {
+    label: 'aggravation par le stress',
+    group: 'douleur',
+    question: 'Le stress aggrave-t-il la douleur ?',
+    role: 'compte-rendu',
+  },
+  'facteur.aggrave_couche': {
+    label: 'aggravation en position couchée',
+    group: 'douleur',
+    question: 'La position couchée aggrave-t-elle la douleur ?',
+    role: 'compte-rendu',
+  },
+  'facteur.soulage_mouvement': {
+    label: 'soulagé par le mouvement',
+    group: 'douleur',
+    question: 'Bouger soulage-t-il la douleur ?',
+    role: 'compte-rendu',
+  },
+  'facteur.soulage_chaleur': {
+    label: 'soulagé par la chaleur',
+    group: 'douleur',
+    question: 'La chaleur soulage-t-elle ?',
+    role: 'compte-rendu',
+  },
+  'facteur.soulage_froid': {
+    label: 'soulagé par le froid',
+    group: 'douleur',
+    question: 'Le froid soulage-t-il ?',
+    role: 'compte-rendu',
+  },
+  'facteur.soulage_couche': {
+    label: 'soulagé en position couchée',
+    group: 'douleur',
+    question: 'La position couchée soulage-t-elle ?',
+    role: 'compte-rendu',
+  },
+
+  // ── Rythme et évolution ───────────────────────────────────────────────────
+  'rythme.matinal': {
+    label: 'douleur prédominante le matin',
+    group: 'douleur',
+    question: 'La douleur est-elle plus forte le matin ?',
+    role: 'compte-rendu',
+  },
+  'rythme.vesperal': {
+    label: 'douleur prédominante en fin de journée',
+    group: 'douleur',
+    question: 'La douleur est-elle plus forte en fin de journée ?',
+    role: 'compte-rendu',
+  },
+  'rythme.permanente': {
+    label: 'douleur permanente',
+    negativeLabel: 'douleur intermittente',
+    group: 'douleur',
+    question: 'La douleur est-elle permanente, ou va-t-elle et vient-elle ?',
+    role: 'compte-rendu',
+  },
+  'evolution.aggravation': {
+    label: 'aggravation progressive depuis le début',
+    group: 'douleur',
+    question: 'La douleur s\'aggrave-t-elle depuis le début ?',
+    role: 'compte-rendu',
+  },
+  'evolution.amelioration': {
+    label: 'amélioration spontanée en cours',
+    group: 'douleur',
+    question: 'La douleur s\'améliore-t-elle spontanément ?',
+    role: 'compte-rendu',
+  },
+
+  // ── Antécédents et prise en charge ────────────────────────────────────────
+  'antecedent.chirurgie_rachis': {
+    label: 'antécédent de chirurgie rachidienne',
+    group: 'terrain',
+    question: 'Y a-t-il eu une chirurgie du rachis par le passé ?',
+    role: 'compte-rendu',
+  },
+  'antecedent.imagerie_realisee': {
+    label: 'imagerie déjà réalisée pour ce motif',
+    group: 'general',
+    question: 'Une imagerie a-t-elle déjà été faite pour ce problème ?',
+    role: 'compte-rendu',
+  },
+  'antecedent.prise_en_charge_anterieure': {
+    label: 'prise en charge antérieure pour ce motif (kiné, ostéopathie)',
+    group: 'general',
+    question: 'Y a-t-il eu une prise en charge antérieure pour ce motif ?',
+    role: 'compte-rendu',
+  },
+  'traitement.ains': {
+    label: 'anti-inflammatoires en cours',
+    group: 'general',
+    question: 'Le patient prend-il des anti-inflammatoires ?',
+    role: 'compte-rendu',
+  },
+  'traitement.myorelaxant': {
+    label: 'myorelaxant en cours',
+    group: 'general',
+    question: 'Le patient prend-il un myorelaxant ?',
+    role: 'compte-rendu',
+  },
+
+  // ── Contexte professionnel et sportif ─────────────────────────────────────
+  'contexte.charges_travail': {
+    label: 'port de charges au travail',
+    group: 'psychosocial',
+    question: 'Le travail impose-t-il du port de charges ?',
+    role: 'compte-rendu',
+  },
+  'contexte.postures_prolongees': {
+    label: 'postures prolongées ou statiques au travail',
+    group: 'psychosocial',
+    question: 'Le travail impose-t-il des postures prolongées ?',
+    role: 'compte-rendu',
+  },
+  'contexte.travail_ecran': {
+    label: 'travail sur écran prolongé',
+    group: 'psychosocial',
+    question: 'Le travail se fait-il longuement sur écran ?',
+    role: 'compte-rendu',
+  },
+  'contexte.conduite_prolongee': {
+    label: 'conduite prolongée',
+    group: 'psychosocial',
+    question: 'Y a-t-il de longs trajets en voiture ?',
+    role: 'compte-rendu',
+  },
+  'contexte.activite_sportive': {
+    label: 'activité sportive régulière',
+    group: 'psychosocial',
+    question: 'Y a-t-il une activité sportive régulière ?',
+    role: 'compte-rendu',
+  },
+
+  // ── Drapeaux jaunes, relevés à l'interrogatoire ───────────────────────────
+  'psychosocial.peur_mouvement': {
+    label: 'peur du mouvement exprimée',
+    group: 'psychosocial',
+    question: 'Le patient évite-t-il de bouger par peur d\'aggraver ?',
+  },
+  'psychosocial.croyance_lesion_grave': {
+    label: 'conviction d\'une lésion grave',
+    group: 'psychosocial',
+    question: 'Le patient pense-t-il avoir quelque chose de grave ?',
+  },
+  'psychosocial.stress_anxiete': {
+    label: 'stress ou anxiété exprimés',
+    group: 'psychosocial',
+    question: 'Le patient évoque-t-il du stress ou de l\'anxiété ?',
+  },
+  'psychosocial.insatisfaction_travail': {
+    label: 'insatisfaction au travail',
+    group: 'psychosocial',
+    question: 'Le patient est-il satisfait de sa situation professionnelle ?',
+  },
+
   // ── Rachis lombaire ───────────────────────────────────────────────────────
   'lombaire.duree_aigue': {
     label: 'épisode aigu de moins de 8 semaines',
@@ -237,6 +433,22 @@ const definitions = {
     label: 'épisodes lombaires antérieurs',
     group: 'general',
     question: 'Y a-t-il déjà eu des épisodes du même type ?',
+  },
+  'lombaire.irradiation_anterieure_cuisse': {
+    label: 'irradiation à la face antérieure de cuisse ou à l\'aine',
+    group: 'topographie',
+    question: 'La douleur descend-elle devant la cuisse ou vers l\'aine ?',
+  },
+  'lombaire.faiblesse_ressentie_jambe': {
+    label: 'sensation de faiblesse dans la jambe',
+    group: 'neurologique',
+    question: 'Le patient ressent-il une faiblesse dans la jambe ?',
+  },
+  'lombaire.boiterie': {
+    label: 'boiterie',
+    group: 'general',
+    question: 'Y a-t-il une boiterie ?',
+    role: 'compte-rendu',
   },
   'lombaire.rythme_inflammatoire': {
     label: 'rythme inflammatoire',
@@ -362,6 +574,41 @@ const definitions = {
     label: 'atteinte neurologique objectivée (WAD grade III)',
     group: 'neurologique',
     implies: ['cervical.whiplash'],
+  },
+  'cervical.vertiges': {
+    label: 'vertiges ou instabilité',
+    group: 'general',
+    question: 'Y a-t-il des vertiges ou une sensation d\'instabilité ?',
+  },
+  'cervical.acouphenes': {
+    label: 'acouphènes',
+    group: 'general',
+    question: 'Y a-t-il des acouphènes ?',
+    role: 'compte-rendu',
+  },
+  'cervical.craquements': {
+    label: 'craquements ou crépitations cervicales',
+    group: 'general',
+    question: 'Y a-t-il des craquements dans le cou ?',
+    role: 'compte-rendu',
+  },
+  'cervical.irradiation_occiput': {
+    label: 'irradiation vers l\'occiput',
+    group: 'topographie',
+    question: 'La douleur remonte-t-elle vers l\'arrière du crâne ?',
+    role: 'compte-rendu',
+  },
+  'cervical.irradiation_omoplate': {
+    label: 'irradiation vers l\'omoplate',
+    group: 'topographie',
+    question: 'La douleur descend-elle vers l\'omoplate ?',
+    role: 'compte-rendu',
+  },
+  'cervical.limitation_ressentie': {
+    label: 'limitation de mobilité ressentie',
+    group: 'general',
+    question: 'Le patient sent-il son cou plus raide ou limité ?',
+    role: 'compte-rendu',
   },
   'cervical.rythme_inflammatoire': {
     label: 'rythme inflammatoire cervical',

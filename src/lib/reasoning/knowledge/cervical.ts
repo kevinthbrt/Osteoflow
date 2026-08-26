@@ -266,6 +266,20 @@ export const CERVICAL_HYPOTHESES: HypothesisDefinition[] = [
         weight: 2,
         label: 'facteurs de risque de chronicisation identifiés',
       },
+      {
+        when: {
+          atLeast: 2,
+          among: [
+            'psychosocial.peur_mouvement',
+            'psychosocial.croyance_lesion_grave',
+            'psychosocial.stress_anxiete',
+            'psychosocial.insatisfaction_travail',
+            'psychosocial.arret_travail',
+          ],
+        },
+        weight: 2,
+        label: 'au moins deux drapeaux jaunes relevés à l\'interrogatoire',
+      },
     ],
     actions: ['cervical.ndi', 'cervical.pas-imagerie'],
     note: 'Diagnostic d\'exclusion.',

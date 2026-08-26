@@ -67,6 +67,22 @@ const NEOPLASIE_SANS_ANTECEDENT: SignalExpr = {
   all: [{ not: 'terrain.antecedent_cancer' }, { atLeast: 2, among: [...FACTEURS_NEOPLASIE] }],
 }
 
+/**
+ * Drapeaux jaunes relevés à l'interrogatoire. Le STarT Back les mesure mieux,
+ * mais il n'est pas toujours passé : deux de ces éléments dans l'anamnèse
+ * suffisent à faire pencher la prise en charge vers un abord cognitif.
+ */
+const DRAPEAUX_JAUNES: SignalExpr = {
+  atLeast: 2,
+  among: [
+    'psychosocial.peur_mouvement',
+    'psychosocial.croyance_lesion_grave',
+    'psychosocial.stress_anxiete',
+    'psychosocial.insatisfaction_travail',
+    'psychosocial.arret_travail',
+  ],
+}
+
 const PORTE_ENTREE_INFECTIEUSE: SignalExpr = {
   any: ['terrain.drogues_iv', 'terrain.catheter_infection_recente'],
 }
@@ -254,6 +270,8 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
     requires: RADICULAIRE,
     criteria: [
       { when: RADICULAIRE, weight: 10, label: 'irradiation sous le genou avec jambe plus douloureuse que le dos' },
+      { when: 'lombaire.faiblesse_ressentie_jambe', weight: 2, label: 'faiblesse ressentie dans la jambe' },
+      { when: 'lombaire.deficit_moteur', weight: 4, label: 'déficit moteur objectivé' },
     ],
     actions: ['lombaire.lasegue', 'lombaire.examen-neurologique', 'lombaire.dn4'],
   },
@@ -358,6 +376,11 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
         when: 'lombaire.episodes_anterieurs',
         weight: 1,
         label: 'épisodes antérieurs — la récidive est la règle dans la lombalgie commune',
+      },
+      {
+        when: DRAPEAUX_JAUNES,
+        weight: 2,
+        label: 'au moins deux drapeaux jaunes relevés à l\'interrogatoire',
       },
     ],
     actions: ['lombaire.start-back', 'lombaire.eifel', 'lombaire.pas-imagerie'],

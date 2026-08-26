@@ -10,6 +10,7 @@ import {
   activeHypotheses,
   applySignal,
   evaluate,
+  isReasoningSignal,
   negativeLabel,
   openSignalsOf,
   reason,
@@ -755,5 +756,41 @@ describe('formulation de ce qui est écarté', () => {
       'pas de contusion ou abrasion cutanée en regard du rachis',
     )
     expect(negativeLabel('lombaire.unilateral')).toBe('pas d\'atteinte unilatérale')
+  })
+})
+
+describe('drapeaux jaunes relevés à l\'interrogatoire', () => {
+  it('pèsent à partir de deux éléments, pas d\'un seul', () => {
+    const score = (signals: Record<string, boolean>) =>
+      reason({ signals, hypotheses: LUMBAR_HYPOTHESES }).hypotheses.find(
+        (h) => h.id === 'lombaire.non-specifique',
+      )!.score
+    const base = { 'lombaire.irradiation_jambe': false, 'lombaire.rythme_inflammatoire': false }
+    const aucun = score({ ...base })
+    const un = score({ ...base, 'psychosocial.peur_mouvement': true })
+    const deux = score({
+      ...base,
+      'psychosocial.peur_mouvement': true,
+      'psychosocial.stress_anxiete': true,
+    })
+    expect(un).toBe(aucun)
+    expect(deux).toBeGreaterThan(aucun)
+  })
+})
+
+describe('rôle des signaux', () => {
+  it('distingue ce qui sert au raisonnement de ce qui sert au compte rendu', () => {
+    expect(isReasoningSignal('lombaire.irradiation_sous_genou')).toBe(true)
+    expect(isReasoningSignal('facteur.soulage_chaleur')).toBe(false)
+    expect(isReasoningSignal('contexte.travail_ecran')).toBe(false)
+  })
+
+  it('garde une question pour tout signal qui se demande au patient', () => {
+    // Un signal de compte rendu sans question ne serait jamais renseigné
+    // autrement que par la dictée : c'est acceptable, mais pas silencieusement.
+    const sansQuestion = Object.entries(SIGNALS)
+      .filter(([, d]) => d.role === 'compte-rendu' && !d.question)
+      .map(([id]) => id)
+    expect(sansQuestion).toEqual(['terrain.grossesse'])
   })
 })

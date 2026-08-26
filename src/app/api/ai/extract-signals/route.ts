@@ -43,7 +43,13 @@ Règles absolues :
   reformuler. C'est ce qui permet au praticien de vérifier.
 - Dans le doute, n'extrais pas. Un signal faux coûte plus cher qu'un signal
   manquant : il oriente le raisonnement dans une mauvaise direction.
-- Aucun texte avant ou après le JSON.`
+- Aucun texte avant ou après le JSON.
+
+Quand une liste « déjà relevé » accompagne le texte, celui-ci est la suite de
+l'anamnèse et non son intégralité. Ne renvoie alors que ce que ce passage
+ajoute ou contredit : un signal déjà relevé et simplement répété n'a pas à
+figurer dans la réponse, un signal déjà relevé que ce passage contredit doit y
+figurer avec sa nouvelle valeur.`
 
 export interface ExtractedSignal {
   id: string
@@ -75,15 +81,22 @@ function sanitize(raw: unknown): ExtractedSignal[] {
     }))
 }
 
+/** Rappel compact de ce qui est déjà relevé, pour ne pas le faire redire. */
+function knownBlock(known: ExtractedSignal[]): string {
+  if (known.length === 0) return ''
+  return `Déjà relevé :\n${known.map((signal) => `${signal.id} = ${signal.value}`).join('\n')}\n\n`
+}
+
 async function extractViaProxy(
   text: string,
   reason: string | undefined,
   secret: string,
+  known: ExtractedSignal[],
 ): Promise<ExtractedSignal[]> {
   const res = await fetch(PROXY_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-osteoflow-secret': secret },
-    body: JSON.stringify({ text, reason, vocabulary: vocabulary() }),
+    body: JSON.stringify({ text, reason, known, vocabulary: vocabulary() }),
     signal: AbortSignal.timeout(50000),
   })
   if (!res.ok) throw new Error(`Proxy error ${res.status}: ${await res.text()}`)
@@ -95,6 +108,7 @@ async function extractViaAnthropic(
   text: string,
   reason: string | undefined,
   apiKey: string,
+  known: ExtractedSignal[],
 ): Promise<ExtractedSignal[]> {
   const vocabularyText = `Vocabulaire (${Object.keys(SIGNALS).length} signaux) :\n${vocabulary()
     .map((entry) => `${entry.id} = ${entry.label}`)
@@ -119,7 +133,9 @@ async function extractViaAnthropic(
       messages: [
         {
           role: 'user',
-          content: `${reason ? `Motif de consultation : ${reason}\n\n` : ''}Anamnèse :\n${text}`,
+          content: `${reason ? `Motif de consultation : ${reason}\n\n` : ''}${knownBlock(known)}${
+            known.length > 0 ? 'Suite de l\'anamnèse' : 'Anamnèse'
+          } :\n${text}`,
         },
       ],
     }),
@@ -144,17 +160,25 @@ async function extractViaAnthropic(
 
 export async function POST(req: Request) {
   try {
-    const { text, reason } = (await req.json()) as { text?: string; reason?: string }
+    const body = (await req.json()) as {
+      text?: string
+      reason?: string
+      known?: ExtractedSignal[]
+    }
+    const { text, reason } = body
     if (!text?.trim()) return NextResponse.json({ signals: [] })
+    const known = sanitize(body.known)
 
     const proxySecret = process.env.OSTEOFLOW_PROXY_SECRET
     const anthropicKey = process.env.ANTHROPIC_API_KEY
 
     if (proxySecret) {
-      return NextResponse.json({ signals: await extractViaProxy(text, reason, proxySecret) })
+      return NextResponse.json({ signals: await extractViaProxy(text, reason, proxySecret, known) })
     }
     if (anthropicKey) {
-      return NextResponse.json({ signals: await extractViaAnthropic(text, reason, anthropicKey) })
+      return NextResponse.json({
+        signals: await extractViaAnthropic(text, reason, anthropicKey, known),
+      })
     }
     // Sans configuration IA, le copilote fonctionne quand même : le praticien
     // répond lui-même aux questions proposées.
