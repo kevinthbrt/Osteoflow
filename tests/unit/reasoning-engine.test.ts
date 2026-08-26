@@ -10,6 +10,7 @@ import {
   activeHypotheses,
   applySignal,
   evaluate,
+  negativeLabel,
   openSignalsOf,
   reason,
   scoreHypothesis,
@@ -565,7 +566,10 @@ describe('mise en forme du relevé', () => {
     })
     expect(summary.present.map((entry) => entry.label)).toEqual(['Topographie', 'Douleur'])
     expect(summary.present[0].items.map((item) => item.label)).toEqual(['irradiation sous le genou'])
-    expect(summary.absent.map((item) => item.label)).toEqual(['fièvre', 'antécédent de cancer'])
+    expect(summary.absent.map((item) => item.label)).toEqual([
+      'pas de fièvre',
+      'pas d\'antécédent de cancer',
+    ])
   })
 
   it('ignore ce qui n\'a pas été exploré', () => {
@@ -583,6 +587,8 @@ describe('ce que le dossier sait déjà', () => {
       'terrain.age_plus_70': false,
       'terrain.sexe_feminin': true,
     })
+    expect(signalsFromRecord(30, 'F', '2099-01-01')['terrain.grossesse']).toBe(true)
+    expect(signalsFromRecord(30, 'F', '2000-01-01')['terrain.grossesse']).toBe(false)
     expect(signalsFromRecord(72, 'M')).toEqual({
       'terrain.age_moins_60': false,
       'terrain.age_plus_65': true,
@@ -722,5 +728,32 @@ describe('règles fondées sur la littérature', () => {
     expect(score({ ...base, 'lombaire.lasegue_positif': false })).toBeLessThan(
       score({ ...base, 'lombaire.lasegue_positif': true }),
     )
+  })
+})
+
+describe('formulation de ce qui est écarté', () => {
+  it('énonce la négation, pas le libellé affirmatif', () => {
+    const summary = summariseSignals({ 'general.fievre': false, 'lombaire.irradiation_jambe': false })
+    expect(summary.absent.map((item) => item.label)).toEqual([
+      'pas de fièvre',
+      'pas d\'irradiation dans la jambe',
+    ])
+  })
+
+  it('utilise la formulation propre du signal quand la négation dit autre chose', () => {
+    // Le patient a dit que les antalgiques le soulagent : c'est cela qu'il faut
+    // lire, pas l'absence de « douleur persistante malgré le traitement ».
+    expect(negativeLabel('general.douleur_persistante_traitement')).toBe(
+      'soulagé par le traitement antalgique',
+    )
+    expect(negativeLabel('lombaire.lasegue_positif')).toBe('Lasègue négatif')
+    expect(negativeLabel('terrain.sexe_feminin')).toBe('sexe masculin')
+  })
+
+  it('élide correctement devant une voyelle', () => {
+    expect(negativeLabel('general.contusion_abrasion')).toBe(
+      'pas de contusion ou abrasion cutanée en regard du rachis',
+    )
+    expect(negativeLabel('lombaire.unilateral')).toBe('pas d\'atteinte unilatérale')
   })
 })

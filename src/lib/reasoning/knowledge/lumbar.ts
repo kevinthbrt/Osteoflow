@@ -349,6 +349,16 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
         weight: 2,
         label: 'drapeaux jaunes au premier plan — abord cognitif à associer au traitement',
       },
+      {
+        when: 'psychosocial.arret_travail',
+        weight: 2,
+        label: 'arrêt de travail en cours — prédicteur d\'incapacité prolongée',
+      },
+      {
+        when: 'lombaire.episodes_anterieurs',
+        weight: 1,
+        label: 'épisodes antérieurs — la récidive est la règle dans la lombalgie commune',
+      },
     ],
     actions: ['lombaire.start-back', 'lombaire.eifel', 'lombaire.pas-imagerie'],
     note: 'Diagnostic d\'exclusion : 80 à 90 % des lombalgies.',

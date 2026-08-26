@@ -28,10 +28,17 @@ export type DictationState = 'idle' | 'recording' | 'transcribing' | 'error'
 
 /** En dessous, on considère que personne ne parle. */
 const SILENCE_RMS = 0.015
-/** Durée de silence qui déclenche l'envoi d'un segment. */
-const SILENCE_MS = 700
-const MIN_SEGMENT_MS = 8_000
-const MAX_SEGMENT_MS = 40_000
+/**
+ * Durée de silence qui déclenche l'envoi d'un segment.
+ *
+ * Dans un échange à deux, les blancs entre tours de parole durent quelques
+ * centaines de millisecondes seulement : attendre plus long revient à
+ * n'envoyer un segment qu'en fin de consultation. On se cale juste au-dessus
+ * des pauses intra-phrase, qui tournent autour de 200 à 250 ms.
+ */
+const SILENCE_MS = 380
+const MIN_SEGMENT_MS = 3_500
+const MAX_SEGMENT_MS = 20_000
 /** Longueur du contexte transmis à Whisper d'un segment à l'autre. */
 const CONTEXT_CHARS = 300
 

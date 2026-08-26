@@ -30,6 +30,21 @@ export interface SignalDefinition {
   /** Libellé court, pour un bouton dans une question à choix. */
   choiceLabel?: string
   /**
+   * Formulation quand le signal est faux. Une négation porte souvent une
+   * information clinique à part entière : « soulagé par le traitement » n'est
+   * pas la même chose que l'absence de « douleur persistante malgré le
+   * traitement », et c'est la première formulation que le patient a dite.
+   * Sans elle, on rend une double négation illisible.
+   */
+  negativeLabel?: string
+  /**
+   * Un signal « compte-rendu » est relevé pour le dossier, pas pour trancher :
+   * le geste déclenchant ou l'arrêt de travail décrivent le tableau sans
+   * départager deux hypothèses. Les distinguer évite de les compter comme des
+   * oublis dans le raisonnement.
+   */
+  role?: 'raisonnement' | 'compte-rendu'
+  /**
    * Signaux nécessairement vrais si celui-ci l'est. Une douleur qui descend
    * sous le genou descend dans la jambe : inutile de poser les deux questions.
    */
@@ -47,10 +62,15 @@ export interface SignalDefinition {
 
 const definitions = {
   // ── Terrain ───────────────────────────────────────────────────────────────
-  'terrain.age_moins_60': { label: 'âge inférieur à 60 ans', group: 'terrain' },
-  'terrain.age_plus_65': { label: 'âge supérieur à 65 ans', group: 'terrain' },
-  'terrain.age_plus_70': { label: 'âge supérieur à 70 ans', group: 'terrain' },
-  'terrain.sexe_feminin': { label: 'sexe féminin', group: 'terrain' },
+  'terrain.age_moins_60': { label: 'âge inférieur à 60 ans', negativeLabel: '60 ans ou plus', group: 'terrain' },
+  'terrain.age_plus_65': { label: 'âge supérieur à 65 ans', negativeLabel: 'moins de 65 ans', group: 'terrain' },
+  'terrain.age_plus_70': { label: 'âge supérieur à 70 ans', negativeLabel: 'moins de 70 ans', group: 'terrain' },
+  'terrain.sexe_feminin': { label: 'sexe féminin', negativeLabel: 'sexe masculin', group: 'terrain' },
+  'terrain.grossesse': {
+    label: 'grossesse en cours',
+    group: 'terrain',
+    role: 'compte-rendu',
+  },
   'terrain.age_50_facteurs_cancer': {
     label: 'plus de 50 ans avec facteurs de risque de cancer',
     group: 'terrain',
@@ -114,8 +134,21 @@ const definitions = {
   },
   'general.douleur_persistante_traitement': {
     label: 'douleur persistante malgré le traitement',
+    negativeLabel: 'soulagé par le traitement antalgique',
     group: 'douleur',
     question: 'La douleur persiste-t-elle ou s\'aggrave-t-elle malgré le traitement depuis plus d\'un mois ?',
+  },
+  'general.soulage_repos': {
+    label: 'soulagé par le repos',
+    group: 'douleur',
+    question: 'Le repos soulage-t-il la douleur ?',
+    role: 'compte-rendu',
+  },
+  'general.sommeil_perturbe': {
+    label: 'sommeil perturbé par la douleur',
+    group: 'douleur',
+    question: 'La douleur perturbe-t-elle le sommeil ?',
+    role: 'compte-rendu',
   },
   'general.traumatisme_recent': {
     label: 'traumatisme récent',
@@ -139,6 +172,7 @@ const definitions = {
   // ── Rachis lombaire ───────────────────────────────────────────────────────
   'lombaire.duree_aigue': {
     label: 'épisode aigu de moins de 8 semaines',
+    negativeLabel: 'évolution de plus de 8 semaines',
     group: 'douleur',
     question: 'La douleur évolue-t-elle depuis moins de 8 semaines ?',
   },
@@ -193,6 +227,17 @@ const definitions = {
     group: 'douleur',
     question: 'La toux ou l\'éternuement réveillent-ils la douleur ?',
   },
+  'lombaire.geste_declenchant': {
+    label: 'geste déclenchant identifié (port de charge, faux mouvement)',
+    group: 'general',
+    question: 'La douleur a-t-elle démarré sur un geste précis, un port de charge ou un faux mouvement ?',
+    role: 'compte-rendu',
+  },
+  'lombaire.episodes_anterieurs': {
+    label: 'épisodes lombaires antérieurs',
+    group: 'general',
+    question: 'Y a-t-il déjà eu des épisodes du même type ?',
+  },
   'lombaire.rythme_inflammatoire': {
     label: 'rythme inflammatoire',
     group: 'douleur',
@@ -246,14 +291,17 @@ const definitions = {
   },
   'lombaire.centralisation': {
     label: 'phénomène de centralisation aux mouvements répétés',
+    negativeLabel: 'absence de centralisation aux mouvements répétés',
     group: 'examen',
   },
   'lombaire.lasegue_positif': {
     label: 'Lasègue positif',
+    negativeLabel: 'Lasègue négatif',
     group: 'examen',
   },
   'lombaire.lasegue_croise_positif': {
     label: 'Lasègue croisé positif',
+    negativeLabel: 'Lasègue croisé négatif',
     group: 'examen',
   },
   'lombaire.deficit_moteur': {
@@ -268,6 +316,7 @@ const definitions = {
   // ── Rachis cervical ───────────────────────────────────────────────────────
   'cervical.duree_aigue': {
     label: 'épisode aigu de moins de 8 semaines',
+    negativeLabel: 'évolution de plus de 8 semaines',
     group: 'douleur',
     question: 'La cervicalgie évolue-t-elle depuis moins de 8 semaines ?',
   },
@@ -353,22 +402,27 @@ const definitions = {
   },
   'cervical.spurling_positif': {
     label: 'Spurling positif',
+    negativeLabel: 'Spurling négatif',
     group: 'examen',
   },
   'cervical.distraction_positif': {
     label: 'test de distraction cervicale positif',
+    negativeLabel: 'test de distraction cervicale négatif',
     group: 'examen',
   },
   'cervical.ulnt_positif': {
     label: 'test de tension neurale du membre supérieur positif',
+    negativeLabel: 'test de tension neurale du membre supérieur négatif',
     group: 'examen',
   },
   'cervical.rotation_limitee_60': {
     label: 'rotation cervicale limitée à moins de 60° du côté atteint',
+    negativeLabel: 'rotation cervicale conservée au-delà de 60°',
     group: 'examen',
   },
   'cervical.frt_positif': {
     label: 'flexion-rotation test positif',
+    negativeLabel: 'flexion-rotation test négatif',
     group: 'examen',
   },
   'cervical.cephalee_brutale': {
@@ -388,6 +442,11 @@ const definitions = {
   },
 
   // ── Psychosocial ──────────────────────────────────────────────────────────
+  'psychosocial.arret_travail': {
+    label: 'arrêt de travail en cours',
+    group: 'psychosocial',
+    question: 'Y a-t-il un arrêt de travail en cours ?',
+  },
   'psychosocial.drapeaux_jaunes_2plus': {
     label: 'au moins 2 drapeaux jaunes',
     group: 'psychosocial',
@@ -435,11 +494,27 @@ export interface SignalSummary {
 }
 
 /**
- * Met le relevé en forme pour l'affichage.
+ * Formulation d'un signal écarté.
  *
- * Le présent et l'absent sont séparés plutôt que niés dans le texte : « pas de
- * fièvre » se formule mal en français à partir d'un libellé affirmatif, et un
- * compte rendu clinique ne peut pas se permettre une négation ambiguë.
+ * Afficher le libellé affirmatif sous un intertitre « Écarté » fait lire
+ * l'inverse de ce que le patient a dit : « douleur persistante malgré le
+ * traitement » rangé dans les absents se comprend de travers, alors que le
+ * patient a simplement dit que les antalgiques le soulagent. On énonce donc la
+ * négation, avec la formulation propre du signal quand elle existe.
+ */
+export function negativeLabel(id: SignalId): string {
+  const definition = definitions[id] as SignalDefinition | undefined
+  if (!definition) return id
+  if (definition.negativeLabel) return definition.negativeLabel
+  // Élision devant voyelle ou h muet : « pas d'irradiation », « pas de fièvre ».
+  const elide = /^[aeiouyàâäéèêëîïôöûüh]/i.test(definition.label)
+  return `pas ${elide ? "d'" : 'de '}${definition.label}`
+}
+
+/**
+ * Met le relevé en forme pour l'affichage. Le présent et l'écarté sont séparés
+ * et chacun est énoncé dans sa propre formulation : un signe recherché et
+ * absent est une information clinique à part entière, pas un trou.
  */
 export function summariseSignals(signals: SignalSet): SignalSummary {
   const present = new Map<SignalGroup, { id: SignalId; label: string }[]>()
@@ -453,7 +528,7 @@ export function summariseSignals(signals: SignalSet): SignalSummary {
       bucket.push({ id, label: definition.label })
       present.set(definition.group, bucket)
     } else {
-      absent.push({ id, label: definition.label })
+      absent.push({ id, label: negativeLabel(id) })
     }
   }
 
@@ -495,7 +570,11 @@ export function exclusiveGroupOf(id: SignalId): string | undefined {
  * Poser au praticien une question dont la réponse est dans la fiche est la
  * façon la plus sûre de faire perdre confiance à un copilote.
  */
-export function signalsFromRecord(age: number, gender?: string | null): SignalSet {
+export function signalsFromRecord(
+  age: number,
+  gender?: string | null,
+  pregnancyDueDate?: string | null,
+): SignalSet {
   const signals: SignalSet = {
     'terrain.age_moins_60': age < 60,
     'terrain.age_plus_65': age > 65,
@@ -504,7 +583,17 @@ export function signalsFromRecord(age: number, gender?: string | null): SignalSe
   // Le sexe féminin fait partie de la combinaison validée pour la fracture
   // vertébrale (Downie 2013) ; il est dans la fiche patient.
   if (gender === 'F' || gender === 'M') signals['terrain.sexe_feminin'] = gender === 'F'
+  // La grossesse change la prise en charge : elle est dans la fiche, on la lit.
+  if (pregnancyDueDate) {
+    const terme = new Date(pregnancyDueDate).getTime()
+    if (!Number.isNaN(terme)) signals['terrain.grossesse'] = terme > Date.now()
+  }
   return signals
+}
+
+/** Un signal sert-il au raisonnement, ou seulement au compte rendu ? */
+export function isReasoningSignal(id: SignalId): boolean {
+  return (definitions[id] as SignalDefinition | undefined)?.role !== 'compte-rendu'
 }
 
 export function signalLabel(id: SignalId): string {

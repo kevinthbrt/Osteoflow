@@ -104,8 +104,13 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
   // Âge et sexe sont dans le dossier : les demander ferait perdre confiance au
   // copilote, et le sexe entre dans la combinaison validée pour la fracture.
   const fromRecord = useMemo(
-    () => signalsFromRecord(calculateAge(patient.birth_date), patient.gender),
-    [patient.birth_date, patient.gender],
+    () =>
+      signalsFromRecord(
+        calculateAge(patient.birth_date),
+        patient.gender,
+        patient.pregnancy_due_date,
+      ),
+    [patient.birth_date, patient.gender, patient.pregnancy_due_date],
   )
   const [signals, setSignals] = useState<Partial<Record<SignalId, boolean>>>(() => fromRecord)
   const [traces, setTraces] = useState<Partial<Record<SignalId, SignalTrace>>>(() =>
@@ -224,6 +229,46 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
     [reason],
   )
 
+  /**
+   * Cadence de l'analyse, distincte de celle de la transcription.
+   *
+   * Les segments partent toutes les quelques secondes pour que le texte suive
+   * la parole. Relancer l'analyse à chaque segment ferait des dizaines
+   * d'appels sur un texte qui ne cesse de croître, pour un copilote qui bouge
+   * à peine entre deux. On analyse donc peu après que la parole s'arrête, et
+   * au moins une fois toutes les douze secondes si elle ne s'arrête pas.
+   */
+  const ANALYSE_APRES_SILENCE_MS = 2_500
+  const ANALYSE_AU_PLUS_TARD_MS = 12_000
+
+  const analyseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const derniereAnalyseRef = useRef(0)
+  const texteEnAttenteRef = useRef('')
+
+  const scheduleExtraction = useCallback(
+    (text: string) => {
+      texteEnAttenteRef.current = text
+      const run = () => {
+        derniereAnalyseRef.current = Date.now()
+        void extract(texteEnAttenteRef.current)
+      }
+      if (analyseTimerRef.current) clearTimeout(analyseTimerRef.current)
+      if (Date.now() - derniereAnalyseRef.current >= ANALYSE_AU_PLUS_TARD_MS) {
+        run()
+        return
+      }
+      analyseTimerRef.current = setTimeout(run, ANALYSE_APRES_SILENCE_MS)
+    },
+    [extract],
+  )
+
+  useEffect(
+    () => () => {
+      if (analyseTimerRef.current) clearTimeout(analyseTimerRef.current)
+    },
+    [],
+  )
+
   const dictation = useDictation({
     onText: (text) => {
       setAnamnesis((current) => {
@@ -231,7 +276,7 @@ export function ConsultationCockpit({ patient, onUseClassicForm }: ConsultationC
         // On réanalyse le texte entier plutôt que le seul segment : une phrase
         // à cheval sur deux segments se relit correctement, et une extraction
         // ratée se rattrape au passage suivant.
-        void extract(combined)
+        scheduleExtraction(combined)
         return combined
       })
     },
