@@ -629,18 +629,33 @@ function rankActions(
   const ordreDe = (action: ActionDefinition) =>
     (urgent.has(action.id) ? KIND_ORDER_URGENT[action.kind] : KIND_ORDER[action.kind]) ?? 9
 
-  return [...suggestions.values()]
-    .sort(
-      (a, b) =>
-        // Une orientation urgente d'abord, puis ce qui départage le plus, puis
-        // les suites propres à l'hypothèse de tête.
-        Number(urgent.has(b.action.id)) - Number(urgent.has(a.action.id)) ||
-        b.value - a.value ||
-        ordreDe(a.action) - ordreDe(b.action) ||
-        Number(leaderActions.has(b.action.id)) - Number(leaderActions.has(a.action.id)) ||
-        a.action.label.localeCompare(b.action.label, 'fr'),
+  /**
+   * Ce qui vient d'abord.
+   *
+   * Hors urgence : ce qui départage le plus, puis l'ordre naturel de la
+   * consultation — on demande, on examine, on documente.
+   *
+   * Sous drapeau rouge, l'ordre s'inverse et passe avant la valeur. La conduite
+   * est déjà décidée : proposer l'examen qui l'affine avant l'orientation
+   * elle-même invite à rester dans la pièce alors qu'il faut en sortir.
+   */
+  const comparer = (a: SuggestedAction, b: SuggestedAction): number => {
+    const urgentA = urgent.has(a.action.id)
+    const urgentB = urgent.has(b.action.id)
+    if (urgentA !== urgentB) return Number(urgentB) - Number(urgentA)
+
+    const parNature = ordreDe(a.action) - ordreDe(b.action)
+    const parValeur = b.value - a.value
+    const departage = urgentA ? parNature || parValeur : parValeur || parNature
+
+    return (
+      departage ||
+      Number(leaderActions.has(b.action.id)) - Number(leaderActions.has(a.action.id)) ||
+      a.action.label.localeCompare(b.action.label, 'fr')
     )
-    .slice(0, limit)
+  }
+
+  return [...suggestions.values()].sort(comparer).slice(0, limit)
 }
 
 /**

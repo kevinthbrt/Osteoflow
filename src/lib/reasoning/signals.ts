@@ -167,6 +167,7 @@ const definitions = {
   'general.douleur_mediane_epineuse': {
     label: 'douleur très localisée sur les épineuses',
     group: 'examen',
+    implies: ['lombaire.localisation_mediane'],
   },
 
   // ── Facteurs aggravants et soulageants ────────────────────────────────────
@@ -433,6 +434,12 @@ const definitions = {
     label: 'épisodes lombaires antérieurs',
     group: 'general',
     question: 'Y a-t-il déjà eu des épisodes du même type ?',
+  },
+  'lombaire.irradiation_fessiere': {
+    label: 'irradiation vers la fesse',
+    negativeLabel: 'pas d\'irradiation fessière',
+    group: 'topographie',
+    question: 'La douleur descend-elle dans la fesse ?',
   },
   'lombaire.irradiation_anterieure_cuisse': {
     label: 'irradiation à la face antérieure de cuisse ou à l\'aine',
@@ -744,6 +751,9 @@ const definitions = {
     label: 'démarche en steppage',
     negativeLabel: 'pas de steppage',
     group: 'examen',
+    // Un steppage est un déficit moteur du releveur, pas un signe à part : le
+    // relever, c'est objectiver le déficit. Il justifie une réorientation.
+    implies: ['lombaire.deficit_moteur'],
   },
 
   // ── Radiculopathie : items d'anamnèse (Bateman, Muscle & Nerve 2025) ──────
@@ -1191,18 +1201,45 @@ export function applySignal(
   value: boolean,
 ): SignalSet {
   const next: SignalSet = { ...signals, [id]: value }
-  if (!value) return next
 
-  // Exclusivité : désigner un siège de douleur écarte les autres.
-  const group = (definitions[id] as SignalDefinition | undefined)?.exclusive
-  if (group) {
+  if (!value) {
+    // Contraposée. Si la douleur ne descend pas dans la jambe, elle ne descend
+    // pas sous le genou ; si elle n'est pas médiane, elle n'est pas non plus
+    // très localisée sur les épineuses. Sans cette propagation, le relevé peut
+    // tenir un fait et son contraire — et le moteur produire un argument sur
+    // une absence que le patient vient de démentir.
+    const aRetirer: SignalId[] = [id]
+    const vus = new Set<string>([id])
+    while (aRetirer.length > 0) {
+      const retire = aRetirer.shift()!
+      for (const [candidate, definition] of Object.entries(definitions)) {
+        if (vus.has(candidate)) continue
+        if (!((definition as SignalDefinition).implies ?? []).includes(retire)) continue
+        vus.add(candidate)
+        next[candidate as SignalId] = false
+        aRetirer.push(candidate as SignalId)
+      }
+    }
+    return next
+  }
+
+  /** Désigner un siège de douleur écarte les autres du même groupe. */
+  const ecarterLesAutres = (retenu: SignalId) => {
+    const group = (definitions[retenu] as SignalDefinition | undefined)?.exclusive
+    if (!group) return
     for (const [candidate, definition] of Object.entries(definitions)) {
-      if (candidate !== id && (definition as SignalDefinition).exclusive === group) {
+      if (candidate !== retenu && (definition as SignalDefinition).exclusive === group) {
         next[candidate as SignalId] = false
       }
     }
   }
 
+  ecarterLesAutres(id)
+
+  // L'exclusivité suit les implications. Une douleur très localisée sur les
+  // épineuses est une douleur médiane : si le second signal ne chassait pas les
+  // autres sièges, le relevé pourrait tenir en même temps « douleur sur les
+  // épineuses » et « absence de douleur médiane ».
   const queue = [...((definitions[id] as SignalDefinition | undefined)?.implies ?? [])]
   const seen = new Set<string>([id])
   while (queue.length > 0) {
@@ -1210,6 +1247,7 @@ export function applySignal(
     if (seen.has(implied) || !(implied in definitions)) continue
     seen.add(implied)
     next[implied as SignalId] = true
+    ecarterLesAutres(implied as SignalId)
     queue.push(...((definitions[implied as SignalId] as SignalDefinition).implies ?? []))
   }
   return next

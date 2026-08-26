@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import {
+  CERVICAL_ACTIONS,
+  CERVICAL_HYPOTHESES,
   LUMBAR_HYPOTHESES,
   LUMBAR_ACTIONS,
+  SIGNALS,
+  isReasoningSignal,
+  signalsOf,
   activeHypotheses,
   applySignal,
   reason,
@@ -165,5 +170,124 @@ describe('la boucle se referme', () => {
     const result = reason({ signals, hypotheses: LUMBAR_HYPOTHESES, actions: LUMBAR_ACTIONS })
     expect(result.hypotheses[0].id).toBe('lombaire.non-specifique')
     expect(result.hypotheses[0].status).toBe('retained')
+  })
+})
+
+
+/**
+ * L'anamnèse de la seconde consultation : « une douleur vraiment centrée au
+ * milieu de la colonne, ça me fait un point assez précis », puis « ça me
+ * descend un petit peu dans la fesse à droite, mais pas plus bas ».
+ *
+ * Le relevé affichait « douleur très localisée sur les épineuses » et, dans le
+ * même différentiel, « absence de douleur lombaire médiane » — deux faits
+ * contradictoires, dont le second portait un rapport publié et faisait monter
+ * la dysfonction sacro-iliaque en tête.
+ *
+ * Cause : le vocabulaire n'avait pas de signal pour une irradiation fessière.
+ * L'extraction n'avait que le siège fessier, qui appartient au groupe exclusif
+ * des sièges de douleur — désigner la fesse chassait donc la ligne médiane.
+ */
+function anamneseMediane(): Partial<Record<SignalId, boolean>> {
+  let signals = { ...signalsFromRecord(29, 'M') }
+  signals = applySignal(signals, 'lombaire.duree_aigue', true)
+  signals = applySignal(signals, 'general.douleur_mediane_epineuse', true)
+  signals = applySignal(signals, 'lombaire.irradiation_fessiere', true)
+  signals = applySignal(signals, 'lombaire.irradiation_sous_genou', false)
+  return signals
+}
+
+describe('cohérence du relevé', () => {
+  it('distingue le siège de la douleur de son irradiation', () => {
+    const signals = anamneseMediane()
+    // La douleur siège au milieu et descend dans la fesse : les deux à la fois,
+    // ce qui est le tableau le plus banal de la lombalgie commune.
+    expect(signals['lombaire.localisation_mediane']).toBe(true)
+    expect(signals['lombaire.irradiation_fessiere']).toBe(true)
+    expect(signals['lombaire.localisation_fessiere']).toBe(false)
+  })
+
+  it('n\'affirme pas l\'absence d\'un élément que le patient vient de décrire', () => {
+    const result = reason({
+      signals: anamneseMediane(),
+      hypotheses: LUMBAR_HYPOTHESES,
+      actions: LUMBAR_ACTIONS,
+    })
+    const arguments_ = result.hypotheses.flatMap((h) => h.argumentsFor)
+    expect(arguments_.join(' ')).not.toContain('absence de douleur lombaire médiane')
+    expect(result.excluded.map((h) => h.id)).toContain('lombaire.sacro-iliaque')
+  })
+
+  it('propage la contraposée : ce qui implique un signal faux est faux', () => {
+    // Pas d'irradiation dans la jambe, donc pas sous le genou. Sans cela, le
+    // relevé peut tenir un fait et son contraire.
+    const jambe = applySignal({}, 'lombaire.irradiation_jambe', false)
+    expect(jambe['lombaire.irradiation_sous_genou']).toBe(false)
+
+    const mediane = applySignal({}, 'lombaire.localisation_mediane', false)
+    expect(mediane['general.douleur_mediane_epineuse']).toBe(false)
+  })
+
+  it('fait suivre l\'exclusivité aux implications', () => {
+    // Une douleur très localisée sur les épineuses est médiane, donc ni
+    // paravertébrale, ni fessière, ni diffuse.
+    const signals = applySignal({}, 'general.douleur_mediane_epineuse', true)
+    expect(signals['lombaire.localisation_mediane']).toBe(true)
+    expect(signals['lombaire.localisation_paravertebrale']).toBe(false)
+    expect(signals['lombaire.localisation_diffuse']).toBe(false)
+  })
+
+  it('ne produit jamais un relevé contradictoire, quel que soit le signal posé', () => {
+    // Balayage complet du vocabulaire : pour chaque signal, dans les deux sens,
+    // aucun couple « A vrai et ce que A implique faux » ne doit subsister.
+    const incoherences: string[] = []
+    for (const id of Object.keys(SIGNALS) as SignalId[]) {
+      for (const valeur of [true, false]) {
+        const signals = applySignal({}, id, valeur)
+        for (const [autre, definition] of Object.entries(SIGNALS)) {
+          for (const implique of definition.implies ?? []) {
+            const porteur = signals[autre as SignalId]
+            const implique_ = signals[implique as SignalId]
+            if (porteur === true && implique_ === false) {
+              incoherences.push(`${id}=${valeur} → ${autre} vrai mais ${implique} faux`)
+            }
+          }
+        }
+      }
+    }
+    expect(incoherences).toEqual([])
+  })
+})
+
+describe('vocabulaire sans angle mort', () => {
+  it('n\'expose aucun signal de raisonnement qu\'aucune hypothèse n\'exploite', () => {
+    // Un signal extractible qu'aucune hypothèse ne lit est pire qu'absent :
+    // l'extraction s'en sert, il occupe le relevé, et il ne mène nulle part —
+    // ou pire, il se substitue au signal correct, comme le siège fessier l'a
+    // fait pour l'irradiation fessière.
+    const exploites = new Set<string>()
+    for (const hypothesis of [...LUMBAR_HYPOTHESES, ...CERVICAL_HYPOTHESES]) {
+      if (hypothesis.requires) for (const s of signalsOf(hypothesis.requires)) exploites.add(s)
+      for (const criterion of hypothesis.criteria) {
+        for (const s of signalsOf(criterion.when)) exploites.add(s)
+      }
+    }
+    const orphelins = (Object.keys(SIGNALS) as SignalId[]).filter(
+      (id) => isReasoningSignal(id) && !exploites.has(id),
+    )
+    expect(orphelins).toEqual([])
+  })
+
+  it('renseigne par une action tout signal d\'examen qui ne se demande pas', () => {
+    // Un signal d'examen sans question ni action ne pourrait être posé que par
+    // la dictée : le praticien n'aurait aucun moyen de le renseigner lui-même.
+    const resolus = new Set<string>()
+    for (const action of [...LUMBAR_ACTIONS, ...CERVICAL_ACTIONS]) {
+      for (const s of action.resolves ?? []) resolus.add(s)
+    }
+    const inaccessibles = (Object.entries(SIGNALS) as [SignalId, { group: string; question?: string }][])
+      .filter(([id, d]) => d.group === 'examen' && !d.question && !resolus.has(id) && isReasoningSignal(id))
+      .map(([id]) => id)
+    expect(inaccessibles).toEqual([])
   })
 })

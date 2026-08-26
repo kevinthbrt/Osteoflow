@@ -38,6 +38,10 @@ const FACTEURS_DISSECTION = [
   'cervical.traumatisme_mineur_recent',
   'terrain.facteurs_vasculaires_50',
   'cervical.acouphene_pulsatile',
+  // Le vertige fait partie du dépistage artériel cervical au même titre que
+  // les autres : le laisser hors de la liste revenait à le relever sans jamais
+  // s'en servir.
+  'cervical.vertiges',
 ] as SignalExpr[]
 
 /** Tableau radiculaire cervical : irradiation dans le bras, bras plus douloureux que le cou. */
@@ -260,7 +264,7 @@ export const CERVICAL_HYPOTHESES: HypothesisDefinition[] = [
         },
       },
     ],
-    actions: ['cervical.frt', 'cervical.hit6'],
+    actions: ['cervical.criteres-cephalee', 'cervical.frt', 'cervical.hit6'],
   },
   {
     id: 'cervical.facettaire',
@@ -282,6 +286,11 @@ export const CERVICAL_HYPOTHESES: HypothesisDefinition[] = [
     kind: 'exclusion',
     criteria: [
       { when: { not: RADICULAIRE }, label: 'absence d\'argument pour une cause spécifique' },
+      { when: 'cervical.duree_aigue', label: 'épisode aigu — évolution favorable attendue' },
+      {
+        when: { not: 'cervical.duree_aigue' },
+        label: 'épisode installé au-delà de la phase aiguë',
+      },
     ],
     actions: ['cervical.ndi', 'cervical.pas-imagerie'],
     note: 'Diagnostic d\'exclusion : il ne se score pas, il est ce qui reste quand rien de spécifique n\'a été retenu.',
@@ -366,9 +375,28 @@ export const CERVICAL_ACTIONS: ActionDefinition[] = [
     resolves: ['cervical.frt_positif'],
   },
   {
+    id: 'cervical.palpation-epineuses',
+    kind: 'test',
+    label: 'Palpation des épineuses cervicales',
+    resolves: ['cervical.douleur_focale_epineuse'],
+  },
+  {
+    id: 'cervical.examen-mns',
+    kind: 'test',
+    label: 'Signes de motoneurone supérieur (Hoffmann, Babinski, clonus, hyperréflexie)',
+    resolves: ['cervical.signes_mns_2plus'],
+  },
+  {
+    id: 'cervical.criteres-cephalee',
+    kind: 'test',
+    label: 'Critères de céphalée cervicogénique',
+    resolves: ['cervical.criteres_cephalee_1plus', 'cervical.criteres_cephalee_3plus'],
+  },
+  {
     id: 'cervical.extension-rotation',
     kind: 'test',
     label: 'Extension avec rotation ipsilatérale',
+    resolves: ['cervical.criteres_facettaires_2plus'],
     note: 'Un des critères facettaires cervicaux',
   },
   {

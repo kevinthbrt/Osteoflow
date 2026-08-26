@@ -287,7 +287,7 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
         lr: { positive: 2.2, source: 'wood.2024' },
       },
     ],
-    actions: ['lombaire.urgence-neurochirurgicale', 'lombaire.irm'],
+    actions: ['lombaire.urgence-neurochirurgicale', 'lombaire.irm', 'lombaire.toucher-rectal'],
     note: 'Urgence chirurgicale. Aucune technique manuelle avant avis spécialisé. Un seul item verbal critique suffit : ne pas attendre d\'accumulation.',
   },
   {
@@ -493,7 +493,7 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
       { when: 'terrain.profil_vasculaire_aaa', weight: 60, alert: 'elevee', source: 'earwood.2025', label: 'profil vasculaire évocateur' },
       { when: 'terrain.tabagisme', weight: 4, alert: 'vigilance', source: 'earwood.2025', label: 'tabagisme' },
     ],
-    actions: ['lombaire.echographie-abdominale', 'lombaire.avis-medical'],
+    actions: ['lombaire.avis-medical', 'lombaire.echographie-abdominale', 'lombaire.palpation-abdominale'],
     note: 'Douleur déchirante ou masse pulsatile : urgence vasculaire immédiate.',
   },
   {
@@ -587,6 +587,44 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
     ],
     actions: ['lombaire.avis-medical'],
     note: 'Une lombalgie qui ne se modifie ni par la position ni par le mouvement n\'est pas mécanique. Bloquer la conclusion de prise en charge manuelle jusqu\'à réorientation.',
+  },
+
+  {
+    // Chapitre 7.3 : le discriminant clé contre la sténose. Une douleur de
+    // marche qui revient à distance fixe sans dépendre de la posture n'est pas
+    // neurogène — et une artériopathie ne relève pas de la thérapie manuelle.
+    id: 'lombaire.claudication-vasculaire',
+    label: 'Claudication vasculaire',
+    region: 'lombaire',
+    kind: 'red-flag',
+    requires: {
+      all: ['lombaire.claudication_distance_fixe', { not: 'lombaire.signe_caddie' }],
+    },
+    criteria: [
+      {
+        when: 'lombaire.claudication_distance_fixe',
+        weight: 25,
+        alert: 'elevee',
+        source: 'cashin.2026',
+        label: 'douleur de marche à distance fixe, indépendante de la posture',
+      },
+      {
+        when: 'terrain.tabagisme',
+        weight: 6,
+        alert: 'vigilance',
+        source: 'cashin.2026',
+        label: 'tabagisme — facteur de risque artériel',
+      },
+      {
+        when: 'terrain.facteurs_vasculaires_50',
+        weight: 8,
+        alert: 'vigilance',
+        source: 'cashin.2026',
+        label: 'plus de 50 ans avec facteurs de risque vasculaire',
+      },
+    ],
+    actions: ['lombaire.avis-medical'],
+    note: 'À distinguer de la claudication neurogène : celle-ci dépend de la posture et cède en antéflexion. Index cheville-bras et pouls périphériques à faire vérifier.',
   },
 
   // ── Couche 3 : voie radiculaire ───────────────────────────────────────────
@@ -765,6 +803,13 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
         label: 'déficit moteur objectivé',
         weight: 4,
         source: 'bateman.2025',
+      },
+      {
+        when: 'lombaire.demarche_steppage',
+        correlation: 'radiculaire-deficit',
+        label: 'démarche en steppage — déficit du releveur, réorientation justifiée',
+        weight: 12,
+        source: 'khorami.2021',
       },
       {
         when: 'lombaire.reflexe_achilleen_aboli',
@@ -1078,6 +1123,12 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
     criteria: [
       { when: 'lombaire.douleur_inguinale', weight: POIDS_MIME.modere, source: 'jorgensen.2025', label: 'douleur inguinale' },
       {
+        when: 'lombaire.irradiation_anterieure_cuisse',
+        weight: POIDS_MIME.modere,
+        source: 'jorgensen.2025',
+        label: 'douleur de la cuisse antéro-latérale',
+      },
+      {
         when: 'lombaire.limitation_amplitude_hanche',
         weight: POIDS_MIME.modere,
         source: 'jorgensen.2025',
@@ -1135,6 +1186,20 @@ export const LUMBAR_HYPOTHESES: HypothesisDefinition[] = [
         when: 'lombaire.localisation_diffuse',
         label: 'douleur axiale diffuse, sans siège précis — présentation la plus courante',
       },
+      { when: 'lombaire.duree_aigue', label: 'épisode aigu — évolution favorable attendue' },
+      {
+        when: { not: 'lombaire.duree_aigue' },
+        label: 'épisode installé au-delà de la phase aiguë',
+      },
+      {
+        // Une irradiation qui s'arrête à la fesse ou à la cuisse postérieure
+        // est une douleur référée, pas une douleur radiculaire : c'est le
+        // tableau attendu de la lombalgie commune.
+        when: {
+          all: ['lombaire.irradiation_fessiere', { not: 'lombaire.irradiation_sous_genou' }],
+        },
+        label: 'douleur référée à la fesse, sans extension sous le genou',
+      },
       { when: 'lombaire.episodes_anterieurs', label: 'épisodes antérieurs — la récidive est la règle dans la lombalgie commune' },
       { when: 'lombaire.geste_declenchant', label: 'geste ou effort déclenchant' },
     ],
@@ -1182,6 +1247,7 @@ export const LUMBAR_ACTIONS: ActionDefinition[] = [
       'lombaire.deficit_moteur',
       'lombaire.reflexe_achilleen_aboli',
       'lombaire.reflexe_rotulien_aboli',
+      'lombaire.areflexie_achilleenne_bilaterale',
     ],
     note: 'Dorsiflexion et flexion plantaire, rotulien et achilléen, territoires L4, L5 et S1. L5 et S1 font environ 95 % des radiculopathies.',
   },
@@ -1197,7 +1263,11 @@ export const LUMBAR_ACTIONS: ActionDefinition[] = [
     kind: 'test',
     label: 'Romberg et analyse de la démarche',
     performance: 'Démarche à base élargie LR+ 13 · Romberg anormal LR+ 4,2',
-    resolves: ['lombaire.romberg_anormal', 'lombaire.demarche_base_elargie'],
+    resolves: [
+      'lombaire.romberg_anormal',
+      'lombaire.demarche_base_elargie',
+      'lombaire.demarche_steppage',
+    ],
   },
   {
     id: 'lombaire.extension-lombaire',
@@ -1240,6 +1310,7 @@ export const LUMBAR_ACTIONS: ActionDefinition[] = [
       'lombaire.step_off_palpable',
       'lombaire.low_midline_sill_sign',
       'lombaire.interspinous_gap_change',
+      'general.douleur_mediane_epineuse',
     ],
   },
   {
@@ -1266,6 +1337,22 @@ export const LUMBAR_ACTIONS: ActionDefinition[] = [
     kind: 'test',
     label: 'Palpation de l\'aponévrose plantaire',
     resolves: ['lombaire.palpation_plantaire_douloureuse'],
+  },
+  {
+    id: 'lombaire.palpation-abdominale',
+    kind: 'test',
+    label: 'Palpation abdominale — masse pulsatile ?',
+    resolves: ['terrain.masse_abdominale_pulsatile'],
+  },
+  {
+    // L'orientation ne l'attend pas : l'item verbal suffit. Le test reste
+    // proposé, mais après elle — le classement des actions urgentes met la
+    // réorientation en premier.
+    id: 'lombaire.toucher-rectal',
+    kind: 'test',
+    label: 'Tonus anal et sensibilité S3-S5',
+    resolves: ['lombaire.tonus_anal_diminue'],
+    note: 'Utilité du toucher rectal isolé discutée : c\'est l\'item verbal qui déclenche l\'orientation.',
   },
   {
     id: 'lombaire.amplitudes-hanche',
@@ -1334,7 +1421,13 @@ export const LUMBAR_ACTIONS: ActionDefinition[] = [
     urgency: 'if_persistent',
     note: 'Critère ASAS de référence pour la forme non radiographique',
   },
-  { id: 'lombaire.radiographie', kind: 'exam', label: 'Radiographies du rachis lombaire', urgency: 'urgent' },
+  {
+    id: 'lombaire.radiographie',
+    kind: 'exam',
+    label: 'Radiographies du rachis lombaire',
+    urgency: 'urgent',
+    resolves: ['lombaire.sacroiliite_radiographique'],
+  },
   {
     id: 'lombaire.radiographie-dynamique',
     kind: 'exam',
@@ -1348,7 +1441,13 @@ export const LUMBAR_ACTIONS: ActionDefinition[] = [
     label: 'Échographie abdominale',
     urgency: 'urgent',
   },
-  { id: 'lombaire.biologie', kind: 'exam', label: 'Bilan biologique : NFS, VS, CRP', urgency: 'if_persistent' },
+  {
+    id: 'lombaire.biologie',
+    kind: 'exam',
+    label: 'Bilan biologique : NFS, VS, CRP',
+    urgency: 'if_persistent',
+    resolves: ['lombaire.hla_b27'],
+  },
   {
     id: 'lombaire.pas-imagerie',
     kind: 'exam',
