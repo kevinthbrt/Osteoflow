@@ -4,6 +4,10 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Mic, MicOff, Sparkles, Loader2, RotateCcw, Check, AlertCircle, WifiOff, Download, UserPen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  supportsContinuousDictation,
+  useContinuousDictation,
+} from '@/components/consultations/use-continuous-dictation'
 import { sectionsToMarkdown } from '@/lib/anamnesis'
 import type { PatientFieldsDetected } from '@/types/ai'
 
@@ -78,6 +82,16 @@ function getSpeechRecognition(): (new () => SpeechRecognitionInstance) | null {
 const MAX_RESTARTS = 10
 const MAX_RECORD_SECONDS = 780  // 13 minutes
 const WARN_RECORD_SECONDS = 720 // avertissement à 12 minutes
+/**
+ * Garde-fou de la dictée continue.
+ *
+ * Les treize minutes ci-dessus ne viennent pas de la consultation mais de la
+ * taille maximale d'un envoi audio : au-delà, le blob unique dépassait la
+ * limite de la fonction serveur. Le découpage en segments supprime cette
+ * contrainte — il ne reste qu'à éviter qu'un micro resté ouvert enregistre
+ * l'après-midi entière.
+ */
+const MAX_CONTINUOUS_SECONDS = 3600 // 1 heure
 
 function isElectron(): boolean {
   return typeof window !== 'undefined' && !!(window as any).electronAPI?.isDesktop
@@ -194,6 +208,9 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
   const [statusMsg, setStatusMsg] = useState('')
   const [elapsed, setElapsed] = useState(0)
   const [hasCachedAudio, setHasCachedAudio] = useState(false)
+  /** Vrai quand la dictée en cours est découpée en segments. */
+  const continuRef = useRef(false)
+  const [continu, setContinu] = useState(false)
 
   // ── Refs communs ─────────────────────────────────────────────────────────────────
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -271,6 +288,21 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
   }, [])
 
   useEffect(() => { finalTextRef.current = finalText }, [finalText])
+
+  /**
+   * Dictée continue : chaque segment transcrit s'ajoute au texte déjà là.
+   *
+   * Le hook garantit l'ordre — un segment court transcrit vite ne peut pas
+   * doubler celui qui le précède — donc une simple concaténation suffit ici.
+   */
+  const dictation = useContinuousDictation({
+    onText: (segment) => {
+      const precedent = finalTextRef.current
+      const combine = precedent ? `${precedent.trimEnd()} ${segment}` : segment
+      finalTextRef.current = combine
+      setFinalText(combine)
+    },
+  })
   useEffect(() => { stateRef.current = state }, [state])
   // Sauvegarde dès que le texte ou le résultat structuré change
   useEffect(() => { saveDraft(finalText, structured) }, [finalText, structured, saveDraft])
@@ -665,20 +697,54 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
 
   // ─── Handlers unifiés ────────────────────────────────────────────────────────────────
 
+  /**
+   * Dictée continue en Electron.
+   *
+   * Hors Electron, la reconnaissance vocale du navigateur affiche déjà le texte
+   * au fil de la parole ; c'est en Electron que la dictée arrivait d'un bloc en
+   * fin d'enregistrement, faute de clés Google. Le découpage par silences
+   * rétablit le même confort, sans surcoût : Whisper facture à la seconde
+   * d'audio, et la même consultation découpée fait le même nombre de secondes.
+   */
+  const startContinuous = useCallback(() => {
+    finalTextRef.current = ''
+    setFinalText('')
+    setInterimText('')
+    setStructured(null)
+    setErrorMsg('')
+    setStatusMsg('')
+    setElapsed(0)
+    continuRef.current = true
+    setContinu(true)
+    setState('recording')
+    timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000)
+    void dictation.start()
+  }, [dictation])
+
+  const stopContinuous = useCallback(() => {
+    stopTimer()
+    dictation.stop()
+  }, [dictation, stopTimer])
+
   const startRecording = useCallback(() => {
     appliedRef.current = false
     pendingStructureRef.current = false
     setAskHypotheses('hidden')
-    if (isElectron()) startMediaRecorder()
-    else startSpeechRecognition()
-  }, [startMediaRecorder, startSpeechRecognition])
+    if (isElectron()) {
+      if (supportsContinuousDictation()) startContinuous()
+      // Repli : sans API audio, on garde l'enregistrement d'un seul tenant
+      // plutôt que de refuser la dictée.
+      else startMediaRecorder()
+    } else startSpeechRecognition()
+  }, [startContinuous, startMediaRecorder, startSpeechRecognition])
 
   const stopRecording = useCallback(() => {
     // Marque qu'on veut structurer automatiquement dès que le transcript est prêt.
     pendingStructureRef.current = true
-    if (isElectron()) stopMediaRecorder()
+    if (continuRef.current) stopContinuous()
+    else if (isElectron()) stopMediaRecorder()
     else stopSpeechRecognition()
-  }, [stopMediaRecorder, stopSpeechRecognition])
+  }, [stopContinuous, stopMediaRecorder, stopSpeechRecognition])
 
   // Auto-stop à MAX_RECORD_SECONDS — doit passer par le handler unifié
   // stopRecording() (et non stopMediaRecorder() directement) : il route selon
@@ -686,18 +752,45 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
   // Speech, la reconnaissance ne s'arrête pas et l'auto-structuration ne se
   // déclenche jamais. Placé après stopRecording pour éviter la TDZ dans les deps.
   useEffect(() => {
-    if (state === 'recording' && elapsed >= MAX_RECORD_SECONDS) {
+    const limite = continu ? MAX_CONTINUOUS_SECONDS : MAX_RECORD_SECONDS
+    if (state === 'recording' && elapsed >= limite) {
       stopRecording()
     }
-  }, [elapsed, state, stopRecording])
+  }, [continu, elapsed, state, stopRecording])
+
+  /**
+   * Fin d'une dictée continue.
+   *
+   * Le dernier segment part au moment où l'on appuie sur Arrêter : il faut
+   * attendre son retour avant de structurer, sinon la dernière phrase manque au
+   * compte rendu. On repasse donc en `idle` seulement quand plus aucun segment
+   * n'est en vol.
+   */
+  useEffect(() => {
+    if (!continuRef.current) return
+    if (dictation.state !== 'idle' || dictation.pendingSegments > 0) {
+      if (state === 'recording' && dictation.state === 'idle') setStatusMsg('Transcription du dernier passage…')
+      return
+    }
+    continuRef.current = false
+    setContinu(false)
+    setStatusMsg('')
+    setState('idle')
+  }, [dictation.state, dictation.pendingSegments, state])
+
+  // Remonte l'erreur du hook dans le bandeau du composant.
+  useEffect(() => {
+    if (dictation.error) setErrorMsg(dictation.error)
+  }, [dictation.error])
 
   // Auto-structuration : dès que la dictée est arrêtée et le transcript prêt.
-  // Web uniquement (dictée continue). En Electron on garde le flux manuel pour
-  // permettre « Continuer la dictée » en plusieurs segments avant de structurer.
+  // La dictée continue — navigateur ou Electron — structure d'elle-même. Le
+  // repli Electron d'un seul tenant garde le flux manuel, qui permet
+  // « Continuer la dictée » en plusieurs segments avant de structurer.
   useEffect(() => {
     if (
       pendingStructureRef.current &&
-      !isElectron() &&
+      (!isElectron() || supportsContinuousDictation()) &&
       state === 'idle' &&
       finalText.trim().length > 0 &&
       !structured
@@ -888,7 +981,7 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
       )}
 
       {/* Avertissement durée — à 12 min, arrêt automatique à 13 min */}
-      {state === 'recording' && elapsed >= WARN_RECORD_SECONDS && (
+      {state === 'recording' && !continu && elapsed >= WARN_RECORD_SECONDS && (
         <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-1.5">
           <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
           Arrêt automatique dans {formatTime(MAX_RECORD_SECONDS - elapsed)} — pensez à structurer l&apos;anamnèse.
@@ -903,9 +996,14 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
         <div className="min-h-[80px] max-h-[200px] overflow-y-auto rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed">
           <span>{finalText}</span>
           {interimText && <span className="text-muted-foreground italic">{interimText}</span>}
+          {/* La transcription arrive par passages : on montre que ça travaille,
+              sans faire clignoter le texte déjà écrit. */}
+          {continu && dictation.pendingSegments > 0 && (
+            <span className="text-muted-foreground/60 italic"> …</span>
+          )}
           {!finalText && !interimText && (
             <span className="text-muted-foreground">
-              {state === 'recording' && isElectron()
+              {state === 'recording' && isElectron() && !continu
                 ? 'Parlez, puis appuyez sur Arrêter pour transcrire…'
                 : 'Parlez maintenant…'}
             </span>
@@ -1134,7 +1232,7 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
               <Sparkles className="h-3.5 w-3.5" />
               Transcrire et structurer
             </Button>
-            {isElectron() && state === 'idle' && (
+            {isElectron() && !supportsContinuousDictation() && state === 'idle' && (
               <Button type="button" size="sm" variant="outline" onClick={continueMediaRecorder} className="gap-1.5">
                 <Mic className="h-3.5 w-3.5" />
                 Continuer la dictée

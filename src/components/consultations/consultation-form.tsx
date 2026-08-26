@@ -43,6 +43,8 @@ import { LowBackPainTree } from '@/components/consultations/low-back-pain-tree'
 import { NeckPainTree } from '@/components/consultations/neck-pain-tree'
 import { AnamnesisRecorder, type AnamnesisSection } from '@/components/consultations/anamnesis-recorder'
 import { AnamnesisCards } from '@/components/consultations/anamnesis-cards'
+import { AnamnesisSummaryView } from '@/components/consultations/anamnesis-summary-view'
+import { useAnamnesisView } from '@/hooks/use-anamnesis-view'
 import { AnamnesisDisplay } from '@/components/consultations/anamnesis-display'
 import { HypothesesDisplay } from '@/components/consultations/hypotheses-display'
 import { sectionsToMarkdown } from '@/lib/anamnesis'
@@ -137,6 +139,7 @@ export function ConsultationForm({
   medicalHistoryEntries,
   pastConsultations,
 }: ConsultationFormProps) {
+  const { view: anamnesisView } = useAnamnesisView()
   const [isLoading, setIsLoading] = useState(false)
   const [showEditPatient, setShowEditPatient] = useState(false)
   const [currentPatient, setCurrentPatient] = useState<Patient>(patient)
@@ -1641,6 +1644,21 @@ export function ConsultationForm({
               <div id="sec-anamnese" className={cn('space-y-3 scroll-mt-24', ENCART)}>
                 <SectionHeading icon={FileText} title="Anamnèse" tone={SECTION_TONES.anamnese} />
                 {anamnesisCardSections ? (
+                  anamnesisView === 'summary' ? (
+                    <AnamnesisSummaryView
+                      reason={anamnesisCardReason}
+                      sections={anamnesisCardSections}
+                      disabled={isLoading}
+                      onChange={(next) => {
+                        setAnamnesisCardSections(next)
+                        setValue('anamnesis', sectionsToMarkdown(next), { shouldDirty: true })
+                      }}
+                      onReasonChange={(r) => {
+                        setAnamnesisCardReason(r)
+                        setValue('reason', r, { shouldDirty: true })
+                      }}
+                    />
+                  ) : (
                   <AnamnesisCards
                     reason={anamnesisCardReason}
                     sections={anamnesisCardSections}
@@ -1660,6 +1678,7 @@ export function ConsultationForm({
                       setAnamnesisCardSections(null)
                     }}
                   />
+                  )
                 ) : (
                   <MarkdownField
                     id="anamnesis"

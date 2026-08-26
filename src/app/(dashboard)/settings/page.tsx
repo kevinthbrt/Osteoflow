@@ -26,6 +26,7 @@ import { PROFESSION_OPTIONS } from '@/lib/practitioner/profession'
 import { getCurrencySymbol } from '@/lib/utils/currency'
 import type { Practitioner, SessionType } from '@/types/database'
 import { CustomClinicalContentTab } from '@/components/settings/custom-clinical-content-tab'
+import { ConsultationDisplayTab } from '@/components/settings/consultation-display-tab'
 import { ImportDataTab } from '@/components/settings/import-data-tab'
 import { ExportDataTab } from '@/components/settings/export-data-tab'
 import { localApiHeaders } from '@/lib/local-api-token'
@@ -182,6 +183,7 @@ const SETTINGS_NAV: {
   {
     key: 'pratique', label: 'Pratique', icon: Stethoscope, items: [
       { value: 'clinical-content', label: 'Contenu clinique' },
+      { value: 'consultation-display', label: 'Affichage consultation' },
     ],
   },
   {
@@ -2099,6 +2101,10 @@ function SettingsPageInner() {
         {/* Export Tab */}
         <TabsContent value="export">
           <ExportDataTab />
+        </TabsContent>
+
+        <TabsContent value="consultation-display">
+          <ConsultationDisplayTab />
         </TabsContent>
 
         <TabsContent value="clinical-content">

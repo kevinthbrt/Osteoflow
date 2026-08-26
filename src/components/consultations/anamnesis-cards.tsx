@@ -10,7 +10,7 @@ import { type AnamnesisSection, SECTION_STYLES } from '@/components/consultation
  * Zone de texte qui grandit avec son contenu — pour éditer les lignes des cartes
  * sans tronquer le texte (un <input> mono-ligne coupait les items longs).
  */
-function GrowTextarea({
+export function GrowTextarea({
   value,
   onChange,
   placeholder,
