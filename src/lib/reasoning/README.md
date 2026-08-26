@@ -53,6 +53,26 @@ d'exclusion, un profil complet devant un profil partiel. `requires` sert aux
 conditions dirimantes (fausse, l'hypothèse est écartée ; inconnue, elle reste en
 attente et ne peut pas doubler une hypothèse retenue).
 
+## Choisir le modèle d'extraction
+
+Relever des faits dans une liste fermée n'est pas une tâche de raisonnement —
+celui-ci est fait par le moteur déterministe. Un modèle léger suffit donc, et
+ses erreurs sont visibles (chaque signal porte son verbatim) et rattrapables
+(le praticien répond lui-même aux questions du copilote). Le défaut est
+`claude-haiku-4-5` ; `EXTRACTION_MODEL` permet d'en essayer un autre.
+
+L'évaluation tranche sur pièces, sur huit anamnèses dictées :
+
+```bash
+ANTHROPIC_API_KEY=sk-... npx vitest run --config vitest.eval.config.ts
+EXTRACTION_MODEL=claude-opus-5 ANTHROPIC_API_KEY=sk-... npx vitest run --config vitest.eval.config.ts
+```
+
+Elle mesure le rappel (ce qui aurait dû être relevé et l'a été), les relevés à
+tort, et surtout les inventions — un signal hors de tout ce qui était prévu
+ferait raisonner le copilote sur du vide. Elle ne tourne pas dans la suite
+habituelle : elle appelle l'API et coûte de l'argent.
+
 ## Ce qui n'est pas encore fait
 
 - Les gates à seuil issus des arbres (`≥ 4 critères ASAS`, `≥ 2 critères

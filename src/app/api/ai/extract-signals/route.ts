@@ -8,6 +8,28 @@ const PROXY_URL = 'https://osteoupgrade.vercel.app/api/osteoflow/extract-signals
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 
 /**
+ * Modèle d'extraction.
+ *
+ * Relever des faits dans une liste fermée n'est pas une tâche de raisonnement :
+ * le raisonnement, lui, est fait par le moteur déterministe. Un modèle léger
+ * suffit donc, et ses erreurs sont visibles — chaque signal porte le verbatim
+ * qui l'a produit — et rattrapables, puisque le praticien répond lui-même aux
+ * questions du copilote.
+ *
+ * `EXTRACTION_MODEL` permet de comparer deux modèles sur de vraies anamnèses
+ * sans toucher au code.
+ */
+const MODEL = process.env.EXTRACTION_MODEL ?? 'claude-haiku-4-5'
+
+/**
+ * Le réglage d'effort n'existe que sur les modèles récents de la famille Opus
+ * et Sonnet : l'envoyer à Haiku 4.5 fait échouer la requête.
+ */
+function supportsEffort(model: string): boolean {
+  return /^claude-(opus|sonnet|fable)-/.test(model)
+}
+
+/**
  * Traduit une anamnèse dictée en signaux du vocabulaire clinique.
  *
  * Le vocabulaire est envoyé avec la requête plutôt que dupliqué côté proxy :
@@ -123,9 +145,9 @@ async function extractViaAnthropic(
       'anthropic-beta': 'prompt-caching-2024-07-31,extended-cache-ttl-2025-04-11',
     },
     body: JSON.stringify({
-      model: 'claude-opus-5',
+      model: MODEL,
       max_tokens: 2000,
-      output_config: { effort: 'low' },
+      ...(supportsEffort(MODEL) ? { output_config: { effort: 'low' } } : {}),
       system: [
         { type: 'text', text: SYSTEM_PROMPT },
         { type: 'text', text: vocabularyText, cache_control: { type: 'ephemeral', ttl: '1h' } },
