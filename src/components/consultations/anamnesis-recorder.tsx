@@ -8,6 +8,8 @@ import {
   supportsContinuousDictation,
   useContinuousDictation,
 } from '@/components/consultations/use-continuous-dictation'
+import { useLiveSignals } from '@/components/consultations/use-live-signals'
+import { AnamnesisLiveSummary } from '@/components/consultations/anamnesis-live-summary'
 import { sectionsToMarkdown } from '@/lib/anamnesis'
 import type { PatientFieldsDetected } from '@/types/ai'
 
@@ -211,6 +213,18 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
   /** Vrai quand la dictée en cours est découpée en segments. */
   const continuRef = useRef(false)
   const [continu, setContinu] = useState(false)
+  /**
+   * Arrêt demandé par le praticien.
+   *
+   * On ne peut pas déduire la fin d'une dictée de l'état du hook : `start()`
+   * ouvre le micro de façon asynchrone, si bien qu'au tour de rendu suivant le
+   * hook est encore au repos alors que l'enregistrement démarre. Sans cette
+   * intention explicite, le composant se croyait arrêté pendant que le micro
+   * tournait — et repartait en boucle.
+   */
+  const arretDemandeRef = useRef(false)
+  /** Le praticien regarde le relevé, ou le texte brut qui l'a produit. */
+  const [vueDictee, setVueDictee] = useState<'releve' | 'texte'>('releve')
 
   // ── Refs communs ─────────────────────────────────────────────────────────────────
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -290,6 +304,18 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
   useEffect(() => { finalTextRef.current = finalText }, [finalText])
 
   /**
+   * Relevé en direct.
+   *
+   * Ce que le praticien veut voir pendant qu'il parle, ce sont les éléments
+   * retenus, pas la transcription. L'analyse tourne pendant la dictée et
+   * n'écrit rien de plus au dossier : c'est le texte, puis la structuration de
+   * fin, qui restent la source de ce qui est enregistré.
+   */
+  const liveSignals = useLiveSignals(reason)
+  const liveSignalsRef = useRef(liveSignals)
+  liveSignalsRef.current = liveSignals
+
+  /**
    * Dictée continue : chaque segment transcrit s'ajoute au texte déjà là.
    *
    * Le hook garantit l'ordre — un segment court transcrit vite ne peut pas
@@ -301,11 +327,14 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
       const combine = precedent ? `${precedent.trimEnd()} ${segment}` : segment
       finalTextRef.current = combine
       setFinalText(combine)
+      liveSignalsRef.current.analyse(combine)
     },
   })
   useEffect(() => { stateRef.current = state }, [state])
   // Sauvegarde dès que le texte ou le résultat structuré change
   useEffect(() => { saveDraft(finalText, structured) }, [finalText, structured, saveDraft])
+
+  const dictationStop = dictation.stop
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
@@ -315,6 +344,21 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
     if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null }
   }, [])
 
+  /**
+   * Coupe la dictée continue sans rien attendre.
+   *
+   * « Effacer » et « Structurer » arrêtaient l'ancien enregistreur mais pas
+   * celui du hook : le micro restait ouvert et continuait d'écrire par-dessus
+   * ce qu'on venait d'effacer.
+   */
+  const abandonContinuous = useCallback(() => {
+    if (!continuRef.current) return
+    arretDemandeRef.current = true
+    continuRef.current = false
+    setContinu(false)
+    dictationStop()
+  }, [dictationStop])
+
   // ── Structuration Claude ──────────────────────────────────────────────────────
 
   const handleStructure = useCallback(async () => {
@@ -322,6 +366,7 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
     if (!text) return
 
     intentionalStopRef.current = true
+    abandonContinuous()
     stopReconnectTimer()
     recognitionRef.current?.stop()
     recognitionRef.current = null
@@ -364,7 +409,7 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
       setErrorMsg('Impossible de contacter le serveur.')
       setState('error')
     }
-  }, [stopTimer, stopReconnectTimer, patientContext])
+  }, [abandonContinuous, stopTimer, stopReconnectTimer, patientContext])
 
   // « Oui » à la question hypothèses : lance l'appel (en parallèle de la
   // structuration encore en cours → latence masquée). Fire-and-forget : le
@@ -396,6 +441,8 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
     intentionalStopRef.current = true
     pendingStructureRef.current = false
     appliedRef.current = false
+    abandonContinuous()
+    liveSignalsRef.current.reset()
     stopReconnectTimer()
     recognitionRef.current?.stop()
     recognitionRef.current = null
@@ -419,7 +466,7 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
     restartCountRef.current = 0
     finalTextRef.current = ''
     audioChunksRef.current = []
-  }, [stopTimer, stopReconnectTimer, clearDraft])
+  }, [abandonContinuous, stopTimer, stopReconnectTimer, clearDraft])
 
   useEffect(() => {
     return () => {
@@ -622,7 +669,13 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
           if (e.results[i].isFinal) newFinal += t + ' '
           else interim += t
         }
-        if (newFinal) { finalTextRef.current += newFinal; setFinalText(finalTextRef.current) }
+        if (newFinal) {
+          finalTextRef.current += newFinal
+          setFinalText(finalTextRef.current)
+          // Même relevé en direct hors Electron : c'est la reconnaissance du
+          // navigateur qui transcrit, mais l'analyse est la même.
+          liveSignalsRef.current.analyse(finalTextRef.current)
+        }
         setInterimText(interim)
       }
       recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
@@ -707,6 +760,9 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
    * d'audio, et la même consultation découpée fait le même nombre de secondes.
    */
   const startContinuous = useCallback(() => {
+    arretDemandeRef.current = false
+    liveSignalsRef.current.reset()
+    setVueDictee('releve')
     finalTextRef.current = ''
     setFinalText('')
     setInterimText('')
@@ -722,14 +778,19 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
   }, [dictation])
 
   const stopContinuous = useCallback(() => {
+    if (!continuRef.current) return
+    arretDemandeRef.current = true
     stopTimer()
-    dictation.stop()
-  }, [dictation, stopTimer])
+    dictationStop()
+  }, [dictationStop, stopTimer])
+
 
   const startRecording = useCallback(() => {
     appliedRef.current = false
     pendingStructureRef.current = false
     setAskHypotheses('hidden')
+    liveSignalsRef.current.reset()
+    setVueDictee('releve')
     if (isElectron()) {
       if (supportsContinuousDictation()) startContinuous()
       // Repli : sans API audio, on garde l'enregistrement d'un seul tenant
@@ -767,16 +828,19 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
    * n'est en vol.
    */
   useEffect(() => {
-    if (!continuRef.current) return
+    if (!continuRef.current || !arretDemandeRef.current) return
     if (dictation.state !== 'idle' || dictation.pendingSegments > 0) {
-      if (state === 'recording' && dictation.state === 'idle') setStatusMsg('Transcription du dernier passage…')
+      setStatusMsg('Transcription du dernier passage…')
       return
     }
     continuRef.current = false
     setContinu(false)
     setStatusMsg('')
     setState('idle')
-  }, [dictation.state, dictation.pendingSegments, state])
+    // Le dernier passage vient d'arriver : on l'analyse tout de suite plutôt
+    // que d'attendre un silence qui ne viendra plus.
+    void liveSignalsRef.current.analyseMaintenant(finalTextRef.current)
+  }, [dictation.state, dictation.pendingSegments])
 
   // Remonte l'erreur du hook dans le bandeau du composant.
   useEffect(() => {
@@ -988,26 +1052,68 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
         </div>
       )}
 
-      {/* Transcript */}
+      {/* Relevé en direct, ou texte brut à la demande */}
       {(state === 'recording' ||
         state === 'reconnecting' ||
         state === 'error' ||
         (hasTranscript && state !== 'done')) && (
-        <div className="min-h-[80px] max-h-[200px] overflow-y-auto rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed">
-          <span>{finalText}</span>
-          {interimText && <span className="text-muted-foreground italic">{interimText}</span>}
-          {/* La transcription arrive par passages : on montre que ça travaille,
-              sans faire clignoter le texte déjà écrit. */}
-          {continu && dictation.pendingSegments > 0 && (
-            <span className="text-muted-foreground/60 italic"> …</span>
-          )}
-          {!finalText && !interimText && (
-            <span className="text-muted-foreground">
-              {state === 'recording' && isElectron() && !continu
-                ? 'Parlez, puis appuyez sur Arrêter pour transcrire…'
-                : 'Parlez maintenant…'}
-            </span>
-          )}
+        <div className="space-y-1.5">
+          {/*
+            La bascule reste discrète et le relevé passe devant : c'est lui
+            qu'on lit en consultation. Le texte n'est pas caché pour autant —
+            c'est la seule façon de vérifier ce que l'analyse a compris, et
+            c'est lui qui part dans le dossier.
+          */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex gap-0.5 p-0.5 rounded-lg bg-foreground/[0.04]">
+              {(['releve', 'texte'] as const).map((vue) => (
+                <button
+                  key={vue}
+                  type="button"
+                  onClick={() => setVueDictee(vue)}
+                  className={cn(
+                    'text-[11px] font-medium px-2 py-0.5 rounded-md transition-colors',
+                    vueDictee === vue
+                      ? 'bg-background shadow-sm text-foreground'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {vue === 'releve' ? 'Relevé' : 'Texte'}
+                </button>
+              ))}
+            </div>
+            {(liveSignals.busy || (continu && dictation.pendingSegments > 0)) && (
+              <span className="text-[11px] text-muted-foreground/60">…</span>
+            )}
+          </div>
+
+          <div className="min-h-[80px] max-h-[220px] overflow-y-auto rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed">
+            {vueDictee === 'releve' ? (
+              <AnamnesisLiveSummary
+                signals={liveSignals.signals}
+                traces={liveSignals.traces}
+                started={hasTranscript || state === 'recording'}
+                status={liveSignals.status}
+              />
+            ) : (
+              <>
+                <span>{finalText}</span>
+                {interimText && <span className="text-muted-foreground italic">{interimText}</span>}
+                {/* La transcription arrive par passages : on montre que ça
+                    travaille, sans faire clignoter le texte déjà écrit. */}
+                {continu && dictation.pendingSegments > 0 && (
+                  <span className="text-muted-foreground/60 italic"> …</span>
+                )}
+                {!finalText && !interimText && (
+                  <span className="text-muted-foreground">
+                    {state === 'recording' && isElectron() && !continu
+                      ? 'Parlez, puis appuyez sur Arrêter pour transcrire…'
+                      : 'Parlez maintenant…'}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
 
