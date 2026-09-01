@@ -162,7 +162,9 @@ export async function generateLetterPdf(data: LetterPDFData): Promise<Uint8Array
   // ── 5. TAMPON (image, bas droite) ────────────────────────────────────────
   if (data.stampUrl) {
     try {
-      const response = await fetch(data.stampUrl)
+      // no-store: the stamp must never be served from a cached copy,
+      // otherwise a replaced stamp keeps printing on new documents.
+      const response = await fetch(data.stampUrl, { cache: 'no-store' })
       if (response.ok) {
         const arrayBuf = await response.arrayBuffer()
         const buffer = Buffer.from(arrayBuf)

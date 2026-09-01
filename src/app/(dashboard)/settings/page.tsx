@@ -724,7 +724,11 @@ function SettingsPageInner() {
 
   // Upload stamp image (local file storage via API)
   const handleStampUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const input = e.target
+    const file = input.files?.[0]
+    // Always clear the input: without it, picking the very same file again
+    // fires no change event and the upload silently never happens.
+    input.value = ''
     if (!file || !practitioner) return
 
     // Validate file type
@@ -799,13 +803,17 @@ function SettingsPageInner() {
     if (!practitioner) return
 
     try {
-      // Update practitioner to remove stamp URL
-      const { error } = await db
-        .from('practitioners')
-        .update({ stamp_url: null })
-        .eq('id', practitioner.id)
+      // Go through the API so the image file is removed from disk as well,
+      // not just unlinked from the practitioner record.
+      const response = await fetch(
+        `/api/stamps/upload?practitioner_id=${encodeURIComponent(practitioner.id)}`,
+        { method: 'DELETE', headers: { ...(await localApiHeaders()) } }
+      )
 
-      if (error) throw error
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}))
+        throw new Error(result.error || 'Delete failed')
+      }
 
       setStampUrl(null)
 
@@ -1381,10 +1389,11 @@ function SettingsPageInner() {
                     </p>
                   </div>
 
-                  {stampUrl ? (
+                  {stampUrl && (
                     <div className="flex items-start gap-4">
                       <div className="relative border rounded-lg p-2 bg-white">
                         <img
+                          key={stampUrl}
                           src={stampUrl}
                           alt="Tampon"
                           className="max-w-[200px] max-h-[100px] object-contain"
@@ -1403,34 +1412,40 @@ function SettingsPageInner() {
                         Cliquez sur la croix pour supprimer
                       </p>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-4">
-                      <label
-                        htmlFor="stamp-upload"
-                        className="cursor-pointer flex items-center gap-2 px-4 py-2 border-2 border-dashed rounded-lg hover:border-primary hover:bg-muted/50 transition-colors"
-                      >
-                        {isUploadingStamp ? (
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                        ) : (
-                          <Image className="h-5 w-5 text-muted-foreground" />
-                        )}
-                        <span className="text-sm">
-                          {isUploadingStamp ? 'Envoi en cours...' : 'Ajouter un tampon'}
-                        </span>
-                        <input
-                          id="stamp-upload"
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleStampUpload}
-                          disabled={isUploadingStamp}
-                        />
-                      </label>
-                      <p className="text-xs text-muted-foreground">
-                        PNG ou JPG, max 2 Mo
-                      </p>
-                    </div>
                   )}
+
+                  {/* Always available, stamp or not: otherwise a practitioner
+                      who already has one has no way to replace it. */}
+                  <div className="flex items-center gap-4">
+                    <label
+                      htmlFor="stamp-upload"
+                      className="cursor-pointer flex items-center gap-2 px-4 py-2 border-2 border-dashed rounded-lg hover:border-primary hover:bg-muted/50 transition-colors"
+                    >
+                      {isUploadingStamp ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Image className="h-5 w-5 text-muted-foreground" />
+                      )}
+                      <span className="text-sm">
+                        {isUploadingStamp
+                          ? 'Envoi en cours...'
+                          : stampUrl
+                            ? 'Remplacer le tampon'
+                            : 'Ajouter un tampon'}
+                      </span>
+                      <input
+                        id="stamp-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleStampUpload}
+                        disabled={isUploadingStamp}
+                      />
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      PNG ou JPG, max 2 Mo
+                    </p>
+                  </div>
                 </div>
 
                 <Separator />

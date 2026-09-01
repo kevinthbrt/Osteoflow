@@ -300,7 +300,9 @@ export async function generateInvoicePdf(data: InvoicePDFData): Promise<Uint8Arr
   // ============================================
   if (data.stampUrl) {
     try {
-      const response = await fetch(data.stampUrl)
+      // no-store: the stamp must never be served from a cached copy,
+      // otherwise a replaced stamp keeps printing on new documents.
+      const response = await fetch(data.stampUrl, { cache: 'no-store' })
       if (response.ok) {
         const buffer = Buffer.from(await response.arrayBuffer())
         const stampY = paymentY + paymentBoxHeight + 20

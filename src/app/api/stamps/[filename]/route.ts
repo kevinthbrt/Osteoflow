@@ -22,11 +22,13 @@ export async function GET(
 ) {
   try {
     const { filename } = await params
-    const stampsDir = path.join(getAppDataDir(), 'stamps')
-    const filePath = path.join(stampsDir, filename)
+    const stampsDir = path.resolve(getAppDataDir(), 'stamps')
+    const filePath = path.resolve(stampsDir, filename)
 
-    // Security: prevent path traversal
-    if (!filePath.startsWith(stampsDir)) {
+    // Security: prevent path traversal — the resolved file must sit directly
+    // inside the stamps directory (the trailing separator also rules out a
+    // sibling directory whose name merely starts with "stamps").
+    if (!filePath.startsWith(stampsDir + path.sep)) {
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 })
     }
 
@@ -41,7 +43,10 @@ export async function GET(
     return new NextResponse(fileBuffer, {
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=3600',
+        // Never cache: a stamp is small, local, and read from disk, while a
+        // cached copy would keep showing a replaced stamp long after the user
+        // uploaded a new one.
+        'Cache-Control': 'no-store, must-revalidate',
       },
     })
   } catch (error) {
