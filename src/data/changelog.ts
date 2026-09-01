@@ -19,6 +19,15 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.18.1',
+    date: '2026-09-01',
+    title: 'Correctif du changement de tampon',
+    changes: [
+      { type: 'fix', text: "Tampon / signature : changer de tampon était impossible, l'ancien revenait systématiquement — à l'écran comme sur vos factures et vos courriers. Deux causes se cumulaient : aucun bouton ne permettait de remplacer un tampon déjà enregistré, et la nouvelle image était sauvegardée sous le même nom que l'ancienne, si bien que l'application continuait d'afficher la précédente, gardée en mémoire pendant une heure. Votre nouveau tampon s'affiche désormais immédiatement, partout." },
+      { type: 'improvement', text: "Le bouton d'ajout du tampon reste visible même lorsqu'un tampon est déjà en place, et affiche alors « Remplacer le tampon » : plus besoin de supprimer l'ancien avant d'en déposer un nouveau. Supprimer un tampon efface aussi l'image du disque, au lieu de la laisser traîner." },
+    ],
+  },
+  {
     version: '1.18.0',
     date: '2026-08-19',
     title: 'Votre application s\'adapte à votre offre',
