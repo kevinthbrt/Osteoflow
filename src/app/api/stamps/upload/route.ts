@@ -9,6 +9,7 @@ import { createLocalClient } from '@/lib/database/query-builder'
 import { checkLocalApiToken } from '@/lib/local-api-auth'
 import path from 'path'
 import fs from 'fs'
+import { randomBytes } from 'crypto'
 
 const MIME_TO_EXT: Record<string, string> = {
   'image/png': 'png',
@@ -20,6 +21,22 @@ const MIME_TO_EXT: Record<string, string> = {
 }
 const ALLOWED_EXTS = new Set(Object.values(MIME_TO_EXT))
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Every stamp file this practitioner currently owns on disk, in both the
+ * legacy `<uuid>.<ext>` form and the versioned `<uuid>-<timestamp>-<rand>.<ext>` one.
+ */
+function listStampFiles(stampsDir: string, practitionerId: string): string[] {
+  if (!fs.existsSync(stampsDir)) return []
+  const prefix = practitionerId.toLowerCase()
+  return fs.readdirSync(stampsDir).filter((name) => {
+    const lower = name.toLowerCase()
+    const ext = path.extname(lower).slice(1)
+    if (!ALLOWED_EXTS.has(ext)) return false
+    const base = lower.slice(0, lower.length - ext.length - 1)
+    return base === prefix || base.startsWith(`${prefix}-`)
+  })
+}
 
 export async function POST(request: Request) {
   const authError = checkLocalApiToken(request)
@@ -91,9 +108,14 @@ export async function POST(request: Request) {
       fs.mkdirSync(stampsDir, { recursive: true })
     }
 
-    // Save file — resolved path re-verified to stay under stampsDir in case
-    // the filename construction above is ever changed carelessly.
-    const stampFileName = `${practitionerId}.${ext}`
+    // Replacing a stamp must produce a *new* URL: a fixed `<uuid>.<ext>` name
+    // meant the browser (and the PDF renderer) kept serving the previously
+    // cached image, so users saw their old stamp come back after re-uploading.
+    // The unique suffix makes each upload a distinct, cache-busting URL.
+    const previousFiles = listStampFiles(stampsDir, practitionerId)
+    const stampFileName = `${practitionerId}-${Date.now()}-${randomBytes(4).toString('hex')}.${ext}`
+    // Resolved path re-verified to stay under stampsDir in case the filename
+    // construction above is ever changed carelessly.
     const filePath = path.join(stampsDir, stampFileName)
     if (path.dirname(filePath) !== stampsDir) {
       return NextResponse.json({ error: 'Chemin de fichier invalide' }, { status: 400 })
@@ -110,10 +132,63 @@ export async function POST(request: Request) {
       .update({ stamp_url: stampUrl })
       .eq('id', practitionerId)
 
+    // Drop the superseded files so the stamps directory doesn't accumulate
+    // one image per replacement.
+    for (const name of previousFiles) {
+      if (name === stampFileName) continue
+      try {
+        fs.unlinkSync(path.join(stampsDir, name))
+      } catch (error) {
+        console.warn('Stamp upload: unable to remove previous stamp file.', error)
+      }
+    }
+
     return NextResponse.json({ stampUrl })
   } catch (error) {
     console.error('Error uploading stamp:', error)
     const message = error instanceof Error ? error.message : 'Upload failed'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
+
+/**
+ * Removes the practitioner's stamp: clears `stamp_url` and deletes the image
+ * files from disk, so a later upload can never fall back to a stale one.
+ */
+export async function DELETE(request: Request) {
+  const authError = checkLocalApiToken(request)
+  if (authError) return authError
+
+  try {
+    const practitionerId = new URL(request.url).searchParams.get('practitioner_id')
+
+    if (!practitionerId) {
+      return NextResponse.json({ error: 'practitioner_id requis' }, { status: 400 })
+    }
+
+    if (!UUID_RE.test(practitionerId)) {
+      return NextResponse.json({ error: 'practitioner_id invalide' }, { status: 400 })
+    }
+
+    const client = createLocalClient()
+    await client
+      .from('practitioners')
+      .update({ stamp_url: null })
+      .eq('id', practitionerId)
+
+    const stampsDir = path.join(getAppDataDir(), 'stamps')
+    for (const name of listStampFiles(stampsDir, practitionerId)) {
+      try {
+        fs.unlinkSync(path.join(stampsDir, name))
+      } catch (error) {
+        console.warn('Stamp delete: unable to remove stamp file.', error)
+      }
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting stamp:', error)
+    const message = error instanceof Error ? error.message : 'Delete failed'
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
