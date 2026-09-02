@@ -26,6 +26,19 @@ export function formatDateTime(date: Date | string): string {
   })
 }
 
+/**
+ * Retourne la date au format "YYYY-MM-DD" dans le fuseau local.
+ * `toISOString().split('T')[0]` décale d'un jour les rendez-vous de début /
+ * fin de journée (ex. 00h30 à Paris, 20h à Montréal), ce qui faisait tomber
+ * le paiement sur la mauvaise journée comptable.
+ */
+export function toLocalDateOnly(date: Date | string): string {
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) return date
+  const d = typeof date === 'string' ? new Date(date) : date
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
 export function formatCurrency(amount: number, country?: string | null): string {
   const currency = getCurrencyCode(country)
   return new Intl.NumberFormat(currency === 'CAD' ? 'fr-CA' : 'fr-FR', {

@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Plus, Trash2, Stethoscope, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, MapPin, GitBranch, Dumbbell, Sparkles, Brain, Activity, Lightbulb, Mail, Printer, Download, ArrowLeft, ArrowRight, CalendarClock, HeartPulse } from 'lucide-react'
-import { generateInvoiceNumber, formatDateTime, formatDate, calculateAge, cn } from '@/lib/utils'
+import { generateInvoiceNumber, formatDateTime, formatDate, calculateAge, toLocalDateOnly, cn } from '@/lib/utils'
 import { getCurrencySymbol } from '@/lib/utils/currency'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
@@ -598,7 +598,7 @@ export function ConsultationForm({
           )
           const consultationDate = new Date(data.date_time)
           const consultationDateIso = consultationDate.toISOString()
-          const consultationDateOnly = consultationDateIso.split('T')[0]
+          const consultationDateOnly = toLocalDateOnly(consultationDate)
 
           const { data: newInvoice, error: invoiceError } = await db
             .from('invoices')
@@ -759,6 +759,41 @@ export function ConsultationForm({
           .eq('id', consultation.id)
 
         if (error) throw error
+
+        // La facture existante doit suivre la date de la consultation : sinon
+        // une consultation antidatée puis remise à sa vraie date laissait la
+        // facture (et son encaissement) sur l'ancienne journée comptable.
+        // Comparaison sur l'instant : le champ du formulaire ("2026-09-02T10:15")
+        // et la valeur stockée peuvent différer de format sans que la date ait
+        // bougé — on ne veut pas écraser une date de facture corrigée à la main.
+        const previousDateTime = new Date(consultation.date_time).getTime()
+        const newDateTime = new Date(data.date_time).getTime()
+        if (Number.isFinite(newDateTime) && newDateTime !== previousDateTime) {
+          const { data: linkedInvoice } = await db
+            .from('invoices')
+            .select('id, paid_at')
+            .eq('consultation_id', consultation.id)
+            .single()
+
+          if (linkedInvoice) {
+            const newDate = new Date(newDateTime)
+            const newDateIso = newDate.toISOString()
+            const invoiceDateUpdates: Record<string, string> = { issued_at: newDateIso }
+            if (linkedInvoice.paid_at) invoiceDateUpdates.paid_at = newDateIso
+
+            const { error: invoiceDateError } = await db
+              .from('invoices')
+              .update(invoiceDateUpdates)
+              .eq('id', linkedInvoice.id)
+            if (invoiceDateError) throw invoiceDateError
+
+            const { error: paymentDateError } = await db
+              .from('payments')
+              .update({ payment_date: toLocalDateOnly(newDate) })
+              .eq('invoice_id', linkedInvoice.id)
+            if (paymentDateError) throw paymentDateError
+          }
+        }
 
         // Réconcilier la tâche de suivi (créer / mettre à jour / annuler) lors d'une édition.
         // Sans ça, (ré)activer ou modifier le suivi sur une consultation enregistrée

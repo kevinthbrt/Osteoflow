@@ -332,6 +332,11 @@ export function InvoiceModal({ invoiceId, onClose }: Props) {
                     payments={invoice.payments || []}
                     invoiceId={invoice.id}
                     invoiceAmount={invoice.amount}
+                    invoiceIssuedAt={invoice.issued_at}
+                    invoicePaidAt={invoice.paid_at}
+                    onInvoiceDatesChange={(dates) =>
+                      setInvoice((prev: any) => (prev ? { ...prev, ...dates } : prev))
+                    }
                   />
                 </div>
 

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
+import { toLocalDateOnly } from '@/lib/utils'
 import { getCurrencySymbol } from '@/lib/utils/currency'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -26,24 +27,40 @@ interface PaymentRow {
   amount: number
   method: PaymentMethod
   check_number?: string | null
+  payment_date?: string | null
 }
 
 interface ConsultationPaymentEditorProps {
   payments: PaymentRow[]
   invoiceId?: string
   invoiceAmount?: number
+  invoiceIssuedAt?: string | null
+  invoicePaidAt?: string | null
+  /**
+   * Permet à l'écran appelant (modale de facture, fiche consultation) de
+   * rafraîchir l'en-tête « Émise le … » sans rouvrir la facture.
+   */
+  onInvoiceDatesChange?: (dates: { issued_at: string; paid_at: string | null }) => void
 }
 
 export function ConsultationPaymentEditor({
   payments,
   invoiceId,
   invoiceAmount,
+  invoiceIssuedAt,
+  invoicePaidAt,
+  onInvoiceDatesChange,
 }: ConsultationPaymentEditorProps) {
   const [entries, setEntries] = useState<PaymentRow[]>(() =>
     payments.map((payment) => ({ ...payment }))
   )
   const [amountValue, setAmountValue] = useState(invoiceAmount !== undefined ? String(invoiceAmount) : '')
+  const [dateValue, setDateValue] = useState(() => {
+    const source = invoiceIssuedAt || invoicePaidAt || payments[0]?.payment_date
+    return source ? toLocalDateOnly(source) : ''
+  })
   const [savingAmount, setSavingAmount] = useState(false)
+  const [savingDate, setSavingDate] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
   const { toast } = useToast()
   const router = useRouter()
@@ -114,6 +131,60 @@ export function ConsultationPaymentEditor({
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour le montant.' })
     } finally {
       setSavingAmount(false)
+    }
+  }
+
+  const handleSaveDate = async () => {
+    if (!invoiceId || !dateValue) return
+    const [year, month, day] = dateValue.split('-').map(Number)
+    if (!year || !month || !day) {
+      toast({ variant: 'destructive', title: 'Date invalide' })
+      return
+    }
+
+    // On conserve l'heure existante de la facture (ou midi par défaut) : la
+    // date est stockée en ISO/UTC, une heure de 00h00 basculerait sur la
+    // veille dans certains fuseaux.
+    const previous = invoiceIssuedAt || invoicePaidAt
+    const previousDate = previous ? new Date(previous) : null
+    const hours = previousDate && !Number.isNaN(previousDate.getTime()) ? previousDate.getHours() : 12
+    const minutes = previousDate && !Number.isNaN(previousDate.getTime()) ? previousDate.getMinutes() : 0
+    const isoDate = new Date(year, month - 1, day, hours, minutes, 0, 0).toISOString()
+
+    setSavingDate(true)
+    try {
+      // paid_at n'est renseigné que si la facture est déjà payée : on ne veut
+      // pas la marquer payée en changeant simplement sa date d'émission.
+      const nextPaidAt = invoicePaidAt ? isoDate : null
+      const invoiceUpdates: Record<string, string> = { issued_at: isoDate }
+      if (nextPaidAt) invoiceUpdates.paid_at = nextPaidAt
+
+      const { error } = await db.from('invoices').update(invoiceUpdates).eq('id', invoiceId)
+      if (error) throw error
+
+      // La comptabilité et les objectifs se basent sur payments.payment_date :
+      // sans cette mise à jour, le règlement resterait sur l'ancienne journée.
+      if (entries.length > 0) {
+        const { error: paymentsError } = await db
+          .from('payments')
+          .update({ payment_date: dateValue })
+          .eq('invoice_id', invoiceId)
+        if (paymentsError) throw paymentsError
+        setEntries((prev) => prev.map((entry) => ({ ...entry, payment_date: dateValue })))
+      }
+
+      onInvoiceDatesChange?.({ issued_at: isoDate, paid_at: nextPaidAt })
+      toast({
+        variant: 'success',
+        title: 'Date mise à jour',
+        description: 'La facture, le règlement et la comptabilité utilisent la nouvelle date.',
+      })
+      router.refresh()
+    } catch (error) {
+      console.error('Error updating invoice date:', error)
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour la date.' })
+    } finally {
+      setSavingDate(false)
     }
   }
 
@@ -192,6 +263,34 @@ export function ConsultationPaymentEditor({
                 {savingAmount ? 'Enregistrement...' : 'Sauvegarder'}
               </Button>
             </div>
+          </div>
+        )}
+        {invoiceId && (
+          <div className="space-y-2 rounded-lg border p-3">
+            <Label className="flex items-center gap-1.5">
+              <Pencil className="h-3 w-3 text-primary" />
+              Date de la facture
+            </Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={dateValue}
+                onChange={e => setDateValue(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleSaveDate}
+                disabled={savingDate || !dateValue}
+              >
+                {savingDate ? 'Enregistrement...' : 'Sauvegarder'}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Date d&apos;émission, de règlement et d&apos;encaissement comptable de cette facture.
+            </p>
           </div>
         )}
         {entries.map((payment) => (
