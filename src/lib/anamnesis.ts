@@ -87,6 +87,34 @@ export function sectionsToMarkdown(sections: AnamnesisSection[]): string {
   return blocks.join('\n\n')
 }
 
+/**
+ * Ajoute aux drapeaux rouges ceux qu'un dépistage complémentaire a relevés.
+ *
+ * L'extraction au fil de la dictée ne voit qu'un passage à la fois : un signe
+ * qui ne se déduit que du recoupement de deux phrases éloignées peut lui
+ * échapper. Un second dépistage sur la dictée entière les rattrape, et ses
+ * trouvailles viennent s'ajouter ici sans écraser ce qui a déjà été relevé.
+ *
+ * Un drapeau retrouvé annule toujours un « aucun identifié » : entre une case
+ * cochée et un signe présent, c'est le signe qui l'emporte.
+ */
+export function mergeRedFlagItems(
+  sections: AnamnesisSection[],
+  found: string[],
+): AnamnesisSection[] {
+  const additions = found.map((item) => item.trim()).filter(isRealItem)
+  if (additions.length === 0) return sections
+
+  return sections.map((section) => {
+    if (section.id !== 'red_flags') return section
+    const existing = realItems(section)
+    const known = new Set(existing.map((item) => item.toLowerCase()))
+    const fresh = additions.filter((item) => !known.has(item.toLowerCase()))
+    if (fresh.length === 0) return section
+    return { ...section, items: [...existing, ...fresh], allClear: false }
+  })
+}
+
 /* ── Pastilles de synthèse ──────────────────────────────────────────────────
  *
  * Volontairement déterministes et extraites des cartes elles-mêmes, jamais

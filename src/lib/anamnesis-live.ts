@@ -96,16 +96,16 @@ export const AXIS_IDS: string[] = AXES.map((a) => a.id)
  * cherché, une liste écrite est une réponse, « l'IA ne me l'a pas proposé » non.
  */
 export const RED_FLAG_CHECKS: string[] = [
-  'Douleur nocturne non soulagée par le repos',
-  'Amaigrissement, fièvre, sueurs nocturnes',
-  'Antécédent ou suspicion de cancer',
-  'Déficit neurologique, faiblesse, anesthésie',
-  'Troubles sphinctériens, anesthésie en selle',
-  'Traumatisme à haute énergie, ostéoporose, corticothérapie',
-  'Douleur thoracique, dyspnée, signes cardiovasculaires',
-  'Céphalée brutale, troubles visuels, dysarthrie',
-  'Signes infectieux, immunodépression',
-  'Âge inférieur à 20 ans ou supérieur à 55 ans, douleur récente',
+  'Douleur nocturne non mécanique, non soulagée par le repos, réveils douloureux',
+  'Amaigrissement inexpliqué, fièvre, sueurs nocturnes, altération de l\'état général',
+  'Antécédent ou suspicion de cancer, douleur récente',
+  'Déficit neurologique : faiblesse motrice, anesthésie, paresthésies progressives',
+  'Troubles sphinctériens, anesthésie en selle (urgence, queue de cheval)',
+  'Traumatisme à haute énergie, suspicion de fracture, ostéoporose, corticothérapie',
+  'Douleur thoracique, dyspnée, palpitations, signes cardiovasculaires',
+  'Céphalée brutale en coup de tonnerre, troubles visuels, vertiges, dysarthrie',
+  'Signes infectieux, immunodépression, toxicomanie intraveineuse',
+  'Âge inférieur à 20 ans ou supérieur à 55 ans, douleur rachidienne récente',
 ]
 
 /* ── Lignes ──────────────────────────────────────────────────────────────── */

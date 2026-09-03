@@ -5,6 +5,7 @@ import {
   extractOnset,
   extractSide,
   isNotCovered,
+  mergeRedFlagItems,
   sectionsToMarkdown,
   type AnamnesisSection,
 } from '@/lib/anamnesis'
@@ -167,5 +168,36 @@ describe('sectionsToMarkdown', () => {
     expect(md).toBe(
       '**Caractéristiques de la douleur**\n- Localisation : lombaire\n\n**Drapeaux rouges**\n- Aucun identifié',
     )
+  })
+})
+
+describe('mergeRedFlagItems', () => {
+  const base: AnamnesisSection[] = [
+    section('pain', ['Localisation : lombaire']),
+    section('red_flags', [], { allClear: true }),
+  ]
+
+  it('ajoute un drapeau rattrapé par le dépistage complémentaire', () => {
+    // L'extraction au fil de la dictée ne voit qu'un passage à la fois : un signe
+    // qui ne se déduit que du recoupement de deux phrases éloignées lui échappe.
+    const merged = mergeRedFlagItems(base, ['Douleur nocturne non soulagée par le repos'])
+    const flags = merged.find((s) => s.id === 'red_flags')!
+    expect(flags.items).toEqual(['Douleur nocturne non soulagée par le repos'])
+    // Entre une case « aucun identifié » et un signe présent, c'est le signe qui l'emporte.
+    expect(flags.allClear).toBe(false)
+  })
+
+  it('n\'ajoute pas deux fois le même signe', () => {
+    const withFlag = [section('red_flags', ['Douleur nocturne'], { allClear: false })]
+    const merged = mergeRedFlagItems(withFlag, ['douleur nocturne', 'Amaigrissement'])
+    expect(merged[0].items).toEqual(['Douleur nocturne', 'Amaigrissement'])
+  })
+
+  it('ne touche à rien quand le dépistage ne remonte rien', () => {
+    expect(mergeRedFlagItems(base, [])).toBe(base)
+    expect(mergeRedFlagItems(base, ['', '  ', '—'])).toEqual(base)
+    // Les autres rubriques ne sont jamais modifiées.
+    expect(mergeRedFlagItems(base, ['Fièvre']).find((s) => s.id === 'pain')!.items)
+      .toEqual(['Localisation : lombaire'])
   })
 })

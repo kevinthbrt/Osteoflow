@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -41,12 +41,13 @@ import { EditPatientModal } from '@/components/patients/edit-patient-modal'
 import { TopographyPanel } from '@/components/consultations/topography-panel'
 import { LowBackPainTree } from '@/components/consultations/low-back-pain-tree'
 import { NeckPainTree } from '@/components/consultations/neck-pain-tree'
-import { AnamnesisRecorder, type AnamnesisSection } from '@/components/consultations/anamnesis-recorder'
+import { DetectedPatientFields } from '@/components/consultations/detected-patient-fields'
+import type { PatientFieldsDetected } from '@/types/ai'
 import { AnamnesisCards } from '@/components/consultations/anamnesis-cards'
 import { AnamnesisDisplay } from '@/components/consultations/anamnesis-display'
 import { ConsultationLive, type LiveState } from '@/components/consultations/live/consultation-live'
 import { HypothesesDisplay } from '@/components/consultations/hypotheses-display'
-import { sectionsToMarkdown } from '@/lib/anamnesis'
+import { mergeRedFlagItems, realItems, sectionsToMarkdown, type AnamnesisSection } from '@/lib/anamnesis'
 import { linesToReason, linesToSections } from '@/lib/anamnesis-live'
 import { HypothesesCard, type HypothesesState } from '@/components/consultations/hypotheses-card'
 import type { HypothesesPayload } from '@/lib/hypotheses'
@@ -158,7 +159,9 @@ export function ConsultationForm({
   const [isDragging, setIsDragging] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
-  const db = createClient()
+  // Mémorisé : recréé à chaque rendu, il déstabilisait les dépendances des
+  // fonctions qui écrivent en base.
+  const db = useMemo(() => createClient(), [])
   const paymentsRef = useRef(payments)
   const submittedRef = useRef(false)
   const [showTopography, setShowTopography] = useState(false)
@@ -209,6 +212,7 @@ export function ConsultationForm({
    * fermant, et ce qui a déjà été saisi ici reste intact.
    */
   const [showLive, setShowLive] = useState(false)
+  const [detectedFields, setDetectedFields] = useState<PatientFieldsDetected | null>(null)
   const [liveState, setLiveState] = useState<LiveState | null>(null)
   const liveStateRef = useRef(liveState)
   const showLiveRef = useRef(showLive)
@@ -912,7 +916,7 @@ export function ConsultationForm({
     if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--
     return age >= 0 && age < 130 ? age : null
   }
-  const patientClinicalContext = {
+  const patientClinicalContext = useMemo(() => ({
     age: computeAge(currentPatient.birth_date),
     sex: currentPatient.gender === 'F' ? 'femme' : currentPatient.gender === 'M' ? 'homme' : null,
     profession: currentPatient.profession,
@@ -923,7 +927,177 @@ export function ConsultationForm({
     trauma_history: currentPatient.trauma_history,
     medical_history: currentPatient.medical_history,
     family_history: currentPatient.family_history,
-  }
+  }), [
+    currentPatient.birth_date, currentPatient.gender, currentPatient.profession,
+    currentPatient.sport_activity, currentPatient.primary_physician,
+    currentPatient.pregnancy_due_date, currentPatient.surgical_history,
+    currentPatient.trauma_history, currentPatient.medical_history,
+    currentPatient.family_history,
+  ])
+
+  /**
+   * Applique au dossier patient les informations repérées dans la dictée.
+   * Résout avec les clés en échec, qui restent affichées pour un nouvel essai.
+   */
+  const applyDetectedFields = useCallback(async (fields: PatientFieldsDetected) => {
+
+                const failedKeys: (keyof PatientFieldsDetected)[] = []
+                // Messages d'erreur réels (SQLite/API) pour les faire remonter dans le toast
+                // et la console DevTools — sinon l'échec reste opaque côté utilisateur.
+                const errorDetails: string[] = []
+                // Défense en profondeur : le LLM (ou un brouillon sauvegardé avant
+                // le correctif) peut fournir un tableau au lieu d'une chaîne, ce qui
+                // fait planter l'insert SQLite ("Too many parameter values"). On
+                // aplatit toute valeur en chaîne avant de toucher la base.
+                const toText = (v: unknown): string =>
+                  Array.isArray(v)
+                    ? v.map((x) => (x == null ? '' : String(x).trim())).filter(Boolean).join(', ')
+                    : v == null ? '' : String(v).trim()
+
+                // Flat patient fields (replace) — indépendant des antécédents ci-dessous.
+                const patientUpdates: Pick<Patient, 'profession' | 'sport_activity' | 'primary_physician' | 'pregnancy_due_date'> = {
+                  profession: currentPatient.profession,
+                  sport_activity: currentPatient.sport_activity,
+                  primary_physician: currentPatient.primary_physician,
+                  pregnancy_due_date: currentPatient.pregnancy_due_date,
+                }
+                const patientFieldKeys: (keyof typeof fields)[] = ['profession', 'sport_activity', 'primary_physician', 'pregnancy_due_date']
+                let hasPatientUpdate = false
+                for (const key of patientFieldKeys) {
+                  if (fields[key] !== undefined) { (patientUpdates as Record<string, unknown>)[key] = toText(fields[key]); hasPatientUpdate = true }
+                }
+                if (hasPatientUpdate) {
+                  // db.update() ne *jette* pas : il renvoie { error }. Il faut le lire
+                  // explicitement, sinon une erreur passait totalement inaperçue.
+                  try {
+                    const { error } = await db.from('patients').update(patientUpdates).eq('id', currentPatient.id)
+                    if (error) throw new Error(error.message)
+                    setCurrentPatient((prev) => ({ ...prev, ...patientUpdates }))
+                  } catch (e) {
+                    const msg = e instanceof Error ? e.message : String(e)
+                    console.error('[patient-fields] Échec mise à jour patient:', msg)
+                    errorDetails.push(msg)
+                    failedKeys.push(...patientFieldKeys.filter((key) => fields[key] !== undefined))
+                  }
+                }
+
+                // History fields → insert into medical_history_entries.
+                // Chaque antécédent est traité indépendamment : l'échec de l'un ne doit pas
+                // empêcher l'injection des suivants (sinon "Valider tout" s'arrête au premier échec).
+                const historyMap: { field: keyof typeof fields; type: MedicalHistoryType }[] = [
+                  { field: 'surgical_history', type: 'surgical' },
+                  { field: 'trauma_history', type: 'traumatic' },
+                  { field: 'medical_history', type: 'medical' },
+                  { field: 'family_history', type: 'family' },
+                ]
+                let historyInserted = false
+                for (const { field, type } of historyMap) {
+                  const raw = fields[field]
+                  if (raw === undefined) continue
+                  // Une entrée medical_history_entries PAR antécédent détecté :
+                  // le champ peut contenir plusieurs ATCD distincts (tableau).
+                  const items = (Array.isArray(raw) ? raw : [raw])
+                    .map((x) => (x == null ? '' : String(x).trim()))
+                    .filter(Boolean)
+                  if (items.length === 0) continue
+                  let fieldFailed = false
+                  for (const description of items) {
+                    try {
+                      const { error } = await db.from('medical_history_entries').insert({
+                        patient_id: currentPatient.id,
+                        history_type: type,
+                        description,
+                        onset_date: null,
+                        onset_age: null,
+                        onset_duration_value: null,
+                        onset_duration_unit: null,
+                        is_vigilance: false,
+                        note: null,
+                      })
+                      if (error) throw new Error(error.message)
+                      historyInserted = true
+                    } catch (e) {
+                      const msg = e instanceof Error ? e.message : String(e)
+                      console.error(`[patient-fields] Échec insertion antécédent (${type}):`, msg)
+                      errorDetails.push(msg)
+                      fieldFailed = true
+                    }
+                  }
+                  // On ne marque le champ en échec que si au moins une entrée a échoué,
+                  // pour le laisser affiché et permettre de réessayer.
+                  if (fieldFailed) failedKeys.push(field)
+                }
+                if (historyInserted) setMedicalHistoryRefreshKey((k) => k + 1)
+
+                if (failedKeys.length === 0) {
+                  toast({ title: 'Dossier patient mis à jour', variant: 'success' })
+                } else {
+                  toast({
+                    title: failedKeys.length === Object.keys(fields).length
+                      ? 'Erreur lors de la mise à jour'
+                      : `Dossier mis à jour partiellement (${failedKeys.length} élément(s) en échec)`,
+                    description: errorDetails[0],
+                    variant: 'destructive',
+                  })
+                }
+                return failedKeys
+  }, [
+    db, toast,
+    currentPatient.id, currentPatient.profession, currentPatient.sport_activity,
+    currentPatient.primary_physician, currentPatient.pregnancy_due_date,
+  ])
+
+  /**
+   * Dépistage complémentaire, sur la dictée entière, à la fin de l'anamnèse.
+   *
+   * L'extraction au fil de la parole ne voit qu'un passage à la fois : un signe
+   * qui ne se déduit que du recoupement de deux phrases éloignées peut lui
+   * échapper. Ce second passage réutilise la structuration complète, dont le
+   * dépistage est le plus détaillé, et n'en garde que deux choses : les drapeaux
+   * rouges qu'elle retrouve, et les informations du dossier qu'elle repère. Les
+   * lignes recueillies font foi pour tout le reste.
+   *
+   * Il ne bloque jamais : l'anamnèse est déjà appliquée quand il part, et son
+   * échec ne coûte que ce complément.
+   */
+  const runFinalScreening = useCallback(async (transcript: string, sections: AnamnesisSection[]) => {
+    if (!transcript.trim()) return
+    try {
+      const res = await fetch('/api/ai/structure-anamnesis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript, currentPatient: patientClinicalContext }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+
+      const screened = (data.sections ?? []).find((s: AnamnesisSection) => s.id === 'red_flags')
+      const found = screened ? realItems(screened) : []
+      const merged = mergeRedFlagItems(sections, found)
+      if (merged !== sections) {
+        const added = merged.find((s) => s.id === 'red_flags')
+        const before = sections.find((s) => s.id === 'red_flags')
+        if (added && before && realItems(added).length > realItems(before).length) {
+          setAnamnesisCardSections(merged)
+          setValue('anamnesis', sectionsToMarkdown(merged), { shouldDirty: true })
+          // Un drapeau rouge rattrapé doit se voir : c'est le seul cas où le
+          // complément change quelque chose à la conduite de la séance.
+          toast({
+            title: 'Drapeau rouge relevé au second passage',
+            description: 'Le dépistage sur la dictée complète a trouvé un signe absent des lignes. Vérifiez la carte Drapeaux rouges.',
+            variant: 'destructive',
+          })
+        }
+      }
+
+      if (data.patient_fields && Object.keys(data.patient_fields).length > 0) {
+        setDetectedFields(data.patient_fields as PatientFieldsDetected)
+      }
+      setTimeout(saveDraftNow, 0)
+    } catch {
+      // Complément indisponible : l'anamnèse recueillie reste intacte.
+    }
+  }, [patientClinicalContext, saveDraftNow, setValue, toast])
 
   const liveOverlay = showLive ? (
     <ConsultationLive
@@ -953,6 +1127,8 @@ export function ConsultationForm({
         setValue('anamnesis', result.markdown, { shouldDirty: true })
         setShowLive(false)
         setTimeout(saveDraftNow, 0)
+        // Lancé sans attendre : le praticien reprend la main tout de suite.
+        void runFinalScreening(result.transcript, result.sections)
       }}
     />
   ) : null
@@ -1638,145 +1814,15 @@ export function ConsultationForm({
                 </button>
               )}
 
-              <AnamnesisRecorder
-                key={currentPatient.id}
-                patientId={currentPatient.id}
-                reason={reason}
-                onHypothesesStart={() => {
-                  setHypothesesLoading(true)
-                  setHypothesesError(null)
-                }}
-                onHypothesesReady={(payload) => {
-                  setHypothesesLoading(false)
-                  if (payload) {
-                    setHypotheses(payload as unknown as HypothesesPayload)
-                    setHypothesesState(undefined)
-                    // Sauvegarde immédiate — les hypothèses doivent survivre à une
-                    // mise en veille qui surviendrait avant l'intervalle de 30s.
-                    setTimeout(saveDraftNow, 0)
-                  }
-                }}
-                onApply={(data) => {
-                  if (data.reason) setValue('reason', data.reason, { shouldDirty: true })
-                  if (data.sections && data.sections.length > 0) {
-                    setAnamnesisCardSections(data.sections)
-                    setAnamnesisCardReason(data.reason)
-                    setAnamnesisCardSummary(data.summary ?? null)
-                    // Texte dérivé des cartes (source unique) pour lettres/exports/recherche.
-                    setValue('anamnesis', sectionsToMarkdown(data.sections), { shouldDirty: true })
-                  } else if (data.anamnesis) {
-                    // Repli : ancien format / échec de structuration.
-                    setValue('anamnesis', data.anamnesis, { shouldDirty: true })
-                  }
-                  // Sauvegarde immédiate — sans attendre le debounce de 3s
-                  // car l'utilisateur peut mettre l'ordi en veille juste après.
-                  setTimeout(saveDraftNow, 0)
-                }}
-                disabled={isLoading}
-                patientContext={patientClinicalContext}
-                onPatientFieldsDetected={async (fields) => {
-                  const failedKeys: (keyof typeof fields)[] = []
-                  // Messages d'erreur réels (SQLite/API) pour les faire remonter dans le toast
-                  // et la console DevTools — sinon l'échec reste opaque côté utilisateur.
-                  const errorDetails: string[] = []
-                  // Défense en profondeur : le LLM (ou un brouillon sauvegardé avant
-                  // le correctif) peut fournir un tableau au lieu d'une chaîne, ce qui
-                  // fait planter l'insert SQLite ("Too many parameter values"). On
-                  // aplatit toute valeur en chaîne avant de toucher la base.
-                  const toText = (v: unknown): string =>
-                    Array.isArray(v)
-                      ? v.map((x) => (x == null ? '' : String(x).trim())).filter(Boolean).join(', ')
-                      : v == null ? '' : String(v).trim()
-
-                  // Flat patient fields (replace) — indépendant des antécédents ci-dessous.
-                  const patientUpdates: Pick<Patient, 'profession' | 'sport_activity' | 'primary_physician' | 'pregnancy_due_date'> = {
-                    profession: currentPatient.profession,
-                    sport_activity: currentPatient.sport_activity,
-                    primary_physician: currentPatient.primary_physician,
-                    pregnancy_due_date: currentPatient.pregnancy_due_date,
-                  }
-                  const patientFieldKeys: (keyof typeof fields)[] = ['profession', 'sport_activity', 'primary_physician', 'pregnancy_due_date']
-                  let hasPatientUpdate = false
-                  for (const key of patientFieldKeys) {
-                    if (fields[key] !== undefined) { (patientUpdates as Record<string, unknown>)[key] = toText(fields[key]); hasPatientUpdate = true }
-                  }
-                  if (hasPatientUpdate) {
-                    // db.update() ne *jette* pas : il renvoie { error }. Il faut le lire
-                    // explicitement, sinon une erreur passait totalement inaperçue.
-                    try {
-                      const { error } = await db.from('patients').update(patientUpdates).eq('id', currentPatient.id)
-                      if (error) throw new Error(error.message)
-                      setCurrentPatient((prev) => ({ ...prev, ...patientUpdates }))
-                    } catch (e) {
-                      const msg = e instanceof Error ? e.message : String(e)
-                      console.error('[patient-fields] Échec mise à jour patient:', msg)
-                      errorDetails.push(msg)
-                      failedKeys.push(...patientFieldKeys.filter((key) => fields[key] !== undefined))
-                    }
-                  }
-
-                  // History fields → insert into medical_history_entries.
-                  // Chaque antécédent est traité indépendamment : l'échec de l'un ne doit pas
-                  // empêcher l'injection des suivants (sinon "Valider tout" s'arrête au premier échec).
-                  const historyMap: { field: keyof typeof fields; type: MedicalHistoryType }[] = [
-                    { field: 'surgical_history', type: 'surgical' },
-                    { field: 'trauma_history', type: 'traumatic' },
-                    { field: 'medical_history', type: 'medical' },
-                    { field: 'family_history', type: 'family' },
-                  ]
-                  let historyInserted = false
-                  for (const { field, type } of historyMap) {
-                    const raw = fields[field]
-                    if (raw === undefined) continue
-                    // Une entrée medical_history_entries PAR antécédent détecté :
-                    // le champ peut contenir plusieurs ATCD distincts (tableau).
-                    const items = (Array.isArray(raw) ? raw : [raw])
-                      .map((x) => (x == null ? '' : String(x).trim()))
-                      .filter(Boolean)
-                    if (items.length === 0) continue
-                    let fieldFailed = false
-                    for (const description of items) {
-                      try {
-                        const { error } = await db.from('medical_history_entries').insert({
-                          patient_id: currentPatient.id,
-                          history_type: type,
-                          description,
-                          onset_date: null,
-                          onset_age: null,
-                          onset_duration_value: null,
-                          onset_duration_unit: null,
-                          is_vigilance: false,
-                          note: null,
-                        })
-                        if (error) throw new Error(error.message)
-                        historyInserted = true
-                      } catch (e) {
-                        const msg = e instanceof Error ? e.message : String(e)
-                        console.error(`[patient-fields] Échec insertion antécédent (${type}):`, msg)
-                        errorDetails.push(msg)
-                        fieldFailed = true
-                      }
-                    }
-                    // On ne marque le champ en échec que si au moins une entrée a échoué,
-                    // pour le laisser affiché et permettre de réessayer.
-                    if (fieldFailed) failedKeys.push(field)
-                  }
-                  if (historyInserted) setMedicalHistoryRefreshKey((k) => k + 1)
-
-                  if (failedKeys.length === 0) {
-                    toast({ title: 'Dossier patient mis à jour', variant: 'success' })
-                  } else {
-                    toast({
-                      title: failedKeys.length === Object.keys(fields).length
-                        ? 'Erreur lors de la mise à jour'
-                        : `Dossier mis à jour partiellement (${failedKeys.length} élément(s) en échec)`,
-                      description: errorDetails[0],
-                      variant: 'destructive',
-                    })
-                  }
-                  return failedKeys
-                }}
+              {/* Informations du dossier repérées pendant la dictée. Rien n'est
+                  appliqué sans un geste : une profession mal entendue n'a pas à
+                  s'inscrire toute seule dans le dossier. */}
+              <DetectedPatientFields
+                fields={detectedFields}
+                onApply={applyDetectedFields}
+                onDismiss={() => setDetectedFields(null)}
               />
+
               <div id="sec-anamnese" className={cn('space-y-3 scroll-mt-24', ENCART)}>
                 <SectionHeading icon={FileText} title="Anamnèse" tone={SECTION_TONES.anamnese} />
                 {anamnesisCardSections ? (

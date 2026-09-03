@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Edit, Calendar, FileText, Phone, Mail, Briefcase, Cake, Mic } from 'lucide-react'
+import { ArrowLeft, Edit, Calendar, FileText, Phone, Mail, Briefcase, Cake } from 'lucide-react'
 import { formatDate, formatPhone, calculateAge } from '@/lib/utils'
 import { ConsultationTimeline } from '@/components/consultations/consultation-timeline'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
@@ -118,19 +118,10 @@ export default async function PatientPage({ params, searchParams }: PatientPageP
               Modifier
             </Link>
           </Button>
-          <Button variant="outline" asChild>
+          <Button asChild>
             <Link href={`/patients/${id}/consultation/new`}>
               <Calendar className="mr-2 h-4 w-4" />
               Nouvelle consultation
-            </Link>
-          </Button>
-          {/* Une consultation, un seul écran. Le mode consultation ouvre le
-              formulaire avec l'écran de dictée par-dessus : le bouton voisin
-              mène exactement au même endroit, sans cet écran. */}
-          <Button asChild>
-            <Link href={`/patients/${id}/consultation/new?live=1`}>
-              <Mic className="mr-2 h-4 w-4" />
-              Mode consultation
             </Link>
           </Button>
         </div>
