@@ -15,13 +15,16 @@ const lines: LiveLine[] = applyOps([], [
 const noop = () => {}
 
 describe('fil de l\'anamnèse', () => {
-  const html = renderToStaticMarkup(<LiveLineFeed lines={lines} onEdit={noop} onRemove={noop} onAdd={noop} />)
+  const html = renderToStaticMarkup(<LiveLineFeed lines={lines} onEdit={noop} onRemove={noop} onAdd={noop} onStart={noop} isRecording />)
 
   it('affiche une ligne par fait, avec son symbole', () => {
     expect(html).toContain('Lombaire basse')
     expect(html).toContain('EVA 7/10')
-    expect(html).toContain('📍')
-    expect(html).toContain('↔️')
+    // Les symboles sont désormais des icônes de même épaisseur de trait, et non
+    // des emoji dont le dessin et la couleur changent d'un système à l'autre.
+    expect(html).toContain('lucide-map-pin')
+    expect(html).toContain('lucide-arrow-left-right')
+    expect(html).not.toContain('📍')
   })
 
   it('montre les mots du patient sous la ligne douteuse', () => {
@@ -33,7 +36,7 @@ describe('fil de l\'anamnèse', () => {
   it('ne colore que ce qui appelle une réaction', () => {
     // Si tout est coloré, plus rien ne l'est. Le texte courant reste neutre.
     const plain = renderToStaticMarkup(
-      <LiveLineFeed lines={[{ id: 'a', axis: 'localisation', text: 'Lombaire basse' }]} onEdit={noop} onRemove={noop} onAdd={noop} />,
+      <LiveLineFeed lines={[{ id: 'a', axis: 'localisation', text: 'Lombaire basse' }]} onEdit={noop} onRemove={noop} onAdd={noop} onStart={noop} isRecording />,
     )
     expect(plain).toContain('text-foreground')
     expect(plain).not.toContain('text-red-')
@@ -42,14 +45,43 @@ describe('fil de l\'anamnèse', () => {
     // Le doute de transcription et le drapeau rouge, eux, se voient.
     expect(html).toContain('text-amber-800')
     const flagged = renderToStaticMarkup(
-      <LiveLineFeed lines={[{ id: 'r', axis: 'red_flag', text: 'Douleur nocturne' }]} onEdit={noop} onRemove={noop} onAdd={noop} />,
+      <LiveLineFeed lines={[{ id: 'r', axis: 'red_flag', text: 'Douleur nocturne' }]} onEdit={noop} onRemove={noop} onAdd={noop} onStart={noop} isRecording />,
     )
     expect(flagged).toContain('text-red-800')
   })
 
-  it('invite à parler quand rien n\'a encore été dit', () => {
-    expect(renderToStaticMarkup(<LiveLineFeed lines={[]} onEdit={noop} onRemove={noop} onAdd={noop} />))
-      .toContain('Lancez la dictée')
+  it('fait du micro le centre de gravité tant que rien n\'a été dit', () => {
+    // À ce moment il n'y a qu'une chose à faire : elle ne doit pas être un
+    // petit bouton dans un coin de l'en-tête.
+    const idle = renderToStaticMarkup(
+      <LiveLineFeed lines={[]} onEdit={noop} onRemove={noop} onAdd={noop} onStart={noop} isRecording={false} />,
+    )
+    expect(idle).toContain('Lancez la dictée')
+    expect(idle).toContain('Démarrer la dictée')
+    expect(idle).toContain('h-24 w-24')
+
+    // Une fois la dictée lancée, l'invitation s'efface.
+    const recording = renderToStaticMarkup(
+      <LiveLineFeed lines={[]} onEdit={noop} onRemove={noop} onAdd={noop} onStart={noop} isRecording />,
+    )
+    expect(recording).not.toContain('Démarrer la dictée')
+  })
+
+  it('traite le motif comme un titre, pas comme une ligne parmi les autres', () => {
+    // La hiérarchie revient par la taille et la graisse, puisque la couleur est
+    // réservée au signal.
+    const withReason = renderToStaticMarkup(
+      <LiveLineFeed
+        lines={[
+          { id: 'm', axis: 'motif', text: 'Lombalgie aiguë' },
+          { id: 'a', axis: 'localisation', text: 'Lombaire basse' },
+        ]}
+        onEdit={noop} onRemove={noop} onAdd={noop} onStart={noop} isRecording
+      />,
+    )
+    expect(withReason).toContain('text-[20px] font-semibold')
+    expect(withReason).toContain('text-[16px] leading-[1.6]')
+    expect(withReason.indexOf('Lombalgie aiguë')).toBeLessThan(withReason.indexOf('Lombaire basse'))
   })
 })
 
@@ -71,9 +103,10 @@ describe('copilote', () => {
     // Un panneau qui affiche une piste tôt oriente la suite de l'interrogatoire
     // vers sa confirmation. Le copilote dit ce qui manque, jamais ce que c'est.
     expect(html).not.toMatch(/hypoth|probab|\d\s*%/i)
-    // La seule mention du diagnostic est celle qui s'en défend.
+    // La seule mention du diagnostic reste celle qui s'en défend, désormais
+    // portée par une infobulle plutôt que par quatre lignes permanentes.
     expect(html).toContain('Aucune orientation diagnostique')
-    expect(html.match(/diagnos/gi)).toHaveLength(1)
+    expect(html).toContain('cursor-help')
   })
 
   it('ne déclare pas un dépistage qui n\'a pas eu lieu', () => {

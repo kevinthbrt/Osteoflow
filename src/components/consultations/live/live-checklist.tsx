@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, Check, ChevronDown, ChevronRight, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ChevronRight, Flag, Info, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { missingAxes, RED_FLAG_CHECKS, type AxisId, type LiveLine } from '@/lib/anamnesis-live'
+import { AXES, missingAxes, RED_FLAG_CHECKS, type AxisId, type LiveLine } from '@/lib/anamnesis-live'
+import { AxisIcon } from '@/components/consultations/live/axis-icon'
 
 /**
  * Le copilote : ce qui n'a pas encore été abordé.
@@ -46,7 +47,7 @@ export function LiveChecklist({
   const total = missing.length
 
   return (
-    <div className="flex min-h-full flex-col gap-5 px-5 py-5">
+    <div className="flex min-h-full flex-col gap-6 px-5 py-5">
       {/* Drapeaux rouges en premier : c'est le seul point dont l'oubli est grave. */}
       <section>
         {flagged.length > 0 ? (
@@ -79,7 +80,8 @@ export function LiveChecklist({
                 className="flex items-center gap-1.5 text-sm font-semibold text-foreground"
               >
                 {showRedFlagList ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                🚩 Drapeaux rouges
+                <Flag className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                Drapeaux rouges
               </button>
               <button
                 type="button"
@@ -106,8 +108,20 @@ export function LiveChecklist({
 
       {/* Ce qui n'a pas encore été abordé. */}
       <section className="flex-1">
-        <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <h2 className="mb-2.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           {total > 0 ? `Pas encore abordé (${total})` : 'Interrogatoire complet'}
+          {/* La mention de prudence occupait quatre lignes en permanence au bas
+              d'une colonne qui défile. Elle reste, à la demande. */}
+          <span
+            title="Aide-mémoire de complétude d'interrogatoire. Aucune orientation diagnostique, aucune valeur de recommandation clinique."
+            className="cursor-help text-muted-foreground/60"
+          >
+            <Info className="h-3 w-3" aria-hidden="true" />
+          </span>
+          <span className="sr-only">
+            Aide-mémoire de complétude d’interrogatoire. Aucune orientation diagnostique,
+            aucune valeur de recommandation clinique.
+          </span>
         </h2>
 
         {total === 0 ? (
@@ -116,19 +130,21 @@ export function LiveChecklist({
             Tous les axes sont couverts.
           </div>
         ) : (
-          <ul className="space-y-0.5 list-none pl-0">
+          <ul className="space-y-1 list-none pl-0">
             {missing.map((axis) => (
               <li
                 key={axis.id}
                 className={cn(
-                  'group/axis flex items-start gap-2.5 rounded-lg px-2.5 py-1.5',
+                  'group/axis flex items-start gap-2.5 rounded-lg px-2.5 py-2',
                   'text-[13px] leading-snug text-muted-foreground hover:bg-muted/50',
                 )}
               >
-                <span className="shrink-0 opacity-60" aria-hidden="true">{axis.icon}</span>
+                <span className="shrink-0 pt-0.5 text-muted-foreground/60">
+                  <AxisIcon axis={axis.id} className="h-4 w-4" />
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium text-foreground/80">{axis.label}</span>
-                  <span className="block text-xs">{axis.prompt}</span>
+                  <span className="block text-xs leading-snug">{axis.prompt}</span>
                 </span>
                 <button
                   type="button"
@@ -155,10 +171,6 @@ export function LiveChecklist({
         </button>
       )}
 
-      <p className="text-[11px] leading-snug text-muted-foreground/70">
-        Aide-mémoire de complétude d’interrogatoire. Aucune orientation diagnostique,
-        aucune valeur de recommandation clinique.
-      </p>
     </div>
   )
 }

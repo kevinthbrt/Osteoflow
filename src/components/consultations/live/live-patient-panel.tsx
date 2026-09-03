@@ -95,7 +95,7 @@ export function LivePatientPanel({ patient, history, pastConsultations }: LivePa
   ].filter(Boolean) as string[]
 
   return (
-    <div className="flex min-h-full flex-col gap-5 px-5 py-5">
+    <div className="flex min-h-full flex-col gap-6 px-5 py-5">
       <div>
         <p className="text-sm font-semibold leading-tight">{patient.fullName}</p>
         {identity.length > 0 && (
@@ -111,7 +111,7 @@ export function LivePatientPanel({ patient, history, pastConsultations }: LivePa
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             Vigilance
           </div>
-          <ul className="mt-1.5 space-y-1 list-none pl-0 text-[13px] leading-snug text-amber-900 dark:text-amber-100">
+          <ul className="mt-2 space-y-1.5 list-none pl-0 text-[13px] leading-relaxed text-amber-900 dark:text-amber-100">
             {vigilance.map((entry) => (
               <li key={entry.id}>
                 {entry.description}
@@ -131,7 +131,7 @@ export function LivePatientPanel({ patient, history, pastConsultations }: LivePa
               return (
                 <div key={type}>
                   <p className="text-[11px] font-medium text-muted-foreground">{HISTORY_LABELS[type]}</p>
-                  <ul className="mt-0.5 space-y-0.5 list-none pl-0 text-[13px] leading-snug text-foreground/90">
+                  <ul className="mt-1 space-y-1 list-none pl-0 text-[13px] leading-relaxed text-foreground/90">
                     {entries.map((entry) => (
                       <li key={entry.id} className="flex gap-1.5">
                         <span className="shrink-0 opacity-40">·</span>
@@ -150,9 +150,9 @@ export function LivePatientPanel({ patient, history, pastConsultations }: LivePa
         {pastConsultations.length === 0 ? (
           <p className="text-[13px] text-muted-foreground">Première consultation.</p>
         ) : (
-          <ul className="space-y-2 list-none pl-0">
+          <ul className="space-y-2.5 list-none pl-0">
             {pastConsultations.map((consultation) => (
-              <li key={consultation.id} className="rounded-lg border bg-card px-3 py-2">
+              <li key={consultation.id} className="rounded-xl border bg-card px-3.5 py-2.5">
                 <p className="text-[11px] tabular-nums text-muted-foreground">
                   {formatDate(consultation.date_time)}
                 </p>

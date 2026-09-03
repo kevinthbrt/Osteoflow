@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { useLiveDictation } from '@/hooks/use-live-dictation'
 import {
   applyOps,
+  AXES,
   linesToReason,
   linesToSections,
   type AxisId,
@@ -262,13 +263,17 @@ export function ConsultationLive({
 
   const hasContent = lines.length > 0
 
+  const requiredAxes = AXES.filter((a) => a.required && !dismissedAxes.includes(a.id))
+  const coveredCount = requiredAxes.filter((a) => lines.some((l) => l.axis === a.id)).length
+  const coverage = requiredAxes.length > 0 ? (coveredCount / requiredAxes.length) * 100 : 100
+
   return (
     // z-[60] et non z-50 : la pastille de simulation d'offre et la bulle de
     // support flottent en z-50 et se superposaient à l'écran de consultation,
     // qui doit être le seul élément visible tant que le patient est là.
     <div className="fixed inset-0 z-[60] flex flex-col bg-background">
       {/* En-tête : qui, depuis combien de temps, et le micro. Rien d'autre. */}
-      <header className={cn('flex shrink-0 items-center gap-4 border-b px-5 py-3', macInset && 'pl-24')}>
+      <header className={cn('relative flex shrink-0 items-center gap-4 border-b bg-card px-5 py-3', macInset && 'pl-24')}>
         <button
           type="button"
           onClick={onCancel}
@@ -310,19 +315,38 @@ export function ConsultationLive({
           </span>
         )}
 
-        <Button
-          type="button"
-          size="sm"
-          variant={dictation.isRecording ? 'secondary' : 'default'}
-          onClick={() => (dictation.isRecording ? dictation.stop() : void dictation.start())}
-          disabled={dictation.state === 'transcribing' || finishing}
-        >
-          {dictation.isRecording ? (
-            <><Square className="mr-1.5 h-3.5 w-3.5" /> Arrêter</>
-          ) : (
-            <><Mic className="mr-1.5 h-3.5 w-3.5" /> Dicter</>
-          )}
-        </Button>
+        {/* Au démarrage l'action est portée par le micro central : le bouton
+            d'en-tête ne réapparaît qu'une fois qu'il y a quelque chose à
+            reprendre ou à arrêter. */}
+        {(dictation.isRecording || lines.length > 0) && (
+          <Button
+            type="button"
+            size="sm"
+            variant={dictation.isRecording ? 'secondary' : 'default'}
+            onClick={() => (dictation.isRecording ? dictation.stop() : void dictation.start())}
+            disabled={dictation.state === 'transcribing' || finishing}
+          >
+            {dictation.isRecording ? (
+              <><Square className="mr-1.5 h-3.5 w-3.5" /> Arrêter</>
+            ) : (
+              <><Mic className="mr-1.5 h-3.5 w-3.5" /> Reprendre</>
+            )}
+          </Button>
+        )}
+
+        {/* Sensation d'avancement : sur dix minutes d'interrogatoire, rien ne
+            disait qu'on progressait. Deux pixels au bas de l'en-tête suffisent. */}
+        <div className="absolute inset-x-0 bottom-0 h-0.5 bg-transparent">
+          <div
+            className="h-full bg-primary/70 transition-[width] duration-500"
+            style={{ width: `${coverage}%` }}
+            role="progressbar"
+            aria-valuenow={Math.round(coverage)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Couverture de l'interrogatoire"
+          />
+        </div>
       </header>
 
       {restored && (
@@ -348,25 +372,27 @@ export function ConsultationLive({
       )}
 
       {/* Le fil à gauche, ce qui manque à droite. */}
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col bg-background lg:flex-row">
         {showPatient && (
-          <aside className="shrink-0 overflow-y-auto border-b bg-muted/20 lg:w-64 lg:border-b-0 lg:border-r xl:w-72">
+          <aside className="shrink-0 overflow-y-auto border-b lg:w-64 lg:border-b-0 lg:border-r xl:w-72">
             <LivePatientPanel patient={patient} history={history} pastConsultations={pastConsultations} />
           </aside>
         )}
 
-        <main className="min-h-0 flex-1 overflow-y-auto">
+        <main className="relative min-h-0 flex-1 overflow-y-auto bg-card shadow-[0_0_40px_-12px_rgba(0,0,0,0.30)]">
           <LiveLineFeed
             lines={lines}
             interim={dictation.interim}
             onEdit={editLine}
             onRemove={removeLine}
             onAdd={addLine}
+            onStart={() => void dictation.start()}
+            isRecording={dictation.isRecording}
           />
         </main>
 
         <aside className={cn(
-          'shrink-0 overflow-y-auto border-t bg-muted/20',
+          'shrink-0 overflow-y-auto border-t',
           'lg:w-80 lg:border-l lg:border-t-0 xl:w-96',
         )}>
           <LiveChecklist
@@ -388,13 +414,8 @@ export function ConsultationLive({
         </div>
       )}
 
-      <footer className="flex shrink-0 items-center justify-between gap-3 border-t px-5 py-3">
+      <footer className="flex shrink-0 items-center justify-between gap-3 border-t bg-card px-5 py-3">
         <div className="flex min-w-0 items-center gap-3">
-          <p className="text-xs text-muted-foreground">
-            {hasContent
-              ? `${lines.length} élément${lines.length > 1 ? 's' : ''} relevé${lines.length > 1 ? 's' : ''}`
-              : 'Rien de relevé pour l\'instant'}
-          </p>
           {dictation.transcript && (
             <button
               type="button"
