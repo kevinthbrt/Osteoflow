@@ -274,6 +274,7 @@ export interface Database {
           reason: string
           anamnesis: string | null
           anamnesis_sections: string | null
+          anamnesis_summary: string | null
           clinical_hypotheses: string | null
           examination: string | null
           advice: string | null
@@ -291,6 +292,7 @@ export interface Database {
           reason: string
           anamnesis?: string | null
           anamnesis_sections?: string | null
+          anamnesis_summary?: string | null
           clinical_hypotheses?: string | null
           examination?: string | null
           advice?: string | null
@@ -308,6 +310,7 @@ export interface Database {
           reason?: string
           anamnesis?: string | null
           anamnesis_sections?: string | null
+          anamnesis_summary?: string | null
           clinical_hypotheses?: string | null
           examination?: string | null
           advice?: string | null

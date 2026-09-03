@@ -163,7 +163,9 @@ export function ConsultationModal({ consultationId, onClose, onOpenInvoice }: Pr
                           <AnamnesisDisplay
                             anamnesis={consultation.anamnesis}
                             anamnesisSections={consultation.anamnesis_sections}
+                            anamnesisSummary={consultation.anamnesis_summary}
                             reason={consultation.reason}
+                            consultationId={consultation.id}
                           />
                         </div>
                       )}

@@ -19,6 +19,20 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.19.0',
+    date: '2026-09-03',
+    title: 'Une anamnèse relisible d\'un coup d\'œil',
+    changes: [
+      { type: 'feature', text: "Nouveau bandeau de synthèse au-dessus des cartes d'anamnèse : une phrase clinique de vingt-cinq mots au plus, écrite pour être relue à voix haute au patient en fin d'interrogatoire. C'est lui qui confirme ou corrige, en dix secondes, au lieu que vous relisiez trente lignes à l'écran pendant qu'il attend. La phrase reste modifiable à la main." },
+      { type: 'feature', text: "Sous la phrase, les paramètres chiffrés en pastilles : intensité EVA avec sa jauge, ancienneté de la plainte, côté, statut du dépistage des drapeaux rouges, et le nombre de points à confirmer. Ces pastilles sont extraites de vos cartes, jamais demandées à l'IA : elles ne peuvent donc pas les contredire, et ce qui n'y figure pas n'est pas affiché plutôt que deviné." },
+      { type: 'feature', text: "Les rubriques que la dictée n'a pas abordées ne prennent plus une carte vide chacune. Elles se replient en une ligne « Non abordé : … » sous les cartes, où chaque libellé se déplie d'un clic pour être complété. La valeur de pense-bête est conservée, la moitié de la surface de l'écran revient à ce qui dit quelque chose." },
+      { type: 'improvement', text: "Une seule couleur veut désormais dire quelque chose. Les cinq teintes décoratives, une par rubrique, mettaient au même niveau visuel un drapeau rouge et un facteur aggravant : l'œil devait tout parcourir pour trouver le signal. Les cartes sont neutres, le rouge est réservé aux drapeaux rouges détectés et le vert au dépistage négatif." },
+      { type: 'improvement', text: "Les termes que la transcription n'a pas rendus avec certitude sont soulignés en ambre et comptés dans le bandeau. Vous ne relisez plus l'ensemble des items pour trouver les deux douteux : ils se signalent d'eux-mêmes. Le reste n'est pas pour autant certifié, c'est un ordre de priorité de relecture, pas un tampon de validation." },
+      { type: 'feature', text: "Vos consultations passées en profitent aussi : le bandeau, les pastilles, le repli des rubriques vides et le signalement des termes douteux sont recalculés à partir des cartes déjà enregistrées, sans nouvel appel à l'IA. Un bouton « Résumer cette anamnèse en une phrase » permet, sur une consultation antérieure, d'obtenir la phrase de synthèse qui manquait ; elle est alors enregistrée une fois pour toutes." },
+      { type: 'improvement', text: "L'aperçu affiché juste après la dictée et les cartes du dossier partagent maintenant le même affichage. Ils étaient jusqu'ici deux implémentations distinctes du même contenu, qui divergeaient à chaque évolution." },
+    ],
+  },
+  {
     version: '1.18.2',
     date: '2026-09-02',
     title: 'La date de la facture se corrige enfin',

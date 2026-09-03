@@ -4,7 +4,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Mic, MicOff, Sparkles, Loader2, RotateCcw, Check, AlertCircle, WifiOff, Download, UserPen } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { sectionsToMarkdown } from '@/lib/anamnesis'
+import { sectionsToMarkdown, type AnamnesisSection } from '@/lib/anamnesis'
+import { AnamnesisCards } from '@/components/consultations/anamnesis-cards'
 import type { PatientFieldsDetected } from '@/types/ai'
 
 export type { PatientFieldsDetected }
@@ -23,7 +24,7 @@ interface PatientContext {
 }
 
 interface AnamnesisRecorderProps {
-  onApply: (data: { reason: string; anamnesis: string; sections?: AnamnesisSection[] }) => void
+  onApply: (data: { reason: string; anamnesis: string; summary?: string; sections?: AnamnesisSection[] }) => void
   /** Fired at the start of the parallel hypotheses fetch so the parent can show a loader. */
   onHypothesesStart?: () => void
   /** Fired when the parallel hypotheses fetch resolves. null means failure/no result. */
@@ -158,27 +159,12 @@ async function clearAudioBlob(): Promise<void> {
   } catch { /* silencieux */ }
 }
 
-export interface AnamnesisSection {
-  id: string
-  label: string
-  icon: string
-  color: 'red' | 'green' | 'slate' | 'sky' | 'teal' | 'indigo' | 'stone'
-  items: string[]
-  allClear?: boolean
-}
-
-export const SECTION_STYLES: Record<AnamnesisSection['color'], { card: string; label: string; item: string }> = {
-  // Drapeaux rouges détectés
-  red:    { card: 'bg-red-50/60 border-red-200 dark:bg-red-950/20 dark:border-red-800', label: 'text-red-600 dark:text-red-400', item: 'text-red-900 dark:text-red-200' },
-  // Drapeaux rouges — aucun identifié
-  green:  { card: 'bg-green-50/60 border-green-200 dark:bg-green-950/20 dark:border-green-800', label: 'text-green-600 dark:text-green-400', item: 'text-green-900 dark:text-green-200' },
-  // Sections neutres (sans connotation de gravité)
-  slate:  { card: 'bg-slate-50/60 border-slate-200 dark:bg-slate-900/20 dark:border-slate-700', label: 'text-slate-600 dark:text-slate-400', item: 'text-slate-900 dark:text-slate-200' },
-  sky:    { card: 'bg-sky-50/60 border-sky-200 dark:bg-sky-950/20 dark:border-sky-800', label: 'text-sky-600 dark:text-sky-400', item: 'text-sky-900 dark:text-sky-200' },
-  teal:   { card: 'bg-teal-50/60 border-teal-200 dark:bg-teal-950/20 dark:border-teal-800', label: 'text-teal-600 dark:text-teal-400', item: 'text-teal-900 dark:text-teal-200' },
-  indigo: { card: 'bg-indigo-50/60 border-indigo-200 dark:bg-indigo-950/20 dark:border-indigo-800', label: 'text-indigo-600 dark:text-indigo-400', item: 'text-indigo-900 dark:text-indigo-200' },
-  stone:  { card: 'bg-stone-50/60 border-stone-200 dark:bg-stone-900/20 dark:border-stone-700', label: 'text-stone-600 dark:text-stone-400', item: 'text-stone-900 dark:text-stone-200' },
-}
+/**
+ * Le modèle des cartes vit dans `lib/anamnesis` (aucune dépendance à React), ce
+ * qui permet aux cartes, à l'enregistreur et à l'affichage en lecture seule de
+ * partager un seul modèle. Ré-exporté ici pour les imports existants.
+ */
+export type { AnamnesisSection } from '@/lib/anamnesis'
 
 // ─── Composant ───────────────────────────────────────────────────────────────
 
@@ -187,7 +173,7 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
   const [finalText, setFinalText] = useState('')
   const [interimText, setInterimText] = useState('')
   const [isElectronApp, setIsElectronApp] = useState(false)
-  const [structured, setStructured] = useState<{ reason: string; anamnesis: string; sections?: AnamnesisSection[] } | null>(null)
+  const [structured, setStructured] = useState<{ reason: string; anamnesis: string; summary?: string; sections?: AnamnesisSection[] } | null>(null)
   const [detectedFields, setDetectedFields] = useState<PatientFieldsDetected | null>(null)
   const [detectionSkipped, setDetectionSkipped] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -322,7 +308,7 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
       const anamnesisText = data.sections && data.sections.length > 0
         ? sectionsToMarkdown(data.sections)
         : (data.anamnesis ?? '')
-      setStructured({ reason: data.reason, anamnesis: anamnesisText, sections: data.sections })
+      setStructured({ reason: data.reason, anamnesis: anamnesisText, summary: data.summary, sections: data.sections })
       if (data.patient_fields && Object.keys(data.patient_fields).length > 0) {
         setDetectedFields(data.patient_fields)
       }
@@ -917,91 +903,38 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
         <p className="text-xs text-destructive">{errorMsg}</p>
       )}
 
-      {/* Résultat structuré */}
+      {/* Aperçu structuré. Rendu par le composant des cartes : une deuxième
+          implémentation du même affichage divergeait à chaque évolution, et le
+          praticien voyait deux mises en page pour un seul contenu. */}
       {state === 'done' && structured && (
-        <div className="space-y-2">
-          {/* Motif pill */}
-          {structured.reason && (
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 max-w-full break-words bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-800 text-red-700 dark:text-red-300 text-xs font-semibold rounded-full px-3 py-1">
-                🎯 {structured.reason}
-              </span>
-            </div>
-          )}
-
-          {/* Cards sections */}
-          {structured.sections && structured.sections.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              {structured.sections.map((section) => {
-                const isRedFlags = section.id === 'red_flags'
-                const effectiveColor = isRedFlags
-                  ? (section.allClear ? 'green' : 'red')
-                  : section.color
-                const styles = SECTION_STYLES[effectiveColor] ?? SECTION_STYLES.slate
+        structured.sections && structured.sections.length > 0 ? (
+          <AnamnesisCards
+            reason={structured.reason}
+            summary={structured.summary}
+            sections={structured.sections}
+            onEdit={() => {}}
+            disabled
+          />
+        ) : (
+          /* Repli texte si pas de sections (ancien format / échec de structuration) */
+          <div className="rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed max-h-[300px] overflow-y-auto">
+            <div className="text-muted-foreground space-y-1">
+              {structured.anamnesis.split('\n').map((line, i) => {
+                if (!line.trim()) return <div key={i} className="h-1" />
+                const parts = line.split(/\*\*(.+?)\*\*/g)
                 return (
-                  <div
-                    key={section.id}
-                    className={cn(
-                      'rounded-lg border px-2.5 py-2 text-xs min-w-0',
-                      styles.card,
-                      isRedFlags && 'sm:col-span-2'
+                  <p key={i} className="leading-relaxed">
+                    {parts.map((part, j) =>
+                      j % 2 === 1 ? (
+                        <strong key={j} className="font-semibold text-foreground">{part}</strong>
+                      ) : part
                     )}
-                  >
-                    <div className="flex items-center gap-1.5 mb-1.5 min-w-0">
-                      <span className="shrink-0">{section.icon}</span>
-                      <span className={cn('font-semibold uppercase tracking-wide text-[10px] leading-tight break-words min-w-0', styles.label)}>
-                        {section.label}
-                      </span>
-                      {isRedFlags && section.allClear && (
-                        <span className="ml-auto flex items-center gap-1 text-[10px] font-medium text-green-600 dark:text-green-400">
-                          <Check className="h-3 w-3" /> Aucun identifié
-                        </span>
-                      )}
-                    </div>
-                    {isRedFlags && section.allClear ? (
-                      <div className="flex flex-wrap gap-x-4 gap-y-0.5">
-                        {section.items.filter(i => i !== '—').map((item, i) => (
-                          <span key={i} className={cn('flex items-center gap-1', styles.item)}>
-                            <Check className="h-2.5 w-2.5 text-green-500 shrink-0" />
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <ul className="space-y-0.5 list-none pl-0">
-                        {section.items.map((item, i) => (
-                          <li key={i} className={cn('leading-relaxed break-words', item === '—' ? 'text-muted-foreground italic' : styles.item)}>
-                            {item !== '—' && <span className="mr-1 opacity-40">·</span>}
-                            {item}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
+                  </p>
                 )
               })}
             </div>
-          ) : (
-            /* Fallback texte si pas de sections (réponse ancienne format) */
-            <div className="rounded-lg bg-background border px-3 py-2 text-sm leading-relaxed max-h-[300px] overflow-y-auto">
-              <div className="text-muted-foreground space-y-1">
-                {structured.anamnesis.split('\n').map((line, i) => {
-                  if (!line.trim()) return <div key={i} className="h-1" />
-                  const parts = line.split(/\*\*(.+?)\*\*/g)
-                  return (
-                    <p key={i} className="leading-relaxed">
-                      {parts.map((part, j) =>
-                        j % 2 === 1 ? (
-                          <strong key={j} className="font-semibold text-foreground">{part}</strong>
-                        ) : part
-                      )}
-                    </p>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )
       )}
 
       {/* Detected patient fields */}

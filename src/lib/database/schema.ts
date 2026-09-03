@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS consultations (
   reason TEXT NOT NULL,
   anamnesis TEXT,
   anamnesis_sections TEXT,
+  anamnesis_summary TEXT,
   clinical_hypotheses TEXT,
   examination TEXT,
   advice TEXT,
@@ -479,6 +480,12 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   // sur les consultations passées sans repasser par l'IA.
   if (!consultCols.some((c) => c.name === 'anamnesis_sections')) {
     db.exec('ALTER TABLE consultations ADD COLUMN anamnesis_sections TEXT;')
+  }
+  // Phrase de synthèse de l'anamnèse, celle que le praticien relit au patient.
+  // Les consultations antérieures restent sans synthèse : le bandeau se limite
+  // alors aux pastilles, recalculées depuis les cartes déjà enregistrées.
+  if (!consultCols.some((c) => c.name === 'anamnesis_summary')) {
+    db.exec('ALTER TABLE consultations ADD COLUMN anamnesis_summary TEXT;')
   }
   // Hypothèses cliniques (JSON sérialisé : payload IA + réponses du praticien),
   // pour réaffichage sur les consultations passées.

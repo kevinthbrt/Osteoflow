@@ -193,7 +193,11 @@ export function ConsultationForm({
     return null
   })
   const [anamnesisCardReason, setAnamnesisCardReason] = useState<string | undefined>(consultation?.reason || undefined)
+  // Phrase de synthèse : celle que le praticien relit au patient pour valider
+  // les cartes en dix secondes plutôt qu'en relisant chaque item.
+  const [anamnesisCardSummary, setAnamnesisCardSummary] = useState<string | null>(consultation?.anamnesis_summary ?? null)
   const anamnesisCardSectionsRef = useRef(anamnesisCardSections)
+  const anamnesisCardSummaryRef = useRef(anamnesisCardSummary)
   // Carte « Hypothèses cliniques » — persistée avec la consultation (payload IA + réponses).
   const initialHypotheses = (() => {
     if (!consultation?.clinical_hypotheses) return { payload: null as HypothesesPayload | null, state: undefined as HypothesesState | undefined }
@@ -325,6 +329,7 @@ export function ConsultationForm({
 
   useEffect(() => { paymentsRef.current = payments }, [payments])
   useEffect(() => { anamnesisCardSectionsRef.current = anamnesisCardSections }, [anamnesisCardSections])
+  useEffect(() => { anamnesisCardSummaryRef.current = anamnesisCardSummary }, [anamnesisCardSummary])
   useEffect(() => { hypothesesRef.current = hypotheses }, [hypotheses])
   useEffect(() => { hypothesesStateRef.current = hypothesesState }, [hypothesesState])
 
@@ -351,7 +356,7 @@ export function ConsultationForm({
     fetch('/api/consultation/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
+      body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, anamnesis_summary: anamnesisCardSummaryRef.current ?? undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
     }).catch(() => {})
   }, [mode, getValues])
 
@@ -365,7 +370,7 @@ export function ConsultationForm({
       fetch('/api/consultation/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
+        body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, anamnesis_summary: anamnesisCardSummaryRef.current ?? undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
       }).catch(() => {})
     }
 
@@ -392,6 +397,7 @@ export function ConsultationForm({
               if (Array.isArray(sections) && sections.length > 0) {
                 setAnamnesisCardSections(sections)
                 if (draft.reason) setAnamnesisCardReason(draft.reason)
+                if (draft.anamnesis_summary) setAnamnesisCardSummary(draft.anamnesis_summary)
               }
             } catch { /* ignore malformed sections */ }
           }
@@ -441,7 +447,7 @@ export function ConsultationForm({
         fetch('/api/consultation/draft', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
+          body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, anamnesis_summary: anamnesisCardSummaryRef.current ?? undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
         }).catch(() => {})
       }, 3000)
     })
@@ -574,6 +580,7 @@ export function ConsultationForm({
             reason: data.reason,
             anamnesis: data.anamnesis || null,
             anamnesis_sections: anamnesisCardSections ? JSON.stringify(anamnesisCardSections) : null,
+            anamnesis_summary: anamnesisCardSummary || null,
             clinical_hypotheses: hypotheses ? JSON.stringify({ payload: hypotheses, state: hypothesesState }) : null,
             examination: data.examination || null,
             advice: data.advice || null,
@@ -751,6 +758,7 @@ export function ConsultationForm({
             reason: data.reason,
             anamnesis: data.anamnesis || null,
             anamnesis_sections: anamnesisCardSections ? JSON.stringify(anamnesisCardSections) : null,
+            anamnesis_summary: anamnesisCardSummary || null,
             clinical_hypotheses: hypotheses ? JSON.stringify({ payload: hypotheses, state: hypothesesState }) : null,
             examination: data.examination || null,
             advice: data.advice || null,
@@ -1558,6 +1566,7 @@ export function ConsultationForm({
                   if (data.sections && data.sections.length > 0) {
                     setAnamnesisCardSections(data.sections)
                     setAnamnesisCardReason(data.reason)
+                    setAnamnesisCardSummary(data.summary ?? null)
                     // Texte dérivé des cartes (source unique) pour lettres/exports/recherche.
                     setValue('anamnesis', sectionsToMarkdown(data.sections), { shouldDirty: true })
                   } else if (data.anamnesis) {
@@ -1679,6 +1688,7 @@ export function ConsultationForm({
                   <AnamnesisCards
                     reason={anamnesisCardReason}
                     sections={anamnesisCardSections}
+                    summary={anamnesisCardSummary}
                     disabled={isLoading}
                     onChange={(next) => {
                       setAnamnesisCardSections(next)
@@ -1688,11 +1698,16 @@ export function ConsultationForm({
                       setAnamnesisCardReason(r)
                       setValue('reason', r, { shouldDirty: true })
                     }}
+                    onSummaryChange={(value) => setAnamnesisCardSummary(value)}
                     onEdit={() => {
                       // Filet de sécurité : repasse en texte libre en partant du
                       // contenu actuel des cartes.
                       setValue('anamnesis', sectionsToMarkdown(anamnesisCardSections), { shouldDirty: true })
                       setAnamnesisCardSections(null)
+                      // La synthèse n'a plus de cartes à résumer : la garder
+                      // afficherait un bandeau orphelin, et l'enregistrerait
+                      // avec un texte libre qu'elle ne décrit plus.
+                      setAnamnesisCardSummary(null)
                     }}
                   />
                 ) : (
@@ -2202,7 +2217,9 @@ export function ConsultationForm({
                         <AnamnesisDisplay
                           anamnesis={viewingConsultation.anamnesis}
                           anamnesisSections={viewingConsultation.anamnesis_sections}
+                          anamnesisSummary={viewingConsultation.anamnesis_summary}
                           reason={viewingConsultation.reason}
+                          consultationId={viewingConsultation.id}
                         />
                       </div>
                     )}
