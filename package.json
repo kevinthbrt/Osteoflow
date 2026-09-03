@@ -1,6 +1,6 @@
 {
   "name": "myosteoflow",
-  "version": "1.19.0",
+  "version": "1.20.0",
   "private": true,
   "main": "electron/main.js",
   "scripts": {

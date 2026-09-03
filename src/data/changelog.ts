@@ -19,6 +19,21 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.20.0',
+    date: '2026-09-03',
+    title: 'Le mode consultation : l\'anamnèse s\'écrit pendant qu\'elle se dit',
+    changes: [
+      { type: 'feature', text: "Nouveau bouton « Mode consultation » sur la fiche patient. Il ouvre un écran plein, en deux colonnes, qui n'affiche que ce qui sert tant que le patient est là. La facturation, la relance et les pièces jointes appartiennent à un autre moment : on les retrouve dans le formulaire, où l'on arrive ensuite." },
+      { type: 'feature', text: "À gauche, l'anamnèse s'écrit au fil de la parole. Une ligne par fait, un symbole en tête de ligne, dans l'ordre de lecture clinique : le patient parle dans le désordre, la synthèse se lit dans l'ordre. Plus de transcription brute qui défile et ne servait qu'à prouver que le micro fonctionne." },
+      { type: 'feature', text: "Le patient se reprend, la ligne se corrige. « C'est à gauche, ah non pardon à droite » réécrit la ligne existante au lieu d'en empiler une seconde qui la contredirait, avec un bref surlignage pour que le changement se voie. Vous pouvez aussi corriger une ligne à la main : elle est alors verrouillée et l'IA n'y revient plus." },
+      { type: 'feature', text: "À droite, un copilote qui dit ce qui manque, jamais ce que c'est. Quatorze axes d'interrogatoire, valables du crâne au pied, qui se cochent tout seuls, plus le dépistage des drapeaux rouges. Un panneau qui proposerait une hypothèse dès la quarantième seconde orienterait la suite de vos questions vers sa confirmation : celui-ci n'affiche que les questions que vous n'avez pas encore posées, tant que vous pouvez encore les poser." },
+      { type: 'feature', text: "Le panneau reste affiché après l'arrêt de la dictée, pendant l'examen et la manipulation. Quand les consultations s'enchaînent et qu'on ne sait plus si une question a été posée à ce patient ou au précédent, la réponse est à l'écran." },
+      { type: 'improvement', text: "La dictée devient réellement incrémentale dans l'application de bureau. Jusqu'ici elle enregistrait l'intégralité puis transcrivait à la fin, ce qui interdisait tout affichage en direct. L'audio part maintenant par segments de quinze secondes : chacun est transcrit pendant que le suivant s'enregistre. La dictée intégrale reste consultable en bas de l'écran, et un passage qui échoue n'interrompt jamais la consultation." },
+      { type: 'improvement', text: "Les termes mal entendus sont soulignés, avec les mots exacts du patient affichés dessous. Vous tranchez d'un coup d'œil au lieu de redemander en reconstituant de mémoire." },
+      { type: 'improvement', text: "« Terminer l'anamnèse » bascule sur le formulaire de consultation habituel, déjà rempli : motif, cartes d'anamnèse et phrase de synthèse. Le mode consultation est une nouvelle façon de saisir, pas un nouveau format : lettres, exports, recherche, hypothèses cliniques et consultations passées continuent de fonctionner sans rien changer." },
+    ],
+  },
+  {
     version: '1.19.0',
     date: '2026-09-03',
     title: 'Une anamnèse relisible d\'un coup d\'œil',

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Edit, Calendar, FileText, Phone, Mail, Briefcase, Cake } from 'lucide-react'
+import { ArrowLeft, Edit, Calendar, FileText, Phone, Mail, Briefcase, Cake, Mic } from 'lucide-react'
 import { formatDate, formatPhone, calculateAge } from '@/lib/utils'
 import { ConsultationTimeline } from '@/components/consultations/consultation-timeline'
 import { MedicalHistorySectionWrapper } from '@/components/patients/medical-history-section-wrapper'
@@ -118,10 +118,19 @@ export default async function PatientPage({ params, searchParams }: PatientPageP
               Modifier
             </Link>
           </Button>
-          <Button asChild>
+          <Button variant="outline" asChild>
             <Link href={`/patients/${id}/consultation/new`}>
               <Calendar className="mr-2 h-4 w-4" />
               Nouvelle consultation
+            </Link>
+          </Button>
+          {/* Le mode consultation devient l'entrée principale : c'est celui qui
+              sert pendant que le patient est là. Le formulaire reste accessible
+              pour une saisie sans dictée ou une consultation antidatée. */}
+          <Button asChild>
+            <Link href={`/patients/${id}/consultation/live`}>
+              <Mic className="mr-2 h-4 w-4" />
+              Mode consultation
             </Link>
           </Button>
         </div>
