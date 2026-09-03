@@ -33,7 +33,7 @@ export function LiveChecklist({ lines, redFlagsCleared, onClearRedFlags }: LiveC
   const total = missing.length
 
   return (
-    <div className="flex h-full flex-col gap-5 px-5 py-5">
+    <div className="flex min-h-full flex-col gap-5 px-5 py-5">
       {/* Drapeaux rouges en premier : c'est le seul point dont l'oubli est grave. */}
       <section>
         {flagged.length > 0 ? (
@@ -92,7 +92,7 @@ export function LiveChecklist({ lines, redFlagsCleared, onClearRedFlags }: LiveC
       </section>
 
       {/* Ce qui n'a pas encore été abordé. */}
-      <section className="min-h-0 flex-1">
+      <section className="flex-1">
         <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           {total > 0 ? `Pas encore abordé (${total})` : 'Interrogatoire complet'}
         </h2>

@@ -9,6 +9,7 @@ import {
   applyOps,
   linesToReason,
   linesToSections,
+  type AxisId,
   type LiveLine,
 } from '@/lib/anamnesis-live'
 import { sectionsToMarkdown, type AnamnesisSection } from '@/lib/anamnesis'
@@ -36,6 +37,8 @@ export interface LiveResult {
 }
 
 interface ConsultationLiveProps {
+  /** Identifiant du patient : le brouillon lui est rattaché. */
+  patientId: string
   patientName: string
   /** Contexte transmis à l'extraction (âge, profession, antécédents connus). */
   patientContext?: string
@@ -51,6 +54,7 @@ function formatElapsed(seconds: number): string {
 }
 
 export function ConsultationLive({
+  patientId,
   patientName,
   patientContext,
   onFinish,
@@ -60,8 +64,20 @@ export function ConsultationLive({
   const [lines, setLines] = useState<LiveLine[]>([])
   const [redFlagsCleared, setRedFlagsCleared] = useState(false)
   const [extracting, setExtracting] = useState(false)
-  const [degraded, setDegraded] = useState(false)
+  const [extractionError, setExtractionError] = useState('')
   const [showTranscript, setShowTranscript] = useState(false)
+
+  /**
+   * Sur macOS la fenêtre est en `hiddenInset` : les boutons de fermeture flottent
+   * au-dessus du contenu, en haut à gauche. Ailleurs dans l'application la barre
+   * latérale occupe cette zone ; ici l'en-tête y passait dessous. Détecté après
+   * le montage pour ne pas désaligner le rendu serveur.
+   */
+  const [macInset, setMacInset] = useState(false)
+  useEffect(() => {
+    const api = (window as unknown as { electronAPI?: { platform?: string } }).electronAPI
+    setMacInset(api?.platform === 'darwin')
+  }, [])
 
   // L'extraction lit l'état courant au moment de l'appel, pas celui capturé à la
   // création de la fonction : sans ce miroir, deux passages rapprochés
@@ -72,7 +88,15 @@ export function ConsultationLive({
   const queueRef = useRef<string[]>([])
   const busyRef = useRef(false)
   const aliveRef = useRef(true)
-  useEffect(() => () => { aliveRef.current = false }, [])
+  // Le drapeau doit être REPOSÉ au montage, pas seulement levé au démontage :
+  // en mode strict React monte, démonte puis remonte le composant, si bien
+  // qu'une simple fonction de nettoyage le laissait à false pour toujours.
+  // L'extraction tournait alors dans le vide, la dictée s'affichait mais aucune
+  // ligne n'arrivait et l'indicateur d'analyse ne s'éteignait jamais.
+  useEffect(() => {
+    aliveRef.current = true
+    return () => { aliveRef.current = false }
+  }, [])
 
   /**
    * Traite les passages en attente, un appel à la fois.
@@ -98,16 +122,18 @@ export function ConsultationLive({
           context: patientContext,
         }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        // Un passage perdu ne doit pas interrompre la consultation : la dictée
-        // intégrale reste conservée et le praticien en est averti.
-        setDegraded(true)
+        // Un passage perdu n'interrompt pas la consultation, mais il ne doit pas
+        // non plus passer inaperçu : le message exact est affiché, sans quoi
+        // l'écran se contente de tourner sans rien dire.
+        if (aliveRef.current) setExtractionError(data?.error || `Analyse indisponible (${res.status})`)
       } else if (aliveRef.current) {
+        setExtractionError('')
         setLines((prev) => applyOps(prev, data.ops))
       }
     } catch {
-      setDegraded(true)
+      if (aliveRef.current) setExtractionError('Analyse injoignable. Vérifiez votre connexion.')
     } finally {
       busyRef.current = false
       if (aliveRef.current) setExtracting(false)
@@ -122,6 +148,71 @@ export function ConsultationLive({
 
   const dictation = useLiveDictation({ onPassage: handlePassage })
 
+  /* ── Brouillon ────────────────────────────────────────────────────────────
+   *
+   * Une anamnèse recueillie puis perdue parce que l'écran s'est verrouillé
+   * serait pire que pas d'anamnèse du tout : le patient est reparti, on ne la
+   * refait pas. On écrit dans le MÊME brouillon que le formulaire, dans son
+   * format, en y ajoutant l'état des lignes pour pouvoir reprendre ici. Une
+   * reprise fonctionne donc des deux côtés, y compris après une fermeture
+   * brutale.
+   */
+
+  const redFlagsClearedRef = useRef(redFlagsCleared)
+  useEffect(() => { redFlagsClearedRef.current = redFlagsCleared }, [redFlagsCleared])
+
+  const restoredRef = useRef(false)
+  const [restored, setRestored] = useState(false)
+
+  useEffect(() => {
+    if (restoredRef.current) return
+    restoredRef.current = true
+    let cancelled = false
+    fetch('/api/consultation/draft')
+      .then((r) => r.json())
+      .then(({ draft }) => {
+        if (cancelled || !draft || draft.patient_id !== patientId) return
+        if (!Array.isArray(draft.live_lines) || draft.live_lines.length === 0) return
+        setLines(draft.live_lines as LiveLine[])
+        setRedFlagsCleared(!!draft.live_red_flags_cleared)
+        setRestored(true)
+      })
+      .catch(() => { /* pas de brouillon exploitable, on démarre à vide */ })
+    return () => { cancelled = true }
+  }, [patientId])
+
+  const saveDraft = useCallback(() => {
+    const current = linesRef.current
+    // Ne jamais écraser un brouillon existant avec une session vide : le
+    // formulaire en a peut-être un pour ce patient, commencé autrement.
+    if (current.length === 0) return
+    const sections = linesToSections(current, redFlagsClearedRef.current)
+    fetch('/api/consultation/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_id: patientId,
+        reason: linesToReason(current),
+        anamnesis: sectionsToMarkdown(sections),
+        anamnesis_sections: JSON.stringify(sections),
+        live_lines: current,
+        live_red_flags_cleared: redFlagsClearedRef.current,
+      }),
+    }).catch(() => { /* réessayé au prochain changement */ })
+  }, [patientId])
+
+  // Enregistrement différé après chaque changement, et immédiat au verrouillage
+  // de l'écran, qui est justement le moment où tout serait perdu.
+  useEffect(() => {
+    const timer = setTimeout(saveDraft, 1500)
+    return () => clearTimeout(timer)
+  }, [lines, redFlagsCleared, saveDraft])
+
+  useEffect(() => {
+    window.addEventListener('myosteoflow:before-lock', saveDraft)
+    return () => window.removeEventListener('myosteoflow:before-lock', saveDraft)
+  }, [saveDraft])
+
   const editLine = useCallback((id: string, text: string) => {
     // `edited` verrouille la ligne : entre le jugement du praticien et celui du
     // modèle, c'est le sien qui fait foi.
@@ -130,6 +221,13 @@ export function ConsultationLive({
 
   const removeLine = useCallback((id: string) => {
     setLines((prev) => prev.filter((l) => l.id !== id))
+  }, [])
+
+  const addLine = useCallback((axis: AxisId, text: string) => {
+    // Posée par le praticien, donc verrouillée d'emblée : l'IA n'a pas à
+    // réécrire ce qu'il a saisi lui-même.
+    setLines((prev) => applyOps(prev, [{ op: 'add', id: crypto.randomUUID(), axis, text }])
+      .map((l) => (l.text === text && l.axis === axis ? { ...l, edited: true } : l)))
   }, [])
 
   const finish = useCallback(async () => {
@@ -146,9 +244,12 @@ export function ConsultationLive({
   const hasContent = lines.length > 0
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+    // z-[60] et non z-50 : la pastille de simulation d'offre et la bulle de
+    // support flottent en z-50 et se superposaient à l'écran de consultation,
+    // qui doit être le seul élément visible tant que le patient est là.
+    <div className="fixed inset-0 z-[60] flex flex-col bg-background">
       {/* En-tête : qui, depuis combien de temps, et le micro. Rien d'autre. */}
-      <header className="flex shrink-0 items-center gap-4 border-b px-5 py-3">
+      <header className={cn('flex shrink-0 items-center gap-4 border-b px-5 py-3', macInset && 'pl-24')}>
         <button
           type="button"
           onClick={onCancel}
@@ -192,12 +293,24 @@ export function ConsultationLive({
         </Button>
       </header>
 
-      {(dictation.error || degraded) && (
+      {restored && (
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b bg-muted/50 px-5 py-2 text-xs text-muted-foreground">
+          <span>Anamnèse en cours restaurée. Reprenez la dictée ou terminez.</span>
+          <button
+            type="button"
+            onClick={() => { setLines([]); setRedFlagsCleared(false); setRestored(false) }}
+            className="shrink-0 underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground"
+          >
+            Repartir de zéro
+          </button>
+        </div>
+      )}
+
+      {(dictation.error || extractionError) && (
         <div className="flex shrink-0 items-start gap-2 border-b bg-amber-50 px-5 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
           <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            {dictation.error ||
-              "Un passage n'a pas pu être analysé. Ouvrez la dictée intégrale en bas de l'écran pour vérifier ce qui manque."}
+            {dictation.error || `${extractionError} La dictée continue et reste consultable en bas de l'écran.`}
           </span>
         </div>
       )}
@@ -210,6 +323,7 @@ export function ConsultationLive({
             interim={dictation.interim}
             onEdit={editLine}
             onRemove={removeLine}
+            onAdd={addLine}
           />
         </main>
 

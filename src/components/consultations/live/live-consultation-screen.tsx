@@ -71,6 +71,7 @@ export function LiveConsultationScreen({ patientId, patientName, patientContext 
 
   return (
     <ConsultationLive
+      patientId={patientId}
       patientName={patientName}
       patientContext={patientContext}
       onFinish={handleFinish}

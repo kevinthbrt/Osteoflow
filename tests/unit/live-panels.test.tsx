@@ -14,7 +14,7 @@ const lines: LiveLine[] = applyOps([], [
 const noop = () => {}
 
 describe('fil de l\'anamnèse', () => {
-  const html = renderToStaticMarkup(<LiveLineFeed lines={lines} onEdit={noop} onRemove={noop} />)
+  const html = renderToStaticMarkup(<LiveLineFeed lines={lines} onEdit={noop} onRemove={noop} onAdd={noop} />)
 
   it('affiche une ligne par fait, avec son symbole', () => {
     expect(html).toContain('Lombaire basse')
@@ -32,7 +32,7 @@ describe('fil de l\'anamnèse', () => {
   it('ne colore que ce qui appelle une réaction', () => {
     // Si tout est coloré, plus rien ne l'est. Le texte courant reste neutre.
     const plain = renderToStaticMarkup(
-      <LiveLineFeed lines={[{ id: 'a', axis: 'localisation', text: 'Lombaire basse' }]} onEdit={noop} onRemove={noop} />,
+      <LiveLineFeed lines={[{ id: 'a', axis: 'localisation', text: 'Lombaire basse' }]} onEdit={noop} onRemove={noop} onAdd={noop} />,
     )
     expect(plain).toContain('text-foreground')
     expect(plain).not.toContain('text-red-')
@@ -41,13 +41,13 @@ describe('fil de l\'anamnèse', () => {
     // Le doute de transcription et le drapeau rouge, eux, se voient.
     expect(html).toContain('text-amber-800')
     const flagged = renderToStaticMarkup(
-      <LiveLineFeed lines={[{ id: 'r', axis: 'red_flag', text: 'Douleur nocturne' }]} onEdit={noop} onRemove={noop} />,
+      <LiveLineFeed lines={[{ id: 'r', axis: 'red_flag', text: 'Douleur nocturne' }]} onEdit={noop} onRemove={noop} onAdd={noop} />,
     )
     expect(flagged).toContain('text-red-800')
   })
 
   it('invite à parler quand rien n\'a encore été dit', () => {
-    expect(renderToStaticMarkup(<LiveLineFeed lines={[]} onEdit={noop} onRemove={noop} />))
+    expect(renderToStaticMarkup(<LiveLineFeed lines={[]} onEdit={noop} onRemove={noop} onAdd={noop} />))
       .toContain('Lancez la dictée')
   })
 })
