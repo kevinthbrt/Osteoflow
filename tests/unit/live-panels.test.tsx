@@ -20,11 +20,11 @@ describe('fil de l\'anamnèse', () => {
   it('affiche une ligne par fait, avec son symbole', () => {
     expect(html).toContain('Lombaire basse')
     expect(html).toContain('EVA 7/10')
-    // Les symboles sont désormais des icônes de même épaisseur de trait, et non
-    // des emoji dont le dessin et la couleur changent d'un système à l'autre.
-    expect(html).toContain('lucide-map-pin')
-    expect(html).toContain('lucide-arrow-left-right')
-    expect(html).not.toContain('📍')
+    // Symboles en couleur : ils portent le repérage d'un coup d'œil, la couleur
+    // du TEXTE restant réservée au signal (drapeau rouge, terme incertain).
+    expect(html).toContain('📍')
+    expect(html).toContain('↔️')
+    expect(html).toContain('title="Localisation"')
   })
 
   it('montre les mots du patient sous la ligne douteuse', () => {

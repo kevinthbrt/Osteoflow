@@ -32,7 +32,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, Trash2, Stethoscope, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, MapPin, GitBranch, Dumbbell, Sparkles, Brain, Activity, Lightbulb, Mail, Printer, Download, ArrowLeft, ArrowRight, CalendarClock, HeartPulse } from 'lucide-react'
+import { Loader2, Plus, Trash2, Stethoscope, CreditCard, CalendarCheck, Clock, Eye, Pencil, Paperclip, Upload, FileText, Image, X, MapPin, GitBranch, Dumbbell, Sparkles, Brain, Activity, Lightbulb, Mail, Printer, Download, ArrowLeft, ArrowRight, CalendarClock, HeartPulse, Mic, ChevronRight } from 'lucide-react'
 import { generateInvoiceNumber, formatDateTime, formatDate, calculateAge, toLocalDateOnly, cn } from '@/lib/utils'
 import { getCurrencySymbol } from '@/lib/utils/currency'
 import { paymentMethodLabels } from '@/lib/validations/invoice'
@@ -44,8 +44,10 @@ import { NeckPainTree } from '@/components/consultations/neck-pain-tree'
 import { AnamnesisRecorder, type AnamnesisSection } from '@/components/consultations/anamnesis-recorder'
 import { AnamnesisCards } from '@/components/consultations/anamnesis-cards'
 import { AnamnesisDisplay } from '@/components/consultations/anamnesis-display'
+import { ConsultationLive, type LiveState } from '@/components/consultations/live/consultation-live'
 import { HypothesesDisplay } from '@/components/consultations/hypotheses-display'
 import { sectionsToMarkdown } from '@/lib/anamnesis'
+import { linesToReason, linesToSections } from '@/lib/anamnesis-live'
 import { HypothesesCard, type HypothesesState } from '@/components/consultations/hypotheses-card'
 import type { HypothesesPayload } from '@/lib/hypotheses'
 import { MarkdownField } from '@/components/ui/markdown-field'
@@ -198,6 +200,18 @@ export function ConsultationForm({
   const [anamnesisCardSummary, setAnamnesisCardSummary] = useState<string | null>(consultation?.anamnesis_summary ?? null)
   const anamnesisCardSectionsRef = useRef(anamnesisCardSections)
   const anamnesisCardSummaryRef = useRef(anamnesisCardSummary)
+  /**
+   * Mode consultation.
+   *
+   * Il s'ouvre par-dessus le formulaire plutôt que sur une autre page : une
+   * consultation est un seul écran, dont la dictée est un moment et non un
+   * ailleurs. Rien n'est perdu en l'ouvrant, rien n'est à recharger en le
+   * fermant, et ce qui a déjà été saisi ici reste intact.
+   */
+  const [showLive, setShowLive] = useState(false)
+  const [liveState, setLiveState] = useState<LiveState | null>(null)
+  const liveStateRef = useRef(liveState)
+  const showLiveRef = useRef(showLive)
   // Carte « Hypothèses cliniques » — persistée avec la consultation (payload IA + réponses).
   const initialHypotheses = (() => {
     if (!consultation?.clinical_hypotheses) return { payload: null as HypothesesPayload | null, state: undefined as HypothesesState | undefined }
@@ -330,6 +344,19 @@ export function ConsultationForm({
   useEffect(() => { paymentsRef.current = payments }, [payments])
   useEffect(() => { anamnesisCardSectionsRef.current = anamnesisCardSections }, [anamnesisCardSections])
   useEffect(() => { anamnesisCardSummaryRef.current = anamnesisCardSummary }, [anamnesisCardSummary])
+  useEffect(() => { liveStateRef.current = liveState }, [liveState])
+  useEffect(() => { showLiveRef.current = showLive }, [showLive])
+
+  /**
+   * Ouverture directe depuis la fiche patient (`?live=1`), pour que « Mode
+   * consultation » mène au même écran que le bouton du formulaire. Lu depuis
+   * l'URL plutôt qu'avec useSearchParams, qui imposerait une frontière Suspense
+   * pour un besoin qui n'en vaut pas le coût.
+   */
+  useEffect(() => {
+    if (mode !== 'create') return
+    if (new URLSearchParams(window.location.search).get('live') === '1') setShowLive(true)
+  }, [mode])
   useEffect(() => { hypothesesRef.current = hypotheses }, [hypotheses])
   useEffect(() => { hypothesesStateRef.current = hypothesesState }, [hypothesesState])
 
@@ -356,7 +383,7 @@ export function ConsultationForm({
     fetch('/api/consultation/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, anamnesis_summary: anamnesisCardSummaryRef.current ?? undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
+      body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, anamnesis_summary: anamnesisCardSummaryRef.current ?? undefined, live_state: liveStateRef.current ?? undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
     }).catch(() => {})
   }, [mode, getValues])
 
@@ -370,7 +397,7 @@ export function ConsultationForm({
       fetch('/api/consultation/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, anamnesis_summary: anamnesisCardSummaryRef.current ?? undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
+        body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, anamnesis_summary: anamnesisCardSummaryRef.current ?? undefined, live_state: liveStateRef.current ?? undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
       }).catch(() => {})
     }
 
@@ -391,6 +418,9 @@ export function ConsultationForm({
           if (draft.advice) setValue('advice', draft.advice)
           if (draft.date_time) setValue('date_time', draft.date_time)
           if (draft.payments) setPayments(draft.payments)
+          if (draft.live_state && Array.isArray(draft.live_state.lines)) {
+            setLiveState(draft.live_state as LiveState)
+          }
           if (draft.anamnesis_sections) {
             try {
               const sections = JSON.parse(draft.anamnesis_sections)
@@ -447,7 +477,7 @@ export function ConsultationForm({
         fetch('/api/consultation/draft', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, anamnesis_summary: anamnesisCardSummaryRef.current ?? undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
+          body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, anamnesis_summary: anamnesisCardSummaryRef.current ?? undefined, live_state: liveStateRef.current ?? undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
         }).catch(() => {})
       }, 3000)
     })
@@ -894,6 +924,38 @@ export function ConsultationForm({
     medical_history: currentPatient.medical_history,
     family_history: currentPatient.family_history,
   }
+
+  const liveOverlay = showLive ? (
+    <ConsultationLive
+      patientName={`${currentPatient.first_name} ${currentPatient.last_name}`}
+      patient={{
+        fullName: `${currentPatient.first_name} ${currentPatient.last_name}`,
+        age: computeAge(currentPatient.birth_date),
+        gender: currentPatient.gender ?? null,
+        profession: currentPatient.profession,
+        sportActivity: currentPatient.sport_activity,
+      }}
+      history={(medicalHistoryEntries ?? []) as never}
+      pastConsultations={(pastConsultations ?? []) as never}
+      patientContext={Object.entries(patientClinicalContext)
+        .filter(([, value]) => !!value)
+        .map(([key, value]) => `${key} : ${value}`)
+        .join('\n')}
+      initialState={liveState ?? undefined}
+      onStateChange={setLiveState}
+      onCancel={() => setShowLive(false)}
+      onFinish={(result) => {
+        // Application directe dans le formulaire : pas d'aller-retour par le
+        // brouillon ni de navigation, donc rien à recharger et rien à perdre.
+        if (result.reason) setValue('reason', result.reason, { shouldDirty: true })
+        setAnamnesisCardReason(result.reason || undefined)
+        setAnamnesisCardSections(result.sections)
+        setValue('anamnesis', result.markdown, { shouldDirty: true })
+        setShowLive(false)
+        setTimeout(saveDraftNow, 0)
+      }}
+    />
+  ) : null
 
   const generateHypotheses = async () => {
     if (!anamnesis?.trim()) return
@@ -1543,6 +1605,39 @@ export function ConsultationForm({
               <CardDescription>Anamnèse, examen et conseils</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Entrée principale de l'anamnèse. Le mode consultation s'ouvre
+                  par-dessus ce formulaire, sans quitter la page ni rien perdre
+                  de ce qui y est déjà saisi. La dictée classique reste juste en
+                  dessous pour une saisie sans accompagnement. */}
+              {mode === 'create' && (
+                <button
+                  type="button"
+                  onClick={() => setShowLive(true)}
+                  disabled={isLoading}
+                  className={cn(
+                    'group/live flex w-full items-center gap-3.5 rounded-xl border px-4 py-3.5 text-left transition-colors',
+                    'border-primary/30 bg-primary/5 hover:bg-primary/10 disabled:opacity-60',
+                  )}
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <Mic className="h-4.5 w-4.5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">
+                      {liveState && liveState.lines.length > 0
+                        ? 'Reprendre le mode consultation'
+                        : 'Mode consultation'}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      {liveState && liveState.lines.length > 0
+                        ? `${liveState.lines.length} élément${liveState.lines.length > 1 ? 's' : ''} déjà relevé${liveState.lines.length > 1 ? 's' : ''}`
+                        : "L'anamnèse s'écrit pendant que le patient parle, avec son dossier et le pense-bête sous les yeux"}
+                    </span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover/live:translate-x-0.5" />
+                </button>
+              )}
+
               <AnamnesisRecorder
                 key={currentPatient.id}
                 patientId={currentPatient.id}
@@ -2263,6 +2358,7 @@ export function ConsultationForm({
         </div>
         <div>{formContent}</div>
         {modals}
+        {liveOverlay}
       </div>
     )
   }
@@ -2272,6 +2368,7 @@ export function ConsultationForm({
       {formContent}
       <div className="mt-6">{attachmentsCard}</div>
       {modals}
+      {liveOverlay}
     </>
   )
 }

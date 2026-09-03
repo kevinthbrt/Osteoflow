@@ -43,9 +43,14 @@ export interface LiveResult {
   transcript: string
 }
 
+/** État complet du mode consultation, rendu au formulaire pour son brouillon. */
+export interface LiveState {
+  lines: LiveLine[]
+  redFlagsCleared: boolean
+  dismissedAxes: AxisId[]
+}
+
 interface ConsultationLiveProps {
-  /** Identifiant du patient : le brouillon lui est rattaché. */
-  patientId: string
   patientName: string
   /** Dossier affiché à gauche, en lecture seule. */
   patient: PatientSummary
@@ -56,6 +61,10 @@ interface ConsultationLiveProps {
   onFinish: (result: LiveResult) => Promise<void> | void
   onCancel: () => void
   finishing?: boolean
+  /** État repris d'un brouillon, au montage seulement. */
+  initialState?: LiveState
+  /** Remonte l'état à chaque changement, pour que le parent le persiste. */
+  onStateChange?: (state: LiveState) => void
 }
 
 function formatElapsed(seconds: number): string {
@@ -65,7 +74,6 @@ function formatElapsed(seconds: number): string {
 }
 
 export function ConsultationLive({
-  patientId,
   patientName,
   patient,
   history,
@@ -74,11 +82,16 @@ export function ConsultationLive({
   onFinish,
   onCancel,
   finishing,
+  initialState,
+  onStateChange,
 }: ConsultationLiveProps) {
-  const [lines, setLines] = useState<LiveLine[]>([])
-  const [redFlagsCleared, setRedFlagsCleared] = useState(false)
-  const [dismissedAxes, setDismissedAxes] = useState<AxisId[]>([])
+  const [lines, setLines] = useState<LiveLine[]>(initialState?.lines ?? [])
+  const [redFlagsCleared, setRedFlagsCleared] = useState(!!initialState?.redFlagsCleared)
+  const [dismissedAxes, setDismissedAxes] = useState<AxisId[]>(initialState?.dismissedAxes ?? [])
   const [showPatient, setShowPatient] = useState(true)
+  // Une anamnèse reprise doit se signaler : sans quoi le praticien croit
+  // repartir de zéro et redicte par-dessus.
+  const [restored, setRestored] = useState((initialState?.lines?.length ?? 0) > 0)
   const [extracting, setExtracting] = useState(false)
   const [extractionError, setExtractionError] = useState('')
   const [showTranscript, setShowTranscript] = useState(false)
@@ -164,74 +177,17 @@ export function ConsultationLive({
 
   const dictation = useLiveDictation({ onPassage: handlePassage })
 
-  /* ── Brouillon ────────────────────────────────────────────────────────────
+  /* ── État remonté ─────────────────────────────────────────────────────────
    *
-   * Une anamnèse recueillie puis perdue parce que l'écran s'est verrouillé
-   * serait pire que pas d'anamnèse du tout : le patient est reparti, on ne la
-   * refait pas. On écrit dans le MÊME brouillon que le formulaire, dans son
-   * format, en y ajoutant l'état des lignes pour pouvoir reprendre ici. Une
-   * reprise fonctionne donc des deux côtés, y compris après une fermeture
-   * brutale.
+   * Le mode consultation ne persiste rien lui-même : il rend son état au
+   * formulaire, qui possède le brouillon. Deux écrivains sur le même brouillon
+   * s'écrasaient, celui-ci ne connaissant ni l'examen ni les conseils déjà
+   * saisis. Une anamnèse recueillie puis perdue serait pourtant pire que pas
+   * d'anamnèse du tout : le patient est reparti, on ne la refait pas.
    */
-
-  const redFlagsClearedRef = useRef(redFlagsCleared)
-  useEffect(() => { redFlagsClearedRef.current = redFlagsCleared }, [redFlagsCleared])
-  const dismissedRef = useRef(dismissedAxes)
-  useEffect(() => { dismissedRef.current = dismissedAxes }, [dismissedAxes])
-
-  const restoredRef = useRef(false)
-  const [restored, setRestored] = useState(false)
-
   useEffect(() => {
-    if (restoredRef.current) return
-    restoredRef.current = true
-    let cancelled = false
-    fetch('/api/consultation/draft')
-      .then((r) => r.json())
-      .then(({ draft }) => {
-        if (cancelled || !draft || draft.patient_id !== patientId) return
-        if (!Array.isArray(draft.live_lines) || draft.live_lines.length === 0) return
-        setLines(draft.live_lines as LiveLine[])
-        setRedFlagsCleared(!!draft.live_red_flags_cleared)
-        if (Array.isArray(draft.live_dismissed_axes)) setDismissedAxes(draft.live_dismissed_axes as AxisId[])
-        setRestored(true)
-      })
-      .catch(() => { /* pas de brouillon exploitable, on démarre à vide */ })
-    return () => { cancelled = true }
-  }, [patientId])
-
-  const saveDraft = useCallback(() => {
-    const current = linesRef.current
-    // Ne jamais écraser un brouillon existant avec une session vide : le
-    // formulaire en a peut-être un pour ce patient, commencé autrement.
-    if (current.length === 0) return
-    const sections = linesToSections(current, redFlagsClearedRef.current)
-    fetch('/api/consultation/draft', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        patient_id: patientId,
-        reason: linesToReason(current),
-        anamnesis: sectionsToMarkdown(sections),
-        anamnesis_sections: JSON.stringify(sections),
-        live_lines: current,
-        live_red_flags_cleared: redFlagsClearedRef.current,
-        live_dismissed_axes: dismissedRef.current,
-      }),
-    }).catch(() => { /* réessayé au prochain changement */ })
-  }, [patientId])
-
-  // Enregistrement différé après chaque changement, et immédiat au verrouillage
-  // de l'écran, qui est justement le moment où tout serait perdu.
-  useEffect(() => {
-    const timer = setTimeout(saveDraft, 1500)
-    return () => clearTimeout(timer)
-  }, [lines, redFlagsCleared, dismissedAxes, saveDraft])
-
-  useEffect(() => {
-    window.addEventListener('myosteoflow:before-lock', saveDraft)
-    return () => window.removeEventListener('myosteoflow:before-lock', saveDraft)
-  }, [saveDraft])
+    onStateChange?.({ lines, redFlagsCleared, dismissedAxes })
+  }, [lines, redFlagsCleared, dismissedAxes, onStateChange])
 
   const editLine = useCallback((id: string, text: string) => {
     // `edited` verrouille la ligne : entre le jugement du praticien et celui du

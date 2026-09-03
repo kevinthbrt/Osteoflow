@@ -124,11 +124,11 @@ export default async function PatientPage({ params, searchParams }: PatientPageP
               Nouvelle consultation
             </Link>
           </Button>
-          {/* Le mode consultation devient l'entrée principale : c'est celui qui
-              sert pendant que le patient est là. Le formulaire reste accessible
-              pour une saisie sans dictée ou une consultation antidatée. */}
+          {/* Une consultation, un seul écran. Le mode consultation ouvre le
+              formulaire avec l'écran de dictée par-dessus : le bouton voisin
+              mène exactement au même endroit, sans cet écran. */}
           <Button asChild>
-            <Link href={`/patients/${id}/consultation/live`}>
+            <Link href={`/patients/${id}/consultation/new?live=1`}>
               <Mic className="mr-2 h-4 w-4" />
               Mode consultation
             </Link>

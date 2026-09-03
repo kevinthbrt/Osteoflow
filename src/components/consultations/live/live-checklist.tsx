@@ -1,10 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, Check, ChevronDown, ChevronRight, Flag, Info, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ChevronRight, Info, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { AXES, missingAxes, RED_FLAG_CHECKS, type AxisId, type LiveLine } from '@/lib/anamnesis-live'
-import { AxisIcon } from '@/components/consultations/live/axis-icon'
+import { missingAxes, RED_FLAG_CHECKS, type AxisId, type LiveLine } from '@/lib/anamnesis-live'
 
 /**
  * Le copilote : ce qui n'a pas encore été abordé.
@@ -80,7 +79,7 @@ export function LiveChecklist({
                 className="flex items-center gap-1.5 text-sm font-semibold text-foreground"
               >
                 {showRedFlagList ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                <Flag className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                <span aria-hidden="true">🚩</span>
                 Drapeaux rouges
               </button>
               <button
@@ -139,8 +138,8 @@ export function LiveChecklist({
                   'text-[13px] leading-snug text-muted-foreground hover:bg-muted/50',
                 )}
               >
-                <span className="shrink-0 pt-0.5 text-muted-foreground/60">
-                  <AxisIcon axis={axis.id} className="h-4 w-4" />
+                <span className="shrink-0 select-none pt-0.5 text-[15px] leading-none opacity-90" aria-hidden="true">
+                  {axis.icon}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium text-foreground/80">{axis.label}</span>

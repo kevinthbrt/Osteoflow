@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, Mic, Pencil, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AXES, getAxis, type AxisId, type LiveLine } from '@/lib/anamnesis-live'
-import { AxisIcon } from '@/components/consultations/live/axis-icon'
 
 /**
  * Le fil de l'anamnèse : une ligne par fait, dans l'ordre de lecture clinique.
@@ -95,14 +94,11 @@ function LineRow({
       )}
     >
       <span
-        className={cn(
-          'shrink-0 text-muted-foreground/70',
-          headline ? 'pt-1.5' : 'pt-1',
-          isRedFlag && 'text-red-500 dark:text-red-400',
-        )}
+        className={cn('shrink-0 select-none leading-none', headline ? 'pt-1 text-[19px]' : 'pt-1.5 text-[17px]')}
         title={axis?.label}
+        aria-hidden="true"
       >
-        <AxisIcon axis={line.axis} className={headline ? 'h-5 w-5' : 'h-4 w-4'} />
+        {axis?.icon}
       </span>
 
       <div className="min-w-0 flex-1">
@@ -204,7 +200,7 @@ function ManualEntry({ onAdd }: { onAdd: (axis: AxisId, text: string) => void })
         className="shrink-0 rounded-lg border bg-background px-2 py-1 text-xs text-muted-foreground outline-none focus:border-primary"
       >
         {AXES.map((a) => (
-          <option key={a.id} value={a.id}>{a.label}</option>
+          <option key={a.id} value={a.id}>{a.icon} {a.label}</option>
         ))}
       </select>
       <input
