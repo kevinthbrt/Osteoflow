@@ -19,6 +19,16 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.18.2',
+    date: '2026-09-02',
+    title: 'La date de la facture se corrige enfin',
+    changes: [
+      { type: 'fix', text: "Modifier la date d'une consultation déjà facturée laissait la facture, son règlement et son encaissement sur l'ancienne date. Une consultation antidatée à la demande d'un patient puis remise à sa vraie date continuait donc d'alimenter le mauvais mois en comptabilité, comme si une facture supplémentaire y était restée. La facture et le paiement suivent désormais la nouvelle date de la consultation." },
+      { type: 'feature', text: "Nouveau champ « Date de la facture » dans le bloc « Modifier le paiement » (modale de facture, fiche consultation) : vous corrigez à la main la date d'une facture déjà émise. Date d'émission, date de règlement et journée d'encaissement comptable sont mises à jour d'un seul geste." },
+      { type: 'fix', text: "La journée d'encaissement d'un paiement est calculée dans votre fuseau horaire : une consultation de tout début ou de toute fin de journée pouvait être comptabilisée la veille." },
+    ],
+  },
+  {
     version: '1.18.1',
     date: '2026-09-01',
     title: 'Correctif du changement de tampon',

@@ -6,6 +6,7 @@ import {
   formatPhone,
   calculateAge,
   generateInvoiceNumber,
+  toLocalDateOnly,
   getInitials,
   cn,
 } from '@/lib/utils'
@@ -98,6 +99,23 @@ describe('generateInvoiceNumber', () => {
     const date = new Date('2024-03-15')
     const result = generateInvoiceNumber('INV', 1, date)
     expect(result).toMatch(/^INV-/)
+  })
+})
+
+describe('toLocalDateOnly', () => {
+  it('should keep a date-only string untouched', () => {
+    expect(toLocalDateOnly('2026-08-31')).toBe('2026-08-31')
+  })
+
+  it('should use the local day, not the UTC one', () => {
+    // 2 septembre 2026 à 00h30 en heure locale : toISOString() renverrait
+    // le 1er septembre dans les fuseaux à l'est de Greenwich.
+    const date = new Date(2026, 8, 2, 0, 30)
+    expect(toLocalDateOnly(date)).toBe('2026-09-02')
+  })
+
+  it('should pad month and day', () => {
+    expect(toLocalDateOnly(new Date(2026, 0, 5, 12, 0))).toBe('2026-01-05')
   })
 })
 

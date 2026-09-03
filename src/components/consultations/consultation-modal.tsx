@@ -381,6 +381,8 @@ export function ConsultationModal({ consultationId, onClose, onOpenInvoice }: Pr
                       payments={invoice.payments || []}
                       invoiceId={invoice.id}
                       invoiceAmount={invoice.amount}
+                      invoiceIssuedAt={invoice.issued_at}
+                      invoicePaidAt={invoice.paid_at}
                     />
                   </>
                 )}
