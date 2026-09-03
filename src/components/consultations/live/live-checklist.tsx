@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, Check, ChevronDown, ChevronRight } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ChevronRight, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { missingAxes, RED_FLAG_CHECKS, type LiveLine } from '@/lib/anamnesis-live'
+import { missingAxes, RED_FLAG_CHECKS, type AxisId, type LiveLine } from '@/lib/anamnesis-live'
 
 /**
  * Le copilote : ce qui n'a pas encore été abordé.
@@ -24,12 +24,25 @@ interface LiveChecklistProps {
   lines: LiveLine[]
   redFlagsCleared: boolean
   onClearRedFlags: (cleared: boolean) => void
+  /** Axes que le praticien a jugés sans objet pour ce patient. */
+  dismissedAxes: AxisId[]
+  onDismissAxis: (axis: AxisId) => void
+  onRestoreAxes: () => void
 }
 
-export function LiveChecklist({ lines, redFlagsCleared, onClearRedFlags }: LiveChecklistProps) {
+export function LiveChecklist({
+  lines,
+  redFlagsCleared,
+  onClearRedFlags,
+  dismissedAxes,
+  onDismissAxis,
+  onRestoreAxes,
+}: LiveChecklistProps) {
   const [showRedFlagList, setShowRedFlagList] = useState(false)
-  const missing = missingAxes(lines)
   const flagged = lines.filter((l) => l.axis === 'red_flag')
+  // Un axe sans objet pour ce patient resterait réclamé indéfiniment et
+  // transformerait le pense-bête en bruit de fond, qu'on finit par ne plus lire.
+  const missing = missingAxes(lines).filter((a) => !dismissedAxes.includes(a.id))
   const total = missing.length
 
   return (
@@ -108,20 +121,39 @@ export function LiveChecklist({ lines, redFlagsCleared, onClearRedFlags }: LiveC
               <li
                 key={axis.id}
                 className={cn(
-                  'flex items-start gap-2.5 rounded-lg px-2.5 py-1.5',
-                  'text-[13px] leading-snug text-muted-foreground',
+                  'group/axis flex items-start gap-2.5 rounded-lg px-2.5 py-1.5',
+                  'text-[13px] leading-snug text-muted-foreground hover:bg-muted/50',
                 )}
               >
                 <span className="shrink-0 opacity-60" aria-hidden="true">{axis.icon}</span>
-                <span className="min-w-0">
+                <span className="min-w-0 flex-1">
                   <span className="block font-medium text-foreground/80">{axis.label}</span>
                   <span className="block text-xs">{axis.prompt}</span>
                 </span>
+                <button
+                  type="button"
+                  onClick={() => onDismissAxis(axis.id)}
+                  className="mt-0.5 shrink-0 opacity-0 transition-opacity hover:text-foreground group-hover/axis:opacity-100"
+                  aria-label={`Marquer « ${axis.label} » sans objet`}
+                  title="Sans objet pour ce patient"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {dismissedAxes.length > 0 && (
+        <button
+          type="button"
+          onClick={onRestoreAxes}
+          className="self-start text-[11px] text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground"
+        >
+          {dismissedAxes.length} axe{dismissedAxes.length > 1 ? 's' : ''} écarté{dismissedAxes.length > 1 ? 's' : ''}, rétablir
+        </button>
+      )}
 
       <p className="text-[11px] leading-snug text-muted-foreground/70">
         Aide-mémoire de complétude d’interrogatoire. Aucune orientation diagnostique,

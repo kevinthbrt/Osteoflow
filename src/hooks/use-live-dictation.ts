@@ -22,10 +22,29 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * ne sont pas décodables isolément. Un segment complet l'est.
  */
 
-/** Durée d'un segment audio en mode Electron. */
-const SEGMENT_MS = 15000
-/** Intervalle de regroupement des segments finaux en mode navigateur. */
-const FLUSH_MS = 6000
+/**
+ * Durée d'un segment audio en mode Electron.
+ *
+ * Descendre plus bas dégrade la transcription plus qu'il n'accélère l'affichage :
+ * Whisper s'appuie sur le contexte de la phrase, et un segment trop court coupe
+ * des mots à la jointure et invente des fragments pour compenser. Dix secondes
+ * est le plancher raisonnable.
+ */
+const SEGMENT_MS = 10000
+
+/**
+ * En mode navigateur, la reconnaissance est continue : plutôt qu'un intervalle
+ * fixe, on envoie ce qui a été dit dès que la phrase est finie. Les lignes
+ * apparaissent alors au rythme de la parole, et un praticien qui laisse parler
+ * le patient déclenche moins d'appels qu'avec un tic-tac régulier.
+ */
+const SILENCE_MS = 1200
+
+/**
+ * Plafond d'attente : un patient qui parle sans respirer ne doit pas retarder
+ * l'affichage indéfiniment.
+ */
+const MAX_WAIT_MS = 5000
 
 export type DictationState = 'idle' | 'recording' | 'transcribing' | 'error'
 
@@ -87,8 +106,9 @@ export function useLiveDictation({ onPassage }: UseLiveDictationOptions) {
   const streamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const segmentTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const tickTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const maxWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bufferRef = useRef('')
   const stoppingRef = useRef(false)
 
@@ -99,17 +119,36 @@ export function useLiveDictation({ onPassage }: UseLiveDictationOptions) {
     onPassageRef.current(text)
   }, [])
 
+  const clearFlushTimers = useCallback(() => {
+    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null }
+    if (maxWaitTimerRef.current) { clearTimeout(maxWaitTimerRef.current); maxWaitTimerRef.current = null }
+  }, [])
+
   const flushBuffer = useCallback(() => {
+    clearFlushTimers()
     const pending = bufferRef.current.trim()
     bufferRef.current = ''
     if (pending) emit(pending)
-  }, [emit])
+  }, [clearFlushTimers, emit])
+
+  /**
+   * Programme l'envoi : à la fin de la phrase, ou au plafond d'attente si le
+   * patient enchaîne sans pause.
+   */
+  const scheduleFlush = useCallback(() => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
+    silenceTimerRef.current = setTimeout(flushBuffer, SILENCE_MS)
+    if (!maxWaitTimerRef.current) {
+      maxWaitTimerRef.current = setTimeout(flushBuffer, MAX_WAIT_MS)
+    }
+  }, [flushBuffer])
 
   const clearTimers = useCallback(() => {
-    for (const ref of [segmentTimerRef, flushTimerRef, tickTimerRef]) {
+    for (const ref of [segmentTimerRef, tickTimerRef]) {
       if (ref.current) { clearInterval(ref.current); ref.current = null }
     }
-  }, [])
+    clearFlushTimers()
+  }, [clearFlushTimers])
 
   /* ── Mode Electron : segments roulants ─────────────────────────────────── */
 
@@ -204,7 +243,10 @@ export function useLiveDictation({ onPassage }: UseLiveDictationOptions) {
         if (e.results[i].isFinal) newFinal += `${text} `
         else pendingInterim += text
       }
-      if (newFinal) bufferRef.current += newFinal
+      if (newFinal) {
+        bufferRef.current += newFinal
+        scheduleFlush()
+      }
       setInterim(pendingInterim)
     }
     recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
@@ -224,14 +266,13 @@ export function useLiveDictation({ onPassage }: UseLiveDictationOptions) {
     try {
       recognition.start()
       recognitionRef.current = recognition
-      flushTimerRef.current = setInterval(flushBuffer, FLUSH_MS)
       setState('recording')
     } catch {
       clearTimers()
       setError("Impossible de démarrer la dictée.")
       setState('error')
     }
-  }, [clearTimers, flushBuffer, rollSegment, startSegment])
+  }, [clearTimers, rollSegment, scheduleFlush, startSegment])
 
   const stop = useCallback(() => {
     stoppingRef.current = true
@@ -268,9 +309,11 @@ export function useLiveDictation({ onPassage }: UseLiveDictationOptions) {
   useEffect(() => {
     return () => {
       stoppingRef.current = true
-      for (const ref of [segmentTimerRef, flushTimerRef, tickTimerRef]) {
+      for (const ref of [segmentTimerRef, tickTimerRef]) {
         if (ref.current) clearInterval(ref.current)
       }
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
+      if (maxWaitTimerRef.current) clearTimeout(maxWaitTimerRef.current)
       recognitionRef.current?.stop()
       if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
       streamRef.current?.getTracks().forEach((t) => t.stop())

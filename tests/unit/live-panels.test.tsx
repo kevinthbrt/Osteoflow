@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { LiveLineFeed } from '@/components/consultations/live/live-line-feed'
 import { LiveChecklist } from '@/components/consultations/live/live-checklist'
+import { LivePatientPanel } from '@/components/consultations/live/live-patient-panel'
 import { applyOps, type LiveLine } from '@/lib/anamnesis-live'
 
 const lines: LiveLine[] = applyOps([], [
@@ -54,7 +55,7 @@ describe('fil de l\'anamnèse', () => {
 
 describe('copilote', () => {
   const html = renderToStaticMarkup(
-    <LiveChecklist lines={lines} redFlagsCleared={false} onClearRedFlags={noop} />,
+    <LiveChecklist lines={lines} redFlagsCleared={false} onClearRedFlags={noop} dismissedAxes={[]} onDismissAxis={noop} onRestoreAxes={noop} />,
   )
 
   it('réclame ce qui manque, et pas ce qui est couvert', () => {
@@ -78,7 +79,7 @@ describe('copilote', () => {
   it('ne déclare pas un dépistage qui n\'a pas eu lieu', () => {
     expect(html).toContain('Dépistage non tranché')
     const cleared = renderToStaticMarkup(
-      <LiveChecklist lines={lines} redFlagsCleared onClearRedFlags={noop} />,
+      <LiveChecklist lines={lines} redFlagsCleared onClearRedFlags={noop} dismissedAxes={[]} onDismissAxis={noop} onRestoreAxes={noop} />,
     )
     expect(cleared).toContain('aucun retenu')
   })
@@ -88,7 +89,7 @@ describe('copilote', () => {
       <LiveChecklist
         lines={applyOps(lines, [{ op: 'add', id: 'r', axis: 'red_flag', text: 'Douleur nocturne non soulagée' }])}
         redFlagsCleared
-        onClearRedFlags={noop}
+        onClearRedFlags={noop} dismissedAxes={[]} onDismissAxis={noop} onRestoreAxes={noop}
       />,
     )
     expect(flagged).toContain('1 drapeau rouge')
@@ -104,8 +105,84 @@ describe('copilote', () => {
       'evolution', 'traitement', 'retentissement',
     ].map((axis, i) => ({ op: 'add', id: `l${i}`, axis, text: 'renseigné' })))
     const html2 = renderToStaticMarkup(
-      <LiveChecklist lines={complete} redFlagsCleared onClearRedFlags={noop} />,
+      <LiveChecklist lines={complete} redFlagsCleared onClearRedFlags={noop} dismissedAxes={[]} onDismissAxis={noop} onRestoreAxes={noop} />,
     )
     expect(html2).toContain('Interrogatoire complet')
+  })
+})
+
+describe('axes écartés', () => {
+  it('retire de la liste un axe jugé sans objet', () => {
+    // Sans porte de sortie, un axe qui ne s'applique pas au patient reste
+    // réclamé indéfiniment et le copilote devient un bruit qu'on cesse de lire.
+    const html = renderToStaticMarkup(
+      <LiveChecklist
+        lines={lines}
+        redFlagsCleared
+        onClearRedFlags={noop}
+        dismissedAxes={['anciennete', 'horaire']}
+        onDismissAxis={noop}
+        onRestoreAxes={noop}
+      />,
+    )
+    expect(html).not.toContain('Depuis combien de temps ?')
+    expect(html).not.toContain('Nocturne ? Matinale ?')
+    expect(html).toContain('2 axes écartés, rétablir')
+    // Les autres restent réclamés.
+    expect(html).toContain('Brutale ou progressive ?')
+  })
+})
+
+describe('dossier patient', () => {
+  const html = renderToStaticMarkup(
+    <LivePatientPanel
+      patient={{ fullName: 'Camille Roux', age: 42, gender: 'F', profession: 'Infirmière', sportActivity: 'Course' }}
+      history={[
+        { id: 'v1', history_type: 'medical', description: 'Anticoagulants au long cours', is_vigilance: 1 },
+        { id: 'h1', history_type: 'surgical', description: 'Appendicectomie 2018' },
+        { id: 'h2', history_type: 'traumatic', description: 'Fracture poignet droit 2015' },
+      ]}
+      pastConsultations={[
+        { id: 'c1', date_time: '2026-08-12T10:00:00', reason: 'Cervicalgie', anamnesis_summary: 'Cervicalgie mécanique, EVA 5/10.' },
+      ]}
+    />,
+  )
+
+  it('affiche l\'identité utile en consultation', () => {
+    expect(html).toContain('Camille Roux')
+    expect(html).toContain('42 ans')
+    expect(html).toContain('Infirmière')
+  })
+
+  it('met la vigilance au-dessus des autres antécédents', () => {
+    // C'est ce qui peut changer la conduite de la séance : ça ne doit pas se
+    // chercher au milieu d'une liste.
+    expect(html).toContain('Anticoagulants au long cours')
+    expect(html.indexOf('Anticoagulants au long cours')).toBeLessThan(html.indexOf('Appendicectomie 2018'))
+    expect(html).toContain('Vigilance')
+  })
+
+  it('groupe les antécédents par nature', () => {
+    expect(html).toContain('Chirurgicaux')
+    expect(html).toContain('Traumatiques')
+    expect(html).toContain('Fracture poignet droit 2015')
+  })
+
+  it('résume les consultations passées avec leur phrase de synthèse', () => {
+    expect(html).toContain('12/08/2026')
+    expect(html).toContain('Cervicalgie')
+    expect(html).toContain('Cervicalgie mécanique, EVA 5/10.')
+  })
+
+  it('le dit quand il n\'y a pas d\'historique', () => {
+    const first = renderToStaticMarkup(
+      <LivePatientPanel
+        patient={{ fullName: 'Jean Dupont', age: 30, gender: 'M' }}
+        history={[]}
+        pastConsultations={[]}
+      />,
+    )
+    expect(first).toContain('Première consultation.')
+    expect(first).not.toContain('Vigilance')
   })
 })

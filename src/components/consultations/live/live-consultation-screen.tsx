@@ -3,6 +3,11 @@
 import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ConsultationLive, type LiveResult } from '@/components/consultations/live/consultation-live'
+import type {
+  HistoryEntry,
+  PastConsultation,
+  PatientSummary,
+} from '@/components/consultations/live/live-patient-panel'
 import { useToast } from '@/hooks/use-toast'
 
 /**
@@ -19,9 +24,19 @@ interface LiveConsultationScreenProps {
   patientId: string
   patientName: string
   patientContext?: string
+  patient: PatientSummary
+  history: HistoryEntry[]
+  pastConsultations: PastConsultation[]
 }
 
-export function LiveConsultationScreen({ patientId, patientName, patientContext }: LiveConsultationScreenProps) {
+export function LiveConsultationScreen({
+  patientId,
+  patientName,
+  patientContext,
+  patient,
+  history,
+  pastConsultations,
+}: LiveConsultationScreenProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [finishing, setFinishing] = useState(false)
@@ -73,6 +88,9 @@ export function LiveConsultationScreen({ patientId, patientName, patientContext 
     <ConsultationLive
       patientId={patientId}
       patientName={patientName}
+      patient={patient}
+      history={history}
+      pastConsultations={pastConsultations}
       patientContext={patientContext}
       onFinish={handleFinish}
       onCancel={handleCancel}

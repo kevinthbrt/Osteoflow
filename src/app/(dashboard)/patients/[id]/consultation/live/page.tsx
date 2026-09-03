@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
 import { calculateAge } from '@/lib/utils'
 import { LiveConsultationScreen } from '@/components/consultations/live/live-consultation-screen'
+import type { HistoryEntry, PastConsultation } from '@/components/consultations/live/live-patient-panel'
 
 interface LiveConsultationPageProps {
   params: Promise<{ id: string }>
@@ -35,11 +36,37 @@ export default async function LiveConsultationPage({ params }: LiveConsultationP
   const { data: { user } } = await db.auth.getUser()
   if (!user) redirect('/login')
 
+  // Le dossier affiché à gauche. Les consultations sont limitées aux plus
+  // récentes : au-delà, la colonne devient une archive qu'on ne lit pas.
+  const [{ data: history }, { data: past }] = await Promise.all([
+    db
+      .from('medical_history_entries')
+      .select('*')
+      .eq('patient_id', id)
+      .order('display_order', { ascending: true }),
+    db
+      .from('consultations')
+      .select('id, date_time, reason, anamnesis_summary')
+      .eq('patient_id', id)
+      .is('archived_at', null)
+      .order('date_time', { ascending: false })
+      .limit(8),
+  ])
+
   return (
     <LiveConsultationScreen
       patientId={id}
       patientName={`${patient.first_name} ${patient.last_name}`}
       patientContext={buildContext(patient)}
+      patient={{
+        fullName: `${patient.first_name} ${patient.last_name}`,
+        age: patient.birth_date ? calculateAge(patient.birth_date) : null,
+        gender: patient.gender ?? null,
+        profession: patient.profession,
+        sportActivity: patient.sport_activity,
+      }}
+      history={(history ?? []) as HistoryEntry[]}
+      pastConsultations={(past ?? []) as PastConsultation[]}
     />
   )
 }

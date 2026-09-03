@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertCircle, Loader2, Mic, Square, X } from 'lucide-react'
+import { AlertCircle, Loader2, Mic, PanelLeft, Square, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useLiveDictation } from '@/hooks/use-live-dictation'
@@ -15,6 +15,12 @@ import {
 import { sectionsToMarkdown, type AnamnesisSection } from '@/lib/anamnesis'
 import { LiveLineFeed } from '@/components/consultations/live/live-line-feed'
 import { LiveChecklist } from '@/components/consultations/live/live-checklist'
+import {
+  LivePatientPanel,
+  type HistoryEntry,
+  type PastConsultation,
+  type PatientSummary,
+} from '@/components/consultations/live/live-patient-panel'
 
 /**
  * Mode consultation : l'anamnèse s'écrit pendant qu'elle se dit.
@@ -40,6 +46,10 @@ interface ConsultationLiveProps {
   /** Identifiant du patient : le brouillon lui est rattaché. */
   patientId: string
   patientName: string
+  /** Dossier affiché à gauche, en lecture seule. */
+  patient: PatientSummary
+  history: HistoryEntry[]
+  pastConsultations: PastConsultation[]
   /** Contexte transmis à l'extraction (âge, profession, antécédents connus). */
   patientContext?: string
   onFinish: (result: LiveResult) => Promise<void> | void
@@ -56,6 +66,9 @@ function formatElapsed(seconds: number): string {
 export function ConsultationLive({
   patientId,
   patientName,
+  patient,
+  history,
+  pastConsultations,
   patientContext,
   onFinish,
   onCancel,
@@ -63,6 +76,8 @@ export function ConsultationLive({
 }: ConsultationLiveProps) {
   const [lines, setLines] = useState<LiveLine[]>([])
   const [redFlagsCleared, setRedFlagsCleared] = useState(false)
+  const [dismissedAxes, setDismissedAxes] = useState<AxisId[]>([])
+  const [showPatient, setShowPatient] = useState(true)
   const [extracting, setExtracting] = useState(false)
   const [extractionError, setExtractionError] = useState('')
   const [showTranscript, setShowTranscript] = useState(false)
@@ -160,6 +175,8 @@ export function ConsultationLive({
 
   const redFlagsClearedRef = useRef(redFlagsCleared)
   useEffect(() => { redFlagsClearedRef.current = redFlagsCleared }, [redFlagsCleared])
+  const dismissedRef = useRef(dismissedAxes)
+  useEffect(() => { dismissedRef.current = dismissedAxes }, [dismissedAxes])
 
   const restoredRef = useRef(false)
   const [restored, setRestored] = useState(false)
@@ -175,6 +192,7 @@ export function ConsultationLive({
         if (!Array.isArray(draft.live_lines) || draft.live_lines.length === 0) return
         setLines(draft.live_lines as LiveLine[])
         setRedFlagsCleared(!!draft.live_red_flags_cleared)
+        if (Array.isArray(draft.live_dismissed_axes)) setDismissedAxes(draft.live_dismissed_axes as AxisId[])
         setRestored(true)
       })
       .catch(() => { /* pas de brouillon exploitable, on démarre à vide */ })
@@ -197,6 +215,7 @@ export function ConsultationLive({
         anamnesis_sections: JSON.stringify(sections),
         live_lines: current,
         live_red_flags_cleared: redFlagsClearedRef.current,
+        live_dismissed_axes: dismissedRef.current,
       }),
     }).catch(() => { /* réessayé au prochain changement */ })
   }, [patientId])
@@ -206,7 +225,7 @@ export function ConsultationLive({
   useEffect(() => {
     const timer = setTimeout(saveDraft, 1500)
     return () => clearTimeout(timer)
-  }, [lines, redFlagsCleared, saveDraft])
+  }, [lines, redFlagsCleared, dismissedAxes, saveDraft])
 
   useEffect(() => {
     window.addEventListener('myosteoflow:before-lock', saveDraft)
@@ -259,6 +278,19 @@ export function ConsultationLive({
           <X className="h-4 w-4" />
         </button>
 
+        <button
+          type="button"
+          onClick={() => setShowPatient((v) => !v)}
+          className={cn(
+            'rounded-lg p-1.5 transition-colors hover:bg-muted',
+            showPatient ? 'text-foreground' : 'text-muted-foreground',
+          )}
+          aria-label={showPatient ? 'Masquer le dossier patient' : 'Afficher le dossier patient'}
+          aria-pressed={showPatient}
+        >
+          <PanelLeft className="h-4 w-4" />
+        </button>
+
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[15px] font-semibold leading-tight">{patientName}</h1>
           <p className="text-xs text-muted-foreground">Mode consultation</p>
@@ -298,7 +330,7 @@ export function ConsultationLive({
           <span>Anamnèse en cours restaurée. Reprenez la dictée ou terminez.</span>
           <button
             type="button"
-            onClick={() => { setLines([]); setRedFlagsCleared(false); setRestored(false) }}
+            onClick={() => { setLines([]); setRedFlagsCleared(false); setDismissedAxes([]); setRestored(false) }}
             className="shrink-0 underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground"
           >
             Repartir de zéro
@@ -317,6 +349,12 @@ export function ConsultationLive({
 
       {/* Le fil à gauche, ce qui manque à droite. */}
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {showPatient && (
+          <aside className="shrink-0 overflow-y-auto border-b bg-muted/20 lg:w-64 lg:border-b-0 lg:border-r xl:w-72">
+            <LivePatientPanel patient={patient} history={history} pastConsultations={pastConsultations} />
+          </aside>
+        )}
+
         <main className="min-h-0 flex-1 overflow-y-auto">
           <LiveLineFeed
             lines={lines}
@@ -335,6 +373,9 @@ export function ConsultationLive({
             lines={lines}
             redFlagsCleared={redFlagsCleared}
             onClearRedFlags={setRedFlagsCleared}
+            dismissedAxes={dismissedAxes}
+            onDismissAxis={(axis) => setDismissedAxes((prev) => [...prev, axis])}
+            onRestoreAxes={() => setDismissedAxes([])}
           />
         </aside>
       </div>
