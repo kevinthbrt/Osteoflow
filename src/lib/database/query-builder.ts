@@ -46,6 +46,7 @@ const CABINET_SCOPE: Record<string, {
   via?: { sql: (placeholders: string) => string }
 }> = {
   patients: { category: 'patients', column: 'practitioner_id' },
+  referral_sources: { category: 'patients', column: 'practitioner_id' },
   consultations: { category: 'consultations', column: 'cabinet_id' },
   invoices: { category: 'compta', column: 'cabinet_id' },
   payments: {
@@ -839,7 +840,7 @@ export class QueryBuilder {
 
     // Set updated_at automatically only for tables that have the column
     const TABLES_WITH_UPDATED_AT = new Set([
-      'practitioners', 'patients', 'session_types', 'consultations',
+      'practitioners', 'patients', 'session_types', 'referral_sources', 'consultations',
       'invoices', 'conversations', 'email_settings', 'email_templates',
       'message_templates', 'medical_history_entries',
     ])

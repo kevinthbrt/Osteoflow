@@ -34,6 +34,7 @@ import { Loader2, Plus, Pencil, Trash2, Search, X, ClipboardPaste } from 'lucide
 import type { MedicalHistoryType, OnsetDurationUnit, Patient } from '@/types/database'
 import { DoctolibPasteDialog } from './doctolib-paste-dialog'
 import { buildSearchOrFilters } from '@/lib/utils/search'
+import { DEFAULT_REFERRAL_SOURCES, OTHER_SOURCE_PREFIX, isOtherSource, otherSourceText } from '@/lib/patients/referral-sources'
 
 interface PatientFormProps {
   patient?: Patient
@@ -51,6 +52,11 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
   const [selectedReferrer, setSelectedReferrer] = useState<{ id: string; first_name: string; last_name: string } | null>(null)
   const [showReferralDropdown, setShowReferralDropdown] = useState(false)
   const [isDoctolibDialogOpen, setIsDoctolibDialogOpen] = useState(false)
+  const [customSources, setCustomSources] = useState<Array<{ id: string; name: string }>>([])
+  const [practitionerId, setPractitionerId] = useState<string | null>(null)
+  const [isAddingSource, setIsAddingSource] = useState(false)
+  const [newSourceName, setNewSourceName] = useState('')
+  const [isSavingSource, setIsSavingSource] = useState(false)
   const referralInputRef = useRef<HTMLInputElement>(null)
   const referralDropdownRef = useRef<HTMLDivElement>(null)
   const [referralDropdownPos, setReferralDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null)
@@ -156,6 +162,82 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
     setReferralSearch('')
   }
 
+  // Canaux d'acquisition personnalisés du praticien, affichés à la suite des
+  // canaux par défaut.
+  useEffect(() => {
+    const loadCustomSources = async () => {
+      const { data: { user } } = await db.auth.getUser()
+      if (!user) return
+      const { data: practitioner } = await db
+        .from('practitioners')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+      if (!practitioner) return
+      setPractitionerId(practitioner.id)
+      const { data } = await db
+        .from('referral_sources')
+        .select('id, name')
+        .eq('practitioner_id', practitioner.id)
+        .eq('is_active', true)
+        .order('name')
+      if (data) setCustomSources(data)
+    }
+    loadCustomSources()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleCreateSource = async () => {
+    const name = newSourceName.trim()
+    if (!name) return
+
+    const alreadyExists = [...DEFAULT_REFERRAL_SOURCES, ...customSources.map((s) => s.name)]
+      .some((existing) => existing.toLowerCase() === name.toLowerCase())
+    if (alreadyExists) {
+      toast({
+        variant: 'destructive',
+        title: 'Catégorie déjà existante',
+        description: `« ${name} » figure déjà dans la liste.`,
+      })
+      return
+    }
+
+    if (!practitionerId) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Profil praticien non trouvé',
+      })
+      return
+    }
+
+    setIsSavingSource(true)
+    try {
+      const { data, error } = await db
+        .from('referral_sources')
+        .insert({ practitioner_id: practitionerId, name, is_active: true })
+        .select()
+        .single()
+      if (error) throw error
+
+      setCustomSources((prev) => [...prev, { id: data.id, name: data.name }].sort((a, b) => a.name.localeCompare(b.name, 'fr')))
+      setValue('referred_by_source', name)
+      clearReferrer()
+      setNewSourceName('')
+      setIsAddingSource(false)
+      toast({ variant: 'success', title: 'Catégorie créée', description: `« ${name} » est disponible pour vos patients.` })
+    } catch (error) {
+      console.error('Error creating referral source:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de créer la catégorie.',
+      })
+    } finally {
+      setIsSavingSource(false)
+    }
+  }
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -171,6 +253,21 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Canaux par défaut, catégories du praticien, puis la source déjà
+  // enregistrée sur la fiche si sa catégorie a depuis été supprimée.
+  const currentSource = watch('referred_by_source') || ''
+  const sourceChoices = useMemo(() => {
+    const choices = [
+      ...DEFAULT_REFERRAL_SOURCES,
+      ...customSources.map((source) => source.name),
+    ] as string[]
+    const current = currentSource.trim()
+    if (current && !isOtherSource(current) && !choices.includes(current)) {
+      choices.push(current)
+    }
+    return [...choices, 'Autre']
+  }, [customSources, currentSource])
 
   const groupedDraftEntries = useMemo(() => {
     const grouped = draftEntries.reduce((acc, entry) => {
@@ -548,10 +645,9 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
             <Label>Recommandé par</Label>
             {/* Source quick-pick buttons */}
             <div className="flex flex-wrap gap-2">
-              {['Médecin', 'Internet', 'Réseaux sociaux', 'Bouche à oreille', 'Autre'].map((src) => {
-                const currentSource = watch('referred_by_source') || ''
+              {sourceChoices.map((src) => {
                 const isSelected = src === 'Autre'
-                  ? currentSource.startsWith('Autre')
+                  ? isOtherSource(currentSource)
                   : currentSource === src
                 return (
                   <button
@@ -562,7 +658,7 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
                       if (isSelected && src !== 'Autre') {
                         setValue('referred_by_source', '')
                       } else {
-                        setValue('referred_by_source', src === 'Autre' ? 'Autre : ' : src)
+                        setValue('referred_by_source', src === 'Autre' ? OTHER_SOURCE_PREFIX : src)
                         if (src !== 'Autre') clearReferrer()
                       }
                     }}
@@ -576,13 +672,69 @@ export function PatientForm({ patient, mode }: PatientFormProps) {
                   </button>
                 )
               })}
+              {!isAddingSource && (
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => setIsAddingSource(true)}
+                  className="px-3 py-1 rounded-full border border-dashed text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:bg-accent hover:text-foreground"
+                >
+                  <Plus className="mr-1 inline h-3 w-3" />
+                  Nouvelle catégorie
+                </button>
+              )}
             </div>
+            {/* Création d'une catégorie personnalisée, réutilisable ensuite */}
+            {isAddingSource && (
+              <div className="flex items-center gap-2">
+                <Input
+                  autoFocus
+                  placeholder="Nom de la catégorie (ex : Pharmacie du centre)"
+                  value={newSourceName}
+                  onChange={(e) => setNewSourceName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleCreateSource()
+                    }
+                    if (e.key === 'Escape') {
+                      e.preventDefault()
+                      setIsAddingSource(false)
+                      setNewSourceName('')
+                    }
+                  }}
+                  disabled={isLoading || isSavingSource}
+                  maxLength={60}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleCreateSource}
+                  disabled={isLoading || isSavingSource || !newSourceName.trim()}
+                >
+                  {isSavingSource ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Ajouter'}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  onClick={() => {
+                    setIsAddingSource(false)
+                    setNewSourceName('')
+                  }}
+                  disabled={isSavingSource}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
             {/* Free text input when "Autre" is selected */}
-            {(watch('referred_by_source') || '').startsWith('Autre') && (
+            {isOtherSource(watch('referred_by_source')) && (
               <Input
                 placeholder="Précisez..."
-                value={(watch('referred_by_source') || '').replace(/^Autre : ?/, '')}
-                onChange={(e) => setValue('referred_by_source', e.target.value ? `Autre : ${e.target.value}` : 'Autre : ')}
+                value={otherSourceText(watch('referred_by_source'))}
+                onChange={(e) => setValue('referred_by_source', e.target.value ? `${OTHER_SOURCE_PREFIX}${e.target.value}` : OTHER_SOURCE_PREFIX)}
                 disabled={isLoading}
                 className="mt-1"
               />

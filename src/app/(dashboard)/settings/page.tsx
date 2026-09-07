@@ -24,7 +24,8 @@ import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, CheckCir
 import { CGU_SECTIONS, PRIVACY_SECTIONS, CGU_VERSION, CGU_DATE, type LegalSection } from '@/lib/legal/documents'
 import { PROFESSION_OPTIONS } from '@/lib/practitioner/profession'
 import { getCurrencySymbol } from '@/lib/utils/currency'
-import type { Practitioner, SessionType } from '@/types/database'
+import type { Practitioner, ReferralSource, SessionType } from '@/types/database'
+import { DEFAULT_REFERRAL_SOURCES } from '@/lib/patients/referral-sources'
 import { CustomClinicalContentTab } from '@/components/settings/custom-clinical-content-tab'
 import { ImportDataTab } from '@/components/settings/import-data-tab'
 import { ExportDataTab } from '@/components/settings/export-data-tab'
@@ -182,6 +183,7 @@ const SETTINGS_NAV: {
   {
     key: 'pratique', label: 'Pratique', icon: Stethoscope, items: [
       { value: 'clinical-content', label: 'Contenu clinique' },
+      { value: 'patient-fields', label: 'Fiche patient' },
     ],
   },
   {
@@ -227,6 +229,11 @@ function SettingsPageInner() {
   const [editingSessionTypeId, setEditingSessionTypeId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [editingPrice, setEditingPrice] = useState('')
+  const [referralSources, setReferralSources] = useState<ReferralSource[]>([])
+  const [newReferralSourceName, setNewReferralSourceName] = useState('')
+  const [isSavingReferralSource, setIsSavingReferralSource] = useState(false)
+  const [editingReferralSourceId, setEditingReferralSourceId] = useState<string | null>(null)
+  const [editingReferralSourceName, setEditingReferralSourceName] = useState('')
 
   // Objectives settings state
   const [objectivesSettings, setObjectivesSettings] = useState({
@@ -465,6 +472,19 @@ function SettingsPageInner() {
             setSessionTypes(sessionTypesData)
           }
 
+          const { data: referralSourcesData, error: referralSourcesError } = await db
+            .from('referral_sources')
+            .select('*')
+            .eq('practitioner_id', practitionerData.id)
+            .eq('is_active', true)
+            .order('name')
+
+          if (referralSourcesError) {
+            console.error('Error fetching referral sources:', referralSourcesError)
+          } else if (referralSourcesData) {
+            setReferralSources(referralSourcesData)
+          }
+
           // Fetch email settings
           try {
             const response = await fetch('/api/emails/settings')
@@ -649,6 +669,98 @@ function SettingsPageInner() {
     } catch (error) {
       console.error('Error updating session type:', error)
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de modifier le type de séance.' })
+    }
+  }
+
+  // Catégories « Recommandé par » (canaux d'acquisition personnalisés)
+  const handleAddReferralSource = async () => {
+    const name = newReferralSourceName.trim()
+    if (!practitioner || !name) return
+
+    const alreadyExists = [...DEFAULT_REFERRAL_SOURCES, ...referralSources.map((s) => s.name)]
+      .some((existing) => existing.toLowerCase() === name.toLowerCase())
+    if (alreadyExists) {
+      toast({
+        variant: 'destructive',
+        title: 'Catégorie déjà existante',
+        description: `« ${name} » figure déjà dans la liste.`,
+      })
+      return
+    }
+
+    setIsSavingReferralSource(true)
+    try {
+      const { data, error } = await db
+        .from('referral_sources')
+        .insert({ practitioner_id: practitioner.id, name, is_active: true })
+        .select()
+        .single()
+      if (error) throw error
+
+      if (data) {
+        setReferralSources((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name, 'fr')))
+      }
+      setNewReferralSourceName('')
+      toast({ variant: 'success', title: 'Catégorie créée' })
+    } catch (error) {
+      console.error('Error creating referral source:', error)
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de créer la catégorie.' })
+    } finally {
+      setIsSavingReferralSource(false)
+    }
+  }
+
+  const handleUpdateReferralSource = async (source: ReferralSource) => {
+    const name = editingReferralSourceName.trim()
+    if (!name || name === source.name) {
+      setEditingReferralSourceId(null)
+      return
+    }
+
+    try {
+      const { error } = await db
+        .from('referral_sources')
+        .update({ name })
+        .eq('id', source.id)
+      if (error) throw error
+
+      // Les fiches patients stockent le libellé, pas l'identifiant : on les
+      // réaligne pour que les statistiques ne se scindent pas en deux lignes.
+      const { error: patientsError } = await db
+        .from('patients')
+        .update({ referred_by_source: name })
+        .eq('referred_by_source', source.name)
+      if (patientsError) throw patientsError
+
+      setReferralSources((prev) =>
+        prev
+          .map((s) => (s.id === source.id ? { ...s, name } : s))
+          .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+      )
+      setEditingReferralSourceId(null)
+      toast({ variant: 'success', title: 'Catégorie modifiée' })
+    } catch (error) {
+      console.error('Error updating referral source:', error)
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de modifier la catégorie.' })
+    }
+  }
+
+  const handleDeleteReferralSource = async (id: string) => {
+    try {
+      const { error } = await db
+        .from('referral_sources')
+        .update({ is_active: false })
+        .eq('id', id)
+      if (error) throw error
+      setReferralSources((prev) => prev.filter((s) => s.id !== id))
+      toast({
+        variant: 'success',
+        title: 'Catégorie supprimée',
+        description: 'Les patients déjà rattachés conservent leur source.',
+      })
+    } catch (error) {
+      console.error('Error deleting referral source:', error)
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer la catégorie.' })
     }
   }
 
@@ -2114,6 +2226,146 @@ function SettingsPageInner() {
         {/* Export Tab */}
         <TabsContent value="export">
           <ExportDataTab />
+        </TabsContent>
+
+        {/* Champs de la fiche patient */}
+        <TabsContent value="patient-fields">
+          <Card>
+            <CardHeader>
+              <CardTitle>Fiche patient</CardTitle>
+              <CardDescription>
+                Personnalisez les choix proposés à la création d&apos;un patient
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <Label>Catégories &laquo; Recommandé par &raquo;</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Ajoutez vos propres canaux d&apos;acquisition (une salle de sport, un
+                    confrère, un cabinet partenaire). Ils s&apos;affichent sur la fiche
+                    patient à la suite des canaux proposés par défaut, et se retrouvent
+                    dans Statistiques &gt; Patients &gt; Canaux d&apos;acquisition.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+                  <div className="space-y-2">
+                    <Label htmlFor="referral-source-name">Nom</Label>
+                    <Input
+                      id="referral-source-name"
+                      value={newReferralSourceName}
+                      onChange={(event) => setNewReferralSourceName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          handleAddReferralSource()
+                        }
+                      }}
+                      placeholder="Salle de sport, kiné, mutuelle..."
+                      maxLength={60}
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      onClick={handleAddReferralSource}
+                      disabled={isSavingReferralSource || !newReferralSourceName.trim()}
+                    >
+                      {isSavingReferralSource && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Ajouter
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {DEFAULT_REFERRAL_SOURCES.map((source) => (
+                    <span
+                      key={source}
+                      className="rounded-full border border-dashed px-3 py-1 text-xs text-muted-foreground"
+                    >
+                      {source}
+                    </span>
+                  ))}
+                  <span className="rounded-full border border-dashed px-3 py-1 text-xs text-muted-foreground">
+                    Autre
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Canaux proposés par défaut, ils ne peuvent pas être supprimés.
+                </p>
+
+                {referralSources.length > 0 ? (
+                  <div className="space-y-2">
+                    {referralSources.map((source) => (
+                      <div
+                        key={source.id}
+                        className="flex items-center gap-2 rounded-lg border px-3 py-2"
+                      >
+                        {editingReferralSourceId === source.id ? (
+                          <>
+                            <Input
+                              className="flex-1 h-8 text-sm"
+                              value={editingReferralSourceName}
+                              onChange={(e) => setEditingReferralSourceName(e.target.value)}
+                              maxLength={60}
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-green-600 hover:text-green-700"
+                              onClick={() => handleUpdateReferralSource(source)}
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => setEditingReferralSourceId(null)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="flex-1 text-sm font-medium">{source.name}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                setEditingReferralSourceId(source.id)
+                                setEditingReferralSourceName(source.name)
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteReferralSource(source.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Aucune catégorie personnalisée.
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="clinical-content">

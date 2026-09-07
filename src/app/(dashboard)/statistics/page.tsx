@@ -32,12 +32,18 @@ import {
   UserPlus,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { referralStatLabel, UNKNOWN_SOURCE_LABEL } from '@/lib/patients/referral-sources'
 import { getCurrencySymbol } from '@/lib/utils/currency'
 import { useToast } from '@/hooks/use-toast'
 
 interface ReferralStat {
   referrer_id: string
   referrer_name: string
+  count: number
+}
+
+interface SourceStat {
+  label: string
   count: number
 }
 
@@ -90,6 +96,7 @@ export default function StatisticsPage() {
   const [consultationStats, setConsultationStats] = useState<ConsultationStats | null>(null)
   const [revenueStats, setRevenueStats] = useState<RevenueStats | null>(null)
   const [referralStats, setReferralStats] = useState<ReferralStat[]>([])
+  const [sourceStats, setSourceStats] = useState<SourceStat[]>([])
 
   // Filters
   const currentYear = new Date().getFullYear()
@@ -170,7 +177,7 @@ export default function StatisticsPage() {
       // Fetch patients
       let patientsQuery = db
         .from('patients')
-        .select('id, gender, birth_date, created_at')
+        .select('id, gender, birth_date, created_at, referred_by_source, referred_by_patient_id')
         .is('archived_at', null)
 
       if (gender) {
@@ -223,6 +230,26 @@ export default function StatisticsPage() {
           by_gender: byGender,
           by_age_group: Object.entries(ageGroupCounts).map(([age_group, count]) => ({ age_group, count })),
         })
+
+        // Canaux d'acquisition : « Recommandé par » de la fiche patient, la
+        // recommandation par un autre patient comptant comme un canal à part.
+        const sourceCounts: Record<string, number> = {}
+        patients.forEach((p: { referred_by_source?: string | null; referred_by_patient_id?: string | null }) => {
+          const label = referralStatLabel(p)
+          sourceCounts[label] = (sourceCounts[label] || 0) + 1
+        })
+        setSourceStats(
+          Object.entries(sourceCounts)
+            .map(([label, count]) => ({ label, count }))
+            .sort((a, b) => {
+              // « Non renseigné » ferme la marche, il ne décrit aucun canal.
+              if (a.label === UNKNOWN_SOURCE_LABEL) return 1
+              if (b.label === UNKNOWN_SOURCE_LABEL) return -1
+              return b.count - a.count
+            })
+        )
+      } else {
+        setSourceStats([])
       }
 
       // Fetch referral stats
@@ -656,6 +683,50 @@ export default function StatisticsPage() {
                         )
                       })}
                     </div>
+                  </CardContent>
+                </Card>
+                {/* Acquisition sources */}
+                <Card className="md:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <PieChart className="h-5 w-5 text-primary" />
+                      Canaux d&apos;acquisition
+                    </CardTitle>
+                    <CardDescription>
+                      D&apos;où viennent vos patients, d&apos;après le champ &laquo; Recommandé par &raquo;
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {sourceStats.length > 0 ? (
+                      <div className="space-y-3">
+                        {(() => {
+                          const total = sourceStats.reduce((sum, s) => sum + s.count, 0) || 1
+                          return sourceStats.map((stat) => {
+                            const share = Math.round((stat.count / total) * 100)
+                            return (
+                              <div key={stat.label} className="flex items-center gap-3">
+                                <span className="w-44 shrink-0 truncate text-sm font-medium" title={stat.label}>
+                                  {stat.label}
+                                </span>
+                                <div className="flex-1 h-5 bg-muted rounded overflow-hidden">
+                                  <div
+                                    className="h-full bg-primary/80 rounded"
+                                    style={{ width: `${Math.max(share, stat.count > 0 ? 2 : 0)}%` }}
+                                  />
+                                </div>
+                                <Badge variant="secondary" className="shrink-0">
+                                  {stat.count} ({share} %)
+                                </Badge>
+                              </div>
+                            )
+                          })
+                        })()}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Aucun patient enregistré pour le moment.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
                 {/* Referral stats */}

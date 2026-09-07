@@ -19,6 +19,17 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.19.0',
+    date: '2026-09-07',
+    title: 'Vos canaux d\'acquisition, à votre main',
+    changes: [
+      { type: 'feature', text: "Nouvelle carte « Canaux d'acquisition » dans Statistiques > Patients : le champ « Recommandé par » de la fiche patient est enfin compté. Vous voyez, en nombre et en pourcentage, ce que pèsent le médecin, Internet, les réseaux sociaux, le bouche à oreille, vos propres catégories et la recommandation d'un autre patient. Jusqu'ici seules les recommandations entre patients étaient mesurées, tout le reste était saisi sans jamais être exploité." },
+      { type: 'feature', text: "Vous créez vos propres catégories de recommandation : une salle de sport, un confrère, une mutuelle, un cabinet partenaire. Le bouton « Nouvelle catégorie » du bloc « Recommandé par » les enregistre à la volée pendant la création d'un patient, et elles réapparaissent ensuite pour tous les suivants." },
+      { type: 'improvement', text: "Paramètres > Cabinet : un bloc « Catégories Recommandé par » liste vos catégories, les renomme et les supprime. Renommer une catégorie met à jour les fiches patients qui la portaient, pour que les statistiques restent d'un seul tenant. Supprimer une catégorie la retire des propositions sans toucher aux fiches déjà remplies." },
+      { type: 'improvement', text: "Les patients sans source renseignée apparaissent en fin de liste dans les statistiques : vous mesurez d'un coup d'œil la part de vos dossiers qui reste à documenter." },
+    ],
+  },
+  {
     version: '1.18.2',
     date: '2026-09-02',
     title: 'La date de la facture se corrige enfin',
