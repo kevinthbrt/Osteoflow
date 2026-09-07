@@ -60,6 +60,17 @@ CREATE TABLE IF NOT EXISTS patients (
   archived_at TEXT
 );
 
+-- Referral sources (canaux d'acquisition personnalisés du praticien)
+CREATE TABLE IF NOT EXISTS referral_sources (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+  practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+  name TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_referral_sources_practitioner ON referral_sources(practitioner_id, is_active);
+
 -- Session types
 CREATE TABLE IF NOT EXISTS session_types (
   id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
@@ -1012,6 +1023,21 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     );
   `)
   db.exec('CREATE INDEX IF NOT EXISTS idx_fixed_assets_cabinet ON fixed_assets(cabinet_id, service_date);')
+
+  // Canaux d'acquisition personnalisés (« Recommandé par » sur la fiche
+  // patient). Les canaux par défaut restent codés en dur côté application,
+  // seuls ceux créés par le praticien sont stockés ici.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS referral_sources (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      practitioner_id TEXT NOT NULL REFERENCES practitioners(id),
+      name TEXT NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec('CREATE INDEX IF NOT EXISTS idx_referral_sources_practitioner ON referral_sources(practitioner_id, is_active);')
 }
 
 /**
@@ -1020,6 +1046,7 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
 export const BOOLEAN_FIELDS: Record<string, string[]> = {
   consultations: ['follow_up_7d', 'send_post_session_advice'],
   session_types: ['is_active'],
+  referral_sources: ['is_active'],
   conversations: ['is_archived'],
   email_settings: ['smtp_secure', 'imap_secure', 'sync_enabled', 'is_verified'],
   medical_history_entries: ['is_vigilance'],

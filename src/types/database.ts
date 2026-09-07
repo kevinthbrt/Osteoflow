@@ -318,6 +318,32 @@ export interface Database {
           archived_at?: string | null
         }
       }
+      referral_sources: {
+        Row: {
+          id: string
+          practitioner_id: string
+          name: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          practitioner_id: string
+          name: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          practitioner_id?: string
+          name?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
       session_types: {
         Row: {
           id: string
@@ -735,6 +761,7 @@ export type Practitioner = Tables<'practitioners'>
 export type Patient = Tables<'patients'>
 export type Consultation = Tables<'consultations'>
 export type SessionType = Tables<'session_types'>
+export type ReferralSource = Tables<'referral_sources'>
 export type Invoice = Tables<'invoices'>
 export type Payment = Tables<'payments'>
 export type EmailTemplate = Tables<'email_templates'>
