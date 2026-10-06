@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkLocalApiToken } from '@/lib/local-api-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,9 +56,12 @@ export async function GET(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = checkLocalApiToken(req)
+  if (authError) return authError
+
   try {
     const { id } = await params
     const { createClient } = await import('@/lib/db/server')

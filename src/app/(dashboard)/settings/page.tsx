@@ -948,7 +948,10 @@ function SettingsPageInner() {
     if (!exportPatientId) return
 
     try {
-      const res = await fetch(`/api/patients/${exportPatientId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/patients/${exportPatientId}`, {
+        method: 'DELETE',
+        headers: await localApiHeaders(),
+      })
       if (!res.ok) {
         const result = await res.json().catch(() => ({}))
         throw new Error(result.error || 'Erreur lors de la suppression')

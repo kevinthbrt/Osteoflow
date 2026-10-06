@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkLocalApiToken } from '@/lib/local-api-auth'
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = checkLocalApiToken(request)
+  if (authError) return authError
+
   try {
     const { createClient } = await import('@/lib/db/server')
     const { id } = await params

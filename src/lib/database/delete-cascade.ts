@@ -17,6 +17,43 @@ import path from 'path'
 
 const CONSULTATIONS = 'SELECT id FROM consultations WHERE patient_id = @id'
 
+/**
+ * Un envoi groupé (même adresse pour plusieurs patients) porte un patient
+ * principal (`patient_id`) et les autres dans `linked_patient_ids`. On retire
+ * le patient supprimé de chaque groupe : s'il était principal, le premier
+ * patient lié prend sa place ; s'il était seul, la ligne disparaît. Sans cela,
+ * l'envoi d'une campagne en attente échouait sur un patient disparu et
+ * recommençait à chaque passage.
+ */
+function detachFromCampaignRecipients(db: BetterSqlite3.Database, patientId: string): void {
+  const rows = db
+    .prepare(
+      `SELECT id, patient_id, linked_patient_ids FROM email_campaign_recipients
+       WHERE patient_id = ? OR linked_patient_ids LIKE ?`
+    )
+    .all(patientId, `%${patientId}%`) as { id: string; patient_id: string; linked_patient_ids: string | null }[]
+
+  const update = db.prepare('UPDATE email_campaign_recipients SET patient_id = ?, linked_patient_ids = ? WHERE id = ?')
+  const remove = db.prepare('DELETE FROM email_campaign_recipients WHERE id = ?')
+
+  for (const row of rows) {
+    let linked: string[] = []
+    try {
+      const parsed = row.linked_patient_ids ? JSON.parse(row.linked_patient_ids) : []
+      if (Array.isArray(parsed)) linked = parsed
+    } catch {
+      linked = []
+    }
+    const remaining = [row.patient_id, ...linked].filter((pid) => pid !== patientId)
+    if (remaining.length === 0) {
+      remove.run(row.id)
+      continue
+    }
+    const [primary, ...others] = remaining
+    update.run(primary, others.length ? JSON.stringify(others) : null, row.id)
+  }
+}
+
 /** Supprime un patient et tout ce qui lui est rattaché. */
 export function deletePatientCascade(
   db: BetterSqlite3.Database,
@@ -53,7 +90,7 @@ export function deletePatientCascade(
     exec(`UPDATE exercise_prescriptions SET consultation_id = NULL WHERE consultation_id IN (${CONSULTATIONS})`)
     exec('DELETE FROM medical_history_entries WHERE patient_id = @id')
     exec('DELETE FROM daily_plan_items WHERE patient_id = @id')
-    exec('DELETE FROM email_campaign_recipients WHERE patient_id = @id')
+    detachFromCampaignRecipients(db, id)
 
     // Les patients qu'il a recommandés restent, sans lien de parrainage
     exec('UPDATE patients SET referred_by_patient_id = NULL WHERE referred_by_patient_id = @id')

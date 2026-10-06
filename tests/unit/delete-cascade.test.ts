@@ -71,6 +71,24 @@ describe('deletePatientCascade', () => {
     expect(db.pragma('foreign_key_check')).toEqual([])
   })
 
+  it('retire le patient des envois groupés sans priver les autres destinataires', () => {
+    seedPatient('p3')
+    db.prepare("DELETE FROM email_campaign_recipients").run()
+    const insert = db.prepare(`INSERT INTO email_campaign_recipients (id, campaign_id, patient_id, email, linked_patient_ids)
+      VALUES (?, 'camp', ?, 'famille@m.fr', ?)`)
+    insert.run('r-principal', 'p1', JSON.stringify(['p2', 'p3'])) // p1 principal
+    insert.run('r-lie', 'p2', JSON.stringify(['p1']))            // p1 lié
+    insert.run('r-seul', 'p1', null)                              // p1 seul
+
+    deletePatientCascade(db, 'p1')
+
+    const rows = db.prepare('SELECT id, patient_id, linked_patient_ids FROM email_campaign_recipients ORDER BY id').all()
+    expect(rows).toEqual([
+      { id: 'r-lie', patient_id: 'p2', linked_patient_ids: null },
+      { id: 'r-principal', patient_id: 'p2', linked_patient_ids: JSON.stringify(['p3']) },
+    ])
+  })
+
   it('ne fait rien pour un patient inexistant', () => {
     expect(deletePatientCascade(db, 'inconnu')).toEqual({ deleted: false, attachmentFiles: [] })
     expect(count('patients')).toBe(2)
