@@ -53,3 +53,49 @@ export async function GET(
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const { createClient } = await import('@/lib/db/server')
+    const db = await createClient()
+
+    const { data: { user } } = await db.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+
+    // Lecture via le query-builder : elle applique le périmètre du cabinet actif.
+    const { data: patient } = await db
+      .from('patients')
+      .select('id')
+      .eq('id', id)
+      .single()
+
+    if (!patient) return NextResponse.json({ error: 'Patient introuvable' }, { status: 404 })
+
+    const { getDatabase, getAppDataDir } = await import('@/lib/database/connection')
+    const { deletePatientCascade } = await import('@/lib/database/delete-patient')
+    const { attachmentFiles } = deletePatientCascade(getDatabase(), id)
+
+    // Fichiers des pièces jointes : effacés après validation de la transaction.
+    const path = await import('path')
+    const fs = await import('fs')
+    const attachmentsDir = path.join(getAppDataDir(), 'attachments')
+    for (const filename of attachmentFiles) {
+      const filePath = path.join(attachmentsDir, filename)
+      if (!filePath.startsWith(attachmentsDir + path.sep)) continue
+      try {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
+      } catch (err) {
+        console.error('Error removing attachment file:', err)
+      }
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error('Error deleting patient:', err)
+    return NextResponse.json({ error: 'Erreur lors de la suppression' }, { status: 500 })
+  }
+}

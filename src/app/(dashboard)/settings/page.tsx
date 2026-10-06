@@ -948,12 +948,11 @@ function SettingsPageInner() {
     if (!exportPatientId) return
 
     try {
-      const { error } = await db
-        .from('patients')
-        .delete()
-        .eq('id', exportPatientId)
-
-      if (error) throw error
+      const res = await fetch(`/api/patients/${exportPatientId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const result = await res.json().catch(() => ({}))
+        throw new Error(result.error || 'Erreur lors de la suppression')
+      }
 
       setPatients(patients.filter((p) => p.id !== exportPatientId))
       setExportPatientId('')
