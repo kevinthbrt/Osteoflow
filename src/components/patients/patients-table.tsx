@@ -35,6 +35,7 @@ import { formatDate, formatPhone, calculateAge } from '@/lib/utils'
 import { createClient } from '@/lib/db/client'
 import { useToast } from '@/hooks/use-toast'
 import type { Patient } from '@/types/database'
+import { localApiHeaders } from '@/lib/local-api-token'
 
 interface PatientsTableProps {
   patients: Patient[]
@@ -108,12 +109,12 @@ export function PatientsTable({ patients, currentPage, totalPages, totalCount }:
   const handleDelete = async () => {
     if (!deletePatient) return
 
-    const { error } = await db
-      .from('patients')
-      .delete()
-      .eq('id', deletePatient.id)
+    const res = await fetch(`/api/patients/${deletePatient.id}`, {
+      method: 'DELETE',
+      headers: await localApiHeaders(),
+    })
 
-    if (error) {
+    if (!res.ok) {
       toast({
         variant: 'destructive',
         title: 'Erreur',

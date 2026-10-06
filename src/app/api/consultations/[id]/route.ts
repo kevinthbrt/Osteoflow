@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkLocalApiToken } from '@/lib/local-api-auth'
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = checkLocalApiToken(request)
+  if (authError) return authError
+
   try {
     const { createClient } = await import('@/lib/db/server')
     const { id } = await params
@@ -46,24 +50,12 @@ export async function DELETE(
       return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
     }
 
-    // Cascade delete: payments → invoices → consultation
-    const { data: invoices } = await db
-      .from('invoices')
-      .select('id')
-      .eq('consultation_id', id)
+    const { getDatabase, getAppDataDir } = await import('@/lib/database/connection')
+    const { deleteConsultationCascade, removeAttachmentFiles } = await import('@/lib/database/delete-cascade')
+    const path = await import('path')
 
-    if (invoices && invoices.length > 0) {
-      const invoiceIds = invoices.map((inv: { id: string }) => inv.id)
-      for (const invoiceId of invoiceIds) {
-        await db.from('payments').delete().eq('invoice_id', invoiceId)
-      }
-      await db.from('invoices').delete().eq('consultation_id', id)
-    }
-
-    await db.from('scheduled_tasks').delete().eq('consultation_id', id)
-    await db.from('survey_responses').delete().eq('consultation_id', id)
-    await db.from('consultation_attachments').delete().eq('consultation_id', id)
-    await db.from('consultations').delete().eq('id', id)
+    const { attachmentFiles } = deleteConsultationCascade(getDatabase(), id)
+    removeAttachmentFiles(path.join(getAppDataDir(), 'attachments'), attachmentFiles)
 
     return NextResponse.json({ success: true })
   } catch (error) {

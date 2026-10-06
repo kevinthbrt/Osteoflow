@@ -24,6 +24,7 @@ import type { Consultation, Invoice } from '@/types/database'
 import { MarkdownText } from '@/components/ui/markdown-text'
 import { ConsultationModal } from './consultation-modal'
 import { InvoiceModal } from '@/components/invoices/invoice-modal'
+import { localApiHeaders } from '@/lib/local-api-token'
 
 interface ConsultationWithInvoice extends Consultation {
   invoices: Invoice[] | null
@@ -49,6 +50,7 @@ export function ConsultationTimeline({
     try {
       const res = await fetch(`/api/consultations/${consultationId}`, {
         method: 'DELETE',
+        headers: await localApiHeaders(),
       })
       const result = await res.json()
       if (!res.ok) {

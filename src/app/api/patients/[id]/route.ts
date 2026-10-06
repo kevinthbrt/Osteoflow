@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkLocalApiToken } from '@/lib/local-api-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,5 +52,43 @@ export async function GET(
   } catch (err) {
     console.error('Error fetching patient:', err)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authError = checkLocalApiToken(req)
+  if (authError) return authError
+
+  try {
+    const { id } = await params
+    const { createClient } = await import('@/lib/db/server')
+    const db = await createClient()
+
+    const { data: { user } } = await db.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+
+    // Lecture via le query-builder : elle applique le périmètre du cabinet actif.
+    const { data: patient } = await db
+      .from('patients')
+      .select('id')
+      .eq('id', id)
+      .single()
+
+    if (!patient) return NextResponse.json({ error: 'Patient introuvable' }, { status: 404 })
+
+    const { getDatabase, getAppDataDir } = await import('@/lib/database/connection')
+    const { deletePatientCascade, removeAttachmentFiles } = await import('@/lib/database/delete-cascade')
+    const path = await import('path')
+
+    const { attachmentFiles } = deletePatientCascade(getDatabase(), id)
+    removeAttachmentFiles(path.join(getAppDataDir(), 'attachments'), attachmentFiles)
+
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error('Error deleting patient:', err)
+    return NextResponse.json({ error: 'Erreur lors de la suppression' }, { status: 500 })
   }
 }
