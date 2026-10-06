@@ -19,6 +19,16 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.19.1',
+    date: '2026-10-06',
+    title: 'La suppression des patients et des consultations fonctionne à nouveau',
+    changes: [
+      { type: 'fix', text: "Supprimer un patient échouait avec le message « Impossible de supprimer le patient » dès qu'il avait un historique (consultation, antécédent, message, questionnaire, recommandation d'un autre patient...). La suppression fonctionne désormais depuis la liste des patients comme depuis Paramètres (droit à l'oubli) : le patient et toutes ses données sont effacés d'un seul geste, pièces jointes comprises. Les patients qu'il vous avait recommandés sont conservés, simplement sans lien de recommandation." },
+      { type: 'fix', text: "Supprimer une consultation liée à un message, un programme d'exercices ou un courrier affichait « Consultation supprimée » alors que la consultation restait en place. Elle est maintenant réellement supprimée avec sa facture, ses relances et ses pièces jointes. Les messages, programmes d'exercices et courriers du patient sont conservés." },
+      { type: 'improvement', text: "Ces suppressions se font en une seule opération : en cas d'erreur, rien n'est effacé à moitié." },
+    ],
+  },
+  {
     version: '1.19.0',
     date: '2026-09-07',
     title: 'Vos canaux d\'acquisition, à votre main',
