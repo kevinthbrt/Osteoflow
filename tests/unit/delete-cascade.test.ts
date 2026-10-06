@@ -1,15 +1,15 @@
 /**
  * La base locale active les clés étrangères sans `ON DELETE CASCADE` sur la
- * plupart des tables : supprimer directement un patient ayant un historique
- * échouait. Ce test remplit chaque table rattachée au patient et vérifie que
- * la suppression passe, ne laisse aucune donnée orpheline et épargne les
- * autres patients.
+ * plupart des tables : supprimer directement un patient ou une consultation
+ * ayant des données liées échouait. Ces tests remplissent chaque table
+ * rattachée et vérifient que la suppression passe, ne laisse aucune donnée
+ * orpheline et épargne les autres patients.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import Database from 'better-sqlite3'
 import { SCHEMA_SQL, runMigrations } from '@/lib/database/schema'
-import { deletePatientCascade } from '@/lib/database/delete-patient'
+import { deletePatientCascade, deleteConsultationCascade } from '@/lib/database/delete-cascade'
 
 let db: Database.Database
 
@@ -74,5 +74,33 @@ describe('deletePatientCascade', () => {
   it('ne fait rien pour un patient inexistant', () => {
     expect(deletePatientCascade(db, 'inconnu')).toEqual({ deleted: false, attachmentFiles: [] })
     expect(count('patients')).toBe(2)
+  })
+})
+
+describe('deleteConsultationCascade', () => {
+  it('échoue sans cascade : le DELETE direct est refusé par les clés étrangères', () => {
+    expect(() => db.prepare("DELETE FROM consultations WHERE id = 'p1-c'").run()).toThrow(/FOREIGN KEY/)
+  })
+
+  it('supprime la séance et sa facturation, en gardant les données du patient', () => {
+    const result = deleteConsultationCascade(db, 'p1-c')
+
+    expect(result).toEqual({ deleted: true, attachmentFiles: ['p1.pdf'] })
+    expect(count('consultations')).toBe(1)
+    for (const table of ['invoices', 'payments', 'scheduled_tasks', 'survey_responses', 'consultation_attachments']) {
+      expect(count(table), table).toBe(1)
+    }
+    // Rattachés au patient : conservés, détachés de la séance
+    for (const table of ['messages', 'exercise_prescriptions', 'generated_letters']) {
+      expect(count(table), table).toBe(2)
+      expect(db.prepare(`SELECT consultation_id FROM ${table} WHERE consultation_id = 'p1-c'`).all(), table).toEqual([])
+    }
+    expect(count('patients')).toBe(2)
+    expect(db.pragma('foreign_key_check')).toEqual([])
+  })
+
+  it('ne fait rien pour une consultation inexistante', () => {
+    expect(deleteConsultationCascade(db, 'inconnue')).toEqual({ deleted: false, attachmentFiles: [] })
+    expect(count('consultations')).toBe(2)
   })
 })

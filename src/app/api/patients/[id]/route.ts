@@ -76,22 +76,11 @@ export async function DELETE(
     if (!patient) return NextResponse.json({ error: 'Patient introuvable' }, { status: 404 })
 
     const { getDatabase, getAppDataDir } = await import('@/lib/database/connection')
-    const { deletePatientCascade } = await import('@/lib/database/delete-patient')
-    const { attachmentFiles } = deletePatientCascade(getDatabase(), id)
-
-    // Fichiers des pièces jointes : effacés après validation de la transaction.
+    const { deletePatientCascade, removeAttachmentFiles } = await import('@/lib/database/delete-cascade')
     const path = await import('path')
-    const fs = await import('fs')
-    const attachmentsDir = path.join(getAppDataDir(), 'attachments')
-    for (const filename of attachmentFiles) {
-      const filePath = path.join(attachmentsDir, filename)
-      if (!filePath.startsWith(attachmentsDir + path.sep)) continue
-      try {
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
-      } catch (err) {
-        console.error('Error removing attachment file:', err)
-      }
-    }
+
+    const { attachmentFiles } = deletePatientCascade(getDatabase(), id)
+    removeAttachmentFiles(path.join(getAppDataDir(), 'attachments'), attachmentFiles)
 
     return NextResponse.json({ success: true })
   } catch (err) {
