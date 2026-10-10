@@ -2,26 +2,33 @@ import PDFDocument from '@react-pdf/pdfkit'
 import { PassThrough } from 'stream'
 import type { ExercisePrescriptionItem } from '@/types/exercise'
 
+type Doc = InstanceType<typeof PDFDocument>
+
 const C = {
   primary: '#0F766E',
-  primaryLight: '#14B8A6',
+  primaryDark: '#134E4A',
+  primaryLight: '#5EEAD4',
   primaryBg: '#F0FDFA',
-  primaryBgDark: '#CCFBF1',
+  primaryLine: '#CCFBF1',
   dark: '#0F172A',
-  text: '#1E293B',
+  text: '#334155',
   textLight: '#64748B',
   textMuted: '#94A3B8',
-  border: '#CBD5E1',
-  borderLight: '#E2E8F0',
+  border: '#E2E8F0',
+  surface: '#F8FAFC',
   white: '#FFFFFF',
-  paramBg: '#F0FDFA',
   warningBg: '#FFFBEB',
-  warningBorder: '#FDE68A',
-  warningText: '#92400E',
-  warningAccent: '#F59E0B',
+  warningLine: '#FDE68A',
+  warningTitle: '#B45309',
+  warningText: '#78350F',
 }
 
-const SP = { xs: 4, s: 8, m: 14, l: 22, xl: 32 }
+const PW = 595.28
+const PH = 841.89
+const M = 44
+const CW = PW - M * 2
+const FOOTER_Y = PH - 30
+const CONTENT_BOTTOM = FOOTER_Y - 12
 
 export interface ExercisePdfData {
   practitionerName: string
@@ -38,26 +45,28 @@ export interface ExercisePdfData {
   items: ExercisePrescriptionItem[]
 }
 
-function estimateTextHeight(text: string, fontSize: number, width: number): number {
-  const charsPerLine = Math.max(1, Math.floor(width / (fontSize * 0.55)))
-  const lines = text.split('\n').reduce((total, line) => {
-    return total + Math.max(1, Math.ceil((line.length || 1) / charsPerLine))
-  }, 0)
-  return lines * fontSize * 1.5
+// Les polices standard PDF n'encodent que WinAnsi : un caractère hors de ce
+// jeu (≤, →, espace fine insécable, emoji) s'imprime en signe illisible.
+const WIN_ANSI_EXTRA = new Set('€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ')
+function pdfSafe(text: string | null | undefined): string {
+  if (!text) return ''
+  return text
+    .replace(/[    ]/g, ' ')
+    .replace(/≤\s?/g, 'max. ')
+    .replace(/≥\s?/g, 'min. ')
+    .replace(/\s?[→⇒➜]\s?/g, ' puis ')
+    .replace(/[‐‑]/g, '-')
+    .split('')
+    .filter(ch => ch.charCodeAt(0) <= 0xff || WIN_ANSI_EXTRA.has(ch))
+    .join('')
 }
 
-function estimateTextWidth(text: string, fontSize: number): number {
-  return text.length * fontSize * 0.58
+function lineHeight(fontSize: number, gap: number): number {
+  return fontSize * 1.25 + gap
 }
 
-function wrapLines(
-  doc: InstanceType<typeof PDFDocument>,
-  text: string,
-  fontName: string,
-  fontSize: number,
-  maxWidth: number,
-): string[] {
-  doc.font(fontName).fontSize(fontSize)
+function wrapLines(doc: Doc, text: string, font: string, fontSize: number, maxWidth: number): string[] {
+  doc.font(font).fontSize(fontSize)
   const out: string[] = []
   for (const para of text.split('\n')) {
     const words = para.split(/\s+/).filter(Boolean)
@@ -77,35 +86,262 @@ function wrapLines(
   return out
 }
 
-function drawWrapped(
-  doc: InstanceType<typeof PDFDocument>,
-  text: string,
-  x: number,
-  y: number,
-  opts: { font: string; fontSize: number; color: string; maxWidth: number; lineGap?: number },
-): number {
-  const lineGap = opts.lineGap ?? 2
-  const lineH = opts.fontSize * 1.25 + lineGap
-  const lines = wrapLines(doc, text, opts.font, opts.fontSize, opts.maxWidth)
-  doc.font(opts.font).fontSize(opts.fontSize).fillColor(opts.color)
+// Cette version de pdfkit ignore `align` quand `lineBreak` est désactivé :
+// l'alignement est calculé à la main.
+function textAt(
+  doc: Doc, text: string, x: number, y: number, width: number,
+  align: 'left' | 'center' | 'right' = 'left', spacing = 0,
+) {
+  const w = doc.widthOfString(text, { characterSpacing: spacing })
+  const dx = align === 'right' ? width - w : align === 'center' ? (width - w) / 2 : 0
+  doc.text(text, x + Math.max(0, dx), y, { lineBreak: false, characterSpacing: spacing })
+}
+
+interface TextStyle { font: string; size: number; color: string; width: number; gap?: number; spacing?: number }
+
+function measure(doc: Doc, text: string, s: TextStyle): number {
+  if (!text) return 0
+  return wrapLines(doc, text, s.font, s.size, s.width).length * lineHeight(s.size, s.gap ?? 2)
+}
+
+// Écrit ligne par ligne (mise en page maîtrisée, sans saut de page implicite)
+// et renvoie l'ordonnée sous le dernier texte.
+function write(doc: Doc, text: string, x: number, y: number, s: TextStyle, align: 'left' | 'right' = 'left'): number {
+  if (!text) return y
+  const lh = lineHeight(s.size, s.gap ?? 2)
+  const lines = wrapLines(doc, text, s.font, s.size, s.width)
+  doc.font(s.font).fontSize(s.size).fillColor(s.color)
   let cy = y
   for (const line of lines) {
-    doc.text(line, x, cy, { lineBreak: false })
-    cy += lineH
+    textAt(doc, line, x, cy, s.width, align, s.spacing ?? 0)
+    cy += lh
   }
   return cy
 }
+
+function eyebrow(doc: Doc, text: string, x: number, y: number, color = C.primary, width = CW, align: 'left' | 'right' = 'left') {
+  doc.font('Helvetica-Bold').fontSize(7).fillColor(color)
+  textAt(doc, text.toUpperCase(), x, y, width, align, 1.2)
+}
+
+function sectionTitle(doc: Doc, text: string, y: number): number {
+  eyebrow(doc, text, M, y)
+  doc.font('Helvetica-Bold').fontSize(7)
+  const w = doc.widthOfString(text.toUpperCase(), { characterSpacing: 1.2 }) + 6
+  doc.rect(M + w, y + 3.5, CW - w, 0.6).fill(C.border)
+  return y + 18
+}
+
+// ── Carte exercice ───────────────────────────────────────────────────────────
+
+const PAD = 14
+const IMG = 96
+const GUTTER = 16
+const BODY_X_OFFSET = PAD + IMG + GUTTER
+const BODY_W = CW - BODY_X_OFFSET - PAD
+
+const S_NAME: TextStyle = { font: 'Helvetica-Bold', size: 12.5, color: C.dark, width: BODY_W - 28, gap: 1 }
+const S_CAPTION: TextStyle = { font: 'Helvetica', size: 7.5, color: C.textMuted, width: BODY_W - 28, gap: 1 }
+const S_DESC: TextStyle = { font: 'Helvetica', size: 9.5, color: C.text, width: BODY_W, gap: 2.5 }
+const S_FREQ: TextStyle = { font: 'Helvetica-Bold', size: 9, color: C.primary, width: BODY_W, gap: 2 }
+const S_NOTE: TextStyle = { font: 'Helvetica-Oblique', size: 8.75, color: C.text, width: BODY_W - 14, gap: 2 }
+const S_SMALL: TextStyle = { font: 'Helvetica', size: 7.75, color: C.textLight, width: BODY_W, gap: 1.5 }
+const S_CELL_VALUE = { font: 'Helvetica-Bold', size: 10.5, color: C.dark, gap: 1 }
+
+interface Cell { label: string; value: string }
+
+function dosageCells(item: ExercisePrescriptionItem): Cell[] {
+  const cells: Cell[] = []
+  if (item.sets != null) cells.push({ label: 'Séries', value: String(item.sets) })
+  if (item.reps) cells.push({ label: 'Répétitions', value: pdfSafe(item.reps) })
+  if (item.hold_time != null) cells.push({ label: 'Maintien', value: `${item.hold_time} s` })
+  if (item.rest_time != null) cells.push({ label: 'Repos', value: `${item.rest_time} s` })
+  return cells
+}
+
+function cellsHeight(doc: Doc, cells: Cell[]): number {
+  if (cells.length === 0) return 0
+  const cellW = BODY_W / cells.length
+  const valueH = Math.max(...cells.map(c => measure(doc, c.value, { ...S_CELL_VALUE, width: cellW - 16 })))
+  return 9 + 9 + 3 + valueH + 7
+}
+
+function captionFor(item: ExercisePrescriptionItem): string {
+  return [item.exercise_region, item.exercise_type, `Niveau ${item.exercise_level}`].filter(Boolean).join('  ·  ')
+}
+
+function cardBodyHeight(doc: Doc, item: ExercisePrescriptionItem): number {
+  let h = measure(doc, pdfSafe(item.exercise_name), S_NAME)
+  h += 2 + measure(doc, captionFor(item), S_CAPTION)
+  h += 10 + measure(doc, pdfSafe(item.exercise_description), S_DESC)
+  const cells = dosageCells(item)
+  if (cells.length) h += 10 + cellsHeight(doc, cells)
+  if (item.frequency) h += 8 + measure(doc, `Fréquence : ${pdfSafe(item.frequency)}`, S_FREQ)
+  if (item.notes) h += 10 + measure(doc, pdfSafe(item.notes), S_NOTE) + 12
+  if (item.progression_regression) h += 8 + measure(doc, `Pour adapter : ${pdfSafe(item.progression_regression)}`, S_SMALL)
+  if (item.nerve_target) h += 4 + measure(doc, `Nerf ciblé : ${pdfSafe(item.nerve_target)}`, S_SMALL)
+  return h
+}
+
+function cardHeight(doc: Doc, item: ExercisePrescriptionItem): number {
+  return Math.max(cardBodyHeight(doc, item), IMG) + PAD * 2
+}
+
+const TYPE_TINT: Record<string, [string, string]> = {
+  renfo: ['#DBEAFE', '#1D4ED8'],
+  étirement: ['#FFEDD5', '#C2410C'],
+  mobilité: ['#DCFCE7', '#15803D'],
+  neurodynamique: ['#F3E8FF', '#7C3AED'],
+  proprio: ['#FEF9C3', '#A16207'],
+  'renfo doux': ['#CCFBF1', '#0F766E'],
+}
+
+function drawPlaceholder(doc: Doc, x: number, y: number, type: string) {
+  const [bg, fg] = TYPE_TINT[type] || ['#F1F5F9', '#64748B']
+  doc.roundedRect(x, y, IMG, IMG, 8).fill(bg)
+  doc.font('Helvetica-Bold').fontSize(24).fillColor(fg)
+  textAt(doc, type.charAt(0).toUpperCase(), x, y + IMG / 2 - 16, IMG, 'center')
+  doc.font('Helvetica').fontSize(7).fillColor(fg)
+  textAt(doc, pdfSafe(type), x, y + IMG / 2 + 12, IMG, 'center')
+}
+
+function drawCard(doc: Doc, item: ExercisePrescriptionItem, index: number, y: number, img: Buffer | undefined, height: number) {
+  const x = M
+  doc.roundedRect(x, y, CW, height, 10).fillAndStroke(C.white, C.border)
+
+  // Illustration
+  const imgX = x + PAD
+  const imgY = y + PAD
+  let drawn = false
+  if (img) {
+    try {
+      doc.roundedRect(imgX, imgY, IMG, IMG, 8).fill(C.surface)
+      doc.save()
+      doc.roundedRect(imgX, imgY, IMG, IMG, 8).clip()
+      doc.image(img, imgX, imgY, { fit: [IMG, IMG], align: 'center', valign: 'center' })
+      doc.restore()
+      doc.lineWidth(0.6).roundedRect(imgX, imgY, IMG, IMG, 8).stroke(C.border)
+      drawn = true
+    } catch { /* image illisible : pictogramme */ }
+  }
+  if (!drawn) drawPlaceholder(doc, imgX, imgY, item.exercise_type)
+
+  // Numéro + nom
+  const bx = x + BODY_X_OFFSET
+  let cy = y + PAD
+  const r = 10
+  doc.circle(bx + r, cy + r - 1, r).fill(C.primary)
+  const num = String(index + 1)
+  doc.font('Helvetica-Bold').fontSize(9.5)
+  doc.fillColor(C.white)
+  textAt(doc, num, bx, cy + r - 5.6, r * 2, 'center')
+
+  const nameX = bx + 28
+  cy = write(doc, pdfSafe(item.exercise_name), nameX, cy + 2, S_NAME) - 1
+  cy = write(doc, captionFor(item), nameX, cy + 2, S_CAPTION)
+  cy = Math.max(cy, y + PAD + r * 2)
+
+  // Description
+  cy = write(doc, pdfSafe(item.exercise_description), bx, cy + 10, S_DESC)
+
+  // Dosage
+  const cells = dosageCells(item)
+  if (cells.length) {
+    cy += 10
+    const h = cellsHeight(doc, cells)
+    const cellW = BODY_W / cells.length
+    doc.roundedRect(bx, cy, BODY_W, h, 6).fill(C.primaryBg)
+    cells.forEach((cell, i) => {
+      const cx = bx + i * cellW
+      if (i > 0) doc.rect(cx, cy + 8, 0.6, h - 16).fill(C.primaryLine)
+      eyebrow(doc, cell.label, cx + 8, cy + 9, C.primary, cellW - 16)
+      write(doc, cell.value, cx + 8, cy + 21, { ...S_CELL_VALUE, width: cellW - 16 })
+    })
+    cy += h
+  }
+
+  if (item.frequency) {
+    cy = write(doc, `Fréquence : ${pdfSafe(item.frequency)}`, bx, cy + 8, S_FREQ)
+  }
+
+  if (item.notes) {
+    cy += 10
+    const noteH = measure(doc, pdfSafe(item.notes), S_NOTE) + 12
+    doc.roundedRect(bx, cy, BODY_W, noteH, 6).fill(C.surface)
+    doc.rect(bx, cy + 6, 2, noteH - 12).fill(C.primary)
+    write(doc, pdfSafe(item.notes), bx + 12, cy + 6, S_NOTE)
+    cy += noteH
+  }
+
+  if (item.progression_regression) {
+    cy = write(doc, `Pour adapter : ${pdfSafe(item.progression_regression)}`, bx, cy + 8, S_SMALL)
+  }
+  if (item.nerve_target) {
+    write(doc, `Nerf ciblé : ${pdfSafe(item.nerve_target)}`, bx, cy + 4, S_SMALL)
+  }
+}
+
+// ── Fin de programme : suivi des séances + vigilance ────────────────────────
+
+const TRACK_WEEKS = 4
+const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+
+function trackerHeight(): number {
+  return 18 + 14 + 16 + TRACK_WEEKS * 20
+}
+
+function drawTracker(doc: Doc, y: number): number {
+  let cy = sectionTitle(doc, 'Suivi de vos séances', y)
+  cy = write(doc, 'Cochez chaque jour où vous avez fait vos exercices et apportez cette feuille à votre prochaine consultation.', M, cy, {
+    font: 'Helvetica', size: 8.5, color: C.textLight, width: CW, gap: 2,
+  }) + 4
+
+  const labelW = 70
+  const box = 13
+  const colW = (CW - labelW) / DAYS.length
+  DAYS.forEach((d, i) => {
+    doc.font('Helvetica-Bold').fontSize(7).fillColor(C.textMuted)
+    textAt(doc, d, M + labelW + i * colW, cy, colW, 'center')
+  })
+  cy += 14
+  for (let w = 0; w < TRACK_WEEKS; w++) {
+    doc.font('Helvetica').fontSize(8.5).fillColor(C.text).text(`Semaine ${w + 1}`, M, cy + 2, { lineBreak: false })
+    for (let i = 0; i < DAYS.length; i++) {
+      const bxx = M + labelW + i * colW + (colW - box) / 2
+      doc.lineWidth(0.8).roundedRect(bxx, cy, box, box, 3).stroke(C.primaryLight)
+    }
+    cy += 20
+  }
+  return cy
+}
+
+function vigilanceLines(text: string): string[] {
+  return pdfSafe(text).split('\n').map(l => l.replace(/^\s*[•\-*]\s*/, '').trim()).filter(Boolean)
+}
+
+const S_VIG: TextStyle = { font: 'Helvetica', size: 9, color: C.warningText, width: CW - 40, gap: 2 }
+
+function vigilanceHeight(doc: Doc, text: string): number {
+  const lines = vigilanceLines(text)
+  return 30 + lines.reduce((h, l) => h + measure(doc, l, S_VIG) + 3, 0) + 8
+}
+
+function drawVigilance(doc: Doc, text: string, y: number, height: number) {
+  doc.roundedRect(M, y, CW, height, 8).fillAndStroke(C.warningBg, C.warningLine)
+  eyebrow(doc, 'Arrêtez et contactez-moi si', M + 16, y + 14, C.warningTitle)
+  let cy = y + 30
+  for (const line of vigilanceLines(text)) {
+    doc.circle(M + 20, cy + 4.6, 1.6).fill(C.warningTitle)
+    cy = write(doc, line, M + 28, cy, S_VIG) + 3
+  }
+}
+
+// ── Document ────────────────────────────────────────────────────────────────
 
 export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8Array> {
   const doc = new PDFDocument({ size: 'A4', margin: 0 })
   const stream = new PassThrough()
   const chunks: Buffer[] = []
-  const PW = 595.28
-  const PH = 841.89
-  const ML = 48
-  const MR = 48
-  const CW = PW - ML - MR
-
   stream.on('data', (chunk) => chunks.push(Buffer.from(chunk)))
   const done = new Promise<Uint8Array>((resolve, reject) => {
     stream.on('end', () => resolve(Buffer.concat(chunks)))
@@ -113,297 +349,115 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
   })
   doc.pipe(stream)
 
-  // ── HEADER ─────────────────────────────────────────────────────────────
-  doc.rect(0, 0, PW, 6).fill(C.primary)
+  const practitioner = pdfSafe(data.practitionerName)
+  const patient = pdfSafe(data.patientName)
+  let page = 1
 
-  let lY = 24
-  doc.font('Helvetica-Bold').fontSize(17).fillColor(C.dark).text(data.practitionerName, ML, lY)
-  lY += 22
+  const drawFooter = () => {
+    doc.rect(M, FOOTER_Y - 8, CW, 0.6).fill(C.border)
+    const left = [practitioner, pdfSafe(data.practitionerCityLine)].filter(Boolean).join('  ·  ')
+    doc.font('Helvetica').fontSize(7.5).fillColor(C.textMuted).text(left, M, FOOTER_Y, { lineBreak: false })
+    textAt(doc, `Page ${page}`, M, FOOTER_Y, CW, 'right')
+  }
 
+  const newPage = (): number => {
+    drawFooter()
+    doc.addPage()
+    page++
+    doc.rect(0, 0, PW, 4).fill(C.primary)
+    doc.font('Helvetica').fontSize(7.5).fillColor(C.textMuted)
+      .text(`Programme d'exercices  ·  ${patient}`, M, 22, { lineBreak: false })
+    return 46
+  }
+
+  const ensureRoom = (y: number, needed: number): number =>
+    y + needed > CONTENT_BOTTOM ? newPage() : y
+
+  // Illustrations téléchargées en parallèle pendant la mise en page de l'en-tête.
+  const imagesPromise = Promise.all(data.items.map(async (item) => {
+    if (!item.illustration_url) return undefined
+    try {
+      const r = await fetch(item.illustration_url, { signal: AbortSignal.timeout(5000) })
+      return r.ok ? Buffer.from(await r.arrayBuffer()) : undefined
+    } catch {
+      return undefined
+    }
+  }))
+
+  // ── En-tête ──
+  doc.rect(0, 0, PW, 4).fill(C.primary)
+
+  const rightW = 180
+  const leftW = CW - rightW - 20
+  let y = 34
+  y = write(doc, practitioner, M, y, { font: 'Helvetica-Bold', size: 13, color: C.dark, width: leftW, gap: 1 })
   if (data.practitionerSpecialty) {
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(C.primary).text(data.practitionerSpecialty, ML, lY)
-    lY += 16
+    y = write(doc, pdfSafe(data.practitionerSpecialty), M, y + 1, { font: 'Helvetica', size: 9, color: C.primary, width: leftW, gap: 1 })
   }
-
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.textLight)
-  if (data.practitionerAddress) {
-    doc.text(data.practitionerAddress, ML, lY)
-    lY += 12
+  y += 3
+  for (const line of [data.practitionerAddress, data.practitionerCityLine]) {
+    if (line) y = write(doc, pdfSafe(line), M, y, { font: 'Helvetica', size: 8, color: C.textLight, width: leftW, gap: 1 })
   }
-  if (data.practitionerCityLine) {
-    doc.text(data.practitionerCityLine, ML, lY)
-  }
+  eyebrow(doc, "Programme d'exercices", PW - M - rightW, 37, C.primary, rightW, 'right')
+  write(doc, pdfSafe(data.prescriptionDate), PW - M - rightW, 50, { font: 'Helvetica', size: 8.5, color: C.textLight, width: rightW, gap: 1 }, 'right')
 
-  const titleW = 200
-  const titleX = PW - MR - titleW
-  doc
-    .font('Helvetica-Bold').fontSize(15).fillColor(C.primary)
-    .text("PROGRAMME D'EXERCICES", titleX, 26, { width: titleW, align: 'right' })
-  doc
-    .font('Helvetica').fontSize(8.5).fillColor(C.textLight)
-    .text(data.prescriptionDate, titleX, 46, { width: titleW, align: 'right' })
+  y = Math.max(y, 70) + 14
+  doc.rect(M, y, CW, 0.6).fill(C.border)
+  y += 22
 
-  // ── PATIENT CARD ────────────────────────────────────────────────────────
-  const pCardY = 88
-  const pCardH = 52
+  // ── Titre ──
+  eyebrow(doc, `Préparé pour ${patient}`, M, y, C.textLight)
+  y = write(doc, pdfSafe(data.prescriptionTitle), M, y + 14, { font: 'Helvetica-Bold', size: 19, color: C.dark, width: CW, gap: 2 })
+  const count = data.items.length
+  y = write(doc, `${count} exercice${count > 1 ? 's' : ''} choisi${count > 1 ? 's' : ''} pour vous`, M, y + 2, {
+    font: 'Helvetica', size: 9.5, color: C.textLight, width: CW,
+  })
+  y += 16
 
-  doc.rect(ML, pCardY, CW, pCardH).fill(C.primaryBg)
-  doc.rect(ML, pCardY, 4, pCardH).fill(C.primary)
-
-  doc.font('Helvetica-Bold').fontSize(7).fillColor(C.primary)
-    .text('PATIENT', ML + 18, pCardY + 10, { characterSpacing: 1 })
-  doc.font('Helvetica-Bold').fontSize(14).fillColor(C.dark)
-    .text(data.patientName, ML + 18, pCardY + 22)
-
-  {
-    const titleLines = wrapLines(doc, data.prescriptionTitle, 'Helvetica-Bold', 10, titleW)
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(C.primary)
-    let ty = pCardY + (titleLines.length > 1 ? 12 : 20)
-    for (const line of titleLines) {
-      doc.text(line, titleX, ty, { width: titleW, align: 'right', lineBreak: false })
-      ty += 13
-    }
-  }
-
-  let curY = pCardY + pCardH + SP.s
-
-  // ── WEEKLY ROUTINE ─────────────────────────────────────────────────────
-  if (data.weekly_routine) {
-    const routineLines = wrapLines(doc, data.weekly_routine, 'Helvetica-Bold', 8, CW - 20)
-    const routineH = Math.max(18, routineLines.length * (8 * 1.25 + 2) + 10)
-    doc.roundedRect(ML, curY, CW, routineH, 4).fill(C.primaryBgDark)
-    drawWrapped(doc, data.weekly_routine, ML + 10, curY + (routineH - routineLines.length * (8 * 1.25 + 2)) / 2, {
-      font: 'Helvetica-Bold', fontSize: 8, color: C.primary, maxWidth: CW - 20, lineGap: 2,
-    })
-    curY += routineH + SP.s
-  }
-
-  curY += SP.s
-
-  // ── PATIENT INTRO ──────────────────────────────────────────────────────
+  // ── Message du praticien ──
   if (data.patient_intro) {
-    const introLines = wrapLines(doc, data.patient_intro, 'Helvetica', 9.5, CW - 24)
-    const introH = introLines.length * (9.5 * 1.25 + 2) + 20
-    doc.roundedRect(ML, curY, CW, introH, 5).fill(C.primaryBg)
-    doc.roundedRect(ML, curY, 4, introH, 2).fill(C.primary)
-    drawWrapped(doc, data.patient_intro, ML + 14, curY + 10, {
-      font: 'Helvetica', fontSize: 9.5, color: C.text, maxWidth: CW - 24, lineGap: 2,
-    })
-    curY += introH + SP.l
+    const s: TextStyle = { font: 'Helvetica', size: 10, color: C.text, width: CW - 20, gap: 3 }
+    const h = measure(doc, pdfSafe(data.patient_intro), s)
+    doc.rect(M, y, 2.5, h + 16).fill(C.primaryLight)
+    eyebrow(doc, 'Le mot de votre praticien', M + 16, y)
+    write(doc, pdfSafe(data.patient_intro), M + 16, y + 14, s)
+    y += h + 16 + 16
   }
 
-  // ── VIGILANCE POINTS ───────────────────────────────────────────────────
-  if (data.vigilance_points) {
-    const vigLines = wrapLines(doc, data.vigilance_points, 'Helvetica', 9, CW - 24)
-    const vigH = vigLines.length * (9 * 1.25 + 2) + 28
-    doc.roundedRect(ML, curY, CW, vigH, 5).fill(C.warningBg)
-    doc.roundedRect(ML, curY, 4, vigH, 2).fill(C.warningAccent)
-    doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.warningAccent)
-      .text('POINTS DE VIGILANCE', ML + 14, curY + 8, { characterSpacing: 0.5, lineBreak: false })
-    drawWrapped(doc, data.vigilance_points, ML + 14, curY + 20, {
-      font: 'Helvetica', fontSize: 9, color: C.warningText, maxWidth: CW - 24, lineGap: 2,
-    })
-    curY += vigH + SP.l
+  // ── Routine ──
+  if (data.weekly_routine) {
+    const s: TextStyle = { font: 'Helvetica-Bold', size: 10, color: C.primaryDark, width: CW - 32, gap: 2.5 }
+    const h = measure(doc, pdfSafe(data.weekly_routine), s) + 34
+    doc.roundedRect(M, y, CW, h, 8).fill(C.primaryBg)
+    eyebrow(doc, 'Votre routine', M + 16, y + 12)
+    write(doc, pdfSafe(data.weekly_routine), M + 16, y + 25, s)
+    y += h + 22
   }
 
-  // ── PRE-FETCH IMAGES ────────────────────────────────────────────────────
-  const imageBuffers = new Map<string, Buffer>()
-  for (const item of data.items) {
-    if (item.illustration_url) {
-      try {
-        const r = await fetch(item.illustration_url, { signal: AbortSignal.timeout(5000) })
-        if (r.ok) imageBuffers.set(item.illustration_url, Buffer.from(await r.arrayBuffer()))
-      } catch { /* skip */ }
-    }
-  }
-
-  // ── EXERCISE CARDS ──────────────────────────────────────────────────────
-  const IMG_SIZE = 110
-  const CIRCLE_R = 14
-  const CIRCLE_CX = ML + CIRCLE_R
-  const CONTENT_X = ML + CIRCLE_R * 2 + 14
-  const CONTENT_W = CW - CIRCLE_R * 2 - 14 - IMG_SIZE - SP.m
-
-  for (let i = 0; i < data.items.length; i++) {
+  // ── Exercices ──
+  const images = await imagesPromise
+  y = ensureRoom(y, 18 + (count ? cardHeight(doc, data.items[0]) : 0))
+  y = sectionTitle(doc, 'Vos exercices', y)
+  for (let i = 0; i < count; i++) {
     const item = data.items[i]
-
-    const descH = estimateTextHeight(item.exercise_description, 9.5, CONTENT_W)
-    const hasParams = !!(item.sets || item.reps || item.hold_time || item.rest_time || item.frequency)
-    const notesH = item.notes ? estimateTextHeight(item.notes, 8.5, CONTENT_W) + SP.xs : 0
-    const estimatedH = Math.max(
-      CIRCLE_R * 2 + SP.s + 14 + SP.m + descH + (hasParams ? SP.s + 24 : 0) + notesH + SP.l,
-      IMG_SIZE + SP.s
-    )
-
-    const FOOTER_H = 44
-    if (curY + estimatedH > PH - FOOTER_H && i > 0) {
-      doc.addPage()
-      doc.rect(0, 0, PW, 6).fill(C.primary)
-      curY = 28
-    }
-
-    const cardY = curY
-    const imgX = PW - MR - IMG_SIZE
-    const imgY = cardY
-    const circleCenterY = cardY + CIRCLE_R
-
-    const imgBuffer = item.illustration_url ? imageBuffers.get(item.illustration_url) : undefined
-    if (imgBuffer) {
-      try {
-        doc.roundedRect(imgX, imgY, IMG_SIZE, IMG_SIZE, 5).fill('#F8FAFC')
-        doc.save()
-        doc.roundedRect(imgX, imgY, IMG_SIZE, IMG_SIZE, 5).clip()
-        doc.image(imgBuffer, imgX, imgY, {
-          fit: [IMG_SIZE, IMG_SIZE],
-          align: 'center',
-          valign: 'center',
-        })
-        doc.restore()
-        doc.roundedRect(imgX, imgY, IMG_SIZE, IMG_SIZE, 5).stroke(C.borderLight)
-      } catch {
-        drawPlaceholder(doc, imgX, imgY, IMG_SIZE, item.exercise_type)
-      }
-    } else {
-      drawPlaceholder(doc, imgX, imgY, IMG_SIZE, item.exercise_type)
-    }
-
-    doc.circle(CIRCLE_CX, circleCenterY, CIRCLE_R).fill(C.primary)
-
-    const numFS = i >= 9 ? 8 : 10
-    const numStr = String(i + 1)
-    const numW = estimateTextWidth(numStr, numFS)
-    const numX = CIRCLE_CX - numW / 2
-    const numY = circleCenterY - numFS * 0.40
-    doc.font('Helvetica-Bold').fontSize(numFS).fillColor(C.white)
-      .text(numStr, numX, numY, { lineBreak: false })
-
-    const nameFontSize = 13
-    const nameY = circleCenterY - nameFontSize * 0.38
-    doc.font('Helvetica-Bold').fontSize(nameFontSize)
-    let displayName = item.exercise_name
-    while (displayName.length > 4 && doc.widthOfString(displayName) > CONTENT_W) {
-      displayName = displayName.slice(0, -2)
-    }
-    if (displayName !== item.exercise_name) displayName = displayName.replace(/\s+\S*$/, '') + '…'
-    doc.fillColor(C.dark)
-      .text(displayName, CONTENT_X, nameY, { lineBreak: false })
-
-    const bY = Math.max(cardY + CIRCLE_R * 2 + SP.xs, doc.y + SP.xs)
-    let bX = CONTENT_X
-
-    const badges = [
-      { text: item.exercise_region, bg: C.primaryBg,   fg: C.primary,   border: true },
-      { text: item.exercise_type,   bg: C.borderLight,  fg: C.textLight, border: false },
-      { text: `Niv. ${item.exercise_level}`, bg: '#334155', fg: C.white, border: false },
-    ]
-
-    for (const badge of badges) {
-      const bW = Math.ceil(estimateTextWidth(badge.text, 7.5)) + 16
-      doc.roundedRect(bX, bY, bW, 14, 3).fill(badge.bg)
-      if (badge.border) doc.roundedRect(bX, bY, bW, 14, 3).stroke(C.primaryBgDark)
-      doc.font('Helvetica-Bold').fontSize(7.5).fillColor(badge.fg)
-        .text(badge.text, bX + 8, bY + 3.5, { width: bW - 16, align: 'center', lineBreak: false })
-      bX += bW + SP.xs + 2
-    }
-
-    const descY = bY + 14 + SP.m
-    curY = drawWrapped(doc, item.exercise_description, CONTENT_X, descY, {
-      font: 'Helvetica', fontSize: 9.5, color: C.text, maxWidth: CONTENT_W, lineGap: 3,
-    })
-    curY += SP.s
-
-    if (item.nerve_target) {
-      curY = drawWrapped(doc, `Cible nerveuse : ${item.nerve_target}`, CONTENT_X, curY, {
-        font: 'Helvetica', fontSize: 8, color: '#4F46E5', maxWidth: CONTENT_W, lineGap: 1,
-      })
-      curY += SP.xs
-    }
-    if (item.progression_regression) {
-      curY = drawWrapped(doc, `Progression/Régression : ${item.progression_regression}`, CONTENT_X, curY, {
-        font: 'Helvetica', fontSize: 8, color: C.textLight, maxWidth: CONTENT_W, lineGap: 1,
-      })
-      curY += SP.xs
-    }
-    if (item.nerve_target || item.progression_regression) {
-      curY += SP.xs
-    }
-
-    const params: string[] = []
-    if (item.sets != null && item.reps)  params.push(`${item.sets} × ${item.reps}`)
-    else if (item.sets != null)          params.push(`${item.sets} séries`)
-    else if (item.reps)                  params.push(item.reps)
-    if (item.hold_time != null)          params.push(`Maintien ${item.hold_time}s`)
-    if (item.rest_time != null)          params.push(`Repos ${item.rest_time}s`)
-    if (item.frequency)                  params.push(item.frequency)
-
-    if (params.length > 0) {
-      const paramText = params.join('   ·   ')
-      const paramLines = wrapLines(doc, paramText, 'Helvetica-Bold', 8.5, CONTENT_W - 16)
-      const paramBoxH = Math.max(24, paramLines.length * (8.5 * 1.25 + 2) + 12)
-      doc.roundedRect(CONTENT_X, curY, CONTENT_W, paramBoxH, 4).fill(C.paramBg)
-      doc.roundedRect(CONTENT_X, curY, 3, paramBoxH, 2).fill(C.primary)
-      drawWrapped(doc, paramText, CONTENT_X + 12, curY + 8, {
-        font: 'Helvetica-Bold', fontSize: 8.5, color: C.primary, maxWidth: CONTENT_W - 16, lineGap: 2,
-      })
-      curY += paramBoxH + SP.s
-    }
-
-    if (item.notes) {
-      curY = drawWrapped(doc, `Note : ${item.notes}`, CONTENT_X, curY, {
-        font: 'Helvetica-Oblique', fontSize: 8.5, color: C.textMuted, maxWidth: CONTENT_W, lineGap: 2,
-      })
-      curY += SP.xs
-    }
-
-    curY = Math.max(curY, cardY + IMG_SIZE + SP.s)
-    curY += SP.m
-
-    if (i < data.items.length - 1) {
-      doc.rect(ML, curY, CW, 0.75).fill(C.borderLight)
-      curY += SP.xl
-    }
+    const h = cardHeight(doc, item)
+    y = ensureRoom(y, h)
+    drawCard(doc, item, i, y, images[i], h)
+    y += h + 12
   }
 
-  // ── FOOTER ──────────────────────────────────────────────────────────────
-  const footerY = PH - 36
-  doc.rect(ML, footerY - 6, CW, 0.75).fill(C.border)
-  const footerParts = [data.practitionerName, data.practitionerCityLine].filter(Boolean).join('  ·  ')
-  doc.font('Helvetica').fontSize(7.5).fillColor(C.textMuted).text(footerParts, ML, footerY)
-  doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.primary)
-    .text('MyOsteoFlow', PW - MR - 80, footerY, { width: 80, align: 'right' })
+  // ── Suivi et vigilance ──
+  y += 10
+  y = ensureRoom(y, trackerHeight())
+  y = drawTracker(doc, y) + 14
 
+  if (data.vigilance_points) {
+    const h = vigilanceHeight(doc, data.vigilance_points)
+    y = ensureRoom(y, h)
+    drawVigilance(doc, data.vigilance_points, y, h)
+  }
+
+  drawFooter()
   doc.end()
   return done
-}
-
-const TYPE_BG: Record<string, string> = {
-  renfo: '#DBEAFE',
-  étirement: '#FFEDD5',
-  mobilité: '#DCFCE7',
-  neurodynamique: '#F3E8FF',
-  proprio: '#FEF9C3',
-  'renfo doux': '#CCFBF1',
-}
-const TYPE_FG: Record<string, string> = {
-  renfo: '#1D4ED8',
-  étirement: '#C2410C',
-  mobilité: '#15803D',
-  neurodynamique: '#7C3AED',
-  proprio: '#A16207',
-  'renfo doux': '#0F766E',
-}
-
-function drawPlaceholder(
-  doc: InstanceType<typeof PDFDocument>,
-  x: number, y: number, size: number, type: string
-) {
-  const bg = TYPE_BG[type] || '#F1F5F9'
-  const fg = TYPE_FG[type] || '#64748B'
-  doc.roundedRect(x, y, size, size, 6).fill(bg)
-  const initial = type.charAt(0).toUpperCase()
-  doc
-    .font('Helvetica-Bold').fontSize(26).fillColor(fg)
-    .text(initial, x, y + size / 2 - 16, { width: size, align: 'center', lineBreak: false })
-  doc.font('Helvetica').fontSize(6.5).fillColor(fg)
-    .text(type, x, y + size / 2 + 14, { width: size, align: 'center', lineBreak: false })
 }

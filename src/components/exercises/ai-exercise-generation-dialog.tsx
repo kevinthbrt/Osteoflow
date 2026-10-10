@@ -74,9 +74,11 @@ function calcAge(birthDate?: string | null): number | null {
 
 const LEVEL_INFO = {
   1: { label: 'Niveau 1', desc: 'Mobilisation douce, activation légère' },
-  2: { label: 'Niveau 2', desc: 'Stabilisation, propioception' },
+  2: { label: 'Niveau 2', desc: 'Stabilisation, proprioception' },
   3: { label: 'Niveau 3', desc: 'Renforcement fonctionnel' },
 } as const
+
+const EXERCISE_COUNTS = [1, 2, 3, 4, 5, 6] as const
 
 function ItemEditor({
   item,
@@ -238,7 +240,7 @@ export function AiExerciseGenerationDialog({
   const [includeSurgical, setIncludeSurgical] = useState(true)
   const [diagnostic, setDiagnostic] = useState('')
   const [level, setLevel] = useState<1 | 2 | 3>(2)
-  const [maxDuration, setMaxDuration] = useState(30)
+  const [exerciseCount, setExerciseCount] = useState(3)
   const [generating, setGenerating] = useState(false)
 
   // Preview
@@ -305,7 +307,7 @@ export function AiExerciseGenerationDialog({
             surgical: includeSurgical,
           },
           level,
-          max_duration_minutes: maxDuration,
+          exercise_count: exerciseCount,
         }),
       })
       const data = await res.json()
@@ -498,20 +500,35 @@ export function AiExerciseGenerationDialog({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium flex justify-between">
-                  <span>Durée maximale de séance</span>
-                  <span className="font-normal text-muted-foreground">{maxDuration} min</span>
-                </Label>
-                <input
-                  type="range" min={10} max={60} step={5}
-                  value={maxDuration}
-                  onChange={e => setMaxDuration(Number(e.target.value))}
-                  className="w-full accent-primary"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>10 min</span><span>60 min</span>
+                <Label className="text-sm font-medium">Nombre d&apos;exercices</Label>
+                <div className="flex gap-2">
+                  {EXERCISE_COUNTS.map(n => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setExerciseCount(n)}
+                      className={`flex-1 rounded-lg border py-2 text-sm font-semibold transition-colors ${
+                        exerciseCount === n
+                          ? 'border-primary bg-primary/5 text-primary'
+                          : 'border-muted hover:border-muted-foreground/30'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
                 </div>
+                <p className={`text-xs ${exerciseCount > 3 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                  {exerciseCount > 3
+                    ? 'Au-delà de 3 exercices, les patients en font souvent moins, voire aucun.'
+                    : "2 à 3 exercices bien choisis : c'est ce que les patients font le plus régulièrement."}
+                </p>
               </div>
+
+              {generating && (
+                <p className="text-xs text-muted-foreground text-center">
+                  L&apos;IA analyse le dossier et choisit les protocoles adaptés : cela peut prendre jusqu&apos;à une minute.
+                </p>
+              )}
             </div>
           )}
 
@@ -625,7 +642,7 @@ export function AiExerciseGenerationDialog({
               <Button variant="outline" onClick={onClose}>Annuler</Button>
               <Button onClick={handleGenerate} disabled={generating || !diagnostic.trim()}>
                 {generating ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Génération en cours…</>
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Réflexion clinique en cours…</>
                 ) : (
                   <><Sparkles className="mr-2 h-4 w-4" />Générer le programme</>
                 )}
