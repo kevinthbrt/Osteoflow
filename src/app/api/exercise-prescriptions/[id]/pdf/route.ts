@@ -67,9 +67,15 @@ export async function GET(
       year: 'numeric',
     })
 
+    const { buildPatientLink, MAX_QR_URL_LENGTH } = await import('@/lib/exercises/patient-link')
+    const professionLabel = getProfessionLabel(practitioner.profession, practitioner.specialty)
+    const patientLink = await buildPatientLink(
+      prescription, items || [], `${practitioner.first_name} ${practitioner.last_name}, ${professionLabel}`,
+    )
+
     const pdfBuffer = await generateExercisePdf({
       practitionerName: `${practitioner.first_name} ${practitioner.last_name}`,
-      practitionerSpecialty: getProfessionLabel(practitioner.profession, practitioner.specialty),
+      practitionerSpecialty: professionLabel,
       practitionerAddress: practitioner.address || undefined,
       practitionerCityLine: cityLine || undefined,
       patientName: `${patient.first_name} ${patient.last_name}`,
@@ -79,6 +85,7 @@ export async function GET(
       patient_intro: prescription.patient_intro || undefined,
       vigilance_points: prescription.vigilance_points || undefined,
       weekly_routine: prescription.weekly_routine || undefined,
+      patientLink: patientLink.length <= MAX_QR_URL_LENGTH ? patientLink : undefined,
       items: items || [],
     })
 

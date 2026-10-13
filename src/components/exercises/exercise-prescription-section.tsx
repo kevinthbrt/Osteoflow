@@ -10,10 +10,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Dumbbell, Download, Trash2, Plus, Mail, Eye, Sparkles, Pencil, FlaskConical } from 'lucide-react'
+import { Dumbbell, Download, Trash2, Plus, Mail, Eye, Sparkles, Pencil, FlaskConical, Smartphone, Activity } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
 import { AiExerciseGenerationDialog } from '@/components/exercises/ai-exercise-generation-dialog'
+import { AdherenceReportDialog } from '@/components/exercises/adherence-report-dialog'
+import { reportHeadline } from '@/lib/exercises/adherence'
+import { copyPatientLink } from '@/components/exercises/copy-patient-link'
 import type { ExercisePrescription } from '@/types/exercise'
 
 interface ExercisePrescriptionSectionProps {
@@ -40,6 +43,7 @@ export function ExercisePrescriptionSection({
   const [viewingId, setViewingId] = useState<string | null>(null)
   const [editingPrescription, setEditingPrescription] = useState<ExercisePrescription | null>(null)
   const [ebpPrescription, setEbpPrescription] = useState<ExercisePrescription | null>(null)
+  const [reportFor, setReportFor] = useState<ExercisePrescription | null>(null)
   const { toast } = useToast()
 
   const load = useCallback(async () => {
@@ -140,6 +144,11 @@ export function ExercisePrescriptionSection({
                         ? ` · ${p.items.length} exercice${p.items.length > 1 ? 's' : ''}`
                         : ''}
                     </p>
+                    {p.latest_report && (
+                      <p className="text-xs text-primary mt-0.5">
+                        Bilan du {formatDate(p.latest_report.created_at)} : {reportHeadline(p.latest_report.weeks)}
+                      </p>
+                    )}
                   </div>
                   <div className="flex gap-1 flex-shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
                     <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Consulter" onClick={() => setViewingId(p.id)}>
@@ -158,6 +167,12 @@ export function ExercisePrescriptionSection({
                     </Button>
                     <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Envoyer par email" onClick={() => handleSendEmail(p.id)}>
                       <Mail className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Copier le lien de l’appli patient" onClick={() => copyPatientLink(p.id, toast)}>
+                      <Smartphone className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Importer le bilan du patient" onClick={() => setReportFor(p)}>
+                      <Activity className="h-4 w-4" />
                     </Button>
                     <Button
                       type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
@@ -200,6 +215,13 @@ export function ExercisePrescriptionSection({
         patientName={patientName}
         consultationId={consultationId}
         consultationData={consultationData}
+        onSaved={load}
+      />
+
+      <AdherenceReportDialog
+        open={!!reportFor}
+        onClose={() => setReportFor(null)}
+        prescription={reportFor}
         onSaved={load}
       />
 

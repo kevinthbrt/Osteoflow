@@ -1,5 +1,6 @@
 import PDFDocument from '@react-pdf/pdfkit'
 import { PassThrough } from 'stream'
+import QRCode from 'qrcode'
 import type { ExercisePrescriptionItem } from '@/types/exercise'
 
 type Doc = InstanceType<typeof PDFDocument>
@@ -42,6 +43,8 @@ export interface ExercisePdfData {
   patient_intro?: string
   vigilance_points?: string
   weekly_routine?: string
+  /** lien vers l'appli patient, imprimé en QR code */
+  patientLink?: string
   items: ExercisePrescriptionItem[]
 }
 
@@ -336,6 +339,39 @@ function drawVigilance(doc: Doc, text: string, y: number, height: number) {
   }
 }
 
+// ── Appli patient : QR code vers le programme sur téléphone ─────────────────
+
+const QR_SIZE = 96
+
+function drawAppBlock(doc: Doc, link: string, y: number): number {
+  let modules: { size: number; get(row: number, col: number): number }
+  try {
+    modules = QRCode.create(link, { errorCorrectionLevel: 'L' }).modules
+  } catch {
+    return y - 22
+  }
+  const pad = 14
+  const textX = M + pad + QR_SIZE + 18
+  const textW = CW - (textX - M) - pad
+  const body = 'Scannez ce code avec l’appareil photo de votre téléphone. Vous y retrouvez vos exercices, un minuteur pour chaque série et le suivi de votre douleur. Tout reste sur votre téléphone : rien n’est envoyé sur internet.'
+  const sBody: TextStyle = { font: 'Helvetica', size: 9.5, color: C.text, width: textW, gap: 2.5 }
+  const h = Math.max(QR_SIZE + pad * 2, 14 + 18 + measure(doc, body, sBody) + pad * 2)
+  doc.lineWidth(0.8).roundedRect(M, y, CW, h, 10).stroke(C.primaryLine)
+
+  const qx = M + pad, qy = y + (h - QR_SIZE) / 2, cell = QR_SIZE / modules.size
+  doc.rect(qx, qy, QR_SIZE, QR_SIZE).fill(C.white)
+  for (let r = 0; r < modules.size; r++) {
+    for (let c = 0; c < modules.size; c++) {
+      if (modules.get(r, c)) doc.rect(qx + c * cell, qy + r * cell, cell + 0.05, cell + 0.05)
+    }
+  }
+  doc.fill(C.dark)
+
+  eyebrow(doc, 'Votre programme sur votre téléphone', textX, y + pad + 2)
+  write(doc, pdfSafe(body), textX, y + pad + 18, sBody)
+  return y + h
+}
+
 // ── Document ────────────────────────────────────────────────────────────────
 
 export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8Array> {
@@ -432,6 +468,11 @@ export async function generateExercisePdf(data: ExercisePdfData): Promise<Uint8A
     eyebrow(doc, 'Votre routine', M + 16, y + 12)
     write(doc, pdfSafe(data.weekly_routine), M + 16, y + 25, s)
     y += h + 22
+  }
+
+  // ── Appli patient ──
+  if (data.patientLink) {
+    y = drawAppBlock(doc, data.patientLink, y) + 22
   }
 
   // ── Exercices ──

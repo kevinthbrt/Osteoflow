@@ -885,6 +885,22 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     db.exec('ALTER TABLE exercise_prescriptions ADD COLUMN clinical_notes TEXT;')
   }
 
+  // Bilans rapportés par le patient depuis l'appli de suivi (QR code, code
+  // court tapé à la main ou texte collé). Ils n'existent que sur ce poste :
+  // l'appli patient ne transmet rien à un serveur.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS exercise_adherence_reports (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      prescription_id TEXT NOT NULL REFERENCES exercise_prescriptions(id) ON DELETE CASCADE,
+      patient_id TEXT NOT NULL REFERENCES patients(id),
+      source TEXT NOT NULL CHECK (source IN ('qr', 'code', 'texte')),
+      kind TEXT NOT NULL CHECK (kind IN ('full', 'short')),
+      payload TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_adherence_reports_prescription ON exercise_adherence_reports(prescription_id, created_at);`)
+
   // ── Multi-cabinet ─────────────────────────────────────────────────────────
   // Un "cabinet" = une ligne practitioners (qui porte déjà nom/adresse/SIRET…).
   // owner_id regroupe les cabinets d'un même propriétaire (pour le partage).

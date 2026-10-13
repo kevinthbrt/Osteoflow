@@ -42,9 +42,24 @@ export async function GET(request: NextRequest) {
       itemsByPrescription.get(item.prescription_id)!.push(item)
     }
 
+    // Dernier bilan rapporté par le patient, pour l'afficher sous le programme.
+    const { data: reportRows } = await db
+      .from('exercise_adherence_reports')
+      .select('prescription_id, kind, payload, created_at')
+      .in('prescription_id', (prescriptions || []).map((p: { id: string }) => p.id))
+      .order('created_at', { ascending: false })
+    const latestReport = new Map<string, { kind: string; created_at: string; weeks: unknown }>()
+    for (const r of reportRows || []) {
+      if (latestReport.has(r.prescription_id)) continue
+      try {
+        latestReport.set(r.prescription_id, { kind: r.kind, created_at: r.created_at, weeks: JSON.parse(r.payload).weeks ?? [] })
+      } catch { /* bilan illisible : ignoré */ }
+    }
+
     const result = (prescriptions || []).map((p: { id: string }) => ({
       ...p,
       items: itemsByPrescription.get(p.id) || [],
+      latest_report: latestReport.get(p.id) ?? null,
     }))
 
     return NextResponse.json({ prescriptions: result })

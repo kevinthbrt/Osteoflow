@@ -9,8 +9,11 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
-import { Dumbbell, Loader2, Plus, Pencil, Download, Mail, Trash2 } from 'lucide-react'
+import { Dumbbell, Loader2, Plus, Pencil, Download, Mail, Trash2, Smartphone, Activity } from 'lucide-react'
 import { ExercisePrescriptionDialog } from './exercise-prescription-dialog'
+import { AdherenceReportDialog } from './adherence-report-dialog'
+import { copyPatientLink } from './copy-patient-link'
+import { reportHeadline } from '@/lib/exercises/adherence'
 import type { ExercisePrescription } from '@/types/exercise'
 
 interface Props {
@@ -34,6 +37,7 @@ export function PatientPrescriptionsListDialog({
   const [isLoading, setIsLoading] = useState(false)
   const [editingPrescription, setEditingPrescription] = useState<ExercisePrescription | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [reportFor, setReportFor] = useState<ExercisePrescription | null>(null)
   const { toast } = useToast()
 
   const fetchPrescriptions = useCallback(async () => {
@@ -146,6 +150,11 @@ export function PatientPrescriptionsListDialog({
                     {p.notes && (
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{p.notes}</p>
                     )}
+                    {p.latest_report && (
+                      <p className="text-xs text-primary mt-1">
+                        Bilan du {new Date(p.latest_report.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} : {reportHeadline(p.latest_report.weeks)}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <Button
@@ -182,6 +191,26 @@ export function PatientPrescriptionsListDialog({
                       type="button"
                       variant="ghost"
                       size="icon"
+                      className="h-8 w-8"
+                      title="Copier le lien de l’appli patient"
+                      onClick={() => copyPatientLink(p.id, toast)}
+                    >
+                      <Smartphone className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      title="Importer le bilan du patient"
+                      onClick={() => setReportFor(p)}
+                    >
+                      <Activity className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive"
                       title="Supprimer"
                       onClick={() => handleDelete(p.id, p.title)}
@@ -211,6 +240,13 @@ export function PatientPrescriptionsListDialog({
           }}
         />
       )}
+
+      <AdherenceReportDialog
+        open={!!reportFor}
+        onClose={() => setReportFor(null)}
+        prescription={reportFor}
+        onSaved={fetchPrescriptions}
+      />
 
       {/* Create new prescription */}
       <ExercisePrescriptionDialog

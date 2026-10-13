@@ -32,6 +32,7 @@ function seedPatient(id: string, referredBy: string | null = null) {
   db.prepare(`INSERT INTO exercise_prescriptions (id, patient_id, consultation_id) VALUES (?, ?, ?)`).run(ep, id, c)
   db.prepare(`INSERT INTO exercise_prescription_items (prescription_id, exercise_id, exercise_name, exercise_description, exercise_region, exercise_type)
     VALUES (?, 'e', 'Gainage', 'desc', 'lombaire', 'renforcement')`).run(ep)
+  db.prepare(`INSERT INTO exercise_adherence_reports (prescription_id, patient_id, source, kind, payload) VALUES (?, ?, 'code', 'short', '{}')`).run(ep, id)
   db.prepare(`INSERT INTO survey_responses (consultation_id, patient_id, practitioner_id, token) VALUES (?, ?, 'pr', ?)`).run(c, id, `t-${id}`)
   db.prepare(`INSERT INTO generated_letters (practitioner_id, patient_id, consultation_id, template_id, template_name, header, body)
     VALUES ('pr', ?, ?, 't', 'Courrier', 'h', 'b')`).run(id, c)
@@ -59,6 +60,7 @@ describe('deletePatientCascade', () => {
     const before = Object.fromEntries(
       ['consultations', 'invoices', 'payments', 'conversations', 'messages', 'message_attachments', 'scheduled_tasks',
         'medical_history_entries', 'consultation_attachments', 'exercise_prescriptions', 'exercise_prescription_items',
+        'exercise_adherence_reports',
         'survey_responses', 'generated_letters', 'daily_plan_items', 'email_campaign_recipients'].map((t) => [t, count(t)])
     )
 

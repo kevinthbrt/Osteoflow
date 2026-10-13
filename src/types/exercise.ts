@@ -46,6 +46,12 @@ export interface ExercisePrescription {
   created_at: string
   updated_at: string
   items?: ExercisePrescriptionItem[]
+  /** dernier bilan rapporté par le patient depuis l'appli de suivi */
+  latest_report?: {
+    kind: 'full' | 'short'
+    created_at: string
+    weeks: Array<{ week: number; done: number; morning: number | null; maxPain: number | null }>
+  } | null
 }
 
 export interface ExercisePrescriptionItemDraft {
