@@ -312,6 +312,7 @@ export function AiExerciseGenerationDialog({
           },
           level,
           exercise_count: exerciseCount,
+          ...(programId ? { program_id: programId, patient_id: patientId, starts_after_days: startsAfterDays ?? 0 } : {}),
         }),
       })
       const data = await res.json()
@@ -422,7 +423,9 @@ export function AiExerciseGenerationDialog({
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            {step === 'config' ? "Générer un programme avec l'IA" : 'Proposition du programme IA'}
+            {step === 'config'
+              ? (programId ? "Préparer l'étape suivante avec l'IA" : "Générer un programme avec l'IA")
+              : 'Proposition du programme IA'}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">{patientName}</p>
         </DialogHeader>

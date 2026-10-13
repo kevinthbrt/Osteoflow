@@ -67,11 +67,16 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { title, notes, items, starts_after_days } = body as {
+    const { title, notes, items, starts_after_days, patient_intro, weekly_routine, clinical_notes, change_source } = body as {
       title: string
       notes?: string
       items: ExercisePrescriptionItemDraft[]
       starts_after_days?: number | null
+      patient_intro?: string | null
+      weekly_routine?: string | null
+      clinical_notes?: string | null
+      /** « ia » : modification proposée par l'assistant et validée par le praticien */
+      change_source?: 'ia'
     }
 
     if (!title) {
@@ -84,6 +89,9 @@ export async function PUT(
         title,
         notes: notes || null,
         ...(starts_after_days != null ? { starts_after_days: Math.max(0, Math.round(starts_after_days)) } : {}),
+        ...(patient_intro !== undefined ? { patient_intro } : {}),
+        ...(weekly_routine !== undefined ? { weekly_routine } : {}),
+        ...(clinical_notes !== undefined ? { clinical_notes } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -105,7 +113,9 @@ export async function PUT(
         notes.push(`début déplacé à la semaine ${Math.floor(Math.max(0, starts_after_days) / 7) + 1}`)
       }
       if (title !== existing.title) notes.push(`renommée « ${title} »`)
-      if (notes.length) await logProgramChange(db, existing.program_id, `${existing.title} : ${notes.join(' ; ')}`)
+      if (notes.length) {
+        await logProgramChange(db, existing.program_id, `${change_source === 'ia' ? 'Assistant IA, ' : ''}${existing.title} : ${notes.join(' ; ')}`)
+      }
       // Programme d'une seule étape : son titre suit celui de la fiche.
       const { data: siblings } = await db.from('exercise_prescriptions').select('id').eq('program_id', existing.program_id)
       if ((siblings || []).length === 1) await db.from('exercise_programs').update({ title }).eq('id', existing.program_id)

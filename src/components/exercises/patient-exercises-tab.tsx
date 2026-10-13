@@ -9,12 +9,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useToast } from '@/hooks/use-toast'
 import {
   Dumbbell, Plus, Sparkles, Smartphone, Mail, Download, Activity, Pencil, Trash2,
-  FlaskConical, Pause, Play, AlertTriangle, History, Loader2, CalendarClock,
+  FlaskConical, Pause, Play, AlertTriangle, History, Loader2, CalendarClock, Bot,
 } from 'lucide-react'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
 import { AiExerciseGenerationDialog } from '@/components/exercises/ai-exercise-generation-dialog'
 import { AdherenceReportDialog, WeeksTable } from '@/components/exercises/adherence-report-dialog'
 import { copyPatientLink } from '@/components/exercises/copy-patient-link'
+import { ProgramAssistantDialog } from '@/components/exercises/program-assistant-dialog'
 import type { ProgramView } from '@/lib/exercises/programs'
 import type { UsageLevel } from '@/lib/exercises/usage'
 import type { WeekSummary } from '@/lib/exercises/patient-link-codec'
@@ -67,6 +68,7 @@ export function PatientExercisesTab({ patientId, patientName }: Props) {
   const [editing, setEditing] = useState<ExercisePrescription | null>(null)
   const [reportFor, setReportFor] = useState<ExercisePrescription | null>(null)
   const [ebp, setEbp] = useState<ExercisePrescription | null>(null)
+  const [assistant, setAssistant] = useState<{ program: ProgramView; autoNext: boolean } | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -144,6 +146,7 @@ export function PatientExercisesTab({ patientId, patientName }: Props) {
               load()
             }}
             onPatch={body => patch(p.id, body)}
+            onAssistant={autoNext => setAssistant({ program: p, autoNext })}
           />
         ))
       )}
@@ -175,6 +178,13 @@ export function PatientExercisesTab({ patientId, patientName }: Props) {
         initialPrescription={editing ?? undefined}
         onSaved={() => { setEditing(null); load() }}
       />
+      <ProgramAssistantDialog
+        open={!!assistant}
+        onClose={() => setAssistant(null)}
+        program={assistant?.program ?? null}
+        autoNext={assistant?.autoNext}
+        onApplied={load}
+      />
       <AdherenceReportDialog open={!!reportFor} onClose={() => setReportFor(null)} prescription={reportFor} onSaved={load} />
       <Dialog open={!!ebp} onOpenChange={o => !o && setEbp(null)}>
         <DialogContent className="max-w-lg">
@@ -198,9 +208,10 @@ interface CardProps {
   onAddPhase: (mode: 'manual' | 'ai', startsAfterDays: number) => void
   onDeleteProgram: () => void
   onPatch: (body: Record<string, unknown>) => void
+  onAssistant: (autoNext: boolean) => void
 }
 
-function ProgramCard({ program: p, onCopy, onEmail, onPdf, onImport, onEdit, onEbp, onDeletePhase, onAddPhase, onDeleteProgram, onPatch }: CardProps) {
+function ProgramCard({ program: p, onCopy, onEmail, onPdf, onImport, onEdit, onEbp, onDeletePhase, onAddPhase, onDeleteProgram, onPatch, onAssistant }: CardProps) {
   const current = p.phases[p.current_phase]
   const ended = p.status === 'ended'
   const lastStart = Math.max(0, ...p.phases.map(ph => ph.starts_after_days ?? 0))
@@ -244,6 +255,7 @@ function ProgramCard({ program: p, onCopy, onEmail, onPdf, onImport, onEdit, onE
                 <Button size="sm" variant="outline" onClick={() => onEmail(current.id)}><Mail className="mr-1.5 h-4 w-4" />Envoyer par email</Button>
                 <Button size="sm" variant="outline" onClick={() => onPdf(current.id)}><Download className="mr-1.5 h-4 w-4" />PDF</Button>
                 <Button size="sm" variant="outline" onClick={() => onImport({ ...current, program_id: p.id })}><Activity className="mr-1.5 h-4 w-4" />Importer un bilan</Button>
+                <Button size="sm" variant="outline" onClick={() => onAssistant(false)}><Bot className="mr-1.5 h-4 w-4 text-primary" />Assistant IA</Button>
               </>
             )}
             <Button size="sm" variant="ghost" onClick={() => onPatch({ status: ended ? 'active' : 'ended' })}>
@@ -305,8 +317,9 @@ function ProgramCard({ program: p, onCopy, onEmail, onPdf, onImport, onEdit, onE
                 <span className="text-muted-foreground">({frDay(addDays(p.start_date, (nextWeek - 1) * 7))})</span>
               </div>
               <p className="text-xs text-muted-foreground">L&apos;appli du patient passera d&apos;elle-même à cette étape à la date prévue, une fois le lien renvoyé.</p>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => onAddPhase('ai', (nextWeek - 1) * 7)}><Sparkles className="mr-1.5 h-4 w-4 text-primary" />Avec l&apos;IA</Button>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => onAssistant(true)}><Bot className="mr-1.5 h-4 w-4 text-primary" />Proposer la suite</Button>
+                <Button size="sm" variant="outline" onClick={() => onAddPhase('ai', (nextWeek - 1) * 7)}><Sparkles className="mr-1.5 h-4 w-4 text-primary" />Nouvelle étape avec l&apos;IA</Button>
                 <Button size="sm" variant="outline" onClick={() => onAddPhase('manual', (nextWeek - 1) * 7)}><Plus className="mr-1.5 h-4 w-4" />Manuellement</Button>
               </div>
             </div>

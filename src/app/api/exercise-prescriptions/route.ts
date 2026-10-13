@@ -80,12 +80,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { patient_id, consultation_id, title, notes, patient_intro, vigilance_points, weekly_routine, clinical_notes, items, program_id, starts_after_days } = body as {
+    const { patient_id, consultation_id, title, notes, patient_intro, vigilance_points, weekly_routine, clinical_notes, items, program_id, starts_after_days, change_source } = body as {
       patient_id: string
       /** étape ajoutée à un programme existant ; sinon un programme est créé */
       program_id?: string | null
       /** début de l'étape, en jours après le début du programme */
       starts_after_days?: number | null
+      change_source?: 'ia'
       consultation_id?: string
       title: string
       notes?: string
@@ -170,7 +171,7 @@ export async function POST(request: NextRequest) {
     }
 
     await logProgramChange(db, programId!, program_id
-      ? `${phaseLabel(phaseIndex, prescription.starts_after_days)} ajoutée : ${title}`
+      ? `${change_source === 'ia' ? 'Assistant IA, ' : ''}${phaseLabel(phaseIndex, prescription.starts_after_days)} ajoutée : ${title}`
       : `Programme créé : ${title}`)
 
     const { data: savedItems } = await db

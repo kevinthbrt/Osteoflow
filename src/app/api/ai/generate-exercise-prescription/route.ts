@@ -2,11 +2,28 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
-const PROXY_URL = 'https://osteoupgrade.vercel.app/api/osteoflow/ai/generate-exercise-prescription'
+const PROXY_URL = `${process.env.OSTEOUPGRADE_URL || 'https://osteoupgrade.vercel.app'}/api/osteoflow/ai/generate-exercise-prescription`
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
+
+    // Nouvelle étape d'un programme : l'IA reçoit les étapes précédentes et le
+    // suivi du patient (sans son identité) pour construire une progression.
+    if (body.program_id) {
+      const { createClient } = await import('@/lib/db/server')
+      const { loadPrograms } = await import('@/lib/exercises/programs')
+      const { programContextText } = await import('@/lib/exercises/program-ai')
+      const db = await createClient()
+      const [program] = await loadPrograms(db, { programId: String(body.program_id) })
+      if (program && program.patient_id === body.patient_id) {
+        body.program_context = programContextText(program, Number(body.starts_after_days) || 0)
+      }
+      delete body.program_id
+      delete body.patient_id
+      delete body.starts_after_days
+    }
+
     const secret = process.env.OSTEOFLOW_PROXY_SECRET
     if (!secret) {
       return NextResponse.json({ error: 'Configuration serveur invalide (OSTEOFLOW_PROXY_SECRET manquant)' }, { status: 500 })
