@@ -80,8 +80,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { patient_id, consultation_id, title, notes, patient_intro, vigilance_points, weekly_routine, clinical_notes, items } = body as {
+    const { patient_id, consultation_id, title, notes, patient_intro, vigilance_points, weekly_routine, clinical_notes, items, program_id, starts_after_days } = body as {
       patient_id: string
+      /** étape ajoutée à un programme existant ; sinon un programme est créé */
+      program_id?: string | null
+      /** début de l'étape, en jours après le début du programme */
+      starts_after_days?: number | null
       consultation_id?: string
       title: string
       notes?: string
@@ -96,9 +100,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'patient_id et title requis' }, { status: 400 })
     }
 
+    const { logProgramChange, phaseLabel, localToday } = await import('@/lib/exercises/programs')
+
+    // Programme : celui demandé (nouvelle étape) ou un nouveau programme.
+    let programId = program_id || null
+    let phaseIndex = 0
+    if (programId) {
+      const { data: program } = await db.from('exercise_programs').select('id, patient_id').eq('id', programId).single()
+      if (!program || program.patient_id !== patient_id) {
+        return NextResponse.json({ error: 'Programme introuvable pour ce patient' }, { status: 404 })
+      }
+      const { data: phases } = await db.from('exercise_prescriptions').select('id, starts_after_days').eq('program_id', programId)
+      phaseIndex = (phases || []).filter((ph: { starts_after_days: number }) => ph.starts_after_days <= (starts_after_days ?? 0)).length
+    } else {
+      const { data: program, error: programError } = await db
+        .from('exercise_programs')
+        .insert({ patient_id, title, start_date: localToday() })
+        .select()
+        .single()
+      if (programError || !program) {
+        return NextResponse.json({ error: programError?.message || 'Erreur création du programme' }, { status: 500 })
+      }
+      programId = program.id
+    }
+
     const { data: prescription, error: prescriptionError } = await db
       .from('exercise_prescriptions')
       .insert({
+        program_id: programId,
+        starts_after_days: program_id ? Math.max(0, Math.round(starts_after_days ?? 0)) : 0,
         patient_id,
         consultation_id: consultation_id || null,
         title,
@@ -138,6 +168,10 @@ export async function POST(request: NextRequest) {
     if (itemRows.length > 0) {
       await db.from('exercise_prescription_items').insert(itemRows)
     }
+
+    await logProgramChange(db, programId!, program_id
+      ? `${phaseLabel(phaseIndex, prescription.starts_after_days)} ajoutée : ${title}`
+      : `Programme créé : ${title}`)
 
     const { data: savedItems } = await db
       .from('exercise_prescription_items')

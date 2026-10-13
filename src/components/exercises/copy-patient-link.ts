@@ -5,7 +5,7 @@ type Toast = ReturnType<typeof useToast>['toast']
 /** Copie le lien de l'appli patient, à envoyer par SMS ou message. */
 export async function copyPatientLink(prescriptionId: string, toast: Toast) {
   try {
-    const res = await fetch(`/api/exercise-prescriptions/${prescriptionId}/patient-link`)
+    const res = await fetch(`/api/exercise-prescriptions/${prescriptionId}/patient-link?copie=1`)
     const data = await res.json()
     if (!res.ok || !data.url) {
       toast({ title: data.error || 'Impossible de créer le lien', variant: 'destructive' })

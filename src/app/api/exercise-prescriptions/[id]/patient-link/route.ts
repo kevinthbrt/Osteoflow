@@ -10,7 +10,7 @@ export async function GET(
   try {
     const { createClient } = await import('@/lib/db/server')
     const { getProfessionLabel } = await import('@/lib/practitioner/profession')
-    const { buildPatientLink } = await import('@/lib/exercises/patient-link')
+    const { patientLinkForPrescription, markLinkSent } = await import('@/lib/exercises/programs')
 
     const { id } = await params
     const db = await createClient()
@@ -29,15 +29,12 @@ export async function GET(
       return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
     }
 
-    const { data: items } = await db
-      .from('exercise_prescription_items')
-      .select('*')
-      .eq('prescription_id', id)
-      .order('position', { ascending: true })
-
     const label = `${practitioner.first_name} ${practitioner.last_name}, ${getProfessionLabel(practitioner.profession, practitioner.specialty)}`
-    const url = await buildPatientLink(prescription, items || [], label)
-    return NextResponse.json({ url })
+    const link = await patientLinkForPrescription(db, prescription, label)
+    if (!link) return NextResponse.json({ error: 'Programme introuvable' }, { status: 404 })
+    // Lien copié pour être envoyé par SMS ou message : il vaut envoi.
+    if (_request.nextUrl.searchParams.get('copie') === '1') await markLinkSent(db, link.programId, 'copie')
+    return NextResponse.json({ url: link.url })
   } catch (error) {
     console.error('Error building patient link:', error)
     return NextResponse.json({ error: 'Erreur lors de la création du lien' }, { status: 500 })

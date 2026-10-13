@@ -60,6 +60,10 @@ export interface AiExerciseGenerationDialogProps {
     anamnesis?: string
     examination?: string
   }
+  /** nouvelle étape d'un programme existant */
+  programId?: string
+  /** début de l'étape, en jours après le début du programme */
+  startsAfterDays?: number
   onSaved: () => void
 }
 
@@ -222,7 +226,7 @@ function ItemEditor({
 }
 
 export function AiExerciseGenerationDialog({
-  open, onClose, patientId, patientName, consultationId, consultationData, onSaved,
+  open, onClose, patientId, patientName, consultationId, consultationData, programId, startsAfterDays, onSaved,
 }: AiExerciseGenerationDialogProps) {
   const { toast } = useToast()
   const [step, setStep] = useState<'config' | 'preview'>('config')
@@ -357,6 +361,7 @@ export function AiExerciseGenerationDialog({
         vigilance_points: vigilancePoints || null,
         weekly_routine: weeklyRoutine || null,
         items: enrichedItems,
+        ...(programId ? { program_id: programId, starts_after_days: startsAfterDays ?? 0 } : {}),
       }),
     })
     if (!res.ok) {
@@ -376,7 +381,7 @@ export function AiExerciseGenerationDialog({
     try {
       const id = await ensureSaved()
       if (!id) return
-      const res = await fetch(`/api/exercise-prescriptions/${id}/pdf`)
+      const res = await fetch(`/api/exercise-prescriptions/${id}/pdf?remise=1`)
       if (!res.ok) { toast({ title: 'Erreur PDF', variant: 'destructive' }); return }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)

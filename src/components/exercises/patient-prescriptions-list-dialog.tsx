@@ -70,7 +70,7 @@ export function PatientPrescriptionsListDialog({
 
   async function handleDownloadPdf(id: string) {
     try {
-      const res = await fetch(`/api/exercise-prescriptions/${id}/pdf`)
+      const res = await fetch(`/api/exercise-prescriptions/${id}/pdf?remise=1`)
       if (!res.ok) throw new Error()
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)

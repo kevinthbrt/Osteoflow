@@ -37,20 +37,37 @@ export interface LinkExercise {
   a?: string | null
 }
 
+/** Étape d'un programme : elle commence `o` jours après la date de début. */
+export interface LinkPhase {
+  o: number
+  /** intitulé court, ex. « Isométrie » */
+  l?: string | null
+  /** séances visées par semaine */
+  n: number
+  i?: string | null
+  w?: string | null
+  x: LinkExercise[]
+}
+
 export interface LinkProgram {
   v: 1
-  /** référence courte de la prescription, pour rattacher le bilan */
+  /** référence courte du programme, pour rattacher le bilan */
   id: string
   /** praticien, tel qu'affiché au patient */
   pr: string
   /** date de début (AAAA-MM-JJ) */
   d: string
-  /** séances visées par semaine */
+  /** date de la dernière modification, pour garder la version la plus récente */
+  u?: string
+  /** séances visées par semaine (programme sans étapes) */
   n: number
   i?: string | null
   w?: string | null
   g?: string | null
-  x: LinkExercise[]
+  /** exercices (programme sans étapes) */
+  x?: LinkExercise[]
+  /** étapes planifiées, triées par date de début */
+  ph?: LinkPhase[]
 }
 
 const PROGRAM_PREFIX = '1.'
@@ -64,14 +81,55 @@ export function decodeProgram(token: string): LinkProgram | null {
     const t = token.replace(/^#/, '').trim()
     if (!t.startsWith(PROGRAM_PREFIX)) return null
     const json = JSON.parse(strFromU8(inflateSync(b64urlDecode(t.slice(PROGRAM_PREFIX.length)))))
-    if (json?.v !== 1 || !Array.isArray(json.x) || typeof json.id !== 'string') return null
+    if (json?.v !== 1 || typeof json.id !== 'string') return null
+    if (!Array.isArray(json.x) && !(Array.isArray(json.ph) && json.ph.length > 0)) return null
     return json as LinkProgram
   } catch {
     return null
   }
 }
 
-/** Référence courte (8 caractères hexadécimaux) d'une prescription. */
+export interface ActivePhase extends LinkPhase {
+  /** rang de l'étape, 0 pour la première */
+  index: number
+  total: number
+  /** date de début de l'étape (AAAA-MM-JJ) */
+  startsOn: string
+  /** étape suivante, si elle est planifiée */
+  next: { startsOn: string; l?: string | null } | null
+}
+
+function shiftDay(day: string, n: number): string {
+  const d = new Date(`${day}T12:00:00`)
+  d.setDate(d.getDate() + n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Toutes les étapes du programme, y compris pour un programme sans étapes. */
+export function phasesOf(program: LinkProgram): LinkPhase[] {
+  if (program.ph && program.ph.length) return [...program.ph].sort((a, b) => a.o - b.o)
+  return [{ o: 0, n: program.n, i: program.i, w: program.w, x: program.x ?? [] }]
+}
+
+/** Étape en cours à une date donnée (la première tant que le programme n'a pas commencé). */
+export function activePhase(program: LinkProgram, today: string): ActivePhase {
+  const phases = phasesOf(program)
+  const elapsed = Math.round((Date.parse(`${today}T12:00:00`) - Date.parse(`${program.d}T12:00:00`)) / 864e5)
+  let index = 0
+  phases.forEach((p, k) => { if (p.o <= elapsed) index = k })
+  const cur = phases[index], nxt = phases[index + 1]
+  return {
+    ...cur,
+    i: cur.i ?? program.i,
+    w: cur.w ?? program.w,
+    index,
+    total: phases.length,
+    startsOn: shiftDay(program.d, cur.o),
+    next: nxt ? { startsOn: shiftDay(program.d, nxt.o), l: nxt.l } : null,
+  }
+}
+
+/** Référence courte (8 caractères hexadécimaux) d'un programme. */
 export function shortRef(prescriptionId: string): string {
   return prescriptionId.replace(/[^0-9a-f]/gi, '').slice(0, 8).toLowerCase().padEnd(8, '0')
 }
@@ -116,6 +174,8 @@ export interface FullReport {
   s: string
   /** date à laquelle le bilan a été produit */
   at: string
+  /** version du programme que le patient avait sur son téléphone */
+  u?: string
   /** séances visées par semaine */
   n: number
   days: ReportDay[]

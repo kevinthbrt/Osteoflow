@@ -1,22 +1,17 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Dumbbell, Download, Trash2, Plus, Mail, Eye, Sparkles, Pencil, FlaskConical, Smartphone, Activity } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { Dumbbell, Plus, Sparkles, Smartphone, Activity, ChevronRight, AlertTriangle } from 'lucide-react'
 import { ExercisePrescriptionDialog } from '@/components/exercises/exercise-prescription-dialog'
 import { AiExerciseGenerationDialog } from '@/components/exercises/ai-exercise-generation-dialog'
 import { AdherenceReportDialog } from '@/components/exercises/adherence-report-dialog'
-import { reportHeadline } from '@/lib/exercises/adherence'
+import { UsagePill } from '@/components/exercises/patient-exercises-tab'
 import { copyPatientLink } from '@/components/exercises/copy-patient-link'
+import type { ProgramView } from '@/lib/exercises/programs'
 import type { ExercisePrescription } from '@/types/exercise'
 
 interface ExercisePrescriptionSectionProps {
@@ -30,28 +25,28 @@ interface ExercisePrescriptionSectionProps {
   }
 }
 
+/**
+ * Résumé des programmes du patient (dossier, consultation). Le détail, les
+ * étapes et le suivi sont dans l'onglet « Exercices » du dossier.
+ */
 export function ExercisePrescriptionSection({
   patientId,
   patientName,
   consultationId,
   consultationData,
 }: ExercisePrescriptionSectionProps) {
-  const [prescriptions, setPrescriptions] = useState<ExercisePrescription[]>([])
+  const [programs, setPrograms] = useState<ProgramView[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showAiDialog, setShowAiDialog] = useState(false)
-  const [viewingId, setViewingId] = useState<string | null>(null)
-  const [editingPrescription, setEditingPrescription] = useState<ExercisePrescription | null>(null)
-  const [ebpPrescription, setEbpPrescription] = useState<ExercisePrescription | null>(null)
   const [reportFor, setReportFor] = useState<ExercisePrescription | null>(null)
   const { toast } = useToast()
 
   const load = useCallback(async () => {
-    setIsLoading(true)
     try {
-      const res = await fetch(`/api/exercise-prescriptions?patient_id=${patientId}`)
+      const res = await fetch(`/api/exercise-programs?patient_id=${patientId}`)
       const data = await res.json()
-      setPrescriptions(data.prescriptions || [])
+      setPrograms(data.programs || [])
     } catch {
       // silent fail
     } finally {
@@ -61,48 +56,9 @@ export function ExercisePrescriptionSection({
 
   useEffect(() => { load() }, [load])
 
-  async function handleDownloadPdf(id: string) {
-    try {
-      const res = await fetch(`/api/exercise-prescriptions/${id}/pdf`)
-      if (!res.ok) return
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'programme-exercices.pdf'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch {
-      toast({ title: 'Erreur lors du téléchargement', variant: 'destructive' })
-    }
-  }
-
-  async function handleSendEmail(id: string) {
-    try {
-      const res = await fetch(`/api/exercise-prescriptions/${id}/email`, { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) {
-        toast({ title: data.error || "Erreur lors de l'envoi", variant: 'destructive' })
-      } else {
-        toast({ title: 'Programme envoyé par email' })
-      }
-    } catch {
-      toast({ title: "Erreur lors de l'envoi", variant: 'destructive' })
-    }
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm('Supprimer ce programme ?')) return
-    try {
-      await fetch(`/api/exercise-prescriptions/${id}`, { method: 'DELETE' })
-      setPrescriptions((prev) => prev.filter((p) => p.id !== id))
-      toast({ title: 'Programme supprimé' })
-    } catch {
-      toast({ title: 'Erreur lors de la suppression', variant: 'destructive' })
-    }
-  }
+  const active = programs.filter(p => p.status === 'active')
+  const ended = programs.length - active.length
+  const tabHref = `/patients/${patientId}?tab=exercices`
 
   return (
     <>
@@ -123,67 +79,55 @@ export function ExercisePrescriptionSection({
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-2">
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Chargement...</p>
-          ) : prescriptions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucun programme créé</p>
+          ) : active.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucun programme en cours</p>
           ) : (
-            <div className="space-y-2">
-              {prescriptions.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between rounded-lg border p-3 cursor-pointer hover:bg-muted/40 transition-colors"
-                  onClick={() => setViewingId(p.id)}
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{p.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(p.created_at)}
-                      {p.items && p.items.length > 0
-                        ? ` · ${p.items.length} exercice${p.items.length > 1 ? 's' : ''}`
-                        : ''}
-                    </p>
-                    {p.latest_report && (
-                      <p className="text-xs text-primary mt-0.5">
-                        Bilan du {formatDate(p.latest_report.created_at)} : {reportHeadline(p.latest_report.weeks)}
+            active.map(p => {
+              const current = p.phases[p.current_phase]
+              return (
+                <div key={p.id} className="rounded-lg border p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <Link href={`${tabHref}#programme-${p.id}`} className="min-w-0 hover:underline">
+                      <p className="text-sm font-medium truncate">{p.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {p.phases.length > 1 ? `Étape ${p.current_phase + 1} sur ${p.phases.length}` : `${current?.items?.length ?? 0} exercice${(current?.items?.length ?? 0) > 1 ? 's' : ''}`}
                       </p>
-                    )}
-                  </div>
-                  <div className="flex gap-1 flex-shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
-                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Consulter" onClick={() => setViewingId(p.id)}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    {p.clinical_notes && (
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-violet-600 hover:text-violet-600" title="Justification EBP" onClick={() => setEbpPrescription(p)}>
-                        <FlaskConical className="h-4 w-4" />
+                    </Link>
+                    <div className="flex items-center gap-0.5 flex-shrink-0">
+                      {current && (
+                        <>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Copier le lien de l’appli patient" onClick={() => copyPatientLink(current.id, toast).then(load)}>
+                            <Smartphone className="h-4 w-4" />
+                          </Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Importer le bilan du patient" onClick={() => setReportFor({ ...current, program_id: p.id })}>
+                            <Activity className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Ouvrir dans l’onglet Exercices" asChild>
+                        <Link href={`${tabHref}#programme-${p.id}`}><ChevronRight className="h-4 w-4" /></Link>
                       </Button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <UsagePill usage={p.usage} />
+                    {p.link_out_of_date && (
+                      <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-300">
+                        <AlertTriangle className="h-3.5 w-3.5" />Lien à renvoyer
+                      </span>
                     )}
-                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Modifier" onClick={() => setEditingPrescription(p)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Télécharger le PDF" onClick={() => handleDownloadPdf(p.id)}>
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Envoyer par email" onClick={() => handleSendEmail(p.id)}>
-                      <Mail className="h-4 w-4" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Copier le lien de l’appli patient" onClick={() => copyPatientLink(p.id, toast)}>
-                      <Smartphone className="h-4 w-4" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Importer le bilan du patient" onClick={() => setReportFor(p)}>
-                      <Activity className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
-                      title="Supprimer" onClick={() => handleDelete(p.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
-              ))}
-            </div>
+              )
+            })
+          )}
+          {!isLoading && (ended > 0 || programs.length > 0) && (
+            <Link href={tabHref} className="block text-xs text-primary hover:underline pt-1">
+              Ouvrir l&apos;onglet Exercices{ended > 0 ? ` (${ended} programme${ended > 1 ? 's' : ''} arrêté${ended > 1 ? 's' : ''})` : ''}
+            </Link>
           )}
         </CardContent>
       </Card>
@@ -197,17 +141,6 @@ export function ExercisePrescriptionSection({
         onSaved={load}
       />
 
-      <ExercisePrescriptionDialog
-        open={!!editingPrescription}
-        onClose={() => setEditingPrescription(null)}
-        patientId={patientId}
-        patientName={patientName}
-        consultationId={consultationId}
-        prescriptionId={editingPrescription?.id}
-        initialPrescription={editingPrescription ?? undefined}
-        onSaved={load}
-      />
-
       <AiExerciseGenerationDialog
         open={showAiDialog}
         onClose={() => setShowAiDialog(false)}
@@ -218,49 +151,7 @@ export function ExercisePrescriptionSection({
         onSaved={load}
       />
 
-      <AdherenceReportDialog
-        open={!!reportFor}
-        onClose={() => setReportFor(null)}
-        prescription={reportFor}
-        onSaved={load}
-      />
-
-      {/* EBP justification modal */}
-      <Dialog open={!!ebpPrescription} onOpenChange={(o) => !o && setEbpPrescription(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FlaskConical className="h-4 w-4 text-violet-600" />
-              Justification EBP
-            </DialogTitle>
-          </DialogHeader>
-          {ebpPrescription && (
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-muted-foreground">{ebpPrescription.title}</p>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">{ebpPrescription.clinical_notes}</p>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Inline PDF viewer */}
-      <Dialog open={!!viewingId} onOpenChange={(o) => !o && setViewingId(null)}>
-        <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col p-0 gap-0">
-          <DialogHeader className="px-4 py-3 border-b flex-shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <Dumbbell className="h-4 w-4 text-primary" />
-              {prescriptions.find((p) => p.id === viewingId)?.title ?? "Programme d'exercices"}
-            </DialogTitle>
-          </DialogHeader>
-          {viewingId && (
-            <iframe
-              src={`/api/exercise-prescriptions/${viewingId}/pdf`}
-              className="flex-1 w-full border-0"
-              title="Programme d'exercices"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      <AdherenceReportDialog open={!!reportFor} onClose={() => setReportFor(null)} prescription={reportFor} onSaved={load} />
     </>
   )
 }

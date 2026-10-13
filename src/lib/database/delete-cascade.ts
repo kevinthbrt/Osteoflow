@@ -88,6 +88,7 @@ export function deletePatientCascade(
     exec(`DELETE FROM generated_letters WHERE patient_id = @id OR consultation_id IN (${CONSULTATIONS})`)
     exec('DELETE FROM exercise_adherence_reports WHERE patient_id = @id')
     exec('DELETE FROM exercise_prescriptions WHERE patient_id = @id')
+    exec('DELETE FROM exercise_programs WHERE patient_id = @id')
     exec(`UPDATE exercise_prescriptions SET consultation_id = NULL WHERE consultation_id IN (${CONSULTATIONS})`)
     exec('DELETE FROM medical_history_entries WHERE patient_id = @id')
     exec('DELETE FROM daily_plan_items WHERE patient_id = @id')

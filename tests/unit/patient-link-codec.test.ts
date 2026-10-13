@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest'
 import {
   encodeProgram, decodeProgram, shortRef, sessionsPerWeek,
   encodeFullReport, decodeFullReport, summarizeWeeks,
-  encodeShortCode, decodeShortCode,
+  encodeShortCode, decodeShortCode, activePhase,
   type LinkProgram, type FullReport,
 } from '@/lib/exercises/patient-link-codec'
 
@@ -109,5 +109,32 @@ describe('code court', () => {
     const code = encodeShortCode(program.id, summarizeWeeks(report))
     const sloppy = code.replace(/0/g, 'O').replace(/1/g, 'l')
     expect(decodeShortCode(sloppy)).not.toBeNull()
+  })
+})
+
+describe('étapes planifiées', () => {
+  const phased: LinkProgram = {
+    v: 1, id: 'abcd1234', pr: 'Kevin Thubert, ostéopathe', d: '2026-10-01', u: '2026-10-10T09:00:00.000Z', n: 3,
+    g: 'Arrêtez si la douleur dépasse 5 sur 10',
+    ph: [
+      { o: 14, l: 'Charge lourde', n: 3, x: [{ e: 'b', n: 'Calf raise lourd lent (HSR)', s: 3, r: '15' }] },
+      { o: 0, l: 'Isométrie', n: 7, w: 'Tous les jours', x: [{ e: 'a', n: 'Isométrie mollet debout', s: 5, h: 45 }] },
+    ],
+  }
+
+  it('se décode, avec ou sans exercices à plat', () => {
+    expect(decodeProgram(encodeProgram(phased))).toEqual(phased)
+  })
+
+  it('choisit l’étape selon la date', () => {
+    expect(activePhase(phased, '2026-09-25').l).toBe('Isométrie')
+    const first = activePhase(phased, '2026-10-05')
+    expect(first).toMatchObject({ index: 0, total: 2, l: 'Isométrie', n: 7, startsOn: '2026-10-01', next: { startsOn: '2026-10-15', l: 'Charge lourde' } })
+    const second = activePhase(phased, '2026-10-15')
+    expect(second).toMatchObject({ index: 1, l: 'Charge lourde', n: 3, next: null })
+  })
+
+  it('traite un programme sans étapes comme une seule étape', () => {
+    expect(activePhase(program, '2026-12-01')).toMatchObject({ index: 0, total: 1, n: 3, x: program.x, next: null })
   })
 })

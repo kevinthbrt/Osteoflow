@@ -58,7 +58,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!parsed) {
       return NextResponse.json({ error: 'Bilan illisible : vérifiez le code ou recommencez le scan.' }, { status: 400 })
     }
-    if (!matchesPrescription(parsed, id)) {
+    const programId: string = owned.prescription.program_id ?? id
+    if (!matchesPrescription(parsed, programId)) {
       return NextResponse.json({ error: 'Ce bilan correspond à un autre programme de ce patient ou d’un autre patient.' }, { status: 409 })
     }
 
@@ -69,6 +70,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .from('exercise_adherence_reports')
       .insert({
         prescription_id: id,
+        program_id: programId,
         patient_id: owned.prescription.patient_id,
         source,
         kind: parsed.kind,

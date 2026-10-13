@@ -67,11 +67,15 @@ export async function GET(
       year: 'numeric',
     })
 
-    const { buildPatientLink, MAX_QR_URL_LENGTH } = await import('@/lib/exercises/patient-link')
+    const { MAX_QR_URL_LENGTH } = await import('@/lib/exercises/patient-link')
+    const { patientLinkForPrescription, markLinkSent } = await import('@/lib/exercises/programs')
     const professionLabel = getProfessionLabel(practitioner.profession, practitioner.specialty)
-    const patientLink = await buildPatientLink(
-      prescription, items || [], `${practitioner.first_name} ${practitioner.last_name}, ${professionLabel}`,
+    const link = await patientLinkForPrescription(
+      db, prescription, `${practitioner.first_name} ${practitioner.last_name}, ${professionLabel}`,
     )
+    const patientLink = link?.url ?? ''
+    // PDF remis au patient (impression, téléchargement) : son QR code vaut envoi du lien.
+    if (link && _request.nextUrl.searchParams.get('remise') === '1') await markLinkSent(db, link.programId, 'papier')
 
     const pdfBuffer = await generateExercisePdf({
       practitionerName: `${practitioner.first_name} ${practitioner.last_name}`,
@@ -85,7 +89,7 @@ export async function GET(
       patient_intro: prescription.patient_intro || undefined,
       vigilance_points: prescription.vigilance_points || undefined,
       weekly_routine: prescription.weekly_routine || undefined,
-      patientLink: patientLink.length <= MAX_QR_URL_LENGTH ? patientLink : undefined,
+      patientLink: patientLink && patientLink.length <= MAX_QR_URL_LENGTH ? patientLink : undefined,
       items: items || [],
     })
 

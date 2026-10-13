@@ -901,6 +901,57 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
   `)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_adherence_reports_prescription ON exercise_adherence_reports(prescription_id, created_at);`)
 
+  // Programmes d'exercices : un programme suit le patient dans le temps et
+  // regroupe des étapes planifiées (chaque étape est une fiche
+  // exercise_prescriptions). Le lien patient et le bilan portent la
+  // référence du programme, qui ne change pas quand on le modifie.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS exercise_programs (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      patient_id TEXT NOT NULL REFERENCES patients(id),
+      title TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'ended')),
+      start_date TEXT NOT NULL DEFAULT (date('now', 'localtime')),
+      ended_at TEXT,
+      link_sent_at TEXT,
+      link_channel TEXT,
+      content_updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_exercise_programs_patient ON exercise_programs(patient_id, status);`)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS exercise_program_changes (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+      program_id TEXT NOT NULL REFERENCES exercise_programs(id) ON DELETE CASCADE,
+      note TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_exercise_program_changes_program ON exercise_program_changes(program_id, created_at);`)
+
+  const prescPhaseCols = db.pragma('table_info(exercise_prescriptions)') as Array<{ name: string }>
+  if (!prescPhaseCols.some((c) => c.name === 'program_id')) {
+    db.exec('ALTER TABLE exercise_prescriptions ADD COLUMN program_id TEXT REFERENCES exercise_programs(id);')
+  }
+  if (!prescPhaseCols.some((c) => c.name === 'starts_after_days')) {
+    db.exec('ALTER TABLE exercise_prescriptions ADD COLUMN starts_after_days INTEGER NOT NULL DEFAULT 0;')
+  }
+  const reportProgramCols = db.pragma('table_info(exercise_adherence_reports)') as Array<{ name: string }>
+  if (!reportProgramCols.some((c) => c.name === 'program_id')) {
+    db.exec('ALTER TABLE exercise_adherence_reports ADD COLUMN program_id TEXT REFERENCES exercise_programs(id);')
+  }
+  // Fiches antérieures : chacune devient un programme d'une étape, avec le
+  // même identifiant, pour que les liens et bilans déjà émis restent valides.
+  db.exec(`
+    INSERT INTO exercise_programs (id, patient_id, title, start_date, content_updated_at, created_at)
+    SELECT id, patient_id, title, date(created_at, 'localtime'), COALESCE(updated_at, created_at), created_at
+    FROM exercise_prescriptions WHERE program_id IS NULL;
+  `)
+  db.exec(`UPDATE exercise_prescriptions SET program_id = id WHERE program_id IS NULL;`)
+  db.exec(`UPDATE exercise_adherence_reports SET program_id = (SELECT program_id FROM exercise_prescriptions p WHERE p.id = exercise_adherence_reports.prescription_id) WHERE program_id IS NULL;`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_exercise_prescriptions_program ON exercise_prescriptions(program_id, starts_after_days);`)
+
   // ── Multi-cabinet ─────────────────────────────────────────────────────────
   // Un "cabinet" = une ligne practitioners (qui porte déjà nom/adresse/SIRET…).
   // owner_id regroupe les cabinets d'un même propriétaire (pour le partage).

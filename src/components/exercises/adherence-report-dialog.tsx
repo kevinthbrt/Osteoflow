@@ -17,7 +17,7 @@ type Source = 'qr' | 'code' | 'texte'
 interface Props {
   open: boolean
   onClose: () => void
-  prescription: { id: string; title: string } | null
+  prescription: { id: string; title: string; program_id?: string | null } | null
   onSaved: () => void
 }
 
@@ -44,7 +44,7 @@ export function AdherenceReportDialog({ open, onClose, prescription, onSaved }: 
 
   const input = tab === 'qr' ? scanned ?? '' : tab === 'code' ? code : text
   const parsed = input.trim() ? parseReportInput(input) : null
-  const wrongProgram = parsed && prescription ? !matchesPrescription(parsed, prescription.id) : false
+  const wrongProgram = parsed && prescription ? !matchesPrescription(parsed, prescription.program_id ?? prescription.id) : false
 
   async function save() {
     if (!prescription || !parsed || wrongProgram) return

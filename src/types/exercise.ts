@@ -36,6 +36,10 @@ export interface ExercisePrescriptionItem {
 export interface ExercisePrescription {
   id: string
   patient_id: string
+  /** programme dont cette fiche est une étape */
+  program_id?: string | null
+  /** début de l'étape, en jours après le début du programme */
+  starts_after_days?: number
   consultation_id: string | null
   title: string
   notes: string | null
