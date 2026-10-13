@@ -65,6 +65,10 @@ interface ExercisePrescriptionDialogProps {
   consultationId?: string
   prescriptionId?: string
   initialPrescription?: ExercisePrescription
+  /** nouvelle étape d'un programme existant */
+  programId?: string
+  /** début de l'étape, en jours après le début du programme */
+  startsAfterDays?: number
   onSaved?: () => void
 }
 
@@ -76,6 +80,8 @@ export function ExercisePrescriptionDialog({
   consultationId,
   prescriptionId,
   initialPrescription,
+  programId,
+  startsAfterDays,
   onSaved,
 }: ExercisePrescriptionDialogProps) {
   const [exercises, setExercises] = useState<RehabExercise[]>([])
@@ -329,6 +335,7 @@ export function ExercisePrescriptionDialog({
           title,
           notes: notes || null,
           items: selectedItems,
+          ...(programId && !prescriptionId ? { program_id: programId, starts_after_days: startsAfterDays ?? 0 } : {}),
         }),
       })
       if (!res.ok) throw new Error()
@@ -336,7 +343,7 @@ export function ExercisePrescriptionDialog({
 
       if (mode === 'pdf' && data.prescription?.id) {
         try {
-          const pdfRes = await fetch(`/api/exercise-prescriptions/${data.prescription.id}/pdf`)
+          const pdfRes = await fetch(`/api/exercise-prescriptions/${data.prescription.id}/pdf?remise=1`)
           if (pdfRes.ok) {
             const blob = await pdfRes.blob()
             const url = URL.createObjectURL(blob)

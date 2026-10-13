@@ -36,6 +36,10 @@ export interface ExercisePrescriptionItem {
 export interface ExercisePrescription {
   id: string
   patient_id: string
+  /** programme dont cette fiche est une étape */
+  program_id?: string | null
+  /** début de l'étape, en jours après le début du programme */
+  starts_after_days?: number
   consultation_id: string | null
   title: string
   notes: string | null
@@ -46,6 +50,12 @@ export interface ExercisePrescription {
   created_at: string
   updated_at: string
   items?: ExercisePrescriptionItem[]
+  /** dernier bilan rapporté par le patient depuis l'appli de suivi */
+  latest_report?: {
+    kind: 'full' | 'short'
+    created_at: string
+    weeks: Array<{ week: number; done: number; morning: number | null; maxPain: number | null }>
+  } | null
 }
 
 export interface ExercisePrescriptionItemDraft {

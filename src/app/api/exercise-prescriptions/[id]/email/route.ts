@@ -55,16 +55,30 @@ export async function POST(
       year: 'numeric',
     })
 
+    const { MAX_QR_URL_LENGTH } = await import('@/lib/exercises/patient-link')
+    const { patientLinkForPrescription, markLinkSent } = await import('@/lib/exercises/programs')
+    const professionLabel = getProfessionLabel(practitioner.profession, practitioner.specialty)
+    // Lien et QR code de l'appli patient : comptes ayant accès aux programmes (fonction en test).
+    const { hasFeature } = await import('@/lib/features-server')
+    const link = hasFeature('programmes')
+      ? await patientLinkForPrescription(db, prescription, `${practitioner.first_name} ${practitioner.last_name}, ${professionLabel}`)
+      : null
+    const patientLink = link?.url
+
     // Generate PDF
     const pdfBuffer = await generateExercisePdf({
       practitionerName: `${practitioner.first_name} ${practitioner.last_name}`,
-      practitionerSpecialty: getProfessionLabel(practitioner.profession, practitioner.specialty),
+      practitionerSpecialty: professionLabel,
       practitionerAddress: practitioner.address || undefined,
       practitionerCityLine: cityLine || undefined,
       patientName: `${patient.first_name} ${patient.last_name}`,
       prescriptionTitle: prescription.title,
       prescriptionDate,
       notes: prescription.notes || undefined,
+      patient_intro: prescription.patient_intro || undefined,
+      vigilance_points: prescription.vigilance_points || undefined,
+      weekly_routine: prescription.weekly_routine || undefined,
+      patientLink: patientLink && patientLink.length <= MAX_QR_URL_LENGTH ? patientLink : undefined,
       items: items || [],
     })
 
@@ -81,6 +95,7 @@ export async function POST(
       practiceName: practitioner.practice_name,
       specialty: getProfessionLabel(practitioner.profession, practitioner.specialty),
       primaryColor: practitioner.primary_color || '#0F766E',
+      patientLink,
     })
 
     const subject = `Votre programme d'exercices — ${practitioner.practice_name || practitionerName}`
@@ -143,6 +158,7 @@ export async function POST(
       )
     }
 
+    if (link) await markLinkSent(db, link.programId, 'email')
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error sending exercise prescription email:', error)

@@ -7,6 +7,8 @@ export interface ExerciseProgramEmailData {
   practiceName?: string | null
   specialty?: string | null
   primaryColor?: string
+  /** lien vers l'appli patient (programme dans le fragment de l'URL) */
+  patientLink?: string
 }
 
 export function createExerciseProgramHtmlEmail({
@@ -17,6 +19,7 @@ export function createExerciseProgramHtmlEmail({
   practiceName,
   specialty,
   primaryColor = '#0F766E',
+  patientLink,
 }: ExerciseProgramEmailData): string {
   const exerciseList = exerciseNames
     .map(
@@ -41,7 +44,7 @@ export function createExerciseProgramHtmlEmail({
           <div style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);">
 
             <!-- Header -->
-            <div style="padding: 28px 32px; background: linear-gradient(135deg, ${primaryColor} 0%, #0f172a 100%); color: #ffffff; text-align: center;">
+            <div style="padding: 28px 32px; background-color: ${primaryColor}; background-image: linear-gradient(135deg, ${primaryColor} 0%, #0f172a 100%); color: #ffffff; text-align: center;">
               <div style="width: 56px; height: 56px; margin: 0 auto 16px; background-color: rgba(255,255,255,0.15); border-radius: 50%; line-height: 56px; font-size: 28px;">
                 &#127947;
               </div>
@@ -69,6 +72,13 @@ export function createExerciseProgramHtmlEmail({
                   ${exerciseList}
                 </ul>
               </div>
+
+              ${patientLink ? `
+              <!-- Appli patient -->
+              <div style="text-align: center; margin: 0 0 24px 0;">
+                <a href="${patientLink}" style="display: inline-block; background-color: ${primaryColor}; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 14px 24px; border-radius: 10px;">Ouvrir mon programme sur mon téléphone</a>
+                <p style="margin: 10px 0 0; font-size: 13px; color: #64748b; line-height: 1.5;">Exercices guidés, minuteur et suivi de la douleur. Tout reste sur votre téléphone.</p>
+              </div>` : ''}
 
               <!-- Info box -->
               <div style="padding: 16px 20px; border-radius: 12px; background-color: #f8fafc; border-left: 4px solid ${primaryColor}; margin-bottom: 20px;">

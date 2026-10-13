@@ -77,6 +77,7 @@ export default function OsteoupgradeLoginPage() {
           // Renvoyé par les versions récentes d'Osteoupgrade uniquement ;
           // son absence laisse le repli sur le rôle s'appliquer.
           entitlements: authData.entitlements,
+          features: authData.features,
           expires_at: authData.expires_at,
         }),
       })

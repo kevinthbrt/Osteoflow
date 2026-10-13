@@ -19,6 +19,17 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.20.0',
+    date: '2026-10-13',
+    title: 'Des programmes d\'exercices que vos patients font vraiment',
+    changes: [
+      { type: 'improvement', text: "Génération par IA : vous choisissez désormais le nombre exact d'exercices (de 1 à 6) au lieu d'une durée de séance. L'IA s'y tient, et vous rappelle qu'au-delà de 3 exercices les patients en font souvent moins, voire aucun." },
+      { type: 'improvement', text: "Les protocoles de rééducation utilisés par l'IA ont été mis à jour selon les recommandations actuelles (tendinopathies, lombalgie, cervicalgie, arthrose, épaule, cheville...), avec des dosages précis et une justification EBP plus claire. L'IA prend aussi plus de temps pour raisonner sur le dossier avant de proposer." },
+      { type: 'improvement', text: "Nouveau PDF patient, plus lisible et plus élégant : un mot d'introduction, la routine de la semaine, chaque exercice dans sa carte avec son dosage, un tableau pour cocher les séances et les signes qui doivent faire arrêter." },
+      { type: 'fix', text: "Dans les emails de programme d'exercices, l'en-tête coloré restait blanc sur Outlook et Hotmail : il garde maintenant la couleur de votre cabinet." },
+    ],
+  },
+  {
     version: '1.19.1',
     date: '2026-10-06',
     title: 'La suppression des patients et des consultations fonctionne à nouveau',

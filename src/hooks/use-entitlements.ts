@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import type { Entitlements } from '@/lib/entitlements'
 import { simulationActive } from '@/lib/plan-simulation'
 
-export type EtatEntitlements = Entitlements & { loading: boolean; role: string | null; simule: boolean }
+export type EtatEntitlements = Entitlements & { loading: boolean; role: string | null; simule: boolean; features: string[] }
 
 /**
  * Droits d'accès du compte connecté, lus depuis la licence locale.
@@ -25,6 +25,8 @@ export function useEntitlements(): EtatEntitlements {
     loading: true,
     role: null,
     simule: false,
+    // Fonctions en test : rien tant que la licence n'est pas lue.
+    features: [],
   })
 
   useEffect(() => {
@@ -42,6 +44,7 @@ export function useEntitlements(): EtatEntitlements {
           loading: false,
           role,
           simule,
+          features: Array.isArray(data?.features) ? data.features : [],
         })
       })
       .catch(() => {
