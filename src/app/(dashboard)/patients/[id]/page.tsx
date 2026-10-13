@@ -12,6 +12,7 @@ import { MedicalHistorySectionWrapper } from '@/components/patients/medical-hist
 import { DraftResumeBanner } from '@/components/consultations/draft-resume-banner'
 import { ExercisePrescriptionSection } from '@/components/exercises/exercise-prescription-section'
 import { PatientExercisesTab } from '@/components/exercises/patient-exercises-tab'
+import { hasFeature } from '@/lib/features-server'
 import { UnarchiveButton } from '@/components/patients/unarchive-button'
 import { PatientInvoicesTab } from '@/components/patients/patient-invoices-tab'
 import type { Invoice, Consultation } from '@/types/database'
@@ -62,6 +63,8 @@ export default async function PatientPage({ params, searchParams }: PatientPageP
     )
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
+  // Onglet Exercices : comptes ayant accès aux programmes (fonction en test).
+  const programmes = hasFeature('programmes')
   const { data: activePrograms } = await db
     .from('exercise_programs')
     .select('id')
@@ -72,7 +75,7 @@ export default async function PatientPage({ params, searchParams }: PatientPageP
   const tabs = [
     { key: 'dossier', label: 'Dossier' },
     { key: 'consultations', label: `Consultations${allConsultations.length ? ` (${allConsultations.length})` : ''}` },
-    { key: 'exercices', label: `Exercices${activeProgramCount ? ` (${activeProgramCount})` : ''}` },
+    ...(programmes ? [{ key: 'exercices', label: `Exercices${activeProgramCount ? ` (${activeProgramCount})` : ''}` }] : []),
     { key: 'factures', label: `Factures${allInvoices.length ? ` (${allInvoices.length})` : ''}` },
   ]
 
@@ -285,7 +288,7 @@ export default async function PatientPage({ params, searchParams }: PatientPageP
       )}
 
       {/* Tab: Factures */}
-      {activeTab === 'exercices' && (
+      {programmes && activeTab === 'exercices' && (
         <PatientExercisesTab patientId={id} patientName={`${patient.first_name} ${patient.last_name}`} />
       )}
 

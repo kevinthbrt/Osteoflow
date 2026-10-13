@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getOsteoflowAuthHeaders } from '@/lib/osteoupgrade/proxy-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +11,8 @@ export async function POST(req: Request) {
 
     // Nouvelle étape d'un programme : l'IA reçoit les étapes précédentes et le
     // suivi du patient (sans son identité) pour construire une progression.
-    if (body.program_id) {
+    const { hasFeature } = await import('@/lib/features-server')
+    if (body.program_id && hasFeature('programmes')) {
       const { createClient } = await import('@/lib/db/server')
       const { loadPrograms } = await import('@/lib/exercises/programs')
       const { programContextText } = await import('@/lib/exercises/program-ai')
@@ -19,10 +21,10 @@ export async function POST(req: Request) {
       if (program && program.patient_id === body.patient_id) {
         body.program_context = programContextText(program, Number(body.starts_after_days) || 0)
       }
-      delete body.program_id
-      delete body.patient_id
-      delete body.starts_after_days
     }
+    delete body.program_id
+    delete body.patient_id
+    delete body.starts_after_days
 
     const secret = process.env.OSTEOFLOW_PROXY_SECRET
     if (!secret) {
@@ -36,6 +38,7 @@ export async function POST(req: Request) {
         headers: {
           'Content-Type': 'application/json',
           'x-osteoflow-secret': secret,
+          ...getOsteoflowAuthHeaders(),
         },
         body: JSON.stringify(body),
         // Must exceed the upstream's own ceiling (maxDuration 300s, plan Pro) so

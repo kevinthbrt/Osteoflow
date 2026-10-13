@@ -11,6 +11,8 @@ export async function GET(
     const { createClient } = await import('@/lib/db/server')
     const { getProfessionLabel } = await import('@/lib/practitioner/profession')
     const { patientLinkForPrescription, markLinkSent } = await import('@/lib/exercises/programs')
+    const { hasFeature } = await import('@/lib/features-server')
+    if (!hasFeature('programmes')) return NextResponse.json({ error: 'L’appli patient n’est pas encore disponible sur votre compte.' }, { status: 403 })
 
     const { id } = await params
     const db = await createClient()

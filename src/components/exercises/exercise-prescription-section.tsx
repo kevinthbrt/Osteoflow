@@ -11,25 +11,26 @@ import { AiExerciseGenerationDialog } from '@/components/exercises/ai-exercise-g
 import { AdherenceReportDialog } from '@/components/exercises/adherence-report-dialog'
 import { UsagePill } from '@/components/exercises/patient-exercises-tab'
 import { copyPatientLink } from '@/components/exercises/copy-patient-link'
+import { LegacyExercisePrescriptionSection, type ExercisePrescriptionSectionProps } from '@/components/exercises/legacy-exercise-prescription-section'
+import { useEntitlements } from '@/hooks/use-entitlements'
 import type { ProgramView } from '@/lib/exercises/programs'
 import type { ExercisePrescription } from '@/types/exercise'
 
-interface ExercisePrescriptionSectionProps {
-  patientId: string
-  patientName: string
-  consultationId?: string
-  consultationData?: {
-    reason?: string
-    anamnesis?: string
-    examination?: string
-  }
+/**
+ * Programmes par étapes pour les comptes qui y ont accès (fonction en test),
+ * section habituelle pour les autres.
+ */
+export function ExercisePrescriptionSection(props: ExercisePrescriptionSectionProps) {
+  const { features, loading } = useEntitlements()
+  if (loading) return null
+  return features.includes('programmes') ? <ProgramsSummarySection {...props} /> : <LegacyExercisePrescriptionSection {...props} />
 }
 
 /**
  * Résumé des programmes du patient (dossier, consultation). Le détail, les
  * étapes et le suivi sont dans l'onglet « Exercices » du dossier.
  */
-export function ExercisePrescriptionSection({
+function ProgramsSummarySection({
   patientId,
   patientName,
   consultationId,

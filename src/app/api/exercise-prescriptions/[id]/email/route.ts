@@ -58,9 +58,11 @@ export async function POST(
     const { MAX_QR_URL_LENGTH } = await import('@/lib/exercises/patient-link')
     const { patientLinkForPrescription, markLinkSent } = await import('@/lib/exercises/programs')
     const professionLabel = getProfessionLabel(practitioner.profession, practitioner.specialty)
-    const link = await patientLinkForPrescription(
-      db, prescription, `${practitioner.first_name} ${practitioner.last_name}, ${professionLabel}`,
-    )
+    // Lien et QR code de l'appli patient : comptes ayant accès aux programmes (fonction en test).
+    const { hasFeature } = await import('@/lib/features-server')
+    const link = hasFeature('programmes')
+      ? await patientLinkForPrescription(db, prescription, `${practitioner.first_name} ${practitioner.last_name}, ${professionLabel}`)
+      : null
     const patientLink = link?.url
 
     // Generate PDF

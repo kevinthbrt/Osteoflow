@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { getOsteoflowAuthHeaders } from '@/lib/osteoupgrade/proxy-auth'
+import { hasFeature } from '@/lib/features-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +18,9 @@ export async function POST(req: Request) {
       mode: 'next' | 'instruction'
       instruction?: string
       history?: Array<{ request: string; summary: string }>
+    }
+    if (!hasFeature('programmes')) {
+      return NextResponse.json({ error: 'L’assistant de programme n’est pas encore disponible sur votre compte.' }, { status: 403 })
     }
     const secret = process.env.OSTEOFLOW_PROXY_SECRET
     if (!secret) return NextResponse.json({ error: 'Configuration serveur invalide (OSTEOFLOW_PROXY_SECRET manquant)' }, { status: 500 })
@@ -38,7 +43,7 @@ export async function POST(req: Request) {
     try {
       res = await fetch(PROXY_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-osteoflow-secret': secret },
+        headers: { 'Content-Type': 'application/json', 'x-osteoflow-secret': secret, ...getOsteoflowAuthHeaders() },
         body: JSON.stringify({ program: programAiPayload(program), mode, instruction, history: (history ?? []).slice(-2) }),
         signal: AbortSignal.timeout(130000),
       })

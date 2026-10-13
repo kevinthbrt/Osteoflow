@@ -42,6 +42,11 @@ export async function POST() {
       if (data.entitlements && typeof data.entitlements === 'object') {
         upsertConfig('license_entitlements', JSON.stringify(data.entitlements))
       }
+      // Fonctions en test (programmes d'exercices) : ouvertes ou retirées
+      // depuis osteoupgrade sans nouvelle version de l'appli.
+      if (Array.isArray(data.features)) {
+        upsertConfig('license_features', JSON.stringify(data.features))
+      }
     }
 
     return NextResponse.json(data)

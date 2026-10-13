@@ -14,6 +14,7 @@ import { ExercisePrescriptionDialog } from './exercise-prescription-dialog'
 import { AdherenceReportDialog } from './adherence-report-dialog'
 import { copyPatientLink } from './copy-patient-link'
 import { reportHeadline } from '@/lib/exercises/adherence'
+import { useEntitlements } from '@/hooks/use-entitlements'
 import type { ExercisePrescription } from '@/types/exercise'
 
 interface Props {
@@ -38,6 +39,7 @@ export function PatientPrescriptionsListDialog({
   const [editingPrescription, setEditingPrescription] = useState<ExercisePrescription | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [reportFor, setReportFor] = useState<ExercisePrescription | null>(null)
+  const programmes = useEntitlements().features.includes('programmes')
   const { toast } = useToast()
 
   const fetchPrescriptions = useCallback(async () => {
@@ -150,7 +152,7 @@ export function PatientPrescriptionsListDialog({
                     {p.notes && (
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{p.notes}</p>
                     )}
-                    {p.latest_report && (
+                    {programmes && p.latest_report && (
                       <p className="text-xs text-primary mt-1">
                         Bilan du {new Date(p.latest_report.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} : {reportHeadline(p.latest_report.weeks)}
                       </p>
@@ -187,6 +189,7 @@ export function PatientPrescriptionsListDialog({
                     >
                       <Mail className="h-3.5 w-3.5" />
                     </Button>
+                    {programmes && (<>
                     <Button
                       type="button"
                       variant="ghost"
@@ -207,6 +210,7 @@ export function PatientPrescriptionsListDialog({
                     >
                       <Activity className="h-3.5 w-3.5" />
                     </Button>
+                    </>)}
                     <Button
                       type="button"
                       variant="ghost"
