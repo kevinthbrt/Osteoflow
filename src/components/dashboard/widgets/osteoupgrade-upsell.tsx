@@ -45,8 +45,9 @@ export function OsteoUpgradeUpsellWidget() {
 
         <div className="rounded-lg bg-white/70 border border-emerald-200 px-3 py-2 mb-3">
           <p className="text-[11px] text-emerald-900">
-            <strong>20 € de plus par mois</strong> pour tout OsteoUpgrade, au lieu de 29,99 €
-            séparément.
+            {/* Pas de montant : il dépend du rythme de facturation de l'abonné. */}
+            <strong>Premium réunit les deux</strong>, pour moins cher que d&apos;ajouter
+            OsteoUpgrade séparément.
           </p>
         </div>
 

@@ -62,8 +62,12 @@ export function OsteoUpgradeLocked({
 
         <div className="mb-5 rounded-lg border border-emerald-200 bg-white/70 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/40">
           <p className="text-sm text-emerald-900 dark:text-emerald-200">
-            <strong>20 € de plus par mois</strong> pour tout OsteoUpgrade, au lieu de 29,99 € en le
-            prenant séparément. Le changement est immédiat et proratisé.
+            {/* Pas de montant : il dépend du rythme de facturation de l'abonné
+                (mensuel, annuel, tarif école, fondateur), que l'application ne
+                connaît pas. Le tarif exact s'affiche sur le site. */}
+            <strong>Premium réunit les deux</strong>, pour moins cher que d&apos;ajouter OsteoUpgrade
+            séparément. Votre tarif exact s&apos;affiche sur votre espace abonnement. Le changement est
+            immédiat et proratisé.
           </p>
         </div>
 
