@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { Button } from '@/components/ui/button'
@@ -13,17 +13,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { LogOut, Settings, Search, HelpCircle, Lock, Building2, ChevronDown } from 'lucide-react'
-import { getInitials, formatDate } from '@/lib/utils'
-import { buildSearchOrFilters } from '@/lib/utils/search'
+import { LogOut, Settings, Search, HelpCircle, Lock, Building2, ChevronDown, Plus, Stethoscope, UserPlus } from 'lucide-react'
+import { getInitials } from '@/lib/utils'
 import type { Practitioner } from '@/types/database'
-import { Input } from '@/components/ui/input'
 import { NotificationBell } from '@/components/layout/notification-bell'
 import { BackupButton } from '@/components/layout/backup-button'
-import { HeaderWeather } from '@/components/layout/header-weather'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { CountrySwitcher } from '@/components/layout/country-switcher'
 import { useTour } from '@/contexts/tour-context'
+import { getPageInfo } from '@/components/layout/navigation'
+import { openCommandPalette } from '@/components/layout/command-palette'
 
 interface LocalUser {
   id: string
@@ -36,44 +35,12 @@ interface HeaderProps {
   practitioner: Practitioner | null
 }
 
-interface PatientResult {
-  id: string
-  first_name: string
-  last_name: string
-  birth_date: string
-  phone: string
-  email: string | null
-  profession: string | null
-}
-
-const pageTitles: Record<string, { title: string; description: string }> = {
-  '/dashboard': { title: 'Tableau de bord', description: 'Vue d\'ensemble de votre activité' },
-  '/patients': { title: 'Patients', description: 'Gérez vos patients et leurs informations' },
-  '/consultations': { title: 'Consultations', description: 'Historique de toutes vos consultations' },
-  '/invoices': { title: 'Factures', description: 'Gérez vos factures et paiements' },
-  '/messages': { title: 'Messagerie et relances', description: 'Communiquez avec vos patients' },
-  '/accounting': { title: 'Comptabilité', description: 'Analysez votre activité' },
-  '/settings': { title: 'Paramètres', description: 'Configurez votre cabinet' },
-  '/changelog': { title: 'Changelog', description: 'Historique des mises à jour' },
-}
-
 export function Header({ user, practitioner }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
-  // useRef so createClient() is called once — not on every render.
-  // Calling it on every render produces a new object reference, which
-  // causes searchPatients (useCallback with [db] dep) to be recreated
-  // each render, triggering the search useEffect in an infinite loop.
+  // Client créé une seule fois, pas à chaque rendu.
   const dbRef = useRef(createClient())
   const { startTour } = useTour()
-
-  // Patient search state
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<PatientResult[]>([])
-  const [showResults, setShowResults] = useState(false)
-  const [isSearching, setIsSearching] = useState(false)
-  const searchRef = useRef<HTMLDivElement>(null)
-  const searchTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleSignOut = async () => {
     // Libère la licence (verrou « une seule instance active par utilisateur »)
@@ -101,169 +68,55 @@ export function Header({ user, practitioner }: HeaderProps) {
     ? getInitials(practitioner.first_name, practitioner.last_name)
     : user.email?.charAt(0).toUpperCase() || 'U'
 
-  // Get current page info
-  const currentPage = Object.entries(pageTitles).find(([path]) =>
-    pathname.startsWith(path)
-  )?.[1] || { title: 'Dashboard', description: 'Bienvenue sur MyOsteoFlow' }
-
-  // Patient search
-  const searchPatients = useCallback(async (query: string) => {
-    if (query.trim().length < 2) {
-      setSearchResults([])
-      setShowResults(false)
-      return
-    }
-
-    setIsSearching(true)
-    try {
-      const db = dbRef.current
-      let builder = db
-        .from('patients')
-        .select('id, first_name, last_name, birth_date, phone, email, profession')
-        .is('archived_at', null)
-
-      for (const filter of buildSearchOrFilters(
-        query,
-        ['first_name', 'last_name', 'phone', 'email', 'profession'],
-        'birth_date'
-      )) {
-        builder = builder.or(filter)
-      }
-
-      const { data, error } = await builder.limit(8).order('last_name')
-
-      if (error) {
-        console.error('Search error:', error)
-        return
-      }
-
-      setSearchResults(data || [])
-      setShowResults(true)
-    } catch (error) {
-      console.error('Search error:', error)
-    } finally {
-      setIsSearching(false)
-    }
-  // dbRef is a ref — stable by definition, no need in deps
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Debounced search
-  useEffect(() => {
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current)
-    }
-
-    if (searchQuery.trim().length < 2) {
-      setSearchResults([])
-      setShowResults(false)
-      return
-    }
-
-    searchTimerRef.current = setTimeout(() => {
-      searchPatients(searchQuery)
-    }, 300)
-
-    return () => {
-      if (searchTimerRef.current) {
-        clearTimeout(searchTimerRef.current)
-      }
-    }
-  }, [searchQuery, searchPatients])
-
-  // Close results on click outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowResults(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  const handleSelectPatient = (patientId: string) => {
-    setShowResults(false)
-    setSearchQuery('')
-    router.push(`/patients/${patientId}`)
-  }
+  const currentPage = getPageInfo(pathname)
+  const today = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
 
   return (
-    <header className="sticky top-0 z-30 relative border-b border-white/40 dark:border-white/10 bg-gradient-to-r from-primary/[0.18] via-white/75 to-violet-600/[0.18] dark:from-primary/30 dark:via-slate-800/80 dark:to-violet-600/30 backdrop-blur-xl">
-      <div className="absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-primary via-violet-600 to-sky-500" />
-      <div className="flex h-16 items-center gap-4 px-6 lg:px-8">
+    <header data-app-header className="sticky top-0 z-30 border-b border-border bg-card">
+      <div className="flex h-16 items-center gap-3 px-4 lg:px-8">
         {/* Spacer for mobile menu button */}
         <div className="w-10 lg:hidden" />
 
         {/* Page title */}
-        <div className="hidden lg:block min-w-0">
-          <h1 className="text-lg font-semibold leading-tight text-gradient">{currentPage.title}</h1>
-          <p className="text-xs text-muted-foreground">{currentPage.description}</p>
+        <div className="min-w-0 mr-auto">
+          <h1 className="truncate text-lg font-semibold leading-tight">{currentPage.title}</h1>
+          <p className="hidden sm:block text-xs text-muted-foreground first-letter:uppercase">{today}</p>
         </div>
 
-        {/* Spacer */}
-        <div className="flex-1" />
+        {/* Palette de commandes */}
+        <button
+          type="button"
+          onClick={() => openCommandPalette()}
+          data-tour="header-search"
+          aria-label="Rechercher un patient, une action ou une page"
+          className="flex h-10 items-center gap-2.5 rounded-lg border border-input bg-muted/50 px-3 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-card md:w-80 lg:w-96"
+        >
+          <Search className="h-4 w-4 shrink-0" />
+          <span className="hidden md:block flex-1 truncate text-left">Patient, action, page…</span>
+          <kbd className="hidden md:block rounded-md border border-input bg-card px-1.5 py-0.5 font-sans text-[11px] text-muted-foreground">
+            Ctrl K
+          </kbd>
+        </button>
 
-        {/* Search bar - patient search */}
-        <div className="hidden md:block relative" ref={searchRef} data-tour="header-search">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher un patient (nom, tél, naissance JJ/MM/AAAA...)"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => {
-                if (searchResults.length > 0) setShowResults(true)
-              }}
-              className="pl-10 w-72 bg-muted/40 border-0 focus-visible:ring-1 focus-visible:ring-primary/30 h-9 rounded-xl"
-            />
-            {isSearching && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-              </div>
-            )}
-          </div>
-
-          {/* Search results dropdown */}
-          {showResults && (
-            <div className="absolute top-full mt-2 w-full glass-card rounded-2xl shadow-xl overflow-hidden z-50">
-              {searchResults.length === 0 ? (
-                <div className="px-4 py-3 text-sm text-muted-foreground text-center">
-                  Aucun patient trouvé
-                </div>
-              ) : (
-                <div className="py-1 max-h-80 overflow-y-auto">
-                  {searchResults.map((patient) => (
-                    <button
-                      key={patient.id}
-                      onClick={() => handleSelectPatient(patient.id)}
-                      className="w-full text-left px-4 py-2.5 hover:bg-accent/50 transition-colors flex items-center gap-3"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-semibold text-primary">
-                          {patient.first_name[0]}{patient.last_name[0]}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {patient.last_name} {patient.first_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {patient.phone} · {formatDate(patient.birth_date)}
-                          {patient.email && ` · ${patient.email}`}
-                          {patient.profession && ` · ${patient.profession}`}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Weather chip */}
-        <HeaderWeather />
+        {/* Création rapide */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button className="h-10 gap-1.5 rounded-lg px-3 sm:px-4" aria-label="Créer">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Nouveau</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 p-1.5">
+            <DropdownMenuItem onClick={() => openCommandPalette('consultation')} className="py-2.5">
+              <Stethoscope className="mr-3 h-4 w-4" />
+              <span>Consultation</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push('/patients/new')} className="py-2.5">
+              <UserPlus className="mr-3 h-4 w-4" />
+              <span>Patient</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Actions */}
         <div className="flex items-center gap-1">
@@ -279,8 +132,9 @@ export function Header({ user, practitioner }: HeaderProps) {
             size="icon"
             onClick={startTour}
             data-tour="header-help"
-            className="hidden sm:flex rounded-full text-muted-foreground hover:text-foreground h-9 w-9"
+            className="hidden sm:flex rounded-lg text-muted-foreground hover:text-foreground h-9 w-9"
             title="Visite guidée"
+            aria-label="Visite guidée"
           >
             <HelpCircle className="h-4 w-4" />
           </Button>
@@ -294,30 +148,27 @@ export function Header({ user, practitioner }: HeaderProps) {
           {/* Separator */}
           <div className="hidden sm:block w-px h-6 bg-border/50 mx-1" />
 
-          {/* User / cabinet menu — encadré pour être bien visible */}
+          {/* Menu du cabinet */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="relative h-9 gap-2 rounded-full pl-1 pr-2 border border-border bg-accent/40 hover:bg-accent/70 hover:border-primary/40 transition-colors"
+                className="relative h-10 gap-1.5 rounded-lg pl-1 pr-2 border border-border hover:bg-muted transition-colors"
                 title="Mon cabinet"
               >
                 <Avatar className="h-7 w-7">
-                  <AvatarFallback className="text-white text-xs font-medium gradient-primary">
+                  <AvatarFallback className="bg-accent text-accent-foreground text-xs font-semibold">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
-                <span className="hidden sm:block text-sm font-medium text-foreground">
-                  {practitioner?.first_name || 'Utilisateur'}
-                </span>
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-64 p-2 rounded-2xl" align="end" forceMount>
-              <DropdownMenuLabel className="font-normal p-3 bg-accent/50 rounded-xl mb-2">
+            <DropdownMenuContent className="w-64 p-2 rounded-xl" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal p-3 bg-muted rounded-lg mb-2">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
-                    <AvatarFallback className="text-white gradient-primary">
+                    <AvatarFallback className="bg-accent text-accent-foreground font-semibold">
                       {initials}
                     </AvatarFallback>
                   </Avatar>
@@ -331,14 +182,14 @@ export function Header({ user, practitioner }: HeaderProps) {
               </DropdownMenuLabel>
               <DropdownMenuItem
                 onClick={() => window.dispatchEvent(new Event('open-cabinet-dialog'))}
-                className="rounded-xl py-2.5"
+                className="rounded-lg py-2.5"
               >
                 <Building2 className="mr-3 h-4 w-4" />
                 <span>Changer de cabinet</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => router.push('/settings')}
-                className="rounded-xl py-2.5"
+                className="rounded-lg py-2.5"
               >
                 <Settings className="mr-3 h-4 w-4" />
                 <span>Paramètres</span>
@@ -346,14 +197,14 @@ export function Header({ user, practitioner }: HeaderProps) {
               <DropdownMenuSeparator className="my-2" />
               <DropdownMenuItem
                 onClick={handleLock}
-                className="rounded-xl py-2.5"
+                className="rounded-lg py-2.5"
               >
                 <Lock className="mr-3 h-4 w-4" />
                 <span>Verrouiller</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={handleSignOut}
-                className="rounded-xl py-2.5 text-destructive focus:text-destructive focus:bg-destructive/10"
+                className="rounded-lg py-2.5 text-destructive focus:text-destructive focus:bg-destructive/10"
               >
                 <LogOut className="mr-3 h-4 w-4" />
                 <span>Déconnexion</span>

@@ -56,6 +56,7 @@ import { PatientPrescriptionsListDialog } from '@/components/exercises/patient-p
 import { TestsSuggestionsPanel } from '@/components/consultations/tests-suggestions-panel'
 import { OrthoTestsPickerDialog } from '@/components/consultations/ortho-tests-picker-dialog'
 import { useEntitlements } from '@/hooks/use-entitlements'
+import { SessionBar, type DraftStatus } from '@/components/consultations/session-bar'
 import { AtMentionDropdown } from '@/components/consultations/at-mention-dropdown'
 import {
   POST_SESSION_ADVICE_OPTIONS,
@@ -123,11 +124,11 @@ const SECTION_TONES = {
   clinique: 'bg-primary/10 text-primary',
 } as const
 
-/** Teinte bleutée + relief pour les cartes de la page (contraste avec le fond). */
-const CARD_TINT = 'border-blue-100/80 shadow-[0_6px_20px_-10px_rgba(37,99,235,0.22)] dark:border-blue-900/40'
+/** Cartes de la page : la carte par défaut suffit (surface nette, bordure fine). */
+const CARD_TINT = ''
 
-/** Encart bleuté pour les sous-sections, afin de créer du relief dans une carte. */
-const ENCART = 'rounded-xl border border-blue-100/80 bg-blue-50/50 p-4 dark:border-blue-900/30 dark:bg-blue-950/20'
+/** Encart des sous-sections : fond gris très léger pour les détacher dans la carte. */
+const ENCART = 'rounded-xl border border-border bg-muted/40 p-4'
 
 export function ConsultationForm({
   patient,
@@ -344,16 +345,31 @@ export function ConsultationForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showFinalizeModal])
 
-  // Exposé via ref pour être appelé immédiatement depuis onApply (sans debounce)
-  const saveDraftNow = useCallback(() => {
-    if (mode !== 'create' || submittedRef.current) return
+  // Envoi du brouillon, avec son état affiché dans la barre de séance
+  const [draftStatus, setDraftStatus] = useState<DraftStatus>({ state: 'idle' })
+  const postDraft = useCallback(() => {
     const values = getValues()
-    fetch('/api/consultation/draft', {
+    setDraftStatus({ state: 'saving' })
+    return fetch('/api/consultation/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
-    }).catch(() => {})
-  }, [mode, getValues])
+    })
+      .then((response) => {
+        // Validée entre-temps : la barre n'a plus rien à signaler.
+        if (submittedRef.current) return
+        setDraftStatus(response.ok ? { state: 'saved', at: Date.now() } : { state: 'error' })
+      })
+      .catch(() => {
+        if (!submittedRef.current) setDraftStatus({ state: 'error' })
+      })
+  }, [getValues])
+
+  // Exposé via ref pour être appelé immédiatement depuis onApply (sans debounce)
+  const saveDraftNow = useCallback(() => {
+    if (mode !== 'create' || submittedRef.current) return
+    postDraft()
+  }, [mode, postDraft])
 
   // Auto-save draft every 30s + restore on unlock (create mode only)
   useEffect(() => {
@@ -361,12 +377,7 @@ export function ConsultationForm({
 
     const saveDraft = () => {
       if (submittedRef.current) return
-      const values = getValues()
-      fetch('/api/consultation/draft', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
-      }).catch(() => {})
+      postDraft()
     }
 
     window.addEventListener('myosteoflow:before-lock', saveDraft)
@@ -437,12 +448,7 @@ export function ConsultationForm({
         // d'être validée, ce save tardif recréerait le brouillon après sa
         // suppression (le brouillon « ressuscite » après validation).
         if (submittedRef.current) return
-        const values = getValues()
-        fetch('/api/consultation/draft', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
-        }).catch(() => {})
+        postDraft()
       }, 3000)
     })
     return () => { subscription.unsubscribe(); clearTimeout(timer) }
@@ -1440,10 +1446,35 @@ export function ConsultationForm({
     </Dialog>
   )
 
+  const sessionSections = [
+    { id: 'sec-infos', label: 'Motif', done: !!reason?.trim() },
+    { id: 'sec-anamnese', label: 'Anamnèse', done: !!anamnesis?.trim() },
+    { id: 'sec-hypotheses', label: 'Hypothèses', done: !!hypotheses },
+    { id: 'sec-examen', label: 'Examen', done: !!examination?.trim() },
+    { id: 'sec-conseils', label: 'Conseils', done: !!advice?.trim() },
+  ]
+
+  const handleSaveShortcut = () => {
+    if (mode === 'create') {
+      if (!submittedRef.current) postDraft()
+      return
+    }
+    toast({
+      title: 'Modifications non enregistrées',
+      description: 'Terminez la consultation (Ctrl + Entrée) pour enregistrer vos changements.',
+    })
+  }
+
   const formContent = (
     <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
+      <SessionBar
+        sections={sessionSections}
+        draftStatus={mode === 'create' ? draftStatus : undefined}
+        onSave={handleSaveShortcut}
+        onFinish={() => setShowFinalizeModal(true)}
+      />
       <div className="space-y-6">
-          <Card className={CARD_TINT}>
+          <Card id="sec-infos" className={cn('scroll-mt-36', CARD_TINT)}>
             <CardContent className="grid gap-4 p-4 sm:grid-cols-[minmax(0,220px)_1fr] sm:p-5">
               <div className="space-y-1.5">
                 <Label htmlFor="date_time" className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -1673,7 +1704,7 @@ export function ConsultationForm({
                   return failedKeys
                 }}
               />
-              <div id="sec-anamnese" className={cn('space-y-3 scroll-mt-24', ENCART)}>
+              <div id="sec-anamnese" className={cn('space-y-3 scroll-mt-36', ENCART)}>
                 <SectionHeading icon={FileText} title="Anamnèse" tone={SECTION_TONES.anamnese} />
                 {anamnesisCardSections ? (
                   <AnamnesisCards
@@ -1710,7 +1741,7 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div id="sec-hypotheses" className={cn('space-y-3 scroll-mt-24', ENCART)}>
+              <div id="sec-hypotheses" className={cn('space-y-3 scroll-mt-36', ENCART)}>
                 <SectionHeading icon={Brain} title="Hypothèses cliniques" tone={SECTION_TONES.hypotheses} />
                 {!hypotheses && (
                   <Button
@@ -1742,7 +1773,7 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div id="sec-examen" className={cn('space-y-3 scroll-mt-24', ENCART)}>
+              <div id="sec-examen" className={cn('space-y-3 scroll-mt-36', ENCART)}>
                 <SectionHeading
                   icon={Activity}
                   title="Examen clinique et traitement"
@@ -1866,7 +1897,7 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div id="sec-conseils" className={cn('space-y-3 scroll-mt-24', ENCART)}>
+              <div id="sec-conseils" className={cn('space-y-3 scroll-mt-36', ENCART)}>
                 <SectionHeading icon={Lightbulb} title="Conseils donnés" tone={SECTION_TONES.conseils} />
                 <Textarea
                   id="advice"
@@ -1887,7 +1918,10 @@ export function ConsultationForm({
 
       </div>
 
-      <div className="sticky bottom-0 z-10 flex justify-end gap-4 pt-4 pb-2 -mx-1 px-1 bg-gradient-to-t from-background via-background to-transparent">
+      <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-border bg-background pt-3 pb-3 -mx-1 px-1">
+        <span className="mr-auto hidden xl:block truncate text-xs text-muted-foreground">
+          Ctrl + S brouillon · Ctrl + Entrée terminer · Alt + ↑ ↓ sections
+        </span>
         <Button
           type="button"
           variant="outline"
@@ -1905,6 +1939,7 @@ export function ConsultationForm({
         >
           <CalendarCheck className="h-4 w-4" />
           Terminer la consultation
+          <kbd className="hidden lg:inline rounded border border-primary-foreground/40 px-1 font-sans text-[11px]">Ctrl ↵</kbd>
         </Button>
       </div>
     </form>
@@ -2045,7 +2080,7 @@ export function ConsultationForm({
   if (medicalHistoryEntries) {
     return (
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        <div className="lg:sticky lg:top-6 self-start space-y-6">
+        <div className="lg:sticky lg:top-20 self-start space-y-6">
           <Card className={cn('overflow-hidden', CARD_TINT)}>
             <div className="flex items-start gap-3 bg-gradient-to-br from-primary/10 via-primary/[0.04] to-transparent p-4">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl gradient-primary text-base font-semibold text-white shadow-sm">

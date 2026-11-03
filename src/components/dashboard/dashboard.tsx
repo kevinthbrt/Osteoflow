@@ -1,31 +1,34 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { Plus, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Plus, Sparkles } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { cn, formatCurrency } from '@/lib/utils'
 
 import { VideoWidget } from './widgets/video-widget'
 import { ProgressWidget } from './widgets/progress-widget'
-import { DayPlanWidget } from './widgets/day-plan-widget'
 import { ReviewWidget, FeaturedFormationWidget, type WidgetsData } from './widgets/osteoupgrade-widgets'
 import { FlashcardsWidget } from './widgets/flashcards-widget'
 import { OsteoUpgradeUpsellWidget } from './widgets/osteoupgrade-upsell'
-import { useEntitlements } from '@/hooks/use-entitlements'
 import { RelaunchWidget } from './widgets/relaunch-widget'
-import { BannerWeather } from './banner-weather'
 import { ProfileCompletionWidget } from './profile-completion-widget'
+import { TodayPanel, type TodaySummary } from './today-panel'
+import { HeaderWeather } from '@/components/layout/header-weather'
+import { openCommandPalette } from '@/components/layout/command-palette'
+import { useEntitlements } from '@/hooks/use-entitlements'
 
 import type { Practitioner } from '@/types/database'
+
+interface UnpaidInvoice {
+  id: string
+  invoice_number: string
+  amount: number
+  issued_at: string | null
+  patientName: string | null
+}
 
 interface DashboardProps {
   practitioner: Practitioner
@@ -35,6 +38,8 @@ interface DashboardProps {
     todayConsultations: number
     monthlyRevenue: number
     unreadMessages: number
+    surveysToRead: number
+    followUpsDue: number
   }
   recentConsultations: Array<{
     id: string
@@ -42,31 +47,38 @@ interface DashboardProps {
     reason: string
     patient: { id: string; first_name: string; last_name: string } | null
   }>
-  patientsForConsultation: Array<{
-    id: string
-    first_name: string
-    last_name: string
-    email?: string | null
-  }>
+  unpaidInvoices: UnpaidInvoice[]
 }
+
+/**
+ * Widgets secondaires, sous le bloc principal. Chacun peut être masqué :
+ * le choix est mémorisé sur ce poste uniquement.
+ */
+type OptionalWidget = 'relaunch' | 'osteoupgrade' | 'video' | 'progress' | 'weather'
+
+const OPTIONAL_WIDGETS: Array<{ id: OptionalWidget; label: string; needsOsteoUpgrade?: boolean }> = [
+  { id: 'relaunch', label: 'Relances patients' },
+  { id: 'osteoupgrade', label: 'Revue et formation à la une', needsOsteoUpgrade: true },
+  { id: 'video', label: 'Vidéo de pratique', needsOsteoUpgrade: true },
+  { id: 'progress', label: 'Progression' },
+  { id: 'weather', label: 'Météo' },
+]
+
+const DEFAULT_HIDDEN: OptionalWidget[] = ['video', 'progress', 'weather']
+const HIDDEN_WIDGETS_KEY = 'myosteoflow_dashboard_hidden_widgets'
 
 function greeting() {
   const h = new Date().getHours()
-  if (h < 12) return 'Bonjour'
-  if (h < 18) return 'Bon après-midi'
+  if (h < 18) return 'Bonjour'
   return 'Bonsoir'
 }
 
-export function Dashboard({
-  practitioner,
-  practitionerEmail,
-  stats,
-  patientsForConsultation,
-}: DashboardProps) {
-  const [isNewConsultationOpen, setIsNewConsultationOpen] = useState(false)
-  const [patientSearch, setPatientSearch] = useState('')
-  const router = useRouter()
+function daysSince(dateStr: string | null): number | null {
+  if (!dateStr) return null
+  return Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000))
+}
 
+export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoices }: DashboardProps) {
   // L'offre MyOsteoFlow seule n'inclut pas le contenu OsteoUpgrade : ses
   // endpoints répondent 403. On remplace les widgets par un encart d'offre
   // plutôt que d'afficher des cartes vides.
@@ -74,74 +86,222 @@ export function Dashboard({
   const [widgets, setWidgets] = useState<WidgetsData | null>(null)
   const [widgetsLoading, setWidgetsLoading] = useState(true)
   const [widgetsRefreshKey, setWidgetsRefreshKey] = useState(0)
+  const [hidden, setHidden] = useState<OptionalWidget[]>(DEFAULT_HIDDEN)
+  const [today, setToday] = useState<TodaySummary | null>(null)
+  const onSummary = useCallback((summary: TodaySummary) => setToday(summary), [])
 
   useEffect(() => {
+    try {
+      const stored = localStorage.getItem(HIDDEN_WIDGETS_KEY)
+      if (stored) setHidden(JSON.parse(stored) as OptionalWidget[])
+    } catch {
+      // Stockage indisponible : on garde les valeurs par défaut.
+    }
+  }, [])
+
+  const toggleWidget = (id: OptionalWidget, visible: boolean) => {
+    setHidden((previous) => {
+      const next = visible ? previous.filter((w) => w !== id) : [...previous, id]
+      try {
+        localStorage.setItem(HIDDEN_WIDGETS_KEY, JSON.stringify(next))
+      } catch {
+        // Le choix vaut alors pour la session en cours seulement.
+      }
+      return next
+    })
+  }
+
+  const availableWidgets = OPTIONAL_WIDGETS.filter((w) => !w.needsOsteoUpgrade || aOsteoUpgrade)
+  const isShown = (id: OptionalWidget) =>
+    !hidden.includes(id) && availableWidgets.some((w) => w.id === id)
+  const hiddenLabels = availableWidgets.filter((w) => hidden.includes(w.id)).map((w) => w.label.toLowerCase())
+
+  useEffect(() => {
+    if (!aOsteoUpgrade || !isShown('osteoupgrade')) return
     setWidgetsLoading(true)
     fetch('/api/osteoupgrade-widgets', { cache: 'no-store' })
       .then((r) => r.json())
       .then(setWidgets)
       .catch(() => setWidgets(null))
       .finally(() => setWidgetsLoading(false))
-  }, [widgetsRefreshKey, aOsteoUpgrade])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [widgetsRefreshKey, aOsteoUpgrade, hidden])
 
-  const filteredPatients = useMemo(() => {
-    const q = patientSearch.trim().toLowerCase()
-    if (!q) return []
-    return patientsForConsultation
-      .filter((p) => `${p.first_name} ${p.last_name}`.toLowerCase().includes(q))
-      .slice(0, 50)
-  }, [patientSearch, patientsForConsultation])
+  const country = practitioner.country
+  const unpaidTotal = unpaidInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
+
+  const kpis = [
+    {
+      label: 'Séances aujourd’hui',
+      value: String(Math.max(stats.todayConsultations, today?.total ?? 0)),
+      note: today && today.total > 0 ? `${today.done} sur ${today.total} vus` : 'Ma journée non préparée',
+      href: '/day-plan',
+    },
+    {
+      label: 'Encaissé ce mois',
+      value: formatCurrency(stats.monthlyRevenue, country),
+      note: 'Factures réglées',
+      href: '/accounting',
+    },
+    {
+      label: 'Factures impayées',
+      value: String(unpaidInvoices.length),
+      note: unpaidInvoices.length > 0 ? `${formatCurrency(unpaidTotal, country)} en attente` : 'Tout est réglé',
+      tone: unpaidInvoices.length > 0 ? 'warning' : 'success',
+      href: '/invoices?status=issued',
+    },
+    {
+      label: 'Messages non lus',
+      value: String(stats.unreadMessages),
+      note: stats.unreadMessages > 0 ? 'Conversations patients' : 'Rien en attente',
+      href: '/messages',
+    },
+  ] as const
+
+  const todo: Array<{ key: string; title: string; sub: string; cta: string; href: string; tone: 'warning' | 'info' }> = [
+    ...unpaidInvoices.slice(0, 3).map((invoice) => {
+      const days = daysSince(invoice.issued_at)
+      return {
+        key: invoice.id,
+        title: `Facture n° ${invoice.invoice_number} impayée`,
+        sub: [invoice.patientName, formatCurrency(invoice.amount, country), days !== null ? `${days} j` : null]
+          .filter(Boolean)
+          .join(' · '),
+        cta: 'Voir',
+        href: `/invoices/${invoice.id}`,
+        tone: 'warning' as const,
+      }
+    }),
+    ...(unpaidInvoices.length > 3
+      ? [{
+          key: 'more-invoices',
+          title: `${unpaidInvoices.length - 3} autre${unpaidInvoices.length - 3 > 1 ? 's' : ''} facture${unpaidInvoices.length - 3 > 1 ? 's' : ''} impayée${unpaidInvoices.length - 3 > 1 ? 's' : ''}`,
+          sub: 'Liste complète des impayés',
+          cta: 'Ouvrir',
+          href: '/invoices?status=issued',
+          tone: 'warning' as const,
+        }]
+      : []),
+    ...(stats.followUpsDue > 0
+      ? [{
+          key: 'follow-ups',
+          title: `${stats.followUpsDue} suivi${stats.followUpsDue > 1 ? 's' : ''} J+7 prévu${stats.followUpsDue > 1 ? 's' : ''} aujourd’hui`,
+          sub: 'Emails programmés',
+          cta: 'Vérifier',
+          href: '/scheduled-emails',
+          tone: 'info' as const,
+        }]
+      : []),
+    ...(stats.surveysToRead > 0
+      ? [{
+          key: 'surveys',
+          title: `${stats.surveysToRead} questionnaire${stats.surveysToRead > 1 ? 's' : ''} reçu${stats.surveysToRead > 1 ? 's' : ''}`,
+          sub: 'Suivi patients',
+          cta: 'Lire',
+          href: '/surveys',
+          tone: 'info' as const,
+        }]
+      : []),
+  ]
+
+  const summaryLine = today
+    ? today.total === 0
+      ? 'Aucun patient préparé pour aujourd’hui.'
+      : today.next
+        ? `${today.total} patient${today.total > 1 ? 's' : ''} aujourd’hui. Prochain : ${today.next.first_name} ${today.next.last_name}.`
+        : `${today.total} patient${today.total > 1 ? 's' : ''} aujourd’hui, tous vus. Belle journée !`
+    : ' '
 
   return (
-    <div className="space-y-6 animate-fade-in">
-
-      {/* ── Complétude du profil (tout en haut pour ne pas la manquer) ── */}
+    <div className="mx-auto max-w-6xl space-y-6 animate-fade-in">
       <ProfileCompletionWidget />
 
-      {/* ── Header banner ── */}
-      <div className="relative overflow-hidden rounded-2xl px-6 py-5 text-white gradient-primary">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-xl" />
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/3 blur-lg" />
-        <div className="relative z-10 space-y-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="flex flex-col gap-3">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Sparkles className="h-4 w-4 text-white/70" />
-                <span className="text-sm text-white/70">
-                  {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-                </span>
-              </div>
-              <h1 className="text-2xl font-bold">{greeting()}, {practitioner.first_name} !</h1>
-            </div>
-            <Button
-              className="self-start gap-2 bg-white/15 text-white border border-white/20 hover:bg-white/25 backdrop-blur-sm"
-              onClick={() => setIsNewConsultationOpen(true)}
-              data-tour="dashboard-new-consult"
-            >
-              <Plus className="h-4 w-4" />
-              Nouvelle consultation
-            </Button>
-          </div>
-          <BannerWeather />
+      {/* ── Accueil ── */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            {greeting()} {practitioner.first_name}
+          </h2>
+          <p className="text-[15px] text-muted-foreground">{summaryLine}</p>
         </div>
-
-        <div className="pt-4 border-t border-white/20">
-          <DayPlanWidget variant="banner" />
-        </div>
+        <div className="flex items-center gap-3">
+          {isShown('weather') && <HeaderWeather />}
+          <Button
+            className="gap-2"
+            onClick={() => openCommandPalette('consultation')}
+            data-tour="dashboard-new-consult"
+          >
+            <Plus className="h-4 w-4" />
+            Nouvelle consultation
+          </Button>
         </div>
       </div>
 
-      {/* ── Progression pleine largeur ── */}
-      <ProgressWidget layout="horizontal" />
+      {/* ── Chiffres du jour ── */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {kpis.map((kpi) => (
+          <Link key={kpi.label} href={kpi.href} className="stat-card flex flex-col gap-1.5 !p-4 sm:!p-5">
+            <span className="text-[13px] font-medium text-muted-foreground">{kpi.label}</span>
+            <span className="text-2xl font-semibold tabular-nums tracking-tight">{kpi.value}</span>
+            <span
+              className={cn(
+                'text-[13px]',
+                'tone' in kpi && kpi.tone === 'warning' && 'text-warning',
+                'tone' in kpi && kpi.tone === 'success' && 'text-success',
+                !('tone' in kpi) && 'text-muted-foreground'
+              )}
+            >
+              {kpi.note}
+            </span>
+          </Link>
+        ))}
+      </div>
 
-      {/* ── 3 colonnes : OsteoUpgrade | Vidéo | OsteoFlash ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+      {/* ── Aujourd'hui | À traiter ── */}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <TodayPanel onSummary={onSummary} />
+        </div>
 
-        {/* Gauche : Revue + Nouveauté empilées, ou proposition d'offre */}
-        <div className="lg:col-span-1 flex flex-col gap-4">
-          {aOsteoUpgrade ? (
-            <>
+        <div className="flex flex-col gap-6">
+          <section className="glass-card rounded-xl" aria-labelledby="todo-title">
+            <div className="border-b border-border px-5 py-4">
+              <h2 id="todo-title" className="text-base font-semibold">À traiter</h2>
+            </div>
+            {todo.length === 0 ? (
+              <p className="px-5 py-6 text-sm text-muted-foreground">Rien en attente. Tout est à jour.</p>
+            ) : (
+              <ul className="py-2">
+                {todo.map((item) => (
+                  <li key={item.key} className="flex items-center gap-3 px-5 py-2.5">
+                    <span
+                      aria-hidden="true"
+                      className={cn('h-2 w-2 shrink-0 rounded-full', item.tone === 'warning' ? 'bg-warning' : 'bg-primary')}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">{item.title}</span>
+                      <span className="block truncate text-[13px] text-muted-foreground">{item.sub}</span>
+                    </span>
+                    <Button variant="outline" size="sm" className="h-8 shrink-0" asChild>
+                      <Link href={item.href}>{item.cta}</Link>
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {aOsteoUpgrade ? <FlashcardsWidget /> : <OsteoUpgradeUpsellWidget />}
+        </div>
+      </div>
+
+      {/* ── Widgets secondaires ── */}
+      {isShown('progress') && <ProgressWidget layout="horizontal" />}
+
+      {(isShown('relaunch') || isShown('osteoupgrade') || isShown('video')) && (
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+          {isShown('osteoupgrade') && (
+            <div className="flex flex-col gap-6">
               <ReviewWidget
                 review={widgets?.review ?? null}
                 loading={widgetsLoading}
@@ -152,70 +312,57 @@ export function Dashboard({
                 loading={widgetsLoading}
                 practitionerEmail={practitionerEmail}
               />
-            </>
-          ) : (
-            <OsteoUpgradeUpsellWidget />
+            </div>
+          )}
+          {isShown('video') && (
+            <div className="lg:col-span-2">
+              <VideoWidget />
+            </div>
+          )}
+          {isShown('relaunch') && (
+            <div className={cn(!isShown('video') && !isShown('osteoupgrade') ? 'lg:col-span-3' : !isShown('video') ? 'lg:col-span-2' : '')}>
+              <RelaunchWidget />
+            </div>
           )}
         </div>
+      )}
 
-        {/* Centre : Vidéo (contenu OsteoUpgrade) */}
-        {aOsteoUpgrade && (
-          <div className="lg:col-span-2">
-            <VideoWidget />
-          </div>
+      {/* ── Personnalisation ── */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
+        {hiddenLabels.length > 0 && (
+          <span>
+            {hiddenLabels.length === 1 ? 'Masqué' : 'Masqués'} : {hiddenLabels.join(', ')}.
+          </span>
         )}
-
-        {/* Droite : OsteoFlash (OsteoUpgrade) + Relances */}
-        <div className={aOsteoUpgrade ? 'lg:col-span-1 flex flex-col gap-4' : 'lg:col-span-3 flex flex-col gap-4'}>
-          {aOsteoUpgrade && <FlashcardsWidget />}
-          <RelaunchWidget />
-        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button type="button" className="inline-flex items-center gap-1.5 font-medium text-accent-foreground hover:underline">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Personnaliser le tableau de bord
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-72 p-3">
+            <p className="mb-2 text-sm font-semibold">Widgets affichés</p>
+            <div className="space-y-1">
+              {availableWidgets.map((widget) => (
+                <label key={widget.id} className="flex min-h-9 cursor-pointer items-center gap-3 rounded-md px-2 text-sm hover:bg-muted">
+                  <Checkbox
+                    checked={!hidden.includes(widget.id)}
+                    onCheckedChange={(checked) => toggleWidget(widget.id, checked === true)}
+                  />
+                  {widget.label}
+                </label>
+              ))}
+            </div>
+            {!aOsteoUpgrade && (
+              <p className="mt-3 flex items-start gap-2 rounded-md ai-surface p-2 text-xs text-muted-foreground">
+                <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ai" />
+                Les widgets de formation sont inclus avec OsteoUpgrade.
+              </p>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
-
-      {/* ── New consultation dialog ── */}
-      <Dialog open={isNewConsultationOpen} onOpenChange={setIsNewConsultationOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Nouvelle consultation</DialogTitle>
-            <DialogDescription>Recherchez un patient pour créer une consultation.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Input
-              placeholder="Rechercher par nom ou prénom..."
-              value={patientSearch}
-              onChange={(e) => setPatientSearch(e.target.value)}
-            />
-            <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-              {!patientSearch.trim() ? (
-                <p className="text-center text-sm text-muted-foreground py-6">Tapez un nom pour rechercher.</p>
-              ) : filteredPatients.length === 0 ? (
-                <p className="text-center text-sm text-muted-foreground py-6">Aucun patient trouvé.</p>
-              ) : (
-                filteredPatients.map((patient) => (
-                  <button
-                    key={patient.id}
-                    type="button"
-                    onClick={() => {
-                      setIsNewConsultationOpen(false)
-                      setPatientSearch('')
-                      router.push(`/patients/${patient.id}/consultation/new`)
-                    }}
-                    className="w-full rounded-xl border border-border/60 px-4 py-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/50"
-                  >
-                    <p className="font-medium">{patient.first_name} {patient.last_name}</p>
-                    <p className="text-sm text-muted-foreground">{patient.email || 'Email non renseigné'}</p>
-                  </button>
-                ))
-              )}
-            </div>
-            <div className="flex justify-end">
-              <Button variant="outline" asChild>
-                <Link href="/patients/new">Créer un nouveau patient</Link>
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

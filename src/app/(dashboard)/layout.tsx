@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
 import { Sidebar } from '@/components/layout/sidebar'
+import { CommandPalette } from '@/components/layout/command-palette'
+import { getInitials } from '@/lib/utils'
 import { Header } from '@/components/layout/header'
 import { UpdateBanner } from '@/components/layout/update-banner'
 import { WhatsNewDialog } from '@/components/layout/whats-new-dialog'
@@ -80,14 +82,18 @@ export default async function DashboardLayout({
     <TourWrapper>
       <CurrencySync country={practitioner?.country} />
       <div className="min-h-screen">
-        <Sidebar />
-        <div className="lg:pl-64">
+        <Sidebar
+          displayName={practitioner ? `${practitioner.first_name} ${practitioner.last_name}`.trim() : user.email}
+          initials={practitioner ? getInitials(practitioner.first_name, practitioner.last_name) : undefined}
+        />
+        <div className="lg:pl-64" data-app-shell>
           <UpdateBanner />
           <Header user={user} practitioner={practitioner} />
           <main className="p-4 lg:px-8 lg:py-6">
             {children}
           </main>
         </div>
+        <CommandPalette />
         <WhatsNewDialog />
         <BackupReminderDialog />
         <ChangeCabinetDialog />
