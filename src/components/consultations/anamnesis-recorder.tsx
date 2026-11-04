@@ -789,7 +789,10 @@ export function AnamnesisRecorder({ onApply, onHypothesesStart, onHypothesesRead
   return (
     <div
       className={cn(
-        'rounded-xl border bg-muted/30 p-4 space-y-3 transition-all',
+        'rounded-xl border p-4 space-y-3 transition-all',
+        state === 'idle' && 'border-dashed border-border bg-transparent',
+        state === 'error' && 'bg-muted/30',
+        state === 'processing' && 'bg-muted/30',
         state === 'recording' && 'border-red-300 bg-red-50/50 dark:bg-red-950/20',
         state === 'reconnecting' && 'border-amber-300 bg-amber-50/50 dark:bg-amber-950/20',
         state === 'transcribing' && 'border-indigo-300 bg-indigo-50/50 dark:bg-indigo-950/20',

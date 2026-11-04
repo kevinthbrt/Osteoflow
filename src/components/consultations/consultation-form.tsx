@@ -56,7 +56,7 @@ import { PatientPrescriptionsListDialog } from '@/components/exercises/patient-p
 import { TestsSuggestionsPanel } from '@/components/consultations/tests-suggestions-panel'
 import { OrthoTestsPickerDialog } from '@/components/consultations/ortho-tests-picker-dialog'
 import { useEntitlements } from '@/hooks/use-entitlements'
-import { SessionBar, type DraftStatus } from '@/components/consultations/session-bar'
+import { SessionControls, type DraftStatus } from '@/components/consultations/session-bar'
 import { AtMentionDropdown } from '@/components/consultations/at-mention-dropdown'
 import {
   POST_SESSION_ADVICE_OPTIONS,
@@ -95,22 +95,20 @@ function getInitials(firstName?: string | null, lastName?: string | null): strin
 function SectionHeading({
   icon: Icon,
   title,
-  tone,
   action,
 }: {
   icon: React.ComponentType<{ className?: string }>
   title: string
-  tone: string
+  /** Conservé pour compatibilité : les titres sont désormais monochromes */
+  tone?: string
   action?: React.ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-2">
-      <div className="flex items-center gap-2.5">
-        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', tone)}>
-          <Icon className="h-[18px] w-[18px]" />
-        </span>
-        <h3 className="text-base font-semibold tracking-tight">{title}</h3>
-      </div>
+    <div className="flex min-h-8 items-center justify-between gap-2">
+      <h3 className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        {title}
+      </h3>
       {action}
     </div>
   )
@@ -126,9 +124,6 @@ const SECTION_TONES = {
 
 /** Cartes de la page : la carte par défaut suffit (surface nette, bordure fine). */
 const CARD_TINT = ''
-
-/** Encart des sous-sections : fond gris très léger pour les détacher dans la carte. */
-const ENCART = 'rounded-xl border border-border bg-muted/40 p-4'
 
 export function ConsultationForm({
   patient,
@@ -1446,14 +1441,6 @@ export function ConsultationForm({
     </Dialog>
   )
 
-  const sessionSections = [
-    { id: 'sec-infos', label: 'Motif', done: !!reason?.trim() },
-    { id: 'sec-anamnese', label: 'Anamnèse', done: !!anamnesis?.trim() },
-    { id: 'sec-hypotheses', label: 'Hypothèses', done: !!hypotheses },
-    { id: 'sec-examen', label: 'Examen', done: !!examination?.trim() },
-    { id: 'sec-conseils', label: 'Conseils', done: !!advice?.trim() },
-  ]
-
   const handleSaveShortcut = () => {
     if (mode === 'create') {
       if (!submittedRef.current) postDraft()
@@ -1467,105 +1454,54 @@ export function ConsultationForm({
 
   const formContent = (
     <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
-      <SessionBar
-        sections={sessionSections}
-        draftStatus={mode === 'create' ? draftStatus : undefined}
-        onSave={handleSaveShortcut}
-        onFinish={() => setShowFinalizeModal(true)}
-      />
       <div className="space-y-6">
-          <Card id="sec-infos" className={cn('scroll-mt-36', CARD_TINT)}>
-            <CardContent className="grid gap-4 p-4 sm:grid-cols-[minmax(0,220px)_1fr] sm:p-5">
-              <div className="space-y-1.5">
-                <Label htmlFor="date_time" className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Date et heure *
-                </Label>
+          <Card id="sec-infos" className="scroll-mt-24">
+            <div className="flex flex-wrap items-center gap-3 border-b border-border px-6 pb-4 pt-5">
+              <div className="min-w-0 flex-1 basis-72">
+                <Label htmlFor="reason" className="sr-only">Motif de consultation</Label>
+                <input
+                  id="reason"
+                  {...register('reason')}
+                  disabled={isLoading}
+                  autoComplete="off"
+                  placeholder="Motif de la consultation"
+                  className="w-full bg-transparent text-xl font-semibold tracking-tight outline-none placeholder:font-medium placeholder:text-muted-foreground/70 focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                {errors.reason && (
+                  <p className="mt-1 text-sm text-destructive">{errors.reason.message}</p>
+                )}
+              </div>
+              <div className="shrink-0">
+                <Label htmlFor="date_time" className="sr-only">Date et heure</Label>
                 <Input
                   id="date_time"
                   type="datetime-local"
                   {...register('date_time')}
                   disabled={isLoading}
+                  className="h-9 w-auto border-transparent bg-muted/60 text-sm text-muted-foreground shadow-none hover:bg-muted focus-visible:bg-card"
                 />
                 {errors.date_time && (
-                  <p className="text-sm text-destructive">{errors.date_time.message}</p>
+                  <p className="mt-1 text-sm text-destructive">{errors.date_time.message}</p>
                 )}
               </div>
+            </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="reason" className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Motif de consultation *
-                </Label>
-                <Input
-                  id="reason"
-                  className="font-medium"
-                  {...register('reason')}
-                  disabled={isLoading}
-                  placeholder="Lombalgie, cervicalgie, suivi..."
-                />
-                {errors.reason && (
-                  <p className="text-sm text-destructive">{errors.reason.message}</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+            <div className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-1.5">
+              <Button type="button" variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => setShowTopography(true)}>
+                <MapPin className="h-4 w-4" />
+                Topographie
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => setShowExercises(true)}>
+                <Dumbbell className="h-4 w-4" />
+                Exercices
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="gap-1.5 text-ai hover:bg-ai-soft hover:text-ai" onClick={() => setShowAiExercises(true)}>
+                <Sparkles className="h-4 w-4" />
+                Exercices par IA
+              </Button>
+            </div>
 
-          <Card className={CARD_TINT}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', SECTION_TONES.clinique)}>
-                    <Stethoscope className="h-[18px] w-[18px]" />
-                  </span>
-                  <CardTitle className="text-lg">Contenu clinique</CardTitle>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:text-sky-800 dark:border-sky-800/50 dark:bg-sky-950/40 dark:text-sky-300 dark:hover:bg-sky-900/50"
-                    onClick={() => setShowTopography(true)}
-                  >
-                    <MapPin className="h-4 w-4" />
-                    Topographie
-                  </Button>
-                  {/* AI suggest-tests button — temporarily hidden in favour of manual picker
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
-                    onClick={() => setShowTestsSuggestions(true)}
-                  >
-                    <Stethoscope className="h-4 w-4" />
-                    Tests orthos
-                  </Button>
-                  */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-800/50 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/50"
-                    onClick={() => setShowExercises(true)}
-                  >
-                    <Dumbbell className="h-4 w-4" />
-                    Exercices
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100 hover:text-fuchsia-800 dark:border-fuchsia-800/50 dark:bg-fuchsia-950/40 dark:text-fuchsia-300 dark:hover:bg-fuchsia-900/50"
-                    onClick={() => setShowAiExercises(true)}
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Exercices par IA
-                  </Button>
-                </div>
-              </div>
-              <CardDescription>Anamnèse, examen et conseils</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-8 p-6">
               <AnamnesisRecorder
                 key={currentPatient.id}
                 patientId={currentPatient.id}
@@ -1704,7 +1640,7 @@ export function ConsultationForm({
                   return failedKeys
                 }}
               />
-              <div id="sec-anamnese" className={cn('space-y-3 scroll-mt-36', ENCART)}>
+              <div id="sec-anamnese" className="space-y-2.5 scroll-mt-24">
                 <SectionHeading icon={FileText} title="Anamnèse" tone={SECTION_TONES.anamnese} />
                 {anamnesisCardSections ? (
                   <AnamnesisCards
@@ -1734,6 +1670,7 @@ export function ConsultationForm({
                     disabled={isLoading}
                     placeholder="Histoire de la maladie, circonstances d'apparition, évolution..."
                     rows={4}
+                    className="border-transparent bg-muted/40 transition-[height,background-color] hover:bg-muted/60 focus-visible:border-input focus-visible:bg-card"
                   />
                 )}
                 {errors.anamnesis && (
@@ -1741,7 +1678,7 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div id="sec-hypotheses" className={cn('space-y-3 scroll-mt-36', ENCART)}>
+              <div id="sec-hypotheses" className="space-y-2.5 scroll-mt-24">
                 <SectionHeading icon={Brain} title="Hypothèses cliniques" tone={SECTION_TONES.hypotheses} />
                 {!hypotheses && (
                   <Button
@@ -1750,7 +1687,7 @@ export function ConsultationForm({
                     size="sm"
                     onClick={generateHypotheses}
                     disabled={!anamnesis?.trim() || hypothesesLoading || isLoading}
-                    className="w-full gap-1.5 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-800/50 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/50"
+                    className="gap-1.5 border-ai/20 bg-ai-soft text-ai hover:bg-ai-soft hover:text-ai hover:border-ai/40"
                   >
                     {hypothesesLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -1773,7 +1710,7 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div id="sec-examen" className={cn('space-y-3 scroll-mt-36', ENCART)}>
+              <div id="sec-examen" className="space-y-2.5 scroll-mt-24">
                 <SectionHeading
                   icon={Activity}
                   title="Examen clinique et traitement"
@@ -1782,9 +1719,9 @@ export function ConsultationForm({
                     aOsteoUpgrade ? (
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+                        className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
                         onClick={() => setShowOrthoTestsPicker(true)}
                       >
                         <Stethoscope className="h-4 w-4" />
@@ -1845,7 +1782,7 @@ export function ConsultationForm({
                   disabled={isLoading}
                   placeholder="Tests effectués, dysfonctions trouvées... (@ec<région> pour tests ortho, @tech<région> pour vos techniques)"
                   rows={4}
-                  className="min-h-[100px] resize-none overflow-hidden transition-[height] duration-200"
+                  className="min-h-[96px] resize-none overflow-hidden border-transparent bg-muted/40 shadow-none transition-[height,background-color] duration-200 hover:bg-muted/60 focus-visible:border-input focus-visible:bg-card"
                 />
                 {ecMentionRegion !== null && (
                   <AtMentionDropdown
@@ -1897,7 +1834,7 @@ export function ConsultationForm({
                 )}
               </div>
 
-              <div id="sec-conseils" className={cn('space-y-3 scroll-mt-36', ENCART)}>
+              <div id="sec-conseils" className="space-y-2.5 scroll-mt-24">
                 <SectionHeading icon={Lightbulb} title="Conseils donnés" tone={SECTION_TONES.conseils} />
                 <Textarea
                   id="advice"
@@ -1907,7 +1844,7 @@ export function ConsultationForm({
                   disabled={isLoading}
                   placeholder="Exercices, postures, recommandations..."
                   rows={3}
-                  className="min-h-[100px] resize-none overflow-hidden transition-[height] duration-200"
+                  className="min-h-[96px] resize-none overflow-hidden border-transparent bg-muted/40 shadow-none transition-[height,background-color] duration-200 hover:bg-muted/60 focus-visible:border-input focus-visible:bg-card"
                 />
                 {errors.advice && (
                   <p className="text-sm text-destructive">{errors.advice.message}</p>
@@ -1919,9 +1856,11 @@ export function ConsultationForm({
       </div>
 
       <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-border bg-background pt-3 pb-3 -mx-1 px-1">
-        <span className="mr-auto hidden xl:block truncate text-xs text-muted-foreground">
-          Ctrl + S brouillon · Ctrl + Entrée terminer · Alt + ↑ ↓ sections
-        </span>
+        <SessionControls
+          draftStatus={mode === 'create' ? draftStatus : undefined}
+          onSave={handleSaveShortcut}
+          onFinish={() => setShowFinalizeModal(true)}
+        />
         <Button
           type="button"
           variant="outline"
