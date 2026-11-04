@@ -3,17 +3,24 @@
   "name": "Osteoflow : import Doctolib",
   "short_name": "Osteoflow Doctolib",
   "version": "1.0.0",
-  "description": "Envoie les rendez-vous du jour de votre agenda Doctolib Pro vers Osteoflow, sur votre poste. Outil indépendant, non affilié à Doctolib.",
+  "description": "Envoie les rendez-vous de votre agenda Doctolib Pro vers Osteoflow, sur votre poste. Outil indépendant, non affilié à Doctolib.",
   "icons": {
-    "16": "icons/icon-128.png",
-    "48": "icons/icon-128.png",
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
   "action": {
     "default_title": "Envoyer à Osteoflow",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
   },
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "https://pro.doctolib.fr/*",
     "http://localhost/*",
@@ -21,8 +28,12 @@
   ],
   "content_scripts": [
     {
-      "matches": ["https://pro.doctolib.fr/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://pro.doctolib.fr/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_start"
     }
   ]

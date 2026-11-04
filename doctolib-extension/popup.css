@@ -65,3 +65,4 @@ details[open] { display: flex; flex-direction: column; gap: 6px; }
 summary { cursor: pointer; font-weight: 500; color: var(--muted); }
 .hint { margin: -2px 0 4px; font-size: 12px; color: var(--muted); }
 footer { margin-top: 14px; font-size: 11px; color: var(--muted); }
+details input, details button { width: 100%; }

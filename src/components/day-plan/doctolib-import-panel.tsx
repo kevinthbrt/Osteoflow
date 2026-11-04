@@ -8,6 +8,7 @@ import { createClient } from '@/lib/db/client'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { copyText } from '@/lib/utils/clipboard'
+import { DOCTOLIB_EXTENSION_PUBLISHED, DOCTOLIB_EXTENSION_STORE_URL, DOCTOLIB_TESTING_KEY } from '@/lib/doctolib/config'
 import {
   localDay,
   localTime,
@@ -55,6 +56,20 @@ export function DoctolibImportPanel({
   const [saving, setSaving] = useState(false)
   const [showPairing, setShowPairing] = useState(false)
   const [code, setCode] = useState<string | null>(null)
+  const [introVisible, setIntroVisible] = useState(DOCTOLIB_EXTENSION_PUBLISHED)
+
+  // Avant la publication de l'extension, l'encart ne s'affiche qu'en test
+  useEffect(() => {
+    if (DOCTOLIB_EXTENSION_PUBLISHED) return
+    try {
+      const flag = new URLSearchParams(window.location.search).get('doctolib')
+      if (flag === '1') localStorage.setItem(DOCTOLIB_TESTING_KEY, '1')
+      if (flag === '0') localStorage.removeItem(DOCTOLIB_TESTING_KEY)
+      setIntroVisible(localStorage.getItem(DOCTOLIB_TESTING_KEY) === '1')
+    } catch {
+      setIntroVisible(false)
+    }
+  }, [])
 
   const loadPending = useCallback(async () => {
     try {
@@ -231,6 +246,7 @@ export function DoctolibImportPanel({
 
   // ── Aucun envoi en attente : présentation et appairage ──
   if (!pending) {
+    if (!introVisible) return null
     return (
       <section className="max-w-2xl rounded-xl border border-dashed border-border bg-card px-5 py-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -239,6 +255,13 @@ export function DoctolibImportPanel({
             <span className="font-medium text-foreground">Importer depuis Doctolib.</span>{' '}
             Avec l’extension Osteoflow, envoyez vos rendez-vous Doctolib ici en un clic. Ils restent sur ce poste.
           </p>
+          {DOCTOLIB_EXTENSION_STORE_URL && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={DOCTOLIB_EXTENSION_STORE_URL} target="_blank" rel="noreferrer">
+                Installer l’extension
+              </a>
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

@@ -375,7 +375,7 @@ export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoic
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {!editing && (
-            <Button variant="outline" className="gap-2 border-primary/40 text-accent-foreground hover:bg-accent" onClick={startEditing}>
+            <Button variant="outline" className="gap-2 border-primary/40 text-accent-foreground hover:bg-accent" onClick={startEditing} data-tour="dashboard-organize">
               <LayoutGrid className="h-4 w-4" />
               Organiser
             </Button>

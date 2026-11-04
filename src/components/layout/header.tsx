@@ -101,7 +101,7 @@ export function Header({ user, practitioner }: HeaderProps) {
         {/* Création rapide */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button className="h-10 gap-1.5 rounded-lg px-3 sm:px-4" aria-label="Créer">
+            <Button className="h-10 gap-1.5 rounded-lg px-3 sm:px-4" aria-label="Créer" data-tour="header-new">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Nouveau</span>
             </Button>
