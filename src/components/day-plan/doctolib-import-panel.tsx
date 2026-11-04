@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { createClient } from '@/lib/db/client'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { copyText } from '@/lib/utils/clipboard'
 import {
   localDay,
   localTime,
@@ -214,7 +215,7 @@ export function DoctolibImportPanel({
               d’envoyer des données à Osteoflow.
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              <code className="rounded-lg bg-muted px-3 py-1.5 font-mono text-base font-semibold tracking-widest">
+              <code className="select-all rounded-lg bg-muted px-3 py-1.5 font-mono text-base font-semibold tracking-widest">
                 {code ?? '…'}
               </code>
               <Button
@@ -222,10 +223,12 @@ export function DoctolibImportPanel({
                 size="sm"
                 className="gap-1.5"
                 disabled={!code}
-                onClick={() => {
+                onClick={async () => {
                   if (!code) return
-                  navigator.clipboard?.writeText(code).catch(() => {})
-                  toast({ title: 'Code copié' })
+                  const ok = await copyText(code)
+                  toast(ok
+                    ? { title: 'Code copié', variant: 'success' }
+                    : { title: 'Copie impossible', description: 'Sélectionnez le code et copiez-le avec Cmd + C (Ctrl + C sur PC).', variant: 'destructive' })
                 }}
               >
                 <Copy className="h-4 w-4" />
