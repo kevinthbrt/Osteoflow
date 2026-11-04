@@ -3,6 +3,8 @@ import {
   parseDoctolibAppointments,
   matchPatient,
   normalizeName,
+  hasSimilarPatient,
+  canAutoCreate,
   localDay,
   localTime,
   type DoctolibAppointment,
@@ -118,5 +120,29 @@ describe('localDay / localTime', () => {
   it('garde le jour et l’heure saisis dans Doctolib, sans conversion de fuseau', () => {
     expect(localDay('2026-10-26T23:30:00.000+01:00')).toBe('2026-10-26')
     expect(localTime('2026-10-26T08:40:00.000+01:00')).toBe('08:40')
+  })
+})
+
+describe('création automatique', () => {
+  const nina = parseDoctolibAppointments([appointment({ id: 'n' }, { first_name: 'Nina', last_name: 'Garcia', birthdate: '1988-02-02' })])[0]
+  const patients: MatchablePatient[] = [{ id: 'p1', first_name: 'Léa', last_name: 'Martin', birth_date: '1990-04-12' }]
+
+  it('autorisée pour un inconnu complet', () => {
+    expect(canAutoCreate(nina, patients)).toBe(true)
+  })
+
+  it('refusée si un dossier porte le même nom de famille', () => {
+    expect(canAutoCreate({ ...nina, lastName: 'MARTIN' }, patients)).toBe(false)
+    expect(hasSimilarPatient({ ...nina, maidenName: 'Martin' }, patients)).toBe(true)
+  })
+
+  it('refusée si même prénom et même date de naissance', () => {
+    expect(canAutoCreate({ ...nina, firstName: 'Lea', birthDate: '1990-04-12' }, patients)).toBe(false)
+  })
+
+  it('refusée sans les champs obligatoires de la fiche', () => {
+    expect(canAutoCreate({ ...nina, birthDate: null }, patients)).toBe(false)
+    expect(canAutoCreate({ ...nina, phone: null }, patients)).toBe(false)
+    expect(canAutoCreate({ ...nina, gender: null }, patients)).toBe(false)
   })
 })

@@ -12,6 +12,7 @@ import {
   localDay,
   localTime,
   matchPatient,
+  canAutoCreate,
   type DoctolibAppointment,
   type MatchablePatient,
   type PatientMatch,
@@ -130,6 +131,49 @@ export function DoctolibImportPanel({
     const id = choices[appointment.doctolibId]
     return id && !inPlan.has(id)
   })
+
+  // Nouveaux patients que l'on peut créer d'un coup, sans risque de doublon
+  const autoCreatable = (pending?.appointments ?? []).filter(
+    (appointment) =>
+      !choices[appointment.doctolibId] &&
+      matches[appointment.doctolibId]?.status === 'none' &&
+      canAutoCreate(appointment, patients)
+  )
+  const [creatingAll, setCreatingAll] = useState(false)
+
+  const createAll = async () => {
+    if (!practitionerId || autoCreatable.length === 0) return
+    setCreatingAll(true)
+    const created: Record<string, string> = {}
+    let failed = 0
+    try {
+      for (const appointment of autoCreatable) {
+        const { data, error } = await db
+          .from('patients')
+          .insert({
+            practitioner_id: practitionerId,
+            gender: appointment.gender,
+            first_name: appointment.firstName,
+            last_name: appointment.lastName,
+            birth_date: appointment.birthDate,
+            phone: appointment.phone,
+            ...(appointment.email ? { email: appointment.email } : {}),
+          })
+          .select('id')
+          .single()
+        if (error || !data) failed++
+        else created[appointment.doctolibId] = (data as { id: string }).id
+      }
+    } finally {
+      setChoices((previous) => ({ ...previous, ...created }))
+      await loadPatients()
+      setCreatingAll(false)
+    }
+    const count = Object.keys(created).length
+    toast(failed === 0
+      ? { title: `${count} dossier${count > 1 ? 's' : ''} créé${count > 1 ? 's' : ''}`, variant: 'success' }
+      : { title: `${count} dossier${count > 1 ? 's' : ''} créé${count > 1 ? 's' : ''}, ${failed} en échec`, description: 'Créez les autres avec « Créer le patient ».', variant: 'destructive' })
+  }
 
   const dismiss = async () => {
     await fetch('/api/doctolib/import', { method: 'DELETE', headers: APP_HEADERS })
@@ -358,6 +402,18 @@ export function DoctolibImportPanel({
         <p className="mr-auto text-[13px] text-muted-foreground">
           Les patients s’ajoutent dans l’ordre des rendez-vous.
         </p>
+        {autoCreatable.length > 0 && (
+          <Button
+            variant="outline"
+            onClick={createAll}
+            disabled={creatingAll || saving}
+            className="gap-2"
+            title="Crée les dossiers avec les informations Doctolib. Les patients qui ressemblent à un dossier existant restent à vérifier un par un."
+          >
+            {creatingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+            Créer {autoCreatable.length > 1 ? `les ${autoCreatable.length} nouveaux patients` : 'le nouveau patient'}
+          </Button>
+        )}
         <Button onClick={addToDay} disabled={saving || selected.length === 0} className="gap-2">
           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
           Ajouter {selected.length} patient{selected.length > 1 ? 's' : ''} à la journée

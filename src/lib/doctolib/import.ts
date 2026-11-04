@@ -165,6 +165,37 @@ export function matchPatient(appointment: DoctolibAppointment, patients: Matchab
   return { status: 'none', patientId: null, candidates: [] }
 }
 
+/**
+ * Un dossier rappelle-t-il ce patient, même de loin ? (même nom de famille, ou
+ * même prénom et même date de naissance.) Dans ce cas, on ne crée jamais de
+ * dossier automatiquement : le risque de doublon est trop grand.
+ */
+export function hasSimilarPatient(appointment: DoctolibAppointment, patients: MatchablePatient[]): boolean {
+  const lastNames = [appointment.lastName, appointment.maidenName]
+    .filter((name): name is string => !!name)
+    .map(normalizeName)
+  const first = normalizeName(appointment.firstName)
+  return patients.some((patient) =>
+    lastNames.includes(normalizeName(patient.last_name)) ||
+    (!!appointment.birthDate && patient.birth_date === appointment.birthDate && normalizeName(patient.first_name) === first)
+  )
+}
+
+/**
+ * Peut-on créer le dossier sans rien demander ? Inconnu du fichier, sans
+ * ressemblance, et avec les champs obligatoires de la fiche patient.
+ */
+export function canAutoCreate(appointment: DoctolibAppointment, patients: MatchablePatient[]): boolean {
+  return (
+    !!appointment.firstName &&
+    !!appointment.lastName &&
+    !!appointment.birthDate &&
+    !!appointment.gender &&
+    !!appointment.phone &&
+    !hasSimilarPatient(appointment, patients)
+  )
+}
+
 /** Jour local (AAAA-MM-JJ) d'une date Doctolib avec fuseau, ex. 2026-10-26T08:40:00.000+01:00 */
 export function localDay(isoDate: string): string {
   const match = isoDate.match(/^(\d{4}-\d{2}-\d{2})/)
