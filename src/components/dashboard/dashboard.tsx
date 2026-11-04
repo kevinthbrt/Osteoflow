@@ -63,7 +63,7 @@ interface DashboardProps {
  * ordre, largeur (1, 2 ou 3 colonnes) et visibilité. La disposition est
  * mémorisée sur ce poste.
  */
-type BlockId = 'today' | 'todo' | 'osteoupgrade' | 'review' | 'video' | 'relaunch' | 'progress' | 'weather'
+type BlockId = 'today' | 'todo' | 'osteoupgrade' | 'review' | 'video' | 'relaunch' | 'progress'
 type BlockSize = 1 | 2 | 3
 
 interface BlockLayout {
@@ -80,7 +80,6 @@ const BLOCKS: Record<BlockId, { label: string; needsOsteoUpgrade?: boolean }> = 
   video: { label: 'Vidéo de pratique', needsOsteoUpgrade: true },
   relaunch: { label: 'Relances patients' },
   progress: { label: 'Progression' },
-  weather: { label: 'Météo' },
 }
 
 const DEFAULT_LAYOUT: BlockLayout[] = [
@@ -91,7 +90,6 @@ const DEFAULT_LAYOUT: BlockLayout[] = [
   { id: 'review', size: 1, hidden: false },
   { id: 'video', size: 2, hidden: true },
   { id: 'progress', size: 3, hidden: true },
-  { id: 'weather', size: 1, hidden: true },
 ]
 
 const LAYOUT_KEY = 'myosteoflow_dashboard_layout_v1'
@@ -357,13 +355,6 @@ export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoic
         return <RelaunchWidget />
       case 'progress':
         return <ProgressWidget layout={block.size === 1 ? 'vertical' : 'horizontal'} />
-      case 'weather':
-        return (
-          <section className="glass-card flex items-center justify-between gap-3 rounded-xl px-5 py-4">
-            <h2 className="text-base font-semibold">Météo</h2>
-            <HeaderWeather />
-          </section>
-        )
     }
   }
 
@@ -374,9 +365,12 @@ export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoic
       {/* ── Accueil ── */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1">
-          <h2 className="text-2xl font-semibold tracking-tight">
-            {greeting()} {practitioner.first_name}
-          </h2>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h2 className="text-2xl font-semibold tracking-tight">
+              {greeting()} {practitioner.first_name}
+            </h2>
+            <HeaderWeather variant="greeting" />
+          </div>
           <p className="text-[15px] text-muted-foreground">{summaryLine}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

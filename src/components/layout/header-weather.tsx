@@ -16,7 +16,12 @@ import {
   fetchWeatherFromCoords,
 } from '@/lib/utils/weather'
 
-export function HeaderWeather() {
+/**
+ * Météo du jour. `variant="greeting"` l'affiche dans la ligne d'accueil du
+ * tableau de bord, en plus grand et toujours visible.
+ */
+export function HeaderWeather({ variant = 'chip' }: { variant?: 'chip' | 'greeting' } = {}) {
+  const greeting = variant === 'greeting'
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -87,16 +92,22 @@ export function HeaderWeather() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm hover:bg-accent/50 transition-colors cursor-pointer select-none">
+        <button
+          type="button"
+          title={weather ? 'Changer de ville' : 'Afficher la météo de votre ville'}
+          className={greeting
+            ? 'flex items-center gap-1.5 rounded-lg px-2 py-1 text-base hover:bg-muted transition-colors cursor-pointer select-none'
+            : 'hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm hover:bg-accent/50 transition-colors cursor-pointer select-none'}
+        >
           {weatherLoading ? (
             <span className="text-xs text-muted-foreground animate-pulse">…</span>
           ) : weather && weatherInfo ? (
             <>
-              <span className="text-base leading-none" role="img" aria-label={weatherInfo.label}>
+              <span className={greeting ? 'text-xl leading-none' : 'text-base leading-none'} role="img" aria-label={weatherInfo.label}>
                 {weatherInfo.emoji}
               </span>
               <span className="font-medium tabular-nums">{weather.temperature}°</span>
-              <span className="text-muted-foreground text-xs hidden lg:block truncate max-w-[90px]">
+              <span className={greeting ? 'text-muted-foreground text-sm truncate max-w-[160px]' : 'text-muted-foreground text-xs hidden lg:block truncate max-w-[90px]'}>
                 {weather.cityName}
               </span>
             </>
@@ -109,7 +120,7 @@ export function HeaderWeather() {
         </button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-80 p-4" align="end">
+      <PopoverContent className="w-80 p-4" align={greeting ? 'start' : 'end'}>
         <div className="space-y-4">
           <div className="space-y-2">
             <p className="text-sm font-medium">
