@@ -23,6 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { createClient } from '@/lib/db/client'
 import { useToast } from '@/hooks/use-toast'
 import { QuickAddPatientDialog, type QuickAddedPatient } from '@/components/patients/quick-add-patient-dialog'
+import { DoctolibImportPanel } from '@/components/day-plan/doctolib-import-panel'
 
 interface Patient {
   id: string
@@ -213,6 +214,15 @@ export default function DayPlanPage() {
           </Button>
         )}
       </div>
+
+      {/* Rendez-vous envoyés par l'extension Doctolib */}
+      <DoctolibImportPanel
+        practitionerId={practitionerId}
+        onImported={(importedDate) => {
+          if (importedDate === date && practitionerId) loadPlan(practitionerId, date)
+          else setDate(importedDate)
+        }}
+      />
 
       {/* Add patient */}
       <Popover open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) setPatientSearch('') }}>
