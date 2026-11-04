@@ -10,6 +10,7 @@ import {
   FolderOpen,
   Pencil,
   ChevronRight,
+  PanelTop,
   ArrowLeft,
   Lock,
   type LucideIcon,
@@ -18,6 +19,7 @@ import { createClient } from '@/lib/db/client'
 import { buildSearchOrFilters, splitSearchTokens } from '@/lib/utils/search'
 import { cn, formatDate } from '@/lib/utils'
 import { allNavItems } from './navigation'
+import { openPatientTabs } from './patient-tabs'
 
 /**
  * Palette de commandes (Ctrl + K) : trouver un patient et agir dessus,
@@ -169,6 +171,16 @@ export function CommandPalette() {
         label: 'Ouvrir le dossier',
         icon: FolderOpen,
         run: () => go(`/patients/${patient.id}`),
+      },
+      {
+        id: `${patient.id}-tab`,
+        group: `Pour ${patient.first_name} ${patient.last_name}`,
+        label: 'Ouvrir dans un onglet, sans quitter la page',
+        icon: PanelTop,
+        run: () => {
+          setOpen(false)
+          openPatientTabs({ patients: [{ id: patient.id, first_name: patient.first_name, last_name: patient.last_name }] })
+        },
       },
       {
         id: `${patient.id}-edit`,

@@ -347,6 +347,8 @@ export function ConsultationForm({
     setDraftStatus({ state: 'saving' })
     return fetch('/api/consultation/draft', {
       method: 'POST',
+      // La requête doit aboutir même si la page change juste après
+      keepalive: true,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...values, payments: paymentsRef.current, anamnesis_sections: anamnesisCardSectionsRef.current ? JSON.stringify(anamnesisCardSectionsRef.current) : undefined, clinical_hypotheses: hypothesesRef.current ? JSON.stringify({ payload: hypothesesRef.current, state: hypothesesStateRef.current }) : undefined }),
     })
@@ -359,6 +361,23 @@ export function ConsultationForm({
         if (!submittedRef.current) setDraftStatus({ state: 'error' })
       })
   }, [getValues])
+
+  // Quitter la séance (changement d'onglet, retour au dossier…) : on enregistre
+  // tout de suite ce qui a été saisi depuis la dernière sauvegarde, pour le
+  // retrouver intact en revenant.
+  const postDraftRef = useRef(postDraft)
+  postDraftRef.current = postDraft
+  useEffect(() => {
+    if (mode !== 'create') return
+    return () => {
+      if (submittedRef.current) return
+      const values = getValues()
+      const hasContent = [values.reason, values.anamnesis, values.examination, values.advice]
+        .some((value) => typeof value === 'string' && value.trim().length > 0)
+      if (hasContent) postDraftRef.current()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode])
 
   // Exposé via ref pour être appelé immédiatement depuis onApply (sans debounce)
   const saveDraftNow = useCallback(() => {
@@ -381,7 +400,7 @@ export function ConsultationForm({
     // si un brouillon pour ce patient existe (ex: app rechargée après veille).
     const shouldRestore = sessionStorage.getItem('restore_consultation_draft')
     const restoreFromDraft = (auto = false) => {
-      fetch('/api/consultation/draft')
+      fetch(`/api/consultation/draft?patientId=${encodeURIComponent(currentPatient.id)}`)
         .then((r) => r.json())
         .then(({ draft }) => {
           if (!draft) return
@@ -695,7 +714,7 @@ export function ConsultationForm({
 
         submittedRef.current = true
         try {
-          await fetch('/api/consultation/draft', { method: 'DELETE' })
+          await fetch(`/api/consultation/draft?patientId=${encodeURIComponent(currentPatient.id)}`, { method: 'DELETE' })
         } catch {}
 
         // The delivery method was already decided in the wizard (step
@@ -2019,7 +2038,7 @@ export function ConsultationForm({
   if (medicalHistoryEntries) {
     return (
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        <div className="lg:sticky lg:top-20 self-start space-y-6">
+        <div className="lg:sticky lg:top-[calc(5rem+var(--app-tabs-h,0px))] self-start space-y-6">
           <Card className={cn('overflow-hidden', CARD_TINT)}>
             <div className="flex items-start gap-3 bg-gradient-to-br from-primary/10 via-primary/[0.04] to-transparent p-4">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl gradient-primary text-base font-semibold text-white shadow-sm">

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
 import { Sidebar } from '@/components/layout/sidebar'
 import { CommandPalette } from '@/components/layout/command-palette'
+import { PatientTabsBar } from '@/components/layout/patient-tabs'
 import { getInitials } from '@/lib/utils'
 import { Header } from '@/components/layout/header'
 import { UpdateBanner } from '@/components/layout/update-banner'
@@ -89,6 +90,7 @@ export default async function DashboardLayout({
         <div className="lg:pl-64" data-app-shell>
           <UpdateBanner />
           <Header user={user} practitioner={practitioner} />
+          <PatientTabsBar />
           <main className="p-4 lg:px-8 lg:py-6">
             {children}
           </main>

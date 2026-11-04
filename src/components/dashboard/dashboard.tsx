@@ -418,7 +418,7 @@ export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoic
 
       {/* ── Barre du mode organisation ── */}
       {editing && (
-        <div className="sticky top-16 z-20 -mx-1 px-1 py-1 bg-background">
+        <div className="sticky top-[calc(4rem+var(--app-tabs-h,0px))] z-20 -mx-1 px-1 py-1 bg-background">
           <div className="flex flex-wrap items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary-foreground shadow-lg">
             <LayoutGrid className="h-5 w-5 shrink-0" />
             <p className="min-w-0 flex-1 basis-64 text-sm">

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { CalendarPlus, Check } from 'lucide-react'
+import { CalendarPlus, Check, PanelTop } from 'lucide-react'
+import { openPatientTabs } from '@/components/layout/patient-tabs'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/db/client'
 import { calculateAge, cn } from '@/lib/utils'
@@ -124,9 +125,32 @@ export function TodayPanel({ onSummary }: { onSummary?: (summary: TodaySummary) 
     <section className="glass-card rounded-xl" aria-labelledby="today-title">
       <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
         <h2 id="today-title" className="text-base font-semibold">Aujourd’hui</h2>
-        <Link href="/day-plan" className="text-sm font-medium text-accent-foreground hover:underline">
-          Organiser Ma journée
-        </Link>
+        <div className="flex items-center gap-4">
+          {items.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const next = nextItem?.patient ?? items[0].patient!
+                openPatientTabs({
+                  patients: items.map((item) => ({
+                    id: item.patient!.id,
+                    first_name: item.patient!.first_name,
+                    last_name: item.patient!.last_name,
+                  })),
+                  focusId: next.id,
+                })
+              }}
+              title="Un onglet par patient du jour, dans l’ordre de passage"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-foreground hover:underline"
+            >
+              <PanelTop className="h-4 w-4" />
+              Ouvrir en onglets
+            </button>
+          )}
+          <Link href="/day-plan" className="text-sm font-medium text-accent-foreground hover:underline">
+            Organiser Ma journée
+          </Link>
+        </div>
       </div>
 
       {loading ? (
