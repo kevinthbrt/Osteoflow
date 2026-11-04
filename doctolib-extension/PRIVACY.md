@@ -1,5 +1,8 @@
 # Politique de confidentialité de l'extension « Osteoflow : import Doctolib »
 
+Version publiée : https://www.osteo-upgrade.fr/politique-confidentialite/extension-doctolib
+(page du site OsteoUpgrade, à garder identique à ce fichier).
+
 Dernière mise à jour : 4 novembre 2026
 
 Cette extension est éditée par SAS OsteoUpgrade, éditeur du logiciel

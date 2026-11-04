@@ -9,8 +9,9 @@ faut avoir sous la main.
   publication ne dépende pas d'une personne.
 - L'archive `doctolib-extension.zip` : `npm run extension:zip` à la racine
   du projet.
-- La politique de confidentialité en ligne, à une adresse publique (voir
-  `PRIVACY.md`), par exemple sur le site OsteoUpgrade.
+- La politique de confidentialité en ligne :
+  https://www.osteo-upgrade.fr/politique-confidentialite/extension-doctolib
+  (page du site OsteoUpgrade, même texte que `PRIVACY.md`).
 - Deux captures d'écran au format 1280 × 800 : dossier `store/`.
 
 ## Onglet « Fiche Play Store » (Store listing)
@@ -85,7 +86,8 @@ Puis cocher les trois engagements : pas de vente ni de transfert à des tiers
 hors des cas autorisés, pas d'usage étranger à l'objectif unique, pas d'usage
 pour évaluer la solvabilité.
 
-**Politique de confidentialité** : l'adresse publique de `PRIVACY.md`.
+**Politique de confidentialité** :
+https://www.osteo-upgrade.fr/politique-confidentialite/extension-doctolib
 
 ## Onglet « Distribution »
 
