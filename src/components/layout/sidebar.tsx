@@ -88,7 +88,7 @@ export function Sidebar({ displayName, initials }: SidebarProps) {
           'flex min-h-10 items-center gap-3 rounded-lg px-2.5 text-sm transition-colors',
           isActive
             ? 'sidebar-active'
-            : 'font-medium text-foreground/80 hover:bg-muted hover:text-foreground'
+            : 'font-medium text-sidebar-foreground/85 hover:bg-sidebar-hover hover:text-sidebar-foreground'
         )}
       >
         <item.icon className="h-[18px] w-[18px] shrink-0" />
@@ -127,7 +127,7 @@ export function Sidebar({ displayName, initials }: SidebarProps) {
       <aside
         data-app-sidebar
         className={cn(
-          'fixed inset-y-0 left-0 z-40 w-64 border-r border-border bg-card transform transition-transform duration-300 ease-out lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 w-64 border-r border-sidebar-border bg-sidebar text-sidebar-foreground transform transition-transform duration-300 ease-out lg:translate-x-0',
           mobileMenuOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full'
         )}
       >
@@ -136,7 +136,7 @@ export function Sidebar({ displayName, initials }: SidebarProps) {
           <div className="flex h-16 shrink-0 items-center px-5 [-webkit-app-region:drag]" data-tour="sidebar-logo">
             <Link href="/dashboard" className="flex items-center gap-2.5 [-webkit-app-region:no-drag]">
               <Image src={logo} alt="" width={32} height={32} className="rounded-lg" priority />
-              <span className="text-[19px] font-semibold text-foreground [font-family:var(--font-playfair)] italic">
+              <span className="text-[19px] font-semibold text-sidebar-foreground [font-family:var(--font-playfair)] italic">
                 MyOsteoFlow
               </span>
             </Link>
@@ -146,17 +146,17 @@ export function Sidebar({ displayName, initials }: SidebarProps) {
           <nav aria-label="Navigation principale" className="flex-1 space-y-5 overflow-y-auto px-3 py-3 scrollbar-hide">
             {navigationGroups.map((group) => (
               <div key={group.label} className="space-y-0.5">
-                <p className="px-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="px-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted">
                   {group.label}
                 </p>
                 {group.items.map(renderItem)}
               </div>
             ))}
-            <div className="border-t border-border pt-3">{renderItem(settingsNavItem)}</div>
+            <div className="border-t border-sidebar-border pt-3">{renderItem(settingsNavItem)}</div>
           </nav>
 
           {/* Footer */}
-          <div className="space-y-2 border-t border-border p-3">
+          <div className="space-y-2 border-t border-sidebar-border p-3">
             {updateReady && (
               <button
                 onClick={() => {
@@ -172,7 +172,7 @@ export function Sidebar({ displayName, initials }: SidebarProps) {
                 </span>
               </button>
             )}
-            <div className="flex items-center gap-2.5 rounded-lg border border-border p-2">
+            <div className="flex items-center gap-2.5 rounded-lg bg-sidebar-active/70 p-2">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
                 {initials || 'MO'}
               </span>
@@ -181,7 +181,7 @@ export function Sidebar({ displayName, initials }: SidebarProps) {
                 <Link
                   href="/changelog"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block truncate text-xs text-muted-foreground hover:text-foreground"
+                  className="block truncate text-xs text-sidebar-muted hover:text-sidebar-foreground"
                 >
                   v{packageJson.version} · nouveautés
                 </Link>
@@ -192,7 +192,7 @@ export function Sidebar({ displayName, initials }: SidebarProps) {
                 onClick={handleLock}
                 aria-label="Verrouiller la session"
                 title="Verrouiller la session"
-                className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                className="h-9 w-9 shrink-0 text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-foreground"
               >
                 <Lock className="h-4 w-4" />
               </Button>

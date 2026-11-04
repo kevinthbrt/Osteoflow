@@ -41,6 +41,15 @@
     --ai: 263 70% 50%;
     --ai-soft: 250 100% 98%;
 
+    /* Menu latéral bleu ciel */
+    --sidebar: 204 92% 93%;
+    --sidebar-foreground: 215 45% 18%;
+    --sidebar-muted: 210 35% 33%;
+    --sidebar-border: 204 60% 84%;
+    --sidebar-hover: 0 0% 100% / 0.6;
+    --sidebar-active: 0 0% 100%;
+    --sidebar-active-foreground: 226 70% 46%;
+
     /* Les anciens dégradés deviennent un bleu à peine nuancé : les
        composants qui les utilisent encore restent cohérents. */
     --gradient-start: 224 80% 55%;
@@ -81,6 +90,14 @@
     --info-foreground: 0 0% 100%;
     --ai: 258 90% 76%;
     --ai-soft: 260 30% 20%;
+
+    --sidebar: 222 24% 15%;
+    --sidebar-foreground: 220 15% 92%;
+    --sidebar-muted: 220 14% 68%;
+    --sidebar-border: 222 16% 26%;
+    --sidebar-hover: 222 18% 22%;
+    --sidebar-active: 221 38% 30%;
+    --sidebar-active-foreground: 221 90% 85%;
 
     --gradient-start: 224 90% 67%;
     --gradient-end: 226 80% 60%;
@@ -252,7 +269,10 @@
 
   /* Sidebar active */
   .sidebar-active {
-    @apply bg-accent text-accent-foreground font-semibold;
+    @apply font-semibold;
+    background-color: hsl(var(--sidebar-active));
+    color: hsl(var(--sidebar-active-foreground));
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
   }
 
   /* Input glow */

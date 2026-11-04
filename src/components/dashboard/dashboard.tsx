@@ -1,11 +1,19 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Plus, SlidersHorizontal, Sparkles } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  EyeOff,
+  GripVertical,
+  LayoutGrid,
+  Plus,
+  RotateCcw,
+  X,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn, formatCurrency } from '@/lib/utils'
 
 import { VideoWidget } from './widgets/video-widget'
@@ -51,31 +59,94 @@ interface DashboardProps {
 }
 
 /**
- * Widgets secondaires, sous le bloc principal. Chacun peut être masqué :
- * le choix est mémorisé sur ce poste uniquement.
+ * Le tableau de bord est une grille de blocs que chacun range à sa façon :
+ * ordre, largeur (1, 2 ou 3 colonnes) et visibilité. La disposition est
+ * mémorisée sur ce poste.
  */
-type OptionalWidget = 'relaunch' | 'osteoupgrade' | 'video' | 'progress' | 'weather'
+type BlockId = 'today' | 'todo' | 'osteoupgrade' | 'review' | 'video' | 'relaunch' | 'progress' | 'weather'
+type BlockSize = 1 | 2 | 3
 
-const OPTIONAL_WIDGETS: Array<{ id: OptionalWidget; label: string; needsOsteoUpgrade?: boolean }> = [
-  { id: 'relaunch', label: 'Relances patients' },
-  { id: 'osteoupgrade', label: 'Revue et formation à la une', needsOsteoUpgrade: true },
-  { id: 'video', label: 'Vidéo de pratique', needsOsteoUpgrade: true },
-  { id: 'progress', label: 'Progression' },
-  { id: 'weather', label: 'Météo' },
+interface BlockLayout {
+  id: BlockId
+  size: BlockSize
+  hidden: boolean
+}
+
+const BLOCKS: Record<BlockId, { label: string; needsOsteoUpgrade?: boolean }> = {
+  today: { label: 'Aujourd’hui' },
+  todo: { label: 'À traiter' },
+  osteoupgrade: { label: 'OsteoFlash' },
+  review: { label: 'Revue et formation à la une', needsOsteoUpgrade: true },
+  video: { label: 'Vidéo de pratique', needsOsteoUpgrade: true },
+  relaunch: { label: 'Relances patients' },
+  progress: { label: 'Progression' },
+  weather: { label: 'Météo' },
+}
+
+const DEFAULT_LAYOUT: BlockLayout[] = [
+  { id: 'today', size: 2, hidden: false },
+  { id: 'todo', size: 1, hidden: false },
+  { id: 'relaunch', size: 2, hidden: false },
+  { id: 'osteoupgrade', size: 1, hidden: false },
+  { id: 'review', size: 1, hidden: false },
+  { id: 'video', size: 2, hidden: true },
+  { id: 'progress', size: 3, hidden: true },
+  { id: 'weather', size: 1, hidden: true },
 ]
 
-const DEFAULT_HIDDEN: OptionalWidget[] = ['video', 'progress', 'weather']
-const HIDDEN_WIDGETS_KEY = 'myosteoflow_dashboard_hidden_widgets'
+const LAYOUT_KEY = 'myosteoflow_dashboard_layout_v1'
+const TIP_DISMISSED_KEY = 'myosteoflow_dashboard_layout_tip_dismissed'
+
+const SIZE_CLASS: Record<BlockSize, string> = {
+  1: 'lg:col-span-1',
+  2: 'lg:col-span-2',
+  3: 'lg:col-span-3',
+}
+
+const SIZE_LABEL: Record<BlockSize, string> = {
+  1: 'Étroit',
+  2: 'Large',
+  3: 'Pleine largeur',
+}
+
+/** Complète une disposition enregistrée avec les blocs ajoutés depuis. */
+function mergeLayout(stored: unknown): BlockLayout[] {
+  if (!Array.isArray(stored)) return DEFAULT_LAYOUT
+  const known = stored.filter(
+    (entry): entry is BlockLayout =>
+      !!entry && typeof entry === 'object' && (entry as BlockLayout).id in BLOCKS && [1, 2, 3].includes((entry as BlockLayout).size)
+  )
+  const seen = new Set(known.map((entry) => entry.id))
+  return [
+    ...known.filter((entry, index) => known.findIndex((other) => other.id === entry.id) === index),
+    ...DEFAULT_LAYOUT.filter((entry) => !seen.has(entry.id)).map((entry) => ({ ...entry, hidden: true })),
+  ]
+}
 
 function greeting() {
-  const h = new Date().getHours()
-  if (h < 18) return 'Bonjour'
-  return 'Bonsoir'
+  return new Date().getHours() < 18 ? 'Bonjour' : 'Bonsoir'
 }
 
 function daysSince(dateStr: string | null): number | null {
   if (!dateStr) return null
   return Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000))
+}
+
+function readStorage(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function writeStorage(key: string, value: string | null) {
+  try {
+    if (value === null) localStorage.removeItem(key)
+    else localStorage.setItem(key, value)
+  } catch {
+    // Stockage indisponible : le choix vaut pour la session en cours.
+  }
 }
 
 export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoices }: DashboardProps) {
@@ -86,77 +157,85 @@ export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoic
   const [widgets, setWidgets] = useState<WidgetsData | null>(null)
   const [widgetsLoading, setWidgetsLoading] = useState(true)
   const [widgetsRefreshKey, setWidgetsRefreshKey] = useState(0)
-  const [hidden, setHidden] = useState<OptionalWidget[]>(DEFAULT_HIDDEN)
   const [today, setToday] = useState<TodaySummary | null>(null)
   const onSummary = useCallback((summary: TodaySummary) => setToday(summary), [])
 
+  const [layout, setLayout] = useState<BlockLayout[]>(DEFAULT_LAYOUT)
+  const [editing, setEditing] = useState(false)
+  const [showTip, setShowTip] = useState(false)
+  const [dragId, setDragId] = useState<BlockId | null>(null)
+  const [dropTarget, setDropTarget] = useState<BlockId | null>(null)
+
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(HIDDEN_WIDGETS_KEY)
-      if (stored) setHidden(JSON.parse(stored) as OptionalWidget[])
-    } catch {
-      // Stockage indisponible : on garde les valeurs par défaut.
+    const stored = readStorage(LAYOUT_KEY)
+    if (stored) {
+      try {
+        setLayout(mergeLayout(JSON.parse(stored)))
+      } catch {
+        // Disposition illisible : on garde celle par défaut.
+      }
     }
+    setShowTip(readStorage(TIP_DISMISSED_KEY) !== '1')
   }, [])
 
-  const toggleWidget = (id: OptionalWidget, visible: boolean) => {
-    setHidden((previous) => {
-      const next = visible ? previous.filter((w) => w !== id) : [...previous, id]
-      try {
-        localStorage.setItem(HIDDEN_WIDGETS_KEY, JSON.stringify(next))
-      } catch {
-        // Le choix vaut alors pour la session en cours seulement.
-      }
-      return next
-    })
+  const saveLayout = (next: BlockLayout[]) => {
+    setLayout(next)
+    writeStorage(LAYOUT_KEY, JSON.stringify(next))
   }
 
-  const availableWidgets = OPTIONAL_WIDGETS.filter((w) => !w.needsOsteoUpgrade || aOsteoUpgrade)
-  const isShown = (id: OptionalWidget) =>
-    !hidden.includes(id) && availableWidgets.some((w) => w.id === id)
-  const hiddenLabels = availableWidgets.filter((w) => hidden.includes(w.id)).map((w) => w.label.toLowerCase())
+  const blockLabel = (id: BlockId) =>
+    id === 'osteoupgrade' && !aOsteoUpgrade ? 'Offre OsteoUpgrade' : BLOCKS[id].label
+
+  const isAvailable = (id: BlockId) => !BLOCKS[id].needsOsteoUpgrade || aOsteoUpgrade
+  const available = useMemo(
+    () => layout.filter((block) => isAvailable(block.id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [layout, aOsteoUpgrade]
+  )
+  const visible = available.filter((block) => !block.hidden)
+  const hiddenBlocks = available.filter((block) => block.hidden)
+  const reviewShown = visible.some((block) => block.id === 'review')
 
   useEffect(() => {
-    if (!aOsteoUpgrade || !isShown('osteoupgrade')) return
+    if (!aOsteoUpgrade || !reviewShown) return
     setWidgetsLoading(true)
     fetch('/api/osteoupgrade-widgets', { cache: 'no-store' })
       .then((r) => r.json())
       .then(setWidgets)
       .catch(() => setWidgets(null))
       .finally(() => setWidgetsLoading(false))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [widgetsRefreshKey, aOsteoUpgrade, hidden])
+  }, [widgetsRefreshKey, aOsteoUpgrade, reviewShown])
+
+  const updateBlock = (id: BlockId, change: Partial<BlockLayout>) =>
+    saveLayout(layout.map((block) => (block.id === id ? { ...block, ...change } : block)))
+
+  /** Déplace un bloc d'un cran parmi les blocs affichés */
+  const moveBy = (id: BlockId, delta: -1 | 1) => {
+    const order = visible.map((block) => block.id)
+    const index = order.indexOf(id)
+    const target = order[index + delta]
+    if (!target) return
+    moveBefore(id, target, delta === 1)
+  }
+
+  /** Place `id` juste avant (ou après) `target` */
+  const moveBefore = (id: BlockId, target: BlockId, after = false) => {
+    if (id === target) return
+    const moving = layout.find((block) => block.id === id)
+    if (!moving) return
+    const rest = layout.filter((block) => block.id !== id)
+    const targetIndex = rest.findIndex((block) => block.id === target)
+    rest.splice(after ? targetIndex + 1 : targetIndex, 0, moving)
+    saveLayout(rest)
+  }
+
+  const startEditing = () => {
+    setEditing(true)
+    setShowTip(false)
+    writeStorage(TIP_DISMISSED_KEY, '1')
+  }
 
   const country = practitioner.country
-  const unpaidTotal = unpaidInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
-
-  const kpis = [
-    {
-      label: 'Séances aujourd’hui',
-      value: String(Math.max(stats.todayConsultations, today?.total ?? 0)),
-      note: today && today.total > 0 ? `${today.done} sur ${today.total} vus` : 'Ma journée non préparée',
-      href: '/day-plan',
-    },
-    {
-      label: 'Encaissé ce mois',
-      value: formatCurrency(stats.monthlyRevenue, country),
-      note: 'Factures réglées',
-      href: '/accounting',
-    },
-    {
-      label: 'Factures impayées',
-      value: String(unpaidInvoices.length),
-      note: unpaidInvoices.length > 0 ? `${formatCurrency(unpaidTotal, country)} en attente` : 'Tout est réglé',
-      tone: unpaidInvoices.length > 0 ? 'warning' : 'success',
-      href: '/invoices?status=issued',
-    },
-    {
-      label: 'Messages non lus',
-      value: String(stats.unreadMessages),
-      note: stats.unreadMessages > 0 ? 'Conversations patients' : 'Rien en attente',
-      href: '/messages',
-    },
-  ] as const
 
   const todo: Array<{ key: string; title: string; sub: string; cta: string; href: string; tone: 'warning' | 'info' }> = [
     ...unpaidInvoices.slice(0, 3).map((invoice) => {
@@ -176,10 +255,20 @@ export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoic
       ? [{
           key: 'more-invoices',
           title: `${unpaidInvoices.length - 3} autre${unpaidInvoices.length - 3 > 1 ? 's' : ''} facture${unpaidInvoices.length - 3 > 1 ? 's' : ''} impayée${unpaidInvoices.length - 3 > 1 ? 's' : ''}`,
-          sub: 'Liste complète des impayés',
+          sub: `${formatCurrency(unpaidInvoices.reduce((sum, invoice) => sum + invoice.amount, 0), country)} en attente au total`,
           cta: 'Ouvrir',
           href: '/invoices?status=issued',
           tone: 'warning' as const,
+        }]
+      : []),
+    ...(stats.unreadMessages > 0
+      ? [{
+          key: 'messages',
+          title: `${stats.unreadMessages} conversation${stats.unreadMessages > 1 ? 's' : ''} non lue${stats.unreadMessages > 1 ? 's' : ''}`,
+          sub: 'Messagerie',
+          cta: 'Lire',
+          href: '/messages',
+          tone: 'info' as const,
         }]
       : []),
     ...(stats.followUpsDue > 0
@@ -208,62 +297,16 @@ export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoic
     ? today.total === 0
       ? 'Aucun patient préparé pour aujourd’hui.'
       : today.next
-        ? `${today.total} patient${today.total > 1 ? 's' : ''} aujourd’hui. Prochain : ${today.next.first_name} ${today.next.last_name}.`
+        ? `${today.total} patient${today.total > 1 ? 's' : ''} aujourd’hui, ${today.done} vu${today.done > 1 ? 's' : ''}. Prochain : ${today.next.first_name} ${today.next.last_name}.`
         : `${today.total} patient${today.total > 1 ? 's' : ''} aujourd’hui, tous vus. Belle journée !`
     : ' '
 
-  return (
-    <div className="mx-auto max-w-6xl space-y-6 animate-fade-in">
-      <ProfileCompletionWidget />
-
-      {/* ── Accueil ── */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-semibold tracking-tight">
-            {greeting()} {practitioner.first_name}
-          </h2>
-          <p className="text-[15px] text-muted-foreground">{summaryLine}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {isShown('weather') && <HeaderWeather />}
-          <Button
-            className="gap-2"
-            onClick={() => openCommandPalette('consultation')}
-            data-tour="dashboard-new-consult"
-          >
-            <Plus className="h-4 w-4" />
-            Nouvelle consultation
-          </Button>
-        </div>
-      </div>
-
-      {/* ── Chiffres du jour ── */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {kpis.map((kpi) => (
-          <Link key={kpi.label} href={kpi.href} className="stat-card flex flex-col gap-1.5 !p-4 sm:!p-5">
-            <span className="text-[13px] font-medium text-muted-foreground">{kpi.label}</span>
-            <span className="text-2xl font-semibold tabular-nums tracking-tight">{kpi.value}</span>
-            <span
-              className={cn(
-                'text-[13px]',
-                'tone' in kpi && kpi.tone === 'warning' && 'text-warning',
-                'tone' in kpi && kpi.tone === 'success' && 'text-success',
-                !('tone' in kpi) && 'text-muted-foreground'
-              )}
-            >
-              {kpi.note}
-            </span>
-          </Link>
-        ))}
-      </div>
-
-      {/* ── Aujourd'hui | À traiter ── */}
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <TodayPanel onSummary={onSummary} />
-        </div>
-
-        <div className="flex flex-col gap-6">
+  const renderBlock = (block: BlockLayout) => {
+    switch (block.id) {
+      case 'today':
+        return <TodayPanel onSummary={onSummary} />
+      case 'todo':
+        return (
           <section className="glass-card rounded-xl" aria-labelledby="todo-title">
             <div className="border-b border-border px-5 py-4">
               <h2 id="todo-title" className="text-base font-semibold">À traiter</h2>
@@ -290,79 +333,254 @@ export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoic
               </ul>
             )}
           </section>
+        )
+      case 'osteoupgrade':
+        return aOsteoUpgrade ? <FlashcardsWidget /> : <OsteoUpgradeUpsellWidget />
+      case 'review':
+        return (
+          <div className="flex flex-col gap-6">
+            <ReviewWidget
+              review={widgets?.review ?? null}
+              loading={widgetsLoading}
+              onRefresh={() => setWidgetsRefreshKey((k) => k + 1)}
+            />
+            <FeaturedFormationWidget
+              formation={widgets?.featured_formation ?? null}
+              loading={widgetsLoading}
+              practitionerEmail={practitionerEmail}
+            />
+          </div>
+        )
+      case 'video':
+        return <VideoWidget />
+      case 'relaunch':
+        return <RelaunchWidget />
+      case 'progress':
+        return <ProgressWidget layout={block.size === 1 ? 'vertical' : 'horizontal'} />
+      case 'weather':
+        return (
+          <section className="glass-card flex items-center justify-between gap-3 rounded-xl px-5 py-4">
+            <h2 className="text-base font-semibold">Météo</h2>
+            <HeaderWeather />
+          </section>
+        )
+    }
+  }
 
-          {aOsteoUpgrade ? <FlashcardsWidget /> : <OsteoUpgradeUpsellWidget />}
+  return (
+    <div className="mx-auto max-w-6xl space-y-6 animate-fade-in">
+      <ProfileCompletionWidget />
+
+      {/* ── Accueil ── */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            {greeting()} {practitioner.first_name}
+          </h2>
+          <p className="text-[15px] text-muted-foreground">{summaryLine}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {!editing && (
+            <Button variant="outline" className="gap-2 border-primary/40 text-accent-foreground hover:bg-accent" onClick={startEditing}>
+              <LayoutGrid className="h-4 w-4" />
+              Organiser
+            </Button>
+          )}
+          <Button
+            className="gap-2"
+            onClick={() => openCommandPalette('consultation')}
+            data-tour="dashboard-new-consult"
+          >
+            <Plus className="h-4 w-4" />
+            Nouvelle consultation
+          </Button>
         </div>
       </div>
 
-      {/* ── Widgets secondaires ── */}
-      {isShown('progress') && <ProgressWidget layout="horizontal" />}
+      {/* ── Astuce affichée tant qu'on n'a pas essayé ── */}
+      {showTip && !editing && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/30 bg-accent px-4 py-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-card text-accent-foreground">
+            <LayoutGrid className="h-[18px] w-[18px]" />
+          </span>
+          <p className="min-w-0 flex-1 basis-64 text-sm text-accent-foreground">
+            <span className="font-semibold">Votre tableau de bord, à votre façon.</span>{' '}
+            Déplacez les blocs, choisissez leur largeur et masquez ceux qui ne vous servent pas.
+          </p>
+          <Button size="sm" onClick={startEditing}>Organiser maintenant</Button>
+          <button
+            type="button"
+            aria-label="Masquer l’astuce"
+            onClick={() => {
+              setShowTip(false)
+              writeStorage(TIP_DISMISSED_KEY, '1')
+            }}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-accent-foreground/70 hover:bg-card hover:text-accent-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
-      {(isShown('relaunch') || isShown('osteoupgrade') || isShown('video')) && (
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-          {isShown('osteoupgrade') && (
-            <div className="flex flex-col gap-6">
-              <ReviewWidget
-                review={widgets?.review ?? null}
-                loading={widgetsLoading}
-                onRefresh={() => setWidgetsRefreshKey((k) => k + 1)}
-              />
-              <FeaturedFormationWidget
-                formation={widgets?.featured_formation ?? null}
-                loading={widgetsLoading}
-                practitionerEmail={practitionerEmail}
-              />
-            </div>
-          )}
-          {isShown('video') && (
-            <div className="lg:col-span-2">
-              <VideoWidget />
-            </div>
-          )}
-          {isShown('relaunch') && (
-            <div className={cn(!isShown('video') && !isShown('osteoupgrade') ? 'lg:col-span-3' : !isShown('video') ? 'lg:col-span-2' : '')}>
-              <RelaunchWidget />
+      {/* ── Barre du mode organisation ── */}
+      {editing && (
+        <div className="sticky top-16 z-20 -mx-1 px-1 py-1 bg-background">
+          <div className="flex flex-wrap items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary-foreground shadow-lg">
+            <LayoutGrid className="h-5 w-5 shrink-0" />
+            <p className="min-w-0 flex-1 basis-64 text-sm">
+              <span className="font-semibold">Mode organisation.</span>{' '}
+              Glissez un bloc par sa poignée, ou utilisez les flèches. Changez sa largeur ou masquez-le.
+            </p>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="gap-1.5 text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
+              onClick={() => saveLayout(DEFAULT_LAYOUT)}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Réinitialiser
+            </Button>
+            <Button size="sm" className="gap-1.5 bg-card text-accent-foreground hover:bg-card/90" onClick={() => setEditing(false)}>
+              <Check className="h-4 w-4" />
+              Terminer
+            </Button>
+          </div>
+
+          {hiddenBlocks.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-primary/40 bg-card px-4 py-2.5">
+              <span className="text-sm font-medium text-muted-foreground">Blocs masqués :</span>
+              {hiddenBlocks.map((block) => (
+                <button
+                  key={block.id}
+                  type="button"
+                  onClick={() => updateBlock(block.id, { hidden: false })}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full border border-input bg-card px-3 text-sm font-medium hover:border-primary hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {blockLabel(block.id)}
+                </button>
+              ))}
             </div>
           )}
         </div>
       )}
 
-      {/* ── Personnalisation ── */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
-        {hiddenLabels.length > 0 && (
-          <span>
-            {hiddenLabels.length === 1 ? 'Masqué' : 'Masqués'} : {hiddenLabels.join(', ')}.
-          </span>
-        )}
-        <Popover>
-          <PopoverTrigger asChild>
-            <button type="button" className="inline-flex items-center gap-1.5 font-medium text-accent-foreground hover:underline">
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              Personnaliser le tableau de bord
-            </button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 p-3">
-            <p className="mb-2 text-sm font-semibold">Widgets affichés</p>
-            <div className="space-y-1">
-              {availableWidgets.map((widget) => (
-                <label key={widget.id} className="flex min-h-9 cursor-pointer items-center gap-3 rounded-md px-2 text-sm hover:bg-muted">
-                  <Checkbox
-                    checked={!hidden.includes(widget.id)}
-                    onCheckedChange={(checked) => toggleWidget(widget.id, checked === true)}
-                  />
-                  {widget.label}
-                </label>
-              ))}
-            </div>
-            {!aOsteoUpgrade && (
-              <p className="mt-3 flex items-start gap-2 rounded-md ai-surface p-2 text-xs text-muted-foreground">
-                <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ai" />
-                Les widgets de formation sont inclus avec OsteoUpgrade.
-              </p>
+      {/* ── Blocs ── */}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3 [grid-auto-flow:dense]">
+        {visible.map((block, index) => (
+          <div
+            key={block.id}
+            className={cn(
+              SIZE_CLASS[block.size],
+              'min-w-0',
+              editing && 'relative rounded-2xl border-2 border-dashed border-primary/40 bg-accent/40 p-2 pt-12 transition-colors',
+              editing && dropTarget === block.id && dragId !== block.id && 'border-primary bg-accent',
+              editing && dragId === block.id && 'opacity-50'
             )}
-          </PopoverContent>
-        </Popover>
+            onDragOver={(event) => {
+              if (!editing || !dragId) return
+              event.preventDefault()
+              setDropTarget(block.id)
+            }}
+            onDragLeave={() => setDropTarget((current) => (current === block.id ? null : current))}
+            onDrop={(event) => {
+              event.preventDefault()
+              if (dragId) {
+                const from = visible.findIndex((b) => b.id === dragId)
+                moveBefore(dragId, block.id, from < index)
+              }
+              setDragId(null)
+              setDropTarget(null)
+            }}
+          >
+            {editing && (
+              <div className="absolute inset-x-2 top-2 flex items-center gap-1 rounded-lg bg-card px-1.5 py-1 shadow-sm">
+                <span
+                  draggable
+                  onDragStart={(event) => {
+                    setDragId(block.id)
+                    event.dataTransfer.effectAllowed = 'move'
+                    event.dataTransfer.setData('text/plain', block.id)
+                  }}
+                  onDragEnd={() => {
+                    setDragId(null)
+                    setDropTarget(null)
+                  }}
+                  title="Glisser pour déplacer"
+                  className="flex h-8 w-8 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted active:cursor-grabbing"
+                >
+                  <GripVertical className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold">{blockLabel(block.id)}</span>
+                <button
+                  type="button"
+                  onClick={() => moveBy(block.id, -1)}
+                  disabled={index === 0}
+                  aria-label={`Monter le bloc ${blockLabel(block.id)}`}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveBy(block.id, 1)}
+                  disabled={index === visible.length - 1}
+                  aria-label={`Descendre le bloc ${blockLabel(block.id)}`}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                >
+                  <ArrowDown className="h-4 w-4" />
+                </button>
+                <div role="group" aria-label="Largeur du bloc" className="hidden lg:flex rounded-md border border-input p-0.5">
+                  {([1, 2, 3] as BlockSize[]).map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => updateBlock(block.id, { size })}
+                      aria-pressed={block.size === size}
+                      title={SIZE_LABEL[size]}
+                      className={cn(
+                        'h-7 rounded px-2 text-xs font-medium',
+                        block.size === size ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+                      )}
+                    >
+                      {size === 3 ? 'Plein' : `${size}/3`}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateBlock(block.id, { hidden: true })}
+                  aria-label={`Masquer le bloc ${blockLabel(block.id)}`}
+                  title="Masquer"
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <EyeOff className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+            {/* En organisation, le contenu ne réagit plus aux clics : on range, on n'agit pas */}
+            <div className={cn(editing && 'pointer-events-none select-none')} aria-hidden={editing || undefined}>
+              {renderBlock(block)}
+            </div>
+          </div>
+        ))}
       </div>
+
+      {!editing && (
+        <button
+          type="button"
+          onClick={startEditing}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-4 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-accent hover:text-accent-foreground"
+        >
+          <LayoutGrid className="h-4 w-4" />
+          Organiser le tableau de bord
+          {hiddenBlocks.length > 0 && (
+            <span className="font-normal">
+              · {hiddenBlocks.length} bloc{hiddenBlocks.length > 1 ? 's' : ''} masqué{hiddenBlocks.length > 1 ? 's' : ''} à ajouter
+            </span>
+          )}
+        </button>
+      )}
     </div>
   )
 }
