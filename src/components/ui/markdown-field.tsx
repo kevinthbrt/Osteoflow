@@ -66,7 +66,11 @@ export function MarkdownField({
           id={id}
           data-autoresize
           value={value}
-          onChange={(e) => { onChange(e.target.value); autoResize(e.target) }}
+          // En partant d'un champ vide, on n'est pas encore « en édition » : sans
+          // ceci, la première lettre faisait basculer le champ en aperçu et le
+          // curseur sortait du bloc.
+          onFocus={() => setIsEditing(true)}
+          onChange={(e) => { setIsEditing(true); onChange(e.target.value); autoResize(e.target) }}
           onInput={(e) => autoResize(e.currentTarget)}
           onBlur={() => { if (hasContent) setIsEditing(false) }}
           disabled={disabled}
