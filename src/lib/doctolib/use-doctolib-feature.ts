@@ -5,20 +5,45 @@ import { DOCTOLIB_EXTENSION_PUBLISHED, DOCTOLIB_TESTING_KEY } from '@/lib/doctol
 
 /**
  * Faut-il montrer l'import Doctolib ? Oui une fois l'extension publiée ;
- * avant, seulement sur un poste de test (`?doctolib=1` une fois, `?doctolib=0`
- * pour revenir en arrière).
+ * avant, seulement sur un poste où l'extension s'est déjà connectée, ou
+ * activé à la main (`?doctolib=1` une fois, `?doctolib=0` pour masquer).
  */
 export function useDoctolibFeature(): boolean {
   const [visible, setVisible] = useState(DOCTOLIB_EXTENSION_PUBLISHED)
   useEffect(() => {
     if (DOCTOLIB_EXTENSION_PUBLISHED) return
+    let flagged = false
     try {
       const flag = new URLSearchParams(window.location.search).get('doctolib')
       if (flag === '1') localStorage.setItem(DOCTOLIB_TESTING_KEY, '1')
-      if (flag === '0') localStorage.removeItem(DOCTOLIB_TESTING_KEY)
-      setVisible(localStorage.getItem(DOCTOLIB_TESTING_KEY) === '1')
+      if (flag === '0') localStorage.setItem(DOCTOLIB_TESTING_KEY, '0')
+      const stored = localStorage.getItem(DOCTOLIB_TESTING_KEY)
+      if (stored === '0') return
+      flagged = stored === '1'
     } catch {
-      setVisible(false)
+      // Stockage indisponible : on se fie à l'extension seule.
+    }
+    if (flagged) {
+      setVisible(true)
+      return
+    }
+    // Extension déjà installée sur ce poste (elle s'est présentée à
+    // Osteoflow) : tout s'affiche, sans réglage caché.
+    let cancelled = false
+    fetch('/api/doctolib/status', { headers: { 'x-osteoflow-app': '1' }, cache: 'no-store' })
+      .then((res) => res.json())
+      .then((status: { seen?: unknown }) => {
+        if (cancelled || !status?.seen) return
+        setVisible(true)
+        try {
+          localStorage.setItem(DOCTOLIB_TESTING_KEY, '1')
+        } catch {
+          // idem
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
     }
   }, [])
   return visible
