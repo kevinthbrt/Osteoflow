@@ -51,6 +51,11 @@ function addDays(dateStr: string, days: number): string {
 export default function DayPlanPage() {
   const [practitionerId, setPractitionerId] = useState<string | null>(null)
   const [date, setDate] = useState(() => toDateStr(new Date()))
+  // Lien direct vers un jour (alerte Doctolib, agenda du tableau de bord)
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('date')
+    if (requested && /^\d{4}-\d{2}-\d{2}$/.test(requested)) setDate(requested)
+  }, [])
   const [items, setItems] = useState<PlanItem[]>([])
   const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
@@ -218,6 +223,8 @@ export default function DayPlanPage() {
       {/* Rendez-vous envoyés par l'extension Doctolib */}
       <DoctolibImportPanel
         practitionerId={practitionerId}
+        date={date}
+        refreshKey={items}
         onImported={(importedDate) => {
           if (importedDate === date && practitionerId) loadPlan(practitionerId, date)
           else setDate(importedDate)

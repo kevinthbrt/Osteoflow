@@ -26,7 +26,7 @@ Envoie les rendez-vous de votre agenda Doctolib Pro vers Osteoflow, sur votre po
 ```
 Pour les praticiens qui utilisent Doctolib Pro et MyOsteoFlow.
 
-Agenda Doctolib ouvert, un clic sur « Envoyer à Osteoflow » : les patients du jour arrivent dans « Ma journée » de MyOsteoFlow, dans l'ordre de passage.
+Votre agenda Doctolib ouvert, la semaine se synchronise toute seule avec MyOsteoFlow : les patients reconnus arrivent dans « Ma journée », et l'agenda de la semaine s'affiche sur l'accueil.
 
 Aucun réglage : l'extension se connecte toute seule à MyOsteoFlow ouvert sur le même ordinateur.
 
@@ -37,7 +37,7 @@ Aucun réglage : l'extension se connecte toute seule à MyOsteoFlow ouvert sur l
 Confidentialité
 • Les rendez-vous vont directement de votre onglet Doctolib à MyOsteoFlow sur votre ordinateur. Aucun serveur intermédiaire, aucun suivi.
 • Seuls l'heure, le statut et l'identité du patient sont repris. Les notes et l'adresse ne le sont pas.
-• L'extension n'agit que sur pro.doctolib.fr : elle y affiche un petit bouton et ne lit l'agenda que quand vous cliquez.
+• L'extension n'agit que sur pro.doctolib.fr : elle lit les rendez-vous de la semaine quand l'agenda est ouvert (synchronisation automatique désactivable) et y affiche un petit bouton pour synchroniser à la demande.
 
 Prérequis : MyOsteoFlow ouvert sur le même ordinateur, et un compte Doctolib Pro.
 
@@ -57,19 +57,19 @@ Outil indépendant, non affilié à Doctolib et non approuvé par Doctolib.
 **Objectif unique** (Single purpose) :
 
 ```
-Copier les rendez-vous d'un jour de l'agenda Doctolib Pro du praticien vers le logiciel MyOsteoFlow installé sur son ordinateur.
+Copier les rendez-vous de l'agenda Doctolib Pro du praticien vers le logiciel MyOsteoFlow installé sur son ordinateur.
 ```
 
 **Justification de « storage »** :
 
 ```
-Conserver les réglages de l'extension sur le poste : le code d'appairage avec MyOsteoFlow, l'adresse locale de MyOsteoFlow, l'affichage ou non du bouton dans l'agenda et, si le praticien le renseigne, l'identifiant de son agenda Doctolib.
+Conserver les réglages de l'extension sur le poste : le code d'appairage avec MyOsteoFlow, l'adresse locale de MyOsteoFlow, les préférences (synchronisation automatique, bouton dans l'agenda), l'heure de la dernière synchronisation et, si le praticien le renseigne, l'identifiant de son agenda Doctolib.
 ```
 
 **Justification de l'accès à pro.doctolib.fr** :
 
 ```
-Afficher un bouton « Envoyer à Osteoflow » dans l'agenda Doctolib Pro et, au clic du praticien et avec sa session ouverte, lire les rendez-vous du jour choisi. L'extension n'agit sur aucun autre site.
+Lire, avec la session ouverte du praticien, les rendez-vous de la semaine en cours dans son agenda Doctolib Pro quand il l'a ouvert (à l'ouverture puis toutes les 10 minutes, désactivable), et afficher un bouton pour synchroniser à la demande. L'extension n'agit sur aucun autre site.
 ```
 
 **Justification de l'accès à localhost et 127.0.0.1** :

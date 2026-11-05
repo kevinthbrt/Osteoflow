@@ -24,14 +24,27 @@ export function useDoctolibFeature(): boolean {
   return visible
 }
 
+export interface DoctolibSyncSummary {
+  at: string
+  received: number
+  added: number
+  removed: number
+  toReview: number
+  newToReview: number
+  firstReviewDate: string | null
+}
+
 export interface DoctolibStatus {
   seen: { at: string; version: string | null } | null
   lastImport: { at: string; count: number } | null
+  lastSync: DoctolibSyncSummary | null
+  autoAdd: boolean
 }
 
 /** État de l'extension, relu régulièrement tant qu'elle n'est pas connectée. */
 export function useDoctolibStatus(enabled: boolean) {
   const [status, setStatus] = useState<DoctolibStatus | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
   useEffect(() => {
     if (!enabled) return
     let cancelled = false
@@ -59,6 +72,6 @@ export function useDoctolibStatus(enabled: boolean) {
       clearTimeout(timer)
       window.removeEventListener('focus', onFocus)
     }
-  }, [enabled])
-  return status
+  }, [enabled, reloadKey])
+  return { status, reload: () => setReloadKey((key) => key + 1) }
 }

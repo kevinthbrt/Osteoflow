@@ -10,7 +10,6 @@ import { cn } from '@/lib/utils'
 import { useDoctolibFeature } from '@/lib/doctolib/use-doctolib-feature'
 import { DoctolibSetupCard } from '@/components/doctolib/doctolib-setup-card'
 import {
-  localDay,
   localTime,
   matchPatient,
   canAutoCreate,
@@ -26,9 +25,13 @@ import { QuickAddPatientDialog, type QuickAddedPatient } from '@/components/pati
  * patient du fichier (ou à créer), puis ajouté dans l'ordre de passage.
  */
 interface PendingImport {
-  receivedAt: string
-  date: string | null
+  date: string
   appointments: DoctolibAppointment[]
+}
+
+interface AgendaEntry extends DoctolibAppointment {
+  handled: boolean
+  inPlan: boolean
 }
 
 const APP_HEADERS = { 'x-osteoflow-app': '1' }
@@ -39,10 +42,16 @@ function formatDay(date: string) {
 
 export function DoctolibImportPanel({
   practitionerId,
+  date,
+  refreshKey,
   onImported,
 }: {
   practitionerId: string | null
-  /** Appelé avec le jour importé, pour afficher la journée mise à jour */
+  /** Jour affiché dans Ma journée */
+  date: string
+  /** Change quand la journée change (patient ajouté, retiré…) */
+  refreshKey: unknown
+  /** Appelé après l'ajout, pour afficher la journée mise à jour */
   onImported: (date: string) => void
 }) {
   const { toast } = useToast()
@@ -56,15 +65,24 @@ export function DoctolibImportPanel({
   const [saving, setSaving] = useState(false)
   const featureVisible = useDoctolibFeature()
 
+  // Rendez-vous du jour synchronisés depuis Doctolib qui attendent une
+  // décision : ni ajoutés (automatiquement ou à la main), ni ignorés.
   const loadPending = useCallback(async () => {
+    if (!featureVisible) return
     try {
-      const res = await fetch('/api/doctolib/import', { headers: APP_HEADERS, cache: 'no-store' })
-      const data = (await res.json()) as { pending: PendingImport | null }
-      setPending(data.pending && data.pending.appointments?.length ? data.pending : null)
+      const res = await fetch(`/api/doctolib/agenda?start=${date}&end=${date}`, { headers: APP_HEADERS, cache: 'no-store' })
+      const data = (await res.json()) as { days?: Record<string, AgendaEntry[]> }
+      const waiting = (data.days?.[date] ?? []).filter((entry) => !entry.handled && !entry.inPlan)
+      setPending((previous) => {
+        if (waiting.length === 0) return null
+        const sameList = previous?.date === date &&
+          previous.appointments.map((a) => a.doctolibId).join() === waiting.map((a) => a.doctolibId).join()
+        return sameList ? previous : { date, appointments: waiting }
+      })
     } catch {
       // Hors ligne : on réessaiera au prochain passage.
     }
-  }, [])
+  }, [date, featureVisible])
 
   // Les rendez-vous arrivent pendant que la page est ouverte : on regarde
   // régulièrement, et dès que la fenêtre reprend le focus.
@@ -76,9 +94,9 @@ export function DoctolibImportPanel({
       clearInterval(timer)
       window.removeEventListener('focus', loadPending)
     }
-  }, [loadPending])
+  }, [loadPending, refreshKey])
 
-  const importDate = pending ? pending.date ?? localDay(pending.appointments[0].start) : null
+  const importDate = pending?.date ?? null
 
   const loadPatients = useCallback(async () => {
     const { data } = await db
@@ -175,8 +193,17 @@ export function DoctolibImportPanel({
       : { title: `${count} dossier${count > 1 ? 's' : ''} créé${count > 1 ? 's' : ''}, ${failed} en échec`, description: 'Créez les autres avec « Créer le patient ».', variant: 'destructive' })
   }
 
+  const markHandled = (handled: Array<{ doctolibId: string; date: string; patientId?: string; ignored?: boolean }>) =>
+    fetch('/api/doctolib/agenda', {
+      method: 'POST',
+      headers: { ...APP_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ handled }),
+    })
+
+  /** Ignorer : ces rendez-vous ne seront plus proposés. */
   const dismiss = async () => {
-    await fetch('/api/doctolib/import', { method: 'DELETE', headers: APP_HEADERS })
+    if (!pending) return
+    await markHandled(pending.appointments.map((appointment) => ({ doctolibId: appointment.doctolibId, date: pending.date, ignored: true })))
     setPending(null)
     setChoices({})
   }
@@ -192,8 +219,10 @@ export function DoctolibImportPanel({
         .eq('plan_date', importDate)
       let position = ((existing as Array<{ position: number }> | null) ?? []).reduce((max, row) => Math.max(max, row.position + 1), 0)
       const added = new Set<string>()
+      const handled: Array<{ doctolibId: string; date: string; patientId: string }> = []
       for (const appointment of selected) {
         const patientId = choices[appointment.doctolibId]!
+        handled.push({ doctolibId: appointment.doctolibId, date: importDate, patientId })
         if (added.has(patientId)) continue
         const { error } = await db.from('daily_plan_items').insert({
           practitioner_id: practitionerId,
@@ -205,7 +234,9 @@ export function DoctolibImportPanel({
         if (error) throw error
         added.add(patientId)
       }
-      await dismiss()
+      await markHandled(handled)
+      setChoices({})
+      await loadPending()
       toast({ title: `${added.size} patient${added.size > 1 ? 's' : ''} ajouté${added.size > 1 ? 's' : ''} à la journée`, variant: 'success' })
       onImported(importDate)
     } catch {
@@ -236,7 +267,7 @@ export function DoctolibImportPanel({
             Rendez-vous Doctolib
           </h2>
           <p className="text-[13px] text-muted-foreground first-letter:uppercase">
-            {importDate ? formatDay(importDate) : ''} · {pending.appointments.length} rendez-vous reçus
+            {importDate ? formatDay(importDate) : ''} · {pending.appointments.length} rendez-vous à vérifier
           </p>
         </div>
         <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={dismiss}>

@@ -1,9 +1,10 @@
 /*
  * Osteoflow : import Doctolib, fenêtre de l'extension.
  *
- * 1. vérifie la liaison avec Osteoflow (connexion automatique) ;
- * 2. demande au script de la page Doctolib les rendez-vous du jour choisi ;
- * 3. les confie au service de l'extension, qui les envoie à Osteoflow.
+ * - vérifie la liaison avec Osteoflow (connexion automatique) ;
+ * - « Synchroniser la semaine » : demande au script de la page Doctolib une
+ *   synchronisation immédiate ;
+ * - « Envoyer un autre jour » : lit ce jour dans la page et l'envoie.
  */
 const $ = (id) => document.getElementById(id)
 
@@ -40,17 +41,21 @@ async function checkLink() {
 }
 
 async function load() {
-  const { code = '', agenda = '', hideButton = false } = await chrome.storage.local.get(['code', 'agenda', 'hideButton'])
+  const { code = '', agenda = '', hideButton = false, autoSync = true } = await chrome.storage.local.get(['code', 'agenda', 'hideButton', 'autoSync'])
   $('code').value = code
   $('agenda').value = agenda
   $('showButton').checked = !hideButton
+  $('autoSync').checked = autoSync !== false
   $('date').value = today()
   const tab = await activeDoctolibTab()
   if (tab) {
     const reply = await chrome.tabs.sendMessage(tab.id, { type: 'osteoflow:displayed-day' }).catch(() => null)
     if (reply && reply.date) $('date').value = reply.date
+    if (reply && reply.lastResult) {
+      setStatus(`Synchronisé à ${new Date(reply.lastResult.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.`)
+    }
   } else {
-    setStatus('Ouvrez votre agenda sur pro.doctolib.fr pour envoyer vos rendez-vous.')
+    setStatus('Ouvrez votre agenda sur pro.doctolib.fr : la semaine se synchronisera toute seule.')
   }
   checkLink()
 }
@@ -77,15 +82,10 @@ async function send() {
     if (!reply || !reply.ok) throw new Error((reply && reply.error) || 'Lecture de l’agenda impossible.')
 
     setStatus('Envoi à Osteoflow…')
-    const result = await chrome.runtime.sendMessage({ type: 'osteoflow:post', date, appointments: reply.appointments })
+    const result = await chrome.runtime.sendMessage({ type: 'osteoflow:sync', start: date, end: date, appointments: reply.appointments })
     if (!result || !result.ok) throw new Error((result && result.error) || 'Envoi impossible.')
     setLink('Connecté à Osteoflow', 'ok')
-    setStatus(
-      result.count === 0
-        ? 'Aucun rendez-vous patient ce jour-là.'
-        : `${result.count} rendez-vous envoyé${result.count > 1 ? 's' : ''}. Validez-les dans Osteoflow, Ma journée.`,
-      'ok'
-    )
+    setStatus(summary(result), 'ok')
   } catch (error) {
     setStatus(error.message || String(error), 'error')
   } finally {
@@ -93,7 +93,42 @@ async function send() {
   }
 }
 
+function summary(result) {
+  if (!result.received) return 'Aucun rendez-vous patient sur cette période.'
+  const parts = [`${result.received} rendez-vous envoyé${result.received > 1 ? 's' : ''}`]
+  if (result.added > 0) parts.push(`${result.added} patient${result.added > 1 ? 's' : ''} ajouté${result.added > 1 ? 's' : ''} à Ma journée`)
+  if (result.toReview > 0) parts.push(`${result.toReview} à vérifier dans Osteoflow`)
+  return `${parts.join(', ')}.`
+}
+
+async function syncNow() {
+  const button = $('syncNow')
+  button.disabled = true
+  try {
+    const tab = await activeDoctolibTab()
+    if (!tab) throw new Error('Ouvrez votre agenda sur pro.doctolib.fr, puis cliquez à nouveau.')
+    setStatus('Synchronisation…')
+    let result
+    try {
+      result = await chrome.tabs.sendMessage(tab.id, { type: 'osteoflow:sync-now' })
+    } catch (_) {
+      throw new Error('Rechargez la page Doctolib (F5), puis réessayez.')
+    }
+    if (!result || !result.ok) throw new Error((result && result.error) || 'Synchronisation impossible.')
+    setLink('Connecté à Osteoflow', 'ok')
+    setStatus(summary(result), 'ok')
+  } catch (error) {
+    setStatus(error.message || String(error), 'error')
+  } finally {
+    button.disabled = false
+  }
+}
+
+$('syncNow').addEventListener('click', syncNow)
 $('send').addEventListener('click', send)
+$('autoSync').addEventListener('change', (event) => {
+  chrome.storage.local.set({ autoSync: event.target.checked })
+})
 $('showButton').addEventListener('change', (event) => {
   chrome.storage.local.set({ hideButton: !event.target.checked })
 })

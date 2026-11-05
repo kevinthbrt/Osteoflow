@@ -24,6 +24,8 @@ import { OsteoUpgradeUpsellWidget } from './widgets/osteoupgrade-upsell'
 import { RelaunchWidget } from './widgets/relaunch-widget'
 import { ProfileCompletionWidget } from './profile-completion-widget'
 import { TodayPanel, type TodaySummary } from './today-panel'
+import { WeekAgendaPanel } from './week-agenda-panel'
+import { useDoctolibFeature } from '@/lib/doctolib/use-doctolib-feature'
 import { HeaderWeather } from '@/components/layout/header-weather'
 import { openCommandPalette } from '@/components/layout/command-palette'
 import { useEntitlements } from '@/hooks/use-entitlements'
@@ -63,7 +65,7 @@ interface DashboardProps {
  * ordre, largeur (1, 2 ou 3 colonnes) et visibilité. La disposition est
  * mémorisée sur ce poste.
  */
-type BlockId = 'today' | 'todo' | 'osteoupgrade' | 'review' | 'video' | 'relaunch' | 'progress'
+type BlockId = 'today' | 'agenda' | 'todo' | 'osteoupgrade' | 'review' | 'video' | 'relaunch' | 'progress'
 type BlockSize = 1 | 2 | 3
 
 interface BlockLayout {
@@ -72,8 +74,9 @@ interface BlockLayout {
   hidden: boolean
 }
 
-const BLOCKS: Record<BlockId, { label: string; needsOsteoUpgrade?: boolean }> = {
+const BLOCKS: Record<BlockId, { label: string; needsOsteoUpgrade?: boolean; needsDoctolib?: boolean; visibleWhenNew?: boolean }> = {
   today: { label: 'Aujourd’hui' },
+  agenda: { label: 'Agenda de la semaine', needsDoctolib: true, visibleWhenNew: true },
   todo: { label: 'À traiter' },
   osteoupgrade: { label: 'OsteoFlash' },
   review: { label: 'Revue et formation à la une', needsOsteoUpgrade: true },
@@ -85,6 +88,7 @@ const BLOCKS: Record<BlockId, { label: string; needsOsteoUpgrade?: boolean }> = 
 const DEFAULT_LAYOUT: BlockLayout[] = [
   { id: 'today', size: 2, hidden: false },
   { id: 'todo', size: 1, hidden: false },
+  { id: 'agenda', size: 3, hidden: false },
   { id: 'relaunch', size: 2, hidden: false },
   { id: 'osteoupgrade', size: 1, hidden: false },
   { id: 'review', size: 1, hidden: false },
@@ -117,7 +121,7 @@ function mergeLayout(stored: unknown): BlockLayout[] {
   const seen = new Set(known.map((entry) => entry.id))
   return [
     ...known.filter((entry, index) => known.findIndex((other) => other.id === entry.id) === index),
-    ...DEFAULT_LAYOUT.filter((entry) => !seen.has(entry.id)).map((entry) => ({ ...entry, hidden: true })),
+    ...DEFAULT_LAYOUT.filter((entry) => !seen.has(entry.id)).map((entry) => ({ ...entry, hidden: !BLOCKS[entry.id].visibleWhenNew })),
   ]
 }
 
@@ -152,6 +156,7 @@ export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoic
   // endpoints répondent 403. On remplace les widgets par un encart d'offre
   // plutôt que d'afficher des cartes vides.
   const { osteoupgrade: aOsteoUpgrade } = useEntitlements()
+  const doctolibVisible = useDoctolibFeature()
   const [widgets, setWidgets] = useState<WidgetsData | null>(null)
   const [widgetsLoading, setWidgetsLoading] = useState(true)
   const [widgetsRefreshKey, setWidgetsRefreshKey] = useState(0)
@@ -184,11 +189,12 @@ export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoic
   const blockLabel = (id: BlockId) =>
     id === 'osteoupgrade' && !aOsteoUpgrade ? 'Offre OsteoUpgrade' : BLOCKS[id].label
 
-  const isAvailable = (id: BlockId) => !BLOCKS[id].needsOsteoUpgrade || aOsteoUpgrade
+  const isAvailable = (id: BlockId) =>
+    (!BLOCKS[id].needsOsteoUpgrade || aOsteoUpgrade) && (!BLOCKS[id].needsDoctolib || doctolibVisible)
   const available = useMemo(
     () => layout.filter((block) => isAvailable(block.id)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [layout, aOsteoUpgrade]
+    [layout, aOsteoUpgrade, doctolibVisible]
   )
   const visible = available.filter((block) => !block.hidden)
   const hiddenBlocks = available.filter((block) => block.hidden)
@@ -303,6 +309,8 @@ export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoic
     switch (block.id) {
       case 'today':
         return <TodayPanel onSummary={onSummary} />
+      case 'agenda':
+        return <WeekAgendaPanel size={block.size} />
       case 'todo':
         return (
           <section className="glass-card rounded-xl" aria-labelledby="todo-title">

@@ -12,7 +12,6 @@ import { getDatabase } from '@/lib/database/connection'
  *   rendez-vous reçus ni changer le code.
  */
 const TOKEN_KEY = 'doctolib_extension_token'
-const PENDING_KEY = 'doctolib_pending_import'
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 function randomCode(): string {
@@ -44,26 +43,6 @@ export function isValidPairingCode(candidate: string | null): boolean {
 
 export function isAppRequest(request: Request): boolean {
   return request.headers.get('x-osteoflow-app') === '1'
-}
-
-export function savePendingImport(value: unknown) {
-  getDatabase()
-    .prepare('INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)')
-    .run(PENDING_KEY, JSON.stringify(value))
-}
-
-export function readPendingImport(): unknown {
-  const row = getDatabase().prepare('SELECT value FROM app_config WHERE key = ?').get(PENDING_KEY) as { value: string } | undefined
-  if (!row) return null
-  try {
-    return JSON.parse(row.value)
-  } catch {
-    return null
-  }
-}
-
-export function clearPendingImport() {
-  getDatabase().prepare('DELETE FROM app_config WHERE key = ?').run(PENDING_KEY)
 }
 
 /**

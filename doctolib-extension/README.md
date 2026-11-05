@@ -7,17 +7,23 @@ Outil indépendant, non affilié à Doctolib.
 
 ## Ce qu'elle fait, et ne fait pas
 
-- Elle ne s'active que sur `pro.doctolib.fr`, et seulement quand on clique
-  sur « Envoyer à Osteoflow » (bouton en bas à droite de l'agenda, ou icône
-  de l'extension).
-- Elle lit les rendez-vous du jour choisi avec la session Doctolib déjà
-  ouverte, sans identifiants ni mot de passe.
+- Elle ne s'active que sur `pro.doctolib.fr`. Tant que l'agenda y est
+  ouvert, elle synchronise la semaine en cours avec Osteoflow : à
+  l'ouverture, puis toutes les 10 minutes (au plus une fois toutes les
+  4 minutes, quel que soit le nombre d'onglets). Désactivable dans ses
+  Réglages ; le bouton « Osteoflow » en bas à droite de l'agenda synchronise
+  à la demande.
+- Elle lit les rendez-vous avec la session Doctolib déjà ouverte, sans
+  identifiants ni mot de passe.
 - Elle ne garde que l'utile : heure, statut, nom, prénom, nom de naissance,
   date de naissance, sexe, téléphone et email du patient.
 - Elle envoie ces données **uniquement à Osteoflow sur le poste**
   (`localhost`, ports 3456 à 3465). Aucun serveur extérieur, aucun suivi.
-- Osteoflow n'ajoute rien tout seul : les rendez-vous attendent dans Ma
-  journée, où le praticien valide l'association à chaque dossier.
+- Dans Osteoflow, les patients reconnus avec certitude (nom, prénom, date de
+  naissance) sont ajoutés à Ma journée (option dans Réglages, Doctolib) ; un
+  rendez-vous annulé ou déplacé retire le patient ajouté s'il n'a pas encore
+  été vu. Le reste attend une validation dans Ma journée. Aucun dossier n'est
+  créé sans clic. L'agenda de la semaine s'affiche sur le tableau de bord.
 
 ## Installation pour les tests (mode développeur)
 
@@ -39,12 +45,11 @@ En cas d'échec (Osteoflow fermé, port inhabituel), le code reste saisissable
 
 ## Au quotidien
 
-1. Agenda Doctolib ouvert, cliquer sur « Envoyer à Osteoflow » en bas à
-   droite (jour affiché en vue jour, sinon aujourd'hui). L'icône de
-   l'extension permet de choisir un autre jour.
-2. Osteoflow prévient de l'arrivée des rendez-vous, où que l'on soit.
-3. Dans Ma journée : vérifier l'association de chaque rendez-vous et cliquer
-   sur « Ajouter à la journée ».
+1. Ouvrir l'agenda Doctolib dans Chrome, comme d'habitude : la semaine se
+   synchronise toute seule.
+2. Osteoflow prévient quand des patients ont été ajoutés ou sont à vérifier.
+3. Dans Ma journée, valider les rendez-vous à vérifier (homonymes, nouveaux
+   patients). L'icône de l'extension permet aussi d'envoyer un autre jour.
 
 ## Points techniques
 

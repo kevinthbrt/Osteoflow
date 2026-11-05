@@ -5,6 +5,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { CalendarArrowDown, Check, ChevronDown, Copy, ExternalLink, Loader2, RefreshCw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { copyText } from '@/lib/utils/clipboard'
@@ -13,8 +14,8 @@ import { useDoctolibStatus } from '@/lib/doctolib/use-doctolib-feature'
 
 /**
  * Mise en route de l'extension Doctolib : installation, connexion
- * (automatique, l'extension se présente à Osteoflow), premier envoi.
- * L'état se met à jour tout seul pendant que le praticien installe.
+ * (automatique, l'extension se présente à Osteoflow), première
+ * synchronisation. L'état se met à jour tout seul pendant l'installation.
  */
 const DOCTOLIB_URL = 'https://pro.doctolib.fr'
 const DISMISS_KEY = 'myosteoflow_doctolib_setup_dismissed'
@@ -117,8 +118,37 @@ function ManualPairing() {
   )
 }
 
+function AutoAddOption({ enabled, onChange }: { enabled: boolean; onChange: () => void }) {
+  const [saving, setSaving] = useState(false)
+  return (
+    <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+      <Checkbox
+        className="mt-0.5"
+        checked={enabled}
+        disabled={saving}
+        onCheckedChange={async (value) => {
+          setSaving(true)
+          await fetch('/api/doctolib/status', {
+            method: 'POST',
+            headers: { ...APP_HEADERS, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ autoAdd: value === true }),
+          }).catch(() => null)
+          setSaving(false)
+          onChange()
+        }}
+      />
+      <span>
+        <span className="font-medium">Ajouter automatiquement les patients reconnus à Ma journée</span>
+        <span className="block text-[13px] text-muted-foreground">
+          Même nom, même prénom et même date de naissance qu’un dossier. Les autres rendez-vous restent à valider.
+        </span>
+      </span>
+    </label>
+  )
+}
+
 export function DoctolibSetupCard({ variant }: { variant: 'day-plan' | 'settings' }) {
-  const status = useDoctolibStatus(true)
+  const { status, reload } = useDoctolibStatus(true)
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
@@ -142,7 +172,8 @@ export function DoctolibSetupCard({ variant }: { variant: 'day-plan' | 'settings
 
   if (!status) return null
   const connected = !!status.seen
-  const hasSent = !!status.lastImport
+  const hasSent = !!status.lastSync || !!status.lastImport
+  const syncedAt = status.lastSync?.at ?? status.lastImport?.at ?? null
 
   // Ma journée, extension déjà en service : un simple rappel.
   if (variant === 'day-plan' && (hasSent || dismissed)) {
@@ -150,8 +181,11 @@ export function DoctolibSetupCard({ variant }: { variant: 'day-plan' | 'settings
       <div className="flex max-w-2xl flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-dashed border-border bg-card px-4 py-3 text-sm">
         <CalendarArrowDown className="h-4 w-4 shrink-0 text-muted-foreground" />
         <p className="min-w-0 flex-1 basis-64 text-muted-foreground">
-          {hasSent ? (
-            <>Dans votre agenda Doctolib, cliquez sur « Envoyer à Osteoflow » : les rendez-vous arrivent ici.</>
+          {hasSent && syncedAt ? (
+            <>
+              Agenda Doctolib synchronisé {ago(syncedAt)}.{' '}
+              {status.autoAdd ? 'Les patients reconnus s’ajoutent seuls.' : 'Les rendez-vous à valider s’affichent ici.'}
+            </>
           ) : (
             <><span className="font-medium text-foreground">Importer depuis Doctolib.</span> Vos rendez-vous du jour, envoyés ici en un clic.</>
           )}
@@ -184,8 +218,8 @@ export function DoctolibSetupCard({ variant }: { variant: 'day-plan' | 'settings
             Importer vos rendez-vous Doctolib
           </h2>
           <p className="text-[13px] text-muted-foreground">
-            Un clic dans votre agenda Doctolib, et les patients du jour arrivent dans Ma journée. Les données restent sur ce
-            poste.
+            Votre agenda Doctolib ouvert dans Chrome, la semaine se synchronise toute seule avec Ma journée. Les données restent
+            sur ce poste.
           </p>
         </div>
         <span
@@ -239,7 +273,7 @@ export function DoctolibSetupCard({ variant }: { variant: 'day-plan' | 'settings
           index={2}
           done={hasSent}
           active={connected && !hasSent}
-          title="Dans votre agenda Doctolib, cliquez sur « Envoyer à Osteoflow »"
+          title="Ouvrez votre agenda Doctolib dans Chrome"
         >
           <div className="flex flex-wrap items-center gap-3">
             <Button size="sm" variant="outline" className="gap-1.5" asChild>
@@ -249,18 +283,31 @@ export function DoctolibSetupCard({ variant }: { variant: 'day-plan' | 'settings
               </a>
             </Button>
             <p className="text-[13px] text-muted-foreground">
-              Le bouton apparaît en bas à droite de l’agenda. Agenda déjà ouvert : rechargez la page (F5).
+              La semaine se synchronise à l’ouverture, puis toutes les 10 minutes. Agenda déjà ouvert : rechargez la page (F5).
             </p>
           </div>
         </Step>
-        <Step index={3} done={false} active={hasSent} title="Validez ici les patients reçus, en un clic">
-          {status.lastImport && (
+        <Step
+          index={3}
+          done={false}
+          active={hasSent}
+          title={status.autoAdd ? 'Les patients reconnus arrivent seuls dans Ma journée' : 'Validez les patients dans Ma journée'}
+        >
+          {syncedAt && (
             <p className="text-[13px] text-muted-foreground">
-              Dernier envoi {ago(status.lastImport.at)} ({status.lastImport.count} rendez-vous).
+              Dernière synchronisation {ago(syncedAt)}
+              {status.lastSync ? ` : ${status.lastSync.received} rendez-vous` : ''}
+              {status.lastSync && status.lastSync.toReview > 0 ? `, ${status.lastSync.toReview} à vérifier dans Ma journée` : ''}.
             </p>
           )}
         </Step>
       </ol>
+
+      {(variant === 'settings' || connected) && (
+        <div className="border-t border-border px-5 py-4">
+          <AutoAddOption enabled={status.autoAdd} onChange={reload} />
+        </div>
+      )}
 
       <div className="border-t border-border px-5 py-3">
         <ManualPairing />

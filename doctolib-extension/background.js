@@ -7,7 +7,8 @@
  *   lui-même, sans copier-coller. Un site web ne peut pas faire cette
  *   demande (Osteoflow n'autorise aucun autre site), l'extension si, grâce à
  *   son autorisation sur localhost ;
- * - envoie les rendez-vous lus dans la page Doctolib.
+ * - envoie les rendez-vous lus dans la page Doctolib (synchronisation de la
+ *   semaine, automatique ou à la demande).
  */
 const PORTS = Array.from({ length: 10 }, (_, index) => 3456 + index)
 const HOSTS = ['localhost', '127.0.0.1']
@@ -77,24 +78,24 @@ async function connect() {
   return { ok: true, base, code }
 }
 
-async function post({ date, appointments }) {
+/** Rendez-vous des jours `start` à `end`, lus dans la page Doctolib. */
+async function syncRange({ start, end, appointments }) {
   const link = await connect()
   if (!link.ok) return link
-  const response = await fetch(`${link.base}/api/doctolib/import`, {
+  const response = await fetch(`${link.base}/api/doctolib/sync`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-osteoflow-token': link.code },
-    body: JSON.stringify({ date, appointments, version: VERSION }),
+    body: JSON.stringify({ start, end, appointments, version: VERSION }),
   })
   if (!response.ok) return { ok: false, error: `Osteoflow a répondu ${response.status}.` }
-  const { count } = await response.json()
-  return { ok: true, count }
+  return response.json()
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || typeof message.type !== 'string') return false
   const run = {
     'osteoflow:connect': () => connect(),
-    'osteoflow:post': () => post(message),
+    'osteoflow:sync': () => syncRange(message),
   }[message.type]
   if (!run) return false
   run()
