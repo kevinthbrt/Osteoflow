@@ -66,3 +66,11 @@ summary { cursor: pointer; font-weight: 500; color: var(--muted); }
 .hint { margin: -2px 0 4px; font-size: 12px; color: var(--muted); }
 footer { margin-top: 14px; font-size: 11px; color: var(--muted); }
 details input, details button { width: 100%; }
+.link { display: flex; align-items: center; gap: 8px; margin: -4px 0 12px; font-size: 13px; color: var(--muted); }
+.link::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex: none; }
+.link[data-state="ok"] { color: var(--success); }
+.link[data-state="ok"]::before { background: var(--success); }
+.link[data-state="error"] { color: var(--danger); }
+.link[data-state="error"]::before { background: var(--danger); }
+label.check { display: flex; align-items: center; gap: 8px; color: var(--fg); margin-bottom: 4px; }
+label.check input { width: auto; height: auto; }

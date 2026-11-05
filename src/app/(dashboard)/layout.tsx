@@ -17,6 +17,7 @@ import { SupportWidget } from '@/components/support/support-widget'
 import { BroadcastModal } from '@/components/layout/broadcast-modal'
 import { CurrencySync } from '@/components/providers/currency-sync'
 import { SimulationOffre } from '@/components/layout/simulation-offre'
+import { DoctolibArrivalNotifier } from '@/components/doctolib/doctolib-arrival-notifier'
 
 export const dynamic = 'force-dynamic'
 
@@ -105,6 +106,7 @@ export default async function DashboardLayout({
         <InactivityTimer timeoutMs={inactivityTimeoutMs} />
         <SupportWidget userEmail={licenseEmail} />
         <SimulationOffre />
+        <DoctolibArrivalNotifier />
       </div>
     </TourWrapper>
   )

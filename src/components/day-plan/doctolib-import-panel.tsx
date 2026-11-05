@@ -1,14 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CalendarArrowDown, Check, Copy, KeyRound, Loader2, RefreshCw, UserPlus, X } from 'lucide-react'
+import { CalendarArrowDown, Check, Loader2, UserPlus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { createClient } from '@/lib/db/client'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
-import { copyText } from '@/lib/utils/clipboard'
-import { DOCTOLIB_EXTENSION_PUBLISHED, DOCTOLIB_EXTENSION_STORE_URL, DOCTOLIB_TESTING_KEY } from '@/lib/doctolib/config'
+import { useDoctolibFeature } from '@/lib/doctolib/use-doctolib-feature'
+import { DoctolibSetupCard } from '@/components/doctolib/doctolib-setup-card'
 import {
   localDay,
   localTime,
@@ -54,22 +54,7 @@ export function DoctolibImportPanel({
   const [overrides, setChoices] = useState<Record<string, string | null>>({})
   const [creatingFor, setCreatingFor] = useState<DoctolibAppointment | null>(null)
   const [saving, setSaving] = useState(false)
-  const [showPairing, setShowPairing] = useState(false)
-  const [code, setCode] = useState<string | null>(null)
-  const [introVisible, setIntroVisible] = useState(DOCTOLIB_EXTENSION_PUBLISHED)
-
-  // Avant la publication de l'extension, l'encart ne s'affiche qu'en test
-  useEffect(() => {
-    if (DOCTOLIB_EXTENSION_PUBLISHED) return
-    try {
-      const flag = new URLSearchParams(window.location.search).get('doctolib')
-      if (flag === '1') localStorage.setItem(DOCTOLIB_TESTING_KEY, '1')
-      if (flag === '0') localStorage.removeItem(DOCTOLIB_TESTING_KEY)
-      setIntroVisible(localStorage.getItem(DOCTOLIB_TESTING_KEY) === '1')
-    } catch {
-      setIntroVisible(false)
-    }
-  }, [])
+  const featureVisible = useDoctolibFeature()
 
   const loadPending = useCallback(async () => {
     try {
@@ -230,12 +215,6 @@ export function DoctolibImportPanel({
     }
   }
 
-  const loadCode = async (regenerate = false) => {
-    const res = await fetch('/api/doctolib/pairing', { method: regenerate ? 'POST' : 'GET', headers: APP_HEADERS })
-    const data = (await res.json()) as { code?: string }
-    setCode(data.code ?? null)
-  }
-
   const onPatientCreated = (patient: QuickAddedPatient) => {
     if (creatingFor) {
       setChoices((previous) => ({ ...previous, [creatingFor.doctolibId]: patient.id }))
@@ -244,73 +223,8 @@ export function DoctolibImportPanel({
     loadPatients()
   }
 
-  // ── Aucun envoi en attente : présentation et appairage ──
-  if (!pending) {
-    if (!introVisible) return null
-    return (
-      <section className="max-w-2xl rounded-xl border border-dashed border-border bg-card px-5 py-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <CalendarArrowDown className="h-5 w-5 shrink-0 text-muted-foreground" />
-          <p className="min-w-0 flex-1 basis-64 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">Importer depuis Doctolib.</span>{' '}
-            Avec l’extension Osteoflow, envoyez vos rendez-vous Doctolib ici en un clic. Ils restent sur ce poste.
-          </p>
-          {DOCTOLIB_EXTENSION_STORE_URL && (
-            <Button variant="outline" size="sm" asChild>
-              <a href={DOCTOLIB_EXTENSION_STORE_URL} target="_blank" rel="noreferrer">
-                Installer l’extension
-              </a>
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => {
-              setShowPairing((value) => !value)
-              if (!code) loadCode()
-            }}
-          >
-            <KeyRound className="h-4 w-4" />
-            Code de l’extension
-          </Button>
-        </div>
-        {showPairing && (
-          <div className="mt-4 space-y-3 border-t border-border pt-4 text-sm">
-            <p className="text-muted-foreground">
-              Saisissez ce code une fois dans l’extension (icône Osteoflow, puis « Réglages »). Il empêche tout autre site
-              d’envoyer des données à Osteoflow.
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <code className="select-all rounded-lg bg-muted px-3 py-1.5 font-mono text-base font-semibold tracking-widest">
-                {code ?? '…'}
-              </code>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1.5"
-                disabled={!code}
-                onClick={async () => {
-                  if (!code) return
-                  const ok = await copyText(code)
-                  toast(ok
-                    ? { title: 'Code copié', variant: 'success' }
-                    : { title: 'Copie impossible', description: 'Sélectionnez le code et copiez-le avec Cmd + C (Ctrl + C sur PC).', variant: 'destructive' })
-                }}
-              >
-                <Copy className="h-4 w-4" />
-                Copier
-              </Button>
-              <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => loadCode(true)}>
-                <RefreshCw className="h-4 w-4" />
-                Nouveau code
-              </Button>
-            </div>
-          </div>
-        )}
-      </section>
-    )
-  }
+  // ── Aucun envoi en attente : mise en route ou simple rappel ──
+  if (!pending) return featureVisible ? <DoctolibSetupCard variant="day-plan" /> : null
 
   // ── Rendez-vous reçus, à valider ──
   return (

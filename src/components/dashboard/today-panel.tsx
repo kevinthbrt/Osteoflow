@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { CalendarPlus, Check, PanelTop } from 'lucide-react'
+import { CalendarArrowDown, CalendarPlus, Check, PanelTop } from 'lucide-react'
 import { openPatientTabs } from '@/components/layout/patient-tabs'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/db/client'
 import { calculateAge, cn } from '@/lib/utils'
+import { useDoctolibFeature } from '@/lib/doctolib/use-doctolib-feature'
 
 /**
  * Bloc « Aujourd'hui » du tableau de bord : la liste préparée dans Ma journée,
@@ -54,6 +55,7 @@ export function TodayPanel({ onSummary }: { onSummary?: (summary: TodaySummary) 
   const [items, setItems] = useState<PlanItem[]>([])
   const [lastConsults, setLastConsults] = useState<Record<string, LastConsult>>({})
   const [loading, setLoading] = useState(true)
+  const doctolibVisible = useDoctolibFeature()
   const [db] = useState(() => createClient())
 
   const load = useCallback(async () => {
@@ -162,12 +164,22 @@ export function TodayPanel({ onSummary }: { onSummary?: (summary: TodaySummary) 
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 px-5 py-10 text-center">
           <p className="text-sm text-muted-foreground">Aucun patient préparé pour aujourd’hui.</p>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/day-plan">
-              <CalendarPlus className="mr-2 h-4 w-4" />
-              Préparer ma journée
-            </Link>
-          </Button>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/day-plan">
+                <CalendarPlus className="mr-2 h-4 w-4" />
+                Préparer ma journée
+              </Link>
+            </Button>
+            {doctolibVisible && (
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/day-plan">
+                  <CalendarArrowDown className="mr-2 h-4 w-4" />
+                  Importer depuis Doctolib
+                </Link>
+              </Button>
+            )}
+          </div>
         </div>
       ) : (
         <ul className="divide-y divide-border/70">

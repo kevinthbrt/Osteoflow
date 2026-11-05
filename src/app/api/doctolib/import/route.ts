@@ -5,6 +5,8 @@ import {
   isAppRequest,
   isValidPairingCode,
   readPendingImport,
+  recordExtensionSeen,
+  recordImport,
   savePendingImport,
 } from '@/lib/doctolib/server'
 
@@ -21,7 +23,7 @@ export async function POST(request: Request) {
   if (!isValidPairingCode(request.headers.get('x-osteoflow-token'))) {
     return NextResponse.json({ error: 'Code d’appairage incorrect' }, { status: 401 })
   }
-  let body: { appointments?: unknown; date?: unknown }
+  let body: { appointments?: unknown; date?: unknown; version?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -30,6 +32,8 @@ export async function POST(request: Request) {
   const appointments = parseDoctolibAppointments(body.appointments).slice(0, MAX_APPOINTMENTS)
   const date = typeof body.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date) ? body.date : null
   savePendingImport({ receivedAt: new Date().toISOString(), date, appointments })
+  recordExtensionSeen(body.version)
+  recordImport(appointments.length)
   return NextResponse.json({ ok: true, count: appointments.length })
 }
 

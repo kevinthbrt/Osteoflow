@@ -8,7 +8,8 @@ Outil indépendant, non affilié à Doctolib.
 ## Ce qu'elle fait, et ne fait pas
 
 - Elle ne s'active que sur `pro.doctolib.fr`, et seulement quand on clique
-  sur « Envoyer les rendez-vous ».
+  sur « Envoyer à Osteoflow » (bouton en bas à droite de l'agenda, ou icône
+  de l'extension).
 - Elle lit les rendez-vous du jour choisi avec la session Doctolib déjà
   ouverte, sans identifiants ni mot de passe.
 - Elle ne garde que l'utile : heure, statut, nom, prénom, nom de naissance,
@@ -28,19 +29,22 @@ Outil indépendant, non affilié à Doctolib.
 
 ## Première utilisation
 
-1. Dans Osteoflow, ouvrir **Ma journée**, puis « Code de l'extension », et
-   copier le code.
-2. Cliquer sur l'icône de l'extension, ouvrir « Réglages », coller le code,
-   puis « Enregistrer ».
-3. Ouvrir l'agenda sur `pro.doctolib.fr`. S'il était déjà ouvert avant
-   l'installation, recharger la page (F5).
+Rien à saisir : Osteoflow ouvert, l'extension s'y connecte toute seule dès
+l'installation (elle demande le code d'appairage à Osteoflow sur le poste).
+Ma journée et Réglages, Intégrations, Doctolib affichent alors « Extension
+connectée ». Si l'agenda Doctolib était déjà ouvert, recharger la page (F5).
+
+En cas d'échec (Osteoflow fermé, port inhabituel), le code reste saisissable
+à la main : Réglages de l'extension, champ « Code d'appairage ».
 
 ## Au quotidien
 
-1. Agenda Doctolib ouvert, cliquer sur l'icône de l'extension.
-2. Choisir le jour (aujourd'hui par défaut), puis « Envoyer les rendez-vous ».
-3. Dans Osteoflow, Ma journée : vérifier l'association de chaque rendez-vous
-   et cliquer sur « Ajouter à la journée ».
+1. Agenda Doctolib ouvert, cliquer sur « Envoyer à Osteoflow » en bas à
+   droite (jour affiché en vue jour, sinon aujourd'hui). L'icône de
+   l'extension permet de choisir un autre jour.
+2. Osteoflow prévient de l'arrivée des rendez-vous, où que l'on soit.
+3. Dans Ma journée : vérifier l'association de chaque rendez-vous et cliquer
+   sur « Ajouter à la journée ».
 
 ## Points techniques
 
@@ -50,4 +54,9 @@ Outil indépendant, non affilié à Doctolib.
 - L'identifiant d'agenda est repéré automatiquement dans les requêtes de
   l'agenda affiché. Il peut être forcé dans les Réglages.
 - Le code d'appairage protège Osteoflow : sans lui, aucun site ne peut lui
-  envoyer de rendez-vous. Un nouveau code peut être généré dans Ma journée.
+  envoyer de rendez-vous. Seule l'interface d'Osteoflow et l'extension
+  (autorisée sur localhost) peuvent le lire ; un site web en est empêché par
+  le navigateur. Un nouveau code peut être généré dans Réglages, Doctolib :
+  l'extension le reprend seule.
+- `background.js` est le seul fichier qui parle à Osteoflow ; `content.js`
+  lit l'agenda et affiche le bouton ; `popup.js` est la fenêtre de l'icône.

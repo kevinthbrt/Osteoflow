@@ -11,6 +11,8 @@
     <h1>Envoyer à Osteoflow</h1>
   </header>
 
+  <p id="link" class="link" data-state="checking">Recherche d’Osteoflow…</p>
+
   <main>
     <label for="date">Jour à envoyer</label>
     <input id="date" type="date">
@@ -20,13 +22,15 @@
 
     <details id="settings">
       <summary>Réglages</summary>
-      <label for="code">Code d’appairage</label>
-      <input id="code" type="text" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX">
-      <p class="hint">À copier depuis Osteoflow : Ma journée, puis « Code de l’extension ».</p>
+      <label class="check"><input id="showButton" type="checkbox"> Bouton « Envoyer à Osteoflow » dans l’agenda</label>
 
       <label for="agenda">Agenda Doctolib</label>
       <input id="agenda" type="text" autocomplete="off" placeholder="Détecté automatiquement">
       <p class="hint">À laisser vide en général. Plusieurs agendas : identifiants séparés par des virgules.</p>
+
+      <label for="code">Code d’appairage</label>
+      <input id="code" type="text" autocomplete="off" spellcheck="false" placeholder="Rempli automatiquement">
+      <p class="hint">Rempli tout seul quand Osteoflow est ouvert. Sinon : Osteoflow, Réglages, Doctolib.</p>
 
       <button id="save" type="button">Enregistrer</button>
     </details>

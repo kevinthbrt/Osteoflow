@@ -65,3 +65,46 @@ export function readPendingImport(): unknown {
 export function clearPendingImport() {
   getDatabase().prepare('DELETE FROM app_config WHERE key = ?').run(PENDING_KEY)
 }
+
+/**
+ * Dernier signe de vie de l'extension et dernier envoi : permet à
+ * l'interface d'afficher « Extension connectée » sans pouvoir interroger
+ * Chrome (Osteoflow tourne dans sa propre fenêtre).
+ */
+const SEEN_KEY = 'doctolib_extension_seen'
+const LAST_IMPORT_KEY = 'doctolib_last_import'
+
+export interface DoctolibExtensionStatus {
+  seen: { at: string; version: string | null } | null
+  lastImport: { at: string; count: number } | null
+}
+
+function readJson<T>(key: string): T | null {
+  const row = getDatabase().prepare('SELECT value FROM app_config WHERE key = ?').get(key) as { value: string } | undefined
+  if (!row) return null
+  try {
+    return JSON.parse(row.value) as T
+  } catch {
+    return null
+  }
+}
+
+function writeJson(key: string, value: unknown) {
+  getDatabase().prepare('INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)').run(key, JSON.stringify(value))
+}
+
+export function recordExtensionSeen(version: unknown) {
+  const clean = typeof version === 'string' && /^[0-9.]{1,20}$/.test(version) ? version : null
+  writeJson(SEEN_KEY, { at: new Date().toISOString(), version: clean })
+}
+
+export function recordImport(count: number) {
+  writeJson(LAST_IMPORT_KEY, { at: new Date().toISOString(), count })
+}
+
+export function readExtensionStatus(): DoctolibExtensionStatus {
+  return {
+    seen: readJson(SEEN_KEY),
+    lastImport: readJson(LAST_IMPORT_KEY),
+  }
+}
