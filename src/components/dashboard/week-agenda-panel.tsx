@@ -94,7 +94,7 @@ export function WeekAgendaPanel({ size }: { size: 1 | 2 | 3 }) {
 
   return (
     <section className="glass-card flex h-full flex-col rounded-xl" aria-labelledby="week-agenda-title">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 card-head border-b border-sidebar-border px-5 py-4">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 card-head border-b px-5 py-4">
         <CalendarDays className="h-4 w-4 text-muted-foreground" />
         <h2 id="week-agenda-title" className="text-base font-semibold">Agenda de la semaine</h2>
         {data?.syncedAt && (

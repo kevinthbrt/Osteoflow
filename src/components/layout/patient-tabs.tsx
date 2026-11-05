@@ -257,7 +257,7 @@ export function PatientTabsBar() {
   return (
     <div
       data-app-tabs
-      className="sticky top-16 z-20 flex h-11 items-end gap-1 border-b border-sidebar-border bg-sidebar px-3 lg:px-6 [html[data-focus-mode]_&]:top-0"
+      className="sticky top-16 z-20 flex h-11 items-end gap-1 border-b border-border bg-card px-3 lg:px-6 [html[data-focus-mode]_&]:top-0"
     >
       <div role="tablist" aria-label="Patients ouverts" className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto scrollbar-hide">
         {tabs.map((tab, index) => {
@@ -294,7 +294,7 @@ export function PatientTabsBar() {
                 'group relative flex h-9 min-w-[132px] max-w-[220px] shrink-0 cursor-pointer select-none items-center gap-2 rounded-t-lg border border-b-0 pl-3 pr-1.5 text-sm transition-colors',
                 active
                   ? 'border-border bg-background font-semibold text-foreground after:absolute after:inset-x-0 after:-bottom-px after:h-px after:bg-background'
-                  : 'border-transparent text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-foreground'
+                  : 'border-transparent text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
             >
               <Icon className={cn('h-3.5 w-3.5 shrink-0', active && inSession && 'text-primary')} />

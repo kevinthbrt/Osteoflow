@@ -314,7 +314,7 @@ export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoic
       case 'todo':
         return (
           <section className="glass-card rounded-xl" aria-labelledby="todo-title">
-            <div className="card-head border-b border-sidebar-border px-5 py-4">
+            <div className="card-head border-b px-5 py-4">
               <h2 id="todo-title" className="text-base font-semibold">À traiter</h2>
             </div>
             {todo.length === 0 ? (

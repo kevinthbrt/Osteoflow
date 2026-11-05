@@ -72,7 +72,7 @@ export function Header({ user, practitioner }: HeaderProps) {
   const today = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
 
   return (
-    <header data-app-header className="sticky top-0 z-30 border-b border-sidebar-border bg-sidebar text-sidebar-foreground">
+    <header data-app-header className="sticky top-0 z-30 border-b border-border bg-card">
       <div className="flex h-16 items-center gap-3 px-4 lg:px-8">
         {/* Spacer for mobile menu button */}
         <div className="w-10 lg:hidden" />
@@ -80,7 +80,7 @@ export function Header({ user, practitioner }: HeaderProps) {
         {/* Page title */}
         <div className="min-w-0 mr-auto">
           <h1 className="truncate text-lg font-semibold leading-tight">{currentPage.title}</h1>
-          <p className="hidden sm:block text-xs text-sidebar-muted first-letter:uppercase">{today}</p>
+          <p className="hidden sm:block text-xs text-muted-foreground first-letter:uppercase">{today}</p>
         </div>
 
         {/* Palette de commandes */}
@@ -89,7 +89,7 @@ export function Header({ user, practitioner }: HeaderProps) {
           onClick={() => openCommandPalette()}
           data-tour="header-search"
           aria-label="Rechercher un patient, une action ou une page"
-          className="flex h-10 items-center gap-2.5 rounded-lg border border-sidebar-border bg-card/80 px-3 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-card md:w-80 lg:w-96"
+          className="flex h-10 items-center gap-2.5 rounded-lg border border-input bg-muted/50 px-3 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-card md:w-80 lg:w-96"
         >
           <Search className="h-4 w-4 shrink-0" />
           <span className="hidden md:block flex-1 truncate text-left">Patient, action, page…</span>
