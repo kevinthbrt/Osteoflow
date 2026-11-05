@@ -13,7 +13,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { LogOut, Settings, Search, HelpCircle, Lock, Building2, ChevronDown, Plus, Stethoscope, UserPlus } from 'lucide-react'
+import { LogOut, Settings, Search, HelpCircle, Lock, Building2, ChevronDown, Plus, Stethoscope, UserPlus, Eye } from 'lucide-react'
+import { useEntitlements } from '@/hooks/use-entitlements'
+import { definirSimulation } from '@/lib/plan-simulation'
 import { getInitials } from '@/lib/utils'
 import type { Practitioner } from '@/types/database'
 import { NotificationBell } from '@/components/layout/notification-bell'
@@ -41,6 +43,7 @@ export function Header({ user, practitioner }: HeaderProps) {
   // Client créé une seule fois, pas à chaque rendu.
   const dbRef = useRef(createClient())
   const { startTour } = useTour()
+  const { role, simule } = useEntitlements()
 
   const handleSignOut = async () => {
     // Libère la licence (verrou « une seule instance active par utilisateur »)
@@ -194,6 +197,19 @@ export function Header({ user, practitioner }: HeaderProps) {
                 <Settings className="mr-3 h-4 w-4" />
                 <span>Paramètres</span>
               </DropdownMenuItem>
+              {/* Réservé aux administrateurs : voir l'application d'un abonné MyOsteoFlow seul */}
+              {role === 'admin' && !simule && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    definirSimulation(true)
+                    window.location.reload()
+                  }}
+                  className="rounded-lg py-2.5"
+                >
+                  <Eye className="mr-3 h-4 w-4" />
+                  <span>Simuler sans OsteoUpgrade</span>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator className="my-2" />
               <DropdownMenuItem
                 onClick={handleLock}
