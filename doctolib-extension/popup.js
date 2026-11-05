@@ -1,7 +1,7 @@
 /*
- * Osteoflow : import Doctolib, fenêtre de l'extension.
+ * MyOsteoFlow, synchro d’agenda pour Doctolib, fenêtre de l'extension.
  *
- * - vérifie la liaison avec Osteoflow (connexion automatique) ;
+ * - vérifie la liaison avec MyOsteoFlow (connexion automatique) ;
  * - « Synchroniser la semaine » : demande au script de la page Doctolib une
  *   synchronisation immédiate ;
  * - « Envoyer un autre jour » : lit ce jour dans la page et l'envoie.
@@ -32,11 +32,11 @@ async function activeDoctolibTab() {
 async function checkLink() {
   const reply = await chrome.runtime.sendMessage({ type: 'osteoflow:connect' }).catch(() => null)
   if (reply && reply.ok) {
-    setLink('Connecté à Osteoflow', 'ok')
+    setLink('Connecté à MyOsteoFlow', 'ok')
     const { code = '' } = await chrome.storage.local.get('code')
     $('code').value = code
   } else {
-    setLink((reply && reply.error) || 'Osteoflow est introuvable : ouvrez l’application.', 'error')
+    setLink((reply && reply.error) || 'MyOsteoFlow est introuvable : ouvrez l’application.', 'error')
   }
 }
 
@@ -81,10 +81,10 @@ async function send() {
     }
     if (!reply || !reply.ok) throw new Error((reply && reply.error) || 'Lecture de l’agenda impossible.')
 
-    setStatus('Envoi à Osteoflow…')
+    setStatus('Envoi à MyOsteoFlow…')
     const result = await chrome.runtime.sendMessage({ type: 'osteoflow:sync', start: date, end: date, appointments: reply.appointments })
     if (!result || !result.ok) throw new Error((result && result.error) || 'Envoi impossible.')
-    setLink('Connecté à Osteoflow', 'ok')
+    setLink('Connecté à MyOsteoFlow', 'ok')
     setStatus(summary(result), 'ok')
   } catch (error) {
     setStatus(error.message || String(error), 'error')
@@ -97,7 +97,7 @@ function summary(result) {
   if (!result.received) return 'Aucun rendez-vous patient sur cette période.'
   const parts = [`${result.received} rendez-vous envoyé${result.received > 1 ? 's' : ''}`]
   if (result.added > 0) parts.push(`${result.added} patient${result.added > 1 ? 's' : ''} ajouté${result.added > 1 ? 's' : ''} à Ma journée`)
-  if (result.toReview > 0) parts.push(`${result.toReview} à vérifier dans Osteoflow`)
+  if (result.toReview > 0) parts.push(`${result.toReview} à vérifier dans MyOsteoFlow`)
   return `${parts.join(', ')}.`
 }
 
@@ -115,7 +115,7 @@ async function syncNow() {
       throw new Error('Rechargez la page Doctolib (F5), puis réessayez.')
     }
     if (!result || !result.ok) throw new Error((result && result.error) || 'Synchronisation impossible.')
-    setLink('Connecté à Osteoflow', 'ok')
+    setLink('Connecté à MyOsteoFlow', 'ok')
     setStatus(summary(result), 'ok')
   } catch (error) {
     setStatus(error.message || String(error), 'error')

@@ -7,8 +7,11 @@
  * les tests) s'est déjà connectée, ou ouvert une fois avec `?doctolib=1`
  * (`?doctolib=0` masque à nouveau).
  *
- * À la publication : passer DOCTOLIB_EXTENSION_PUBLISHED à true et renseigner
- * DOCTOLIB_EXTENSION_STORE_URL.
+ * À la publication, pas besoin de nouvelle version : il suffit de remplir
+ * `public/myosteoflow/doctolib-extension.json` sur le site OsteoUpgrade
+ * (`published: true` et `storeUrl`), lu par lib/doctolib/availability.ts.
+ * Les deux constantes ci-dessous peuvent ensuite être fixées en dur lors
+ * d'une version suivante.
  */
 export const DOCTOLIB_EXTENSION_PUBLISHED = false
 export const DOCTOLIB_EXTENSION_STORE_URL: string | null = null

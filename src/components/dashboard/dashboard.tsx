@@ -25,6 +25,7 @@ import { RelaunchWidget } from './widgets/relaunch-widget'
 import { ProfileCompletionWidget } from './profile-completion-widget'
 import { TodayPanel, type TodaySummary } from './today-panel'
 import { WeekAgendaPanel } from './week-agenda-panel'
+import { DoctolibAnnouncement } from '@/components/doctolib/doctolib-announcement'
 import { useDoctolibFeature } from '@/lib/doctolib/use-doctolib-feature'
 import { HeaderWeather } from '@/components/layout/header-weather'
 import { openCommandPalette } from '@/components/layout/command-palette'
@@ -398,6 +399,9 @@ export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoic
           </Button>
         </div>
       </div>
+
+      {/* ── Nouveauté : synchronisation Doctolib ── */}
+      {!editing && <DoctolibAnnouncement />}
 
       {/* ── Astuce affichée tant qu'on n'a pas essayé ── */}
       {showTip && !editing && (

@@ -1,4 +1,4 @@
-# Politique de confidentialité de l'extension « Osteoflow : import Doctolib »
+# Politique de confidentialité de l'extension « MyOsteoFlow, synchro d’agenda pour Doctolib »
 
 Version publiée : https://www.osteo-upgrade.fr/politique-confidentialite/extension-doctolib
 (page du site OsteoUpgrade, à garder identique à ce fichier).

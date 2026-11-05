@@ -382,10 +382,12 @@ export function DoctolibImportPanel({
             Créer {autoCreatable.length > 1 ? `les ${autoCreatable.length} nouveaux patients` : 'le nouveau patient'}
           </Button>
         )}
-        <Button onClick={addToDay} disabled={saving || selected.length === 0} className="gap-2">
-          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-          Ajouter {selected.length} patient{selected.length > 1 ? 's' : ''} à la journée
-        </Button>
+        {selected.length > 0 && (
+          <Button onClick={addToDay} disabled={saving} className="gap-2">
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Ajouter {selected.length} patient{selected.length > 1 ? 's' : ''} à la journée
+          </Button>
+        )}
       </div>
 
       <QuickAddPatientDialog

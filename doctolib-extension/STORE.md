@@ -16,10 +16,10 @@ faut avoir sous la main.
 
 ## Onglet « Fiche Play Store » (Store listing)
 
-**Nom** (repris du manifest) : Osteoflow : import Doctolib
+**Nom** (repris du manifest) : MyOsteoFlow, synchro d’agenda pour Doctolib
 
 **Résumé** (132 caractères maximum, repris du manifest) :
-Envoie les rendez-vous de votre agenda Doctolib Pro vers Osteoflow, sur votre poste. Outil indépendant, non affilié à Doctolib.
+Envoie les rendez-vous de votre agenda Doctolib Pro vers MyOsteoFlow, sur votre poste. Outil indépendant, non affilié à Doctolib.
 
 **Description** :
 
@@ -50,7 +50,7 @@ Outil indépendant, non affilié à Doctolib et non approuvé par Doctolib.
 
 **Icône** : `icons/icon-128.png`
 
-**Captures d'écran** : `store/capture-1.png` et `store/capture-2.png`
+**Captures d’écran** : `store/capture-1.png`, `store/capture-2.png` et `store/capture-3.png` (1280 × 800, données fictives)
 
 ## Onglet « Pratiques de confidentialité » (Privacy practices)
 

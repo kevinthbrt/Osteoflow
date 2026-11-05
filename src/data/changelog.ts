@@ -19,6 +19,19 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.21.0',
+    date: '2026-11-05',
+    title: 'Une interface plus claire, plus rapide, à votre main',
+    changes: [
+      { type: 'feature', text: "Tableau de bord à votre façon : cliquez sur « Organiser » pour déplacer les blocs, choisir leur largeur et masquer ceux qui ne vous servent pas. La météo s'affiche à côté de votre prénom." },
+      { type: 'feature', text: "Onglets patients : ouvrez plusieurs dossiers et passez de l'un à l'autre sans rien perdre (Ctrl + Tab). Depuis le tableau de bord, « Ouvrir en onglets » ouvre d'un coup tous les patients du jour. Chaque patient garde son brouillon de consultation." },
+      { type: 'feature', text: "Recherche universelle (Ctrl + K) : un patient, une action ou une page en quelques lettres. Le bouton « Nouveau » en haut de l'écran crée une consultation ou un patient de n'importe où." },
+      { type: 'improvement', text: "Consultation épurée : tout tient sur une seule feuille, sans étapes numérotées. Enregistrement automatique, Ctrl + S pour enregistrer, Ctrl + Entrée pour terminer, et un mode plein écran pour se concentrer." },
+      { type: 'improvement', text: "Nouvelle apparence : menu regroupé par usage (Cabinet, Suivi, Gestion, Formation), couleurs plus douces, titres de cartes et de tableaux en bleu, thème sombre retravaillé." },
+      { type: 'fix', text: "Anamnèse : la première lettre tapée ne fait plus sortir du champ." },
+    ],
+  },
+  {
     version: '1.20.0',
     date: '2026-10-13',
     title: 'Des programmes d\'exercices que vos patients font vraiment',

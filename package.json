@@ -1,6 +1,6 @@
 {
   "name": "myosteoflow",
-  "version": "1.20.0",
+  "version": "1.21.0",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -17,7 +17,7 @@
     "lint": "next lint",
     "test": "vitest",
     "test:e2e": "playwright test",
-    "extension:zip": "cd doctolib-extension && rm -f ../doctolib-extension.zip && zip -r ../doctolib-extension.zip manifest.json content.js popup.html popup.css popup.js icons -x '.*'"
+    "extension:zip": "cd doctolib-extension && rm -f ../doctolib-extension.zip && zip -r ../doctolib-extension.zip manifest.json background.js content.js popup.html popup.css popup.js icons -x '.*'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

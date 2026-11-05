@@ -9,8 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { copyText } from '@/lib/utils/clipboard'
-import { DOCTOLIB_EXTENSION_STORE_URL } from '@/lib/doctolib/config'
-import { useDoctolibStatus } from '@/lib/doctolib/use-doctolib-feature'
+import { useDoctolibStatus, useDoctolibStoreUrl } from '@/lib/doctolib/use-doctolib-feature'
 
 /**
  * Mise en route de l'extension Doctolib : installation, connexion
@@ -149,6 +148,7 @@ function AutoAddOption({ enabled, onChange }: { enabled: boolean; onChange: () =
 
 export function DoctolibSetupCard({ variant }: { variant: 'day-plan' | 'settings' }) {
   const { status, reload } = useDoctolibStatus(true)
+  const storeUrl = useDoctolibStoreUrl()
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
@@ -248,10 +248,10 @@ export function DoctolibSetupCard({ variant }: { variant: 'day-plan' | 'settings
 
       <ol className="space-y-4 px-5 py-4">
         <Step index={1} done={connected} active={!connected} title="Installez l’extension dans Google Chrome">
-          {DOCTOLIB_EXTENSION_STORE_URL ? (
+          {storeUrl ? (
             <div className="flex flex-wrap items-center gap-3">
               <Button size="sm" className="gap-1.5" asChild>
-                <a href={DOCTOLIB_EXTENSION_STORE_URL} target="_blank" rel="noreferrer">
+                <a href={storeUrl} target="_blank" rel="noreferrer">
                   Installer l’extension
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>

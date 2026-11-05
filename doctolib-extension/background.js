@@ -1,11 +1,11 @@
 /*
- * Osteoflow : import Doctolib, service de l'extension.
+ * MyOsteoFlow, synchro d’agenda pour Doctolib, service de l'extension.
  *
- * Seul endroit qui parle à Osteoflow sur le poste :
+ * Seul endroit qui parle à MyOsteoFlow sur le poste :
  * - le trouve (ports 3456 à 3465, en commençant par le dernier utilisé) ;
- * - se connecte tout seul : le code d'appairage est demandé à Osteoflow
+ * - se connecte tout seul : le code d'appairage est demandé à MyOsteoFlow
  *   lui-même, sans copier-coller. Un site web ne peut pas faire cette
- *   demande (Osteoflow n'autorise aucun autre site), l'extension si, grâce à
+ *   demande (MyOsteoFlow n'autorise aucun autre site), l'extension si, grâce à
  *   son autorisation sur localhost ;
  * - envoie les rendez-vous lus dans la page Doctolib (synchronisation de la
  *   semaine, automatique ou à la demande).
@@ -41,7 +41,7 @@ async function findOsteoflow() {
   return null
 }
 
-/** Demande le code à Osteoflow et le garde. */
+/** Demande le code à MyOsteoFlow et le garde. */
 async function pair(base) {
   const response = await fetch(`${base}/api/doctolib/pairing`, { headers: { 'x-osteoflow-app': '1' } })
   if (!response.ok) return null
@@ -60,21 +60,21 @@ async function hello(base, code) {
 }
 
 /**
- * Vérifie la liaison avec Osteoflow et la rétablit si besoin (nouveau code
- * généré dans Osteoflow, autre poste…). Renvoie { base, code } ou une erreur.
+ * Vérifie la liaison avec MyOsteoFlow et la rétablit si besoin (nouveau code
+ * généré dans MyOsteoFlow, autre poste…). Renvoie { base, code } ou une erreur.
  */
 async function connect() {
   const base = await findOsteoflow()
-  if (!base) return { ok: false, error: 'Osteoflow est introuvable : ouvrez l’application, puis réessayez.' }
+  if (!base) return { ok: false, error: 'MyOsteoFlow est introuvable : ouvrez l’application, puis réessayez.' }
   let { code } = await chrome.storage.local.get('code')
   if (code) {
     const response = await hello(base, code).catch(() => null)
     if (response && response.ok) return { ok: true, base, code }
   }
   code = await pair(base).catch(() => null)
-  if (!code) return { ok: false, error: 'Connexion à Osteoflow impossible : saisissez le code dans les Réglages.' }
+  if (!code) return { ok: false, error: 'Connexion à MyOsteoFlow impossible : saisissez le code dans les Réglages.' }
   const response = await hello(base, code).catch(() => null)
-  if (!response || !response.ok) return { ok: false, error: 'Osteoflow a refusé la connexion.' }
+  if (!response || !response.ok) return { ok: false, error: 'MyOsteoFlow a refusé la connexion.' }
   return { ok: true, base, code }
 }
 
@@ -87,7 +87,7 @@ async function syncRange({ start, end, appointments }) {
     headers: { 'Content-Type': 'application/json', 'x-osteoflow-token': link.code },
     body: JSON.stringify({ start, end, appointments, version: VERSION }),
   })
-  if (!response.ok) return { ok: false, error: `Osteoflow a répondu ${response.status}.` }
+  if (!response.ok) return { ok: false, error: `MyOsteoFlow a répondu ${response.status}.` }
   return response.json()
 }
 
@@ -104,7 +104,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true // réponse asynchrone
 })
 
-// Dès l'installation : connexion à Osteoflow s'il est ouvert, pour que
+// Dès l'installation : connexion à MyOsteoFlow s'il est ouvert, pour que
 // l'application affiche aussitôt « Extension connectée ».
 chrome.runtime.onInstalled.addListener(() => {
   connect().catch(() => {})

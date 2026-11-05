@@ -1,12 +1,12 @@
 /*
- * Osteoflow : import Doctolib, script de page (pro.doctolib.fr uniquement).
+ * MyOsteoFlow, synchro d’agenda pour Doctolib, script de page (pro.doctolib.fr uniquement).
  *
  * Une fois l'agenda chargé, il lit les rendez-vous de la semaine en cours
  * avec la session Doctolib déjà ouverte (à l'ouverture, puis toutes les 10
  * minutes tant que l'onglet reste ouvert ; désactivable dans l'extension),
  * garde seulement les champs utiles et les passe à l'extension, qui les envoie
- * à Osteoflow sur ce poste. Aucune donnée ne part ailleurs. Un petit bouton
- * « Osteoflow » permet de synchroniser à la demande.
+ * à MyOsteoFlow sur ce poste. Aucune donnée ne part ailleurs. Un petit bouton
+ * « MyOsteoFlow » permet de synchroniser à la demande.
  */
 (() => {
   const AGENDA_PATTERN = /\/calendar_display\/[a-z_]+\?[^#]*?agenda_ids=([0-9,%2C]+)/i
@@ -73,12 +73,25 @@
     return { start, end: addDays(start, weekday >= 5 ? 13 : 6) }
   }
 
+  /**
+   * Rendez-vous de `start` à `end`, lus jour par jour : c'est la requête que
+   * l'agenda fait lui-même en vue jour, la plus sûre si Doctolib limite les
+   * plages plus longues.
+   */
   async function fetchRange(start, end, agendaIds) {
+    const all = []
+    for (let day = start, guard = 0; day <= end && guard < 31; day = addDays(day, 1), guard++) {
+      all.push(...(await fetchDay(day, agendaIds)))
+    }
+    return all
+  }
+
+  async function fetchDay(day, agendaIds) {
     const params = new URLSearchParams({
       agenda_ids: agendaIds,
-      start_date: `${start} 00:00:00`,
-      end_date: `${end} 23:59:59`,
-      view: start === end ? 'day' : 'week',
+      start_date: `${day} 00:00:00`,
+      end_date: `${day} 23:59:59`,
+      view: 'day',
     })
     const response = await fetch(`/calendar_display/appointments?${params}`, {
       credentials: 'include',
@@ -106,7 +119,7 @@
   let lastResult = null
 
   /**
-   * Envoie la semaine (et le jour affiché s'il est en dehors) à Osteoflow.
+   * Envoie la semaine (et le jour affiché s'il est en dehors) à MyOsteoFlow.
    * `force` : clic du praticien ; sinon, au plus une fois toutes les 4 minutes
    * pour tous les onglets Doctolib ouverts.
    */
@@ -141,7 +154,7 @@
     }
   }
 
-  // ── Bouton « Osteoflow » dans la page ──
+  // ── Bouton « MyOsteoFlow » dans la page ──
   let host = null
   let label = null
   let state = 'idle'
@@ -150,7 +163,7 @@
 
   function render(text) {
     if (!label) return
-    label.textContent = text || (lastResult ? `Osteoflow · synchronisé à ${clock(lastResult.at)}` : 'Synchroniser avec Osteoflow')
+    label.textContent = text || (lastResult ? `MyOsteoFlow · synchronisé à ${clock(lastResult.at)}` : 'Synchroniser avec MyOsteoFlow')
   }
 
   function flash(kind, text) {
@@ -208,7 +221,7 @@
         span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       </style>
       <div class="pill">
-        <button class="send" type="button" title="Synchronise maintenant la semaine avec Osteoflow, sur ce poste">
+        <button class="send" type="button" title="Synchronise maintenant la semaine avec MyOsteoFlow, sur ce poste">
           <img alt="" src="${chrome.runtime.getURL('icons/icon-32.png')}"><span></span>
         </button>
         <button class="close" type="button" title="Masquer ce bouton (la synchronisation continue ; réglage dans l’icône de l’extension)" aria-label="Masquer">×</button>

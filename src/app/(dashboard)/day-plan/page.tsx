@@ -302,7 +302,7 @@ export default function DayPlanPage() {
         ) : (
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              {doneCount} / {items.length} patient{items.length > 1 ? 's' : ''} vu{doneCount > 1 ? 's' : ''}
+              {doneCount} sur {items.length} patient{items.length > 1 ? 's' : ''} vu{items.length > 1 ? 's' : ''}
               {savingOrder && ' · enregistrement…'}
             </p>
             {items.map((item, index) => (
