@@ -211,7 +211,7 @@ export function DoctolibSetupCard({ variant }: { variant: 'day-plan' | 'settings
       className={cn('rounded-xl border bg-card', variant === 'day-plan' ? 'max-w-2xl border-primary/30' : 'border-border')}
       aria-labelledby="doctolib-setup-title"
     >
-      <div className="flex flex-wrap items-start gap-3 border-b border-border px-5 py-4">
+      <div className="flex flex-wrap items-start gap-3 card-head border-b border-sidebar-border px-5 py-4">
         <CalendarArrowDown className="mt-0.5 h-5 w-5 shrink-0 text-accent-foreground" />
         <div className="min-w-0 flex-1">
           <h2 id="doctolib-setup-title" className="text-base font-semibold">

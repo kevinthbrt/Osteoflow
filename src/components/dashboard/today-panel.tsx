@@ -125,7 +125,7 @@ export function TodayPanel({ onSummary }: { onSummary?: (summary: TodaySummary) 
 
   return (
     <section className="glass-card rounded-xl" aria-labelledby="today-title">
-      <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+      <div className="flex items-center justify-between gap-3 card-head border-b border-sidebar-border px-5 py-4">
         <h2 id="today-title" className="text-base font-semibold">Aujourd’hui</h2>
         <div className="flex items-center gap-4">
           {items.length > 0 && (

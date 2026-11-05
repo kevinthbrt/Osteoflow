@@ -260,7 +260,7 @@ export function DoctolibImportPanel({
   // ── Rendez-vous reçus, à valider ──
   return (
     <section className="max-w-2xl rounded-xl border border-primary/30 bg-card" aria-labelledby="doctolib-import-title">
-      <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
+      <div className="flex flex-wrap items-center gap-3 card-head border-b border-sidebar-border px-5 py-4">
         <CalendarArrowDown className="h-5 w-5 shrink-0 text-accent-foreground" />
         <div className="min-w-0 flex-1">
           <h2 id="doctolib-import-title" className="text-base font-semibold">
