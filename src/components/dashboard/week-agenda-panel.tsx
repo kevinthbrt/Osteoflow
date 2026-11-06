@@ -41,18 +41,31 @@ function EntryRow({ entry, day, today, compact }: { entry: Entry; day: string; t
       <Link
         href={href}
         className={cn(
-          'group flex items-baseline gap-2 rounded-md px-2 py-1.5 text-[13px] hover:bg-accent',
+          'group flex gap-2 rounded-md px-2 py-1.5 text-[13px] hover:bg-accent',
+          compact ? 'items-baseline' : 'items-start',
           past && 'opacity-55'
         )}
         title={toReview ? 'À vérifier dans Ma journée' : entry.inPlan ? 'Dans Ma journée' : undefined}
       >
-        <span className="w-10 shrink-0 font-medium tabular-nums text-muted-foreground">{localTime(entry.start)}</span>
-        <span className={cn('min-w-0 flex-1', compact ? 'truncate' : 'break-words leading-snug')}>
-          {entry.firstName} <span className="font-medium uppercase">{entry.lastName}</span>
-        </span>
+        {compact ? (
+          <>
+            <span className="w-10 shrink-0 font-medium tabular-nums text-muted-foreground">{localTime(entry.start)}</span>
+            <span className="min-w-0 flex-1 truncate">
+              {entry.firstName} <span className="font-medium uppercase">{entry.lastName}</span>
+            </span>
+          </>
+        ) : (
+          // Colonne d'un jour : l'heure au-dessus, le nom sur toute la largeur
+          <span className="min-w-0 flex-1 leading-snug">
+            <span className="block text-xs font-medium tabular-nums text-muted-foreground">{localTime(entry.start)}</span>
+            <span className="block truncate" title={`${entry.firstName} ${entry.lastName}`}>
+              {entry.firstName} <span className="font-medium uppercase">{entry.lastName}</span>
+            </span>
+          </span>
+        )}
         <span
           aria-hidden="true"
-          className={cn('h-1.5 w-1.5 shrink-0 self-center rounded-full', toReview ? 'bg-warning' : entry.inPlan ? 'bg-success' : 'bg-transparent')}
+          className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', compact && 'mt-0 self-center', toReview ? 'bg-warning' : entry.inPlan ? 'bg-success' : 'bg-transparent')}
         />
       </Link>
     </li>
