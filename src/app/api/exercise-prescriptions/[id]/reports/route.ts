@@ -10,7 +10,7 @@ async function loadOwned(db: Db, id: string) {
   const { data: practitioner } = await db.from('practitioners').select('id').eq('user_id', user.id).single()
   if (!practitioner) return { error: NextResponse.json({ error: 'Praticien non trouvé' }, { status: 404 }) }
   const { data: prescription } = await db.from('exercise_prescriptions').select('*').eq('id', id).single()
-  if (!prescription) return { error: NextResponse.json({ error: 'Prescription non trouvée' }, { status: 404 }) }
+  if (!prescription) return { error: NextResponse.json({ error: 'Programme non trouvé' }, { status: 404 }) }
   const { data: patient } = await db.from('patients').select('practitioner_id').eq('id', prescription.patient_id).single()
   if (!patient || patient.practitioner_id !== practitioner.id) {
     return { error: NextResponse.json({ error: 'Non autorisé' }, { status: 403 }) }

@@ -66,7 +66,7 @@ const STEPS = [
     element: '[data-tour="nav-patients"]',
     popover: {
       title: '👥 Patients et consultations',
-      description: `Gérez votre patientèle : fiches détaillées (coordonnées, genre, date de naissance, médecin référent, antécédents, profession), notes personnelles et historique complet des consultations. Pour chaque séance : motif, compte-rendu libre, envoi d'email de conseils post-séance, prescription d'exercices en PDF, génération de courriers et facturation en un clic. Export PDF disponible.<br><br>Chaque dossier ou séance ouvert garde son onglet sous l'en-tête : passez de l'un à l'autre en un clic ou avec Ctrl + Tab, et ouvrez un patient en arrière-plan avec Ctrl + clic. En séance, le brouillon s'enregistre tout seul et le bouton plein écran masque le menu.`,
+      description: `Gérez votre patientèle : fiches détaillées (coordonnées, genre, date de naissance, médecin référent, antécédents, profession), notes personnelles et historique complet des consultations. Pour chaque séance : motif, compte-rendu libre, envoi d'email de conseils post-séance, programmes d'exercices conseillés en PDF, génération de courriers et facturation en un clic. Export PDF disponible.<br><br>Chaque dossier ou séance ouvert garde son onglet sous l'en-tête : passez de l'un à l'autre en un clic ou avec Ctrl + Tab, et ouvrez un patient en arrière-plan avec Ctrl + clic. En séance, le brouillon s'enregistre tout seul et le bouton plein écran masque le menu.`,
       side: 'right' as const,
     },
   },

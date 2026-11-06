@@ -438,7 +438,7 @@ export const changelog: ChangelogEntry[] = [
       { type: 'feature', text: 'Multi-cabinet — suppression : supprimez un cabinet secondaire vide depuis le même dialog. Par sécurité, la suppression est refusée si le cabinet contient des dossiers patients ou s\'il s\'agit du dernier cabinet ou du cabinet actif.' },
       // Navigation patient
       { type: 'feature', text: 'Fiche patient : la page est restructurée en trois onglets — Dossier (coordonnées, antécédents, exercices, statistiques), Consultations (historique complet) et Factures (toutes les factures du patient avec téléchargement PDF). Plus besoin de faire défiler un écran surchargé.' },
-      { type: 'feature', text: 'Consultation sans navigation : cliquer sur « Voir » dans la timeline d\'un patient ouvre désormais un modal complet — contenu clinique (anamnèse, examen, conseils), exercices prescrits, résultat du questionnaire J+7 et éditeur de paiement. Vous ne quittez plus la fiche patient.' },
+      { type: 'feature', text: 'Consultation sans navigation : cliquer sur « Voir » dans la timeline d\'un patient ouvre désormais un modal complet — contenu clinique (anamnèse, examen, conseils), exercices conseillés, résultat du questionnaire J+7 et éditeur de paiement. Vous ne quittez plus la fiche patient.' },
       { type: 'feature', text: 'Facture sans navigation : cliquer sur une facture (depuis la fiche patient ou depuis l\'onglet global Consultations) ouvre un modal complet — détails, statut modifiable en place, paiements modifiables, impression, téléchargement PDF et envoi par email.' },
       // UX improvements
       { type: 'improvement', text: 'Patientes : le badge de genre « Femme » passe en violet pour le distinguer du bleu « Homme » au premier coup d\'œil (fiche patient, tableau des patients, consultations, factures).' },
@@ -507,7 +507,7 @@ export const changelog: ChangelogEntry[] = [
     date: '2026-06-03',
     title: 'Correctif : génération de fiches d\'exercices par IA (erreur 502)',
     changes: [
-      { type: 'fix', text: 'Génération de fiches d\'exercices par IA : correction d\'une erreur 502 qui pouvait survenir sur les prescriptions les plus complètes. Le délai d\'attente du service était trop court pour les générations longues ; il a été allongé pour laisser le temps à l\'IA de répondre.' },
+      { type: 'fix', text: 'Génération de fiches d\'exercices par IA : correction d\'une erreur 502 qui pouvait survenir sur les programmes les plus complets. Le délai d\'attente du service était trop court pour les générations longues ; il a été allongé pour laisser le temps à l\'IA de répondre.' },
     ],
   },
   {
@@ -636,10 +636,10 @@ export const changelog: ChangelogEntry[] = [
       { type: 'feature', text: 'Le bouton d\'injection applique désormais aussi les antécédents et champs patient détectés, pas uniquement l\'anamnèse structurée.' },
       { type: 'feature', text: 'Les antécédents acceptés s\'affichent immédiatement dans la colonne gauche de la consultation, sans recharger la page.' },
       { type: 'feature', text: 'Les cartes d\'antécédents utilisent un code couleur par type (chirurgical, traumatique, médical, familial), identique aux boutons de création.' },
-      { type: 'feature', text: 'Module exercices : ajout des champs cible nerveuse et progression/régression dans la prescription ; envoi par email PDF et téléchargement direct.' },
+      { type: 'feature', text: 'Module exercices : ajout des champs cible nerveuse et progression/régression dans le programme ; envoi par email PDF et téléchargement direct.' },
       { type: 'improvement', text: 'Limite d\'enregistrement de la dictée portée à 10 minutes (alerte à 9 min).' },
       { type: 'improvement', text: 'Viewer PDF affiché en ligne dans l\'application (plus de téléchargement forcé).' },
-      { type: 'fix', text: 'Correction de l\'erreur dans la prescription d\'exercices lors de l\'ouverture du sélecteur de fréquence.' },
+      { type: 'fix', text: 'Correction de l\'erreur dans le programme d\'exercices lors de l\'ouverture du sélecteur de fréquence.' },
     ],
   },
   {

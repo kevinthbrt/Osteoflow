@@ -25,7 +25,7 @@ export async function GET(
       .single()
 
     if (error || !prescription) {
-      return NextResponse.json({ error: 'Prescription non trouvée' }, { status: 404 })
+      return NextResponse.json({ error: 'Programme non trouvé' }, { status: 404 })
     }
 
     const { data: items } = await db
@@ -63,7 +63,7 @@ export async function PUT(
       .single()
 
     if (!existing) {
-      return NextResponse.json({ error: 'Prescription non trouvée' }, { status: 404 })
+      return NextResponse.json({ error: 'Programme non trouvé' }, { status: 404 })
     }
 
     const body = await request.json()
@@ -182,7 +182,7 @@ export async function DELETE(
       .single()
 
     if (!prescription) {
-      return NextResponse.json({ error: 'Prescription non trouvée' }, { status: 404 })
+      return NextResponse.json({ error: 'Programme non trouvé' }, { status: 404 })
     }
 
     const programId: string | null = prescription.program_id
