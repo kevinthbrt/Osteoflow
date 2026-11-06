@@ -52,6 +52,8 @@ Outil indépendant, non affilié à Doctolib et non approuvé par Doctolib.
 
 **Captures d’écran** : `store/capture-1.png`, `store/capture-2.png` et `store/capture-3.png` (1280 × 800, données fictives)
 
+**Petite vignette promotionnelle** (440 × 280) : `store/promo-440x280.png`
+
 ## Onglet « Pratiques de confidentialité » (Privacy practices)
 
 **Objectif unique** (Single purpose) :
