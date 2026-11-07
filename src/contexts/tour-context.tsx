@@ -18,7 +18,7 @@ const STEPS = [
     element: '[data-tour="sidebar-logo"]',
     popover: {
       title: 'MyOsteoFlow',
-      description: `Bienvenue dans votre logiciel de gestion de cabinet ostéopathique. La navigation principale se trouve dans cette barre latérale, toujours visible.`,
+      description: `Bienvenue dans votre logiciel de gestion de cabinet ostéopathique. La navigation se trouve dans cette barre latérale, regroupée en quatre rubriques : Cabinet, Suivi, Gestion et Formation.`,
       side: 'right' as const,
     },
   },
@@ -26,7 +26,7 @@ const STEPS = [
     element: '[data-tour="nav-dashboard"]',
     popover: {
       title: '📊 Tableau de bord',
-      description: `Votre page d'accueil : météo du jour, aperçu de vos patients à voir aujourd'hui, votre progression par rapport à votre objectif de chiffre d'affaires, un rappel de vos patients à relancer, et des contenus OsteoUpgrade (revue de littérature, formation à la une, vidéo pratique, flashcards) pour rester à jour entre deux patients.`,
+      description: `Votre page d'accueil : vos patients du jour avec « Démarrer la séance » pour le prochain, tout ce qui reste à traiter (factures impayées, suivis J+7, questionnaires reçus, messages), vos relances et vos contenus OsteoUpgrade. La météo s'affiche à côté du bonjour.`,
       side: 'right' as const,
     },
   },
@@ -34,7 +34,15 @@ const STEPS = [
     element: '[data-tour="dashboard-new-consult"]',
     popover: {
       title: '➕ Nouvelle consultation',
-      description: `Cliquez ici pour créer une consultation directement depuis le tableau de bord. Sélectionnez le patient, renseignez le motif et c'est parti.`,
+      description: `Cliquez ici, tapez quelques lettres du nom du patient puis Entrée : la consultation s'ouvre directement.`,
+      side: 'bottom' as const,
+    },
+  },
+  {
+    element: '[data-tour="dashboard-organize"]',
+    popover: {
+      title: '🧩 Organiser le tableau de bord',
+      description: `Rangez votre tableau de bord à votre façon : déplacez les blocs, choisissez leur largeur et masquez ceux qui ne vous servent pas. Vos choix sont mémorisés sur ce poste.`,
       side: 'bottom' as const,
     },
   },
@@ -50,7 +58,7 @@ const STEPS = [
     element: '[data-tour="nav-day-plan"]',
     popover: {
       title: '📋 Ma journée',
-      description: `Organisez l'ordre de vos rendez-vous du jour : ajoutez vos patients à la liste, réordonnez-les et cochez-les au fur et à mesure. Naviguez d'un jour à l'autre et ajoutez un nouveau patient à la volée sans quitter la page.`,
+      description: `Organisez l'ordre de vos rendez-vous du jour : ajoutez vos patients à la liste, réordonnez-les et cochez-les au fur et à mesure. Naviguez d'un jour à l'autre et ajoutez un nouveau patient à la volée. Depuis le tableau de bord, « Ouvrir en onglets » ouvre d'un coup tous les patients du jour.`,
       side: 'right' as const,
     },
   },
@@ -58,7 +66,7 @@ const STEPS = [
     element: '[data-tour="nav-patients"]',
     popover: {
       title: '👥 Patients et consultations',
-      description: `Gérez votre patientèle : fiches détaillées (coordonnées, genre, date de naissance, médecin référent, antécédents, profession), notes personnelles et historique complet des consultations. Pour chaque séance : motif, compte-rendu libre, envoi d'email de conseils post-séance, prescription d'exercices en PDF, génération de courriers et facturation en un clic. Export PDF disponible.`,
+      description: `Gérez votre patientèle : fiches détaillées (coordonnées, genre, date de naissance, médecin référent, antécédents, profession), notes personnelles et historique complet des consultations. Pour chaque séance : motif, compte-rendu libre, envoi d'email de conseils post-séance, programmes d'exercices conseillés en PDF, génération de courriers et facturation en un clic. Export PDF disponible.<br><br>Chaque dossier ou séance ouvert garde son onglet sous l'en-tête : passez de l'un à l'autre en un clic ou avec Ctrl + Tab, et ouvrez un patient en arrière-plan avec Ctrl + clic. En séance, le brouillon s'enregistre tout seul et le bouton plein écran masque le menu.`,
       side: 'right' as const,
     },
   },
@@ -129,8 +137,16 @@ const STEPS = [
   {
     element: '[data-tour="header-search"]',
     popover: {
-      title: '🔍 Recherche rapide',
-      description: `Tapez le nom, prénom, téléphone ou email d'un patient pour y accéder instantanément depuis n'importe quelle page. Minimum 2 caractères.`,
+      title: '⌨️ Palette de commandes',
+      description: `Depuis n'importe quelle page, ouvrez-la ici ou avec Ctrl + K (Cmd + K sur Mac). Tapez le nom, le téléphone ou la date de naissance d'un patient : Entrée ouvre son dossier, la flèche droite affiche ses actions (nouvelle consultation, ouverture dans un onglet…). Elle trouve aussi les pages et les réglages.`,
+      side: 'bottom' as const,
+    },
+  },
+  {
+    element: '[data-tour="header-new"]',
+    popover: {
+      title: '➕ Nouveau',
+      description: `Créez une consultation ou un patient depuis n'importe quelle page.`,
       side: 'bottom' as const,
     },
   },

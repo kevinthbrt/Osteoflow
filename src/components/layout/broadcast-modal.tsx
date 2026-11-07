@@ -45,6 +45,19 @@ async function markSeenLocal(ids: string[]) {
   } catch { /* silent */ }
 }
 
+/** Rend les adresses web du texte cliquables (ouvertes dans le navigateur). */
+function linkify(text: string) {
+  return text.split(/(https?:\/\/[^\s]+)/g).map((part, i) =>
+    /^https?:\/\//.test(part) ? (
+      <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline break-all">
+        {part.replace(/^https?:\/\/(www\.)?/, '')}
+      </a>
+    ) : (
+      part
+    )
+  )
+}
+
 export function BroadcastModal() {
   const [queue, setQueue] = useState<Broadcast[]>([])
   const [index, setIndex] = useState(0)
@@ -131,7 +144,7 @@ export function BroadcastModal() {
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
 
-      <div className="relative z-10 w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className={`relative z-10 w-full ${current.video_url ? 'max-w-3xl' : 'max-w-lg'} rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]`}>
         {current.image_url && !current.video_url && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={current.image_url} alt={current.title} className="w-full max-h-72 object-contain bg-slate-100" />
@@ -147,7 +160,8 @@ export function BroadcastModal() {
           </div>
         )}
         {isDirectVideo && (
-          <video src={current.video_url!} controls className="w-full max-h-56 object-cover bg-black" />
+          // Vidéo entière (pas rognée), lancée sans le son ; les commandes restent disponibles
+          <video key={current.id} src={current.video_url!} controls autoPlay muted playsInline className="w-full aspect-video object-contain bg-slate-900" />
         )}
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -169,7 +183,7 @@ export function BroadcastModal() {
             </button>
           </div>
 
-          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{current.body}</p>
+          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{linkify(current.body)}</p>
 
           {current.video_url && !embedUrl && !isDirectVideo && (
             <a href={current.video_url} target="_blank" rel="noopener noreferrer"

@@ -19,6 +19,22 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.21.0',
+    date: '2026-11-05',
+    title: 'Votre agenda Doctolib synchronisé, et une interface à votre main',
+    changes: [
+      { type: 'feature', text: "Agenda Doctolib synchronisé : avec l'extension MyOsteoFlow pour Chrome (Réglages, Intégrations, Doctolib), votre semaine se synchronise toute seule quand votre agenda Doctolib est ouvert. Les patients reconnus arrivent dans Ma journée, les homonymes et nouveaux patients restent à valider en un clic. Rien ne passe par un serveur : tout reste sur votre ordinateur." },
+      { type: 'feature', text: "Nouveau bloc « Agenda de la semaine » sur le tableau de bord : vos rendez-vous du lundi au samedi, ceux déjà dans Ma journée et ceux à vérifier." },
+      { type: 'feature', text: "Programmes d'exercices pour tous : dans le dossier patient, onglet « Exercices », l'IA vous suggère des exercices adaptés, vous choisissez ceux que vous conseillez, et le patient reçoit un lien vers une séance guidée sur son téléphone. Son bilan rejoint votre dossier d'un scan." },
+      { type: 'feature', text: "Tableau de bord à votre façon : cliquez sur « Organiser » pour déplacer les blocs, choisir leur largeur et masquer ceux qui ne vous servent pas. La météo s'affiche à côté de votre prénom." },
+      { type: 'feature', text: "Onglets patients : ouvrez plusieurs dossiers et passez de l'un à l'autre sans rien perdre (Ctrl + Tab). Depuis le tableau de bord, « Ouvrir en onglets » ouvre d'un coup tous les patients du jour. Chaque patient garde son brouillon de consultation." },
+      { type: 'feature', text: "Recherche universelle (Ctrl + K) : un patient, une action ou une page en quelques lettres. Le bouton « Nouveau » en haut de l'écran crée une consultation ou un patient de n'importe où." },
+      { type: 'improvement', text: "Consultation épurée : tout tient sur une seule feuille, sans étapes numérotées. Enregistrement automatique, Ctrl + S pour enregistrer, Ctrl + Entrée pour terminer, et un mode plein écran pour se concentrer." },
+      { type: 'improvement', text: "Nouvelle apparence : menu regroupé par usage (Cabinet, Suivi, Gestion, Formation), couleurs plus douces, titres de cartes et de tableaux en bleu, thème sombre retravaillé." },
+      { type: 'fix', text: "Anamnèse : la première lettre tapée ne fait plus sortir du champ." },
+    ],
+  },
+  {
     version: '1.20.0',
     date: '2026-10-13',
     title: 'Des programmes d\'exercices que vos patients font vraiment',
@@ -425,7 +441,7 @@ export const changelog: ChangelogEntry[] = [
       { type: 'feature', text: 'Multi-cabinet — suppression : supprimez un cabinet secondaire vide depuis le même dialog. Par sécurité, la suppression est refusée si le cabinet contient des dossiers patients ou s\'il s\'agit du dernier cabinet ou du cabinet actif.' },
       // Navigation patient
       { type: 'feature', text: 'Fiche patient : la page est restructurée en trois onglets — Dossier (coordonnées, antécédents, exercices, statistiques), Consultations (historique complet) et Factures (toutes les factures du patient avec téléchargement PDF). Plus besoin de faire défiler un écran surchargé.' },
-      { type: 'feature', text: 'Consultation sans navigation : cliquer sur « Voir » dans la timeline d\'un patient ouvre désormais un modal complet — contenu clinique (anamnèse, examen, conseils), exercices prescrits, résultat du questionnaire J+7 et éditeur de paiement. Vous ne quittez plus la fiche patient.' },
+      { type: 'feature', text: 'Consultation sans navigation : cliquer sur « Voir » dans la timeline d\'un patient ouvre désormais un modal complet — contenu clinique (anamnèse, examen, conseils), exercices conseillés, résultat du questionnaire J+7 et éditeur de paiement. Vous ne quittez plus la fiche patient.' },
       { type: 'feature', text: 'Facture sans navigation : cliquer sur une facture (depuis la fiche patient ou depuis l\'onglet global Consultations) ouvre un modal complet — détails, statut modifiable en place, paiements modifiables, impression, téléchargement PDF et envoi par email.' },
       // UX improvements
       { type: 'improvement', text: 'Patientes : le badge de genre « Femme » passe en violet pour le distinguer du bleu « Homme » au premier coup d\'œil (fiche patient, tableau des patients, consultations, factures).' },
@@ -494,7 +510,7 @@ export const changelog: ChangelogEntry[] = [
     date: '2026-06-03',
     title: 'Correctif : génération de fiches d\'exercices par IA (erreur 502)',
     changes: [
-      { type: 'fix', text: 'Génération de fiches d\'exercices par IA : correction d\'une erreur 502 qui pouvait survenir sur les prescriptions les plus complètes. Le délai d\'attente du service était trop court pour les générations longues ; il a été allongé pour laisser le temps à l\'IA de répondre.' },
+      { type: 'fix', text: 'Génération de fiches d\'exercices par IA : correction d\'une erreur 502 qui pouvait survenir sur les programmes les plus complets. Le délai d\'attente du service était trop court pour les générations longues ; il a été allongé pour laisser le temps à l\'IA de répondre.' },
     ],
   },
   {
@@ -623,10 +639,10 @@ export const changelog: ChangelogEntry[] = [
       { type: 'feature', text: 'Le bouton d\'injection applique désormais aussi les antécédents et champs patient détectés, pas uniquement l\'anamnèse structurée.' },
       { type: 'feature', text: 'Les antécédents acceptés s\'affichent immédiatement dans la colonne gauche de la consultation, sans recharger la page.' },
       { type: 'feature', text: 'Les cartes d\'antécédents utilisent un code couleur par type (chirurgical, traumatique, médical, familial), identique aux boutons de création.' },
-      { type: 'feature', text: 'Module exercices : ajout des champs cible nerveuse et progression/régression dans la prescription ; envoi par email PDF et téléchargement direct.' },
+      { type: 'feature', text: 'Module exercices : ajout des champs cible nerveuse et progression/régression dans le programme ; envoi par email PDF et téléchargement direct.' },
       { type: 'improvement', text: 'Limite d\'enregistrement de la dictée portée à 10 minutes (alerte à 9 min).' },
       { type: 'improvement', text: 'Viewer PDF affiché en ligne dans l\'application (plus de téléchargement forcé).' },
-      { type: 'fix', text: 'Correction de l\'erreur dans la prescription d\'exercices lors de l\'ouverture du sélecteur de fréquence.' },
+      { type: 'fix', text: 'Correction de l\'erreur dans le programme d\'exercices lors de l\'ouverture du sélecteur de fréquence.' },
     ],
   },
   {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { z } from 'zod'
@@ -51,9 +51,11 @@ interface QuickAddPatientDialogProps {
   open: boolean
   onClose: () => void
   onCreated: (patient: QuickAddedPatient) => void
+  /** Valeurs préremplies, par exemple depuis un rendez-vous Doctolib importé */
+  initialValues?: Partial<Pick<PatientFormData, 'gender' | 'first_name' | 'last_name' | 'birth_date' | 'phone' | 'email'>>
 }
 
-export function QuickAddPatientDialog({ open, onClose, onCreated }: QuickAddPatientDialogProps) {
+export function QuickAddPatientDialog({ open, onClose, onCreated, initialValues }: QuickAddPatientDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [doctolibOpen, setDoctolibOpen] = useState(false)
   // Champs importés de Doctolib mais sans input dans ce formulaire rapide
@@ -76,6 +78,14 @@ export function QuickAddPatientDialog({ open, onClose, onCreated }: QuickAddPati
   })
 
   const gender = watch('gender')
+
+  useEffect(() => {
+    if (!open || !initialValues) return
+    for (const [key, value] of Object.entries(initialValues)) {
+      if (value) setValue(key as keyof QuickAddPatientFormData, value as never)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialValues])
 
   const handleDoctolibImport = (data: Partial<PatientFormData>) => {
     if (data.gender) setValue('gender', data.gender)

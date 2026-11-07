@@ -18,7 +18,7 @@ export function DraftResumeBanner({ patientId }: DraftResumeBannerProps) {
     let cancelled = false
 
     const refresh = () => {
-      fetch('/api/consultation/draft')
+      fetch(`/api/consultation/draft?patientId=${encodeURIComponent(patientId)}`)
         .then((r) => r.json())
         .then((data) => {
           if (cancelled) return
@@ -57,7 +57,7 @@ export function DraftResumeBanner({ patientId }: DraftResumeBannerProps) {
   }
 
   const handleDiscard = async () => {
-    await fetch('/api/consultation/draft', { method: 'DELETE' })
+    await fetch(`/api/consultation/draft?patientId=${encodeURIComponent(patientId)}`, { method: 'DELETE' })
     setHasDraft(false)
   }
 

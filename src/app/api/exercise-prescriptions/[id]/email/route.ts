@@ -25,7 +25,7 @@ export async function POST(
 
     const { data: prescription } = await db
       .from('exercise_prescriptions').select('*').eq('id', id).single()
-    if (!prescription) return NextResponse.json({ error: 'Prescription non trouvée' }, { status: 404 })
+    if (!prescription) return NextResponse.json({ error: 'Programme non trouvé' }, { status: 404 })
 
     const { data: patient } = await db
       .from('patients').select('*').eq('id', prescription.patient_id).single()

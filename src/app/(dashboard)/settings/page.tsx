@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield, Upload, Stethoscope } from 'lucide-react'
+import { Loader2, Building, Mail, FileText, Download, Trash2, X, Image, CheckCircle2, ExternalLink, RefreshCw, AlertCircle, HardDrive, FolderOpen, Lock, Eye, EyeOff, Target, Pencil, Check, Shield, Upload, Stethoscope, Plug } from 'lucide-react'
 import { CGU_SECTIONS, PRIVACY_SECTIONS, CGU_VERSION, CGU_DATE, type LegalSection } from '@/lib/legal/documents'
 import { PROFESSION_OPTIONS } from '@/lib/practitioner/profession'
 import { getCurrencySymbol } from '@/lib/utils/currency'
@@ -30,6 +30,8 @@ import { CustomClinicalContentTab } from '@/components/settings/custom-clinical-
 import { ImportDataTab } from '@/components/settings/import-data-tab'
 import { ExportDataTab } from '@/components/settings/export-data-tab'
 import { localApiHeaders } from '@/lib/local-api-token'
+import { useDoctolibFeature } from '@/lib/doctolib/use-doctolib-feature'
+import { DoctolibSetupCard } from '@/components/doctolib/doctolib-setup-card'
 
 interface PatientListItem {
   id: string
@@ -192,6 +194,11 @@ const SETTINGS_NAV: {
     ],
   },
   {
+    key: 'integrations', label: 'Intégrations', icon: Plug, items: [
+      { value: 'doctolib', label: 'Doctolib' },
+    ],
+  },
+  {
     key: 'donnees', label: 'Données & sécurité', icon: HardDrive, items: [
       { value: 'storage', label: 'Sauvegarde' },
       { value: 'import', label: 'Import de données' },
@@ -212,7 +219,9 @@ function SettingsPageInner() {
   const searchParams = useSearchParams()
   const defaultTab = searchParams.get('tab') || 'profile'
   const [activeTab, setActiveTab] = useState(defaultTab)
-  const activeCategory = SETTINGS_NAV.find((c) => c.items.some((i) => i.value === activeTab)) ?? SETTINGS_NAV[0]
+  const doctolibVisible = useDoctolibFeature()
+  const settingsNav = doctolibVisible ? SETTINGS_NAV : SETTINGS_NAV.filter((c) => c.key !== 'integrations')
+  const activeCategory = settingsNav.find((c) => c.items.some((i) => i.value === activeTab)) ?? settingsNav[0]
   const [practitioner, setPractitioner] = useState<Practitioner | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -1084,7 +1093,7 @@ function SettingsPageInner() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-6 md:flex-row md:items-start">
         {/* Navigation à 2 niveaux : catégories à gauche, réglages à droite */}
         <nav className="w-full shrink-0 md:w-60 space-y-1">
-          {SETTINGS_NAV.map((cat) => {
+          {settingsNav.map((cat) => {
             const Icon = cat.icon
             const isActiveCat = cat.key === activeCategory.key
             return (
@@ -2219,6 +2228,13 @@ function SettingsPageInner() {
         <TabsContent value="legal">
           <LegalSettingsTab />
         </TabsContent>
+
+        {/* Intégrations : extension Doctolib */}
+        {doctolibVisible && (
+          <TabsContent value="doctolib">
+            <DoctolibSetupCard variant="settings" />
+          </TabsContent>
+        )}
 
         {/* Import Tab */}
         <TabsContent value="import">

@@ -1,6 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
 import { Sidebar } from '@/components/layout/sidebar'
+import { CommandPalette } from '@/components/layout/command-palette'
+import { PatientTabsBar } from '@/components/layout/patient-tabs'
+import { getInitials } from '@/lib/utils'
 import { Header } from '@/components/layout/header'
 import { UpdateBanner } from '@/components/layout/update-banner'
 import { WhatsNewDialog } from '@/components/layout/whats-new-dialog'
@@ -14,6 +17,7 @@ import { SupportWidget } from '@/components/support/support-widget'
 import { BroadcastModal } from '@/components/layout/broadcast-modal'
 import { CurrencySync } from '@/components/providers/currency-sync'
 import { SimulationOffre } from '@/components/layout/simulation-offre'
+import { DoctolibArrivalNotifier } from '@/components/doctolib/doctolib-arrival-notifier'
 
 export const dynamic = 'force-dynamic'
 
@@ -80,14 +84,19 @@ export default async function DashboardLayout({
     <TourWrapper>
       <CurrencySync country={practitioner?.country} />
       <div className="min-h-screen">
-        <Sidebar />
-        <div className="lg:pl-64">
+        <Sidebar
+          displayName={practitioner ? `${practitioner.first_name} ${practitioner.last_name}`.trim() : user.email}
+          initials={practitioner ? getInitials(practitioner.first_name, practitioner.last_name) : undefined}
+        />
+        <div className="lg:pl-64" data-app-shell>
           <UpdateBanner />
           <Header user={user} practitioner={practitioner} />
+          <PatientTabsBar />
           <main className="p-4 lg:px-8 lg:py-6">
             {children}
           </main>
         </div>
+        <CommandPalette />
         <WhatsNewDialog />
         <BackupReminderDialog />
         <ChangeCabinetDialog />
@@ -97,6 +106,7 @@ export default async function DashboardLayout({
         <InactivityTimer timeoutMs={inactivityTimeoutMs} />
         <SupportWidget userEmail={licenseEmail} />
         <SimulationOffre />
+        <DoctolibArrivalNotifier />
       </div>
     </TourWrapper>
   )

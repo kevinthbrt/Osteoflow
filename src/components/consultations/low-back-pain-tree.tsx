@@ -684,7 +684,7 @@ function buildAnamnesisText(primary: string, state: TreeState, type: string): st
     if (state.q9_spa_sacroiliitis === 'no') lines.push('  Sacroiliite radiographique : absente ou non évaluée.')
     if (state.q9_spa_hlab27 === 'yes') lines.push('  HLA-B27 : positif.')
     if (state.q9_spa_hlab27 === 'no') lines.push('  HLA-B27 : négatif.')
-    if (state.q9_spa_hlab27 === 'unknown') lines.push('  HLA-B27 : non réalisé — à prescrire.')
+    if (state.q9_spa_hlab27 === 'unknown') lines.push('  HLA-B27 : non réalisé, à demander au médecin traitant.')
     if (state.q9_spa_clinical_picture === 'yes') lines.push('  Tableau clinique jugé convaincant pour SpA axiale non radiographique.')
     if (state.q9_spa_clinical_picture === 'no') lines.push('  Tableau clinique peu convaincant — IRM sacro-iliaque recommandée.')
   }
@@ -1324,7 +1324,7 @@ export function LowBackPainTree({ open, onClose, onApply }: LowBackPainTreeProps
               options={[
                 { label: 'Positif', value: 'yes' },
                 { label: 'Négatif', value: 'no' },
-                { label: 'Non réalisé', value: 'unknown', description: '→ À prescrire' },
+                { label: 'Non réalisé', value: 'unknown', description: '→ À demander au médecin' },
               ]}
             />
             {state.q9_spa_hlab27 === 'unknown' && (

@@ -35,7 +35,9 @@ export default async function DashboardPage() {
     { data: monthRevenue },
     { data: recentConsultations },
     { count: unreadMessages },
-    { data: patientsForConsultation },
+    { data: unpaidInvoices },
+    { count: surveysToRead },
+    { count: followUpsDue },
   ] = await Promise.all([
     // Total active patients
     db
@@ -77,13 +79,34 @@ export default async function DashboardPage() {
       .isNot('patient_id', null)
       .gt('unread_count', 0),
 
-    // Patients for quick consultation creation
+    // Factures émises non encore réglées
     db
-      .from('patients')
-      .select('id, first_name, last_name, email')
-      .is('archived_at', null)
-      .order('last_name')
-      .order('first_name'),
+      .from('invoices')
+      .select(`
+        id,
+        invoice_number,
+        amount,
+        issued_at,
+        consultation:consultations (
+          patient:patients (first_name, last_name)
+        )
+      `)
+      .eq('status', 'issued')
+      .order('issued_at', { ascending: true }),
+
+    // Questionnaires de suivi reçus et pas encore lus
+    db
+      .from('survey_responses')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'completed')
+      .is('acknowledged_at', null),
+
+    // Emails de suivi J+7 prévus d'ici ce soir
+    db
+      .from('scheduled_tasks')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending')
+      .lte('scheduled_for', endOfDay),
   ])
 
   // Calculate month revenue
@@ -97,6 +120,21 @@ export default async function DashboardPage() {
     patient: Array.isArray(c.patient) ? c.patient[0] as { id: string; first_name: string; last_name: string } || null : c.patient as { id: string; first_name: string; last_name: string } | null,
   }))
 
+  const pickOne = <T,>(value: T | T[] | null | undefined): T | null =>
+    Array.isArray(value) ? value[0] ?? null : value ?? null
+
+  const formattedUnpaid = (unpaidInvoices || []).map((invoice: any) => {
+    const consultation = pickOne<any>(invoice.consultation)
+    const patient = pickOne<{ first_name: string; last_name: string }>(consultation?.patient)
+    return {
+      id: invoice.id as string,
+      invoice_number: invoice.invoice_number as string,
+      amount: (invoice.amount as number) || 0,
+      issued_at: (invoice.issued_at as string | null) ?? null,
+      patientName: patient ? `${patient.first_name} ${patient.last_name}` : null,
+    }
+  })
+
   const practitionerEmail = getOsteoUpgradeEmail() || ''
 
   return (
@@ -108,9 +146,11 @@ export default async function DashboardPage() {
         todayConsultations: todayConsultations || 0,
         monthlyRevenue,
         unreadMessages: unreadMessages || 0,
+        surveysToRead: surveysToRead || 0,
+        followUpsDue: followUpsDue || 0,
       }}
       recentConsultations={formattedConsultations}
-      patientsForConsultation={patientsForConsultation || []}
+      unpaidInvoices={formattedUnpaid}
     />
   )
 }

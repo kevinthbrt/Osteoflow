@@ -58,3 +58,6 @@ electron/*.d.ts
 *.db
 *.db-journal
 *.db-wal
+
+# Archive de l’extension Doctolib (npm run extension:zip)
+doctolib-extension.zip

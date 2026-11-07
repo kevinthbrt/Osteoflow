@@ -36,7 +36,7 @@ export async function GET(
       .single()
 
     if (prescriptionError || !prescription) {
-      return NextResponse.json({ error: 'Prescription non trouvée' }, { status: 404 })
+      return NextResponse.json({ error: 'Programme non trouvé' }, { status: 404 })
     }
 
     const { data: patient, error: patientError } = await db
