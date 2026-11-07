@@ -313,6 +313,76 @@
    ]
   },
   {
+   "slug": "ma-remuneration",
+   "category": "gestion",
+   "addedAt": "2026-11-07",
+   "kicker": "Comptabilité",
+   "title": "Savoir combien vous verser",
+   "summary": "Cotisations, impôt, TVA et charges provisionnés : ce que vous pouvez vraiment vous verser, et l’effet d’un changement d’activité.",
+   "intro": "Ma rémunération part de vos recettes et de vos charges, estime vos cotisations sociales, votre impôt et votre TVA, et en déduit ce qui reste pour vous. Le simulateur montre l’effet d’une hausse ou d’une baisse d’activité.",
+   "duration": "58 s",
+   "availability": "Dans le menu, Comptabilité, onglets « Ma rémunération » et « Charges ». Une estimation pour provisionner, pas une déclaration.",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/ma-remuneration",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/ma-remuneration.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/ma-remuneration.webp",
+   "steps": [
+    {
+     "title": "Ma rémunération",
+     "text": "Comptabilité, onglet « Ma rémunération ». « Ce mois-ci » suit le virement à faire, « Année » la projection sur l’année.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-remuneration/etape-1.webp"
+    },
+    {
+     "title": "Ma situation",
+     "text": "Régime fiscal (micro-BNC ou déclaration contrôlée), caisse de retraite, foyer, autres revenus, marge de sécurité.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-remuneration/etape-2.webp"
+    },
+    {
+     "title": "Du chiffre d’affaires à votre poche",
+     "text": "Recettes, charges, cotisations et impôt, jusqu’au disponible.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-remuneration/etape-3.webp"
+    },
+    {
+     "title": "Cotisations, impôt et TVA",
+     "text": "Le détail de chaque poste, avec votre taux moyen d’imposition.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-remuneration/etape-4.webp"
+    },
+    {
+     "title": "Et si mon activité changeait ?",
+     "text": "Faites varier le chiffre d’affaires ou le nombre de patients par semaine : rémunération, cotisations et impôt se recalculent.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-remuneration/etape-5.webp"
+    },
+    {
+     "title": "Votre objectif",
+     "text": "La rémunération visée, celle qui est possible, et l’écart par mois.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-remuneration/etape-6.webp"
+    },
+    {
+     "title": "Les charges",
+     "text": "Onglet « Charges », « Ajouter une charge » : montant hors taxes, TVA, part déductible pour les postes à usage mixte.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-remuneration/etape-7.webp"
+    },
+    {
+     "title": "Véhicule et matériel",
+     "text": "Frais de véhicule au barème kilométrique, et immobilisations amorties (table, matériel, informatique) complètent le calcul.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-remuneration/etape-8.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Je suis en micro-BNC.",
+     "a": "Vos cotisations et votre impôt se calculent sur le chiffre d’affaires, avec l’abattement de 34 %. Vos charges restent utiles : elles réduisent ce qui reste réellement dans votre poche."
+    },
+    {
+     "q": "Les montants sont-ils exacts ?",
+     "a": "C’est une estimation pour provisionner, à partir des barèmes de l’année. Elle ne tient pas compte de tous les crédits et réductions d’impôt : votre comptable reste l’interlocuteur."
+    },
+    {
+     "q": "Je ne veux pas saisir chaque dépense.",
+     "a": "Le mode « Simplifié » de l’onglet Charges accepte de grandes masses annuelles."
+    }
+   ]
+  },
+  {
    "slug": "dictee-anamnese",
    "category": "consultation",
    "addedAt": "2026-11-07",
@@ -519,6 +589,271 @@
     {
      "q": "Où voir les relances à venir ?",
      "a": "Dans la Messagerie, panneau des relances, onglet « Programmées » : vous pouvez les annuler ou les envoyer tout de suite."
+    }
+   ]
+  },
+  {
+   "slug": "examen-clinique",
+   "category": "consultation",
+   "addedAt": "2026-11-07",
+   "kicker": "Consultation",
+   "title": "Examen clinique : tests et techniques",
+   "summary": "Tapez @ec ou @tech dans l’examen : tests orthopédiques et techniques s’insèrent en une ligne, résultat compris.",
+   "intro": "L’examen se remplit sans tout taper. @ec suivi d’une région propose les tests orthopédiques de la bibliothèque OsteoUpgrade, avec leur résultat. @tech suivi d’une région propose vos propres techniques, créées une fois dans les Paramètres.",
+   "duration": "54 s",
+   "availability": "Dans chaque consultation, champ « Examen clinique et traitement ». Les tests @ec demandent une formule incluant OsteoUpgrade.",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/examen-clinique",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/examen-clinique.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/examen-clinique.webp",
+   "steps": [
+    {
+     "title": "Vos techniques, une fois pour toutes",
+     "text": "Paramètres, Pratique, Contenu clinique : la liste « Mes techniques ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/examen-clinique/etape-1.webp"
+    },
+    {
+     "title": "« Ajouter »",
+     "text": "Le nom de la technique et sa région (Cervical, Lombaire, Bassin…), avec une description si vous le souhaitez.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/examen-clinique/etape-2.webp"
+    },
+    {
+     "title": "@ec puis la région",
+     "text": "Dans l’examen, tapez par exemple @eccervi : les tests de la région s’affichent, avec ce qu’ils recherchent.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/examen-clinique/etape-3.webp"
+    },
+    {
+     "title": "Le test et son résultat",
+     "text": "Choisissez le test, puis Positif, Négatif ou Incertain. La ligne s’ajoute à l’examen.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/examen-clinique/etape-4.webp"
+    },
+    {
+     "title": "@tech puis la région",
+     "text": "Vos techniques de la région apparaissent, les plus utilisées en premier. Un clic l’ajoute.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/examen-clinique/etape-5.webp"
+    },
+    {
+     "title": "L’examen se remplit",
+     "text": "Une ligne par test ou technique, que vous complétez librement. Elle sert ensuite aux courriers et aux hypothèses.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/examen-clinique/etape-6.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "@ec ne propose rien.",
+     "a": "La bibliothèque de tests fait partie d’OsteoUpgrade : elle demande une formule qui l’inclut et une connexion internet. @tech fonctionne avec toutes les formules."
+    },
+    {
+     "q": "Quelle région taper ?",
+     "a": "Le début suffit, sans accent ni majuscule : @eccerv, @eclomb, @ecepaule. La recherche porte aussi sur le nom du test."
+    },
+    {
+     "q": "Puis-je modifier une technique ?",
+     "a": "Oui, dans Paramètres, Pratique, Contenu clinique : le crayon la modifie, la corbeille la supprime."
+    }
+   ]
+  },
+  {
+   "slug": "courriers",
+   "category": "patients",
+   "addedAt": "2026-11-07",
+   "kicker": "Courriers",
+   "title": "Rédiger un courrier",
+   "summary": "Un courrier d’adressage ou une attestation, rédigé à partir de la consultation, prêt à imprimer avec votre tampon.",
+   "intro": "Choisissez le patient et la consultation : MyOsteoflow rédige le courrier d’adressage au médecin ou au spécialiste à partir de votre anamnèse et de votre examen, ou une attestation de consultation sans contenu médical. Vous relisez, vous modifiez, vous imprimez.",
+   "duration": "48 s",
+   "availability": "Dans le menu, « Courriers ». Votre tampon (Paramètres, Facturation) s’appose sur le PDF.",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/courriers",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/courriers.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/courriers.webp",
+   "steps": [
+    {
+     "title": "Ouvrez Courriers",
+     "text": "Dans le menu, rubrique Suivi. Deux modèles : courrier d’adressage et attestation de consultation.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/courriers/etape-1.webp"
+    },
+    {
+     "title": "Le patient et la consultation",
+     "text": "Choisissez le patient, puis la consultation concernée : la plus récente est proposée.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/courriers/etape-2.webp"
+    },
+    {
+     "title": "« Courrier d’adressage »",
+     "text": "Pour adresser le patient à un médecin ou un spécialiste, avec un résumé clinique.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/courriers/etape-3.webp"
+    },
+    {
+     "title": "Le destinataire et vos consignes",
+     "text": "Titre et nom du destinataire, et si besoin une consigne : demander une imagerie, insister sur un symptôme.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/courriers/etape-4.webp"
+    },
+    {
+     "title": "« Générer le courrier »",
+     "text": "Le texte est rédigé en quelques secondes à partir de la consultation. Le nom du patient n’est jamais transmis : il est ajouté ensuite, sur votre poste.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/courriers/etape-5.webp"
+    },
+    {
+     "title": "Relisez et modifiez",
+     "text": "En-tête, corps et formule finale se modifient librement : c’est votre courrier.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/courriers/etape-6.webp"
+    },
+    {
+     "title": "Sauvegardez, imprimez",
+     "text": "« Sauvegarder », puis « Imprimer / PDF » : le PDF porte votre en-tête et votre tampon.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/courriers/etape-7.webp"
+    },
+    {
+     "title": "Courriers sauvegardés",
+     "text": "Ils restent listés, avec le destinataire et la consultation d’origine, pour les réimprimer plus tard.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/courriers/etape-8.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "L’attestation contient-elle des informations médicales ?",
+     "a": "Non : elle atteste seulement la présence du patient à la date de la consultation."
+    },
+    {
+     "q": "Le courrier reprend des éléments absents de ma consultation.",
+     "a": "Il est rédigé à partir de ce que vous avez saisi. Plus l’anamnèse et l’examen sont complets, plus le courrier est juste. Relisez-le toujours avant envoi."
+    },
+    {
+     "q": "Sans consultation ?",
+     "a": "Choisissez « Sans consultation » pour une attestation simple."
+    }
+   ]
+  },
+  {
+   "slug": "relances",
+   "category": "patients",
+   "addedAt": "2026-11-07",
+   "kicker": "Relances",
+   "title": "Relancer les patients",
+   "summary": "Les patients non revus depuis plusieurs mois, invités par email à reprendre rendez-vous, un par un ou tous ensemble.",
+   "intro": "MyOsteoflow repère les patients que vous n’avez pas revus depuis 3, 6 ou 12 mois et leur envoie, à votre demande, un email bienveillant avec votre lien de prise de rendez-vous. Les relances prévues en fin de séance s’y retrouvent aussi.",
+   "duration": "38 s",
+   "availability": "Sur l’accueil, bloc « Relances patients », et dans la Messagerie, « Patients inactifs ». Demande une boîte email connectée.",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/relances",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/relances.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/relances.webp",
+   "steps": [
+    {
+     "title": "Le bloc de l’accueil",
+     "text": "« Relances patients » compte les patients à relancer et ceux déjà relancés. « Voir les relances » ouvre le panneau.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/relances/etape-1.webp"
+    },
+    {
+     "title": "Non vus depuis…",
+     "text": "3 mois par défaut, à ajuster. « Ignorer les patients vus avant le » écarte ceux d’un ancien cabinet.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/relances/etape-2.webp"
+    },
+    {
+     "title": "Cherchez un patient",
+     "text": "Par son nom, pour relancer quelqu’un en particulier.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/relances/etape-3.webp"
+    },
+    {
+     "title": "« Relancer »",
+     "text": "Un email l’invite à reprendre rendez-vous, avec votre lien de prise de rendez-vous.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/relances/etape-4.webp"
+    },
+    {
+     "title": "« Relancer tous »",
+     "text": "L’envoi se fait par lots, 450 emails par jour au plus, et reprend le lendemain si la liste est longue.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/relances/etape-5.webp"
+    },
+    {
+     "title": "Programmées",
+     "text": "Les relances choisies en fin de séance (3, 6 ou 12 mois). « Relancer maintenant » les envoie tout de suite, la croix les annule.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/relances/etape-6.webp"
+    },
+    {
+     "title": "Déjà relancés",
+     "text": "Ceux qui ont reçu l’email et ne sont pas encore revenus. « Relancer à nouveau » si besoin.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/relances/etape-7.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Où régler le lien de prise de rendez-vous ?",
+     "a": "Dans Paramètres, Mon cabinet, Coordonnées : « Lien de prise de rendez-vous en ligne »."
+    },
+    {
+     "q": "Un parent a plusieurs enfants suivis.",
+     "a": "Les patients qui partagent une même adresse email ne reçoivent qu’un seul message."
+    },
+    {
+     "q": "J’ai fermé l’application pendant un envoi groupé.",
+     "a": "L’envoi reprend à la réouverture, là où il s’était arrêté."
+    }
+   ]
+  },
+  {
+   "slug": "suivi-j7",
+   "category": "patients",
+   "addedAt": "2026-11-07",
+   "kicker": "Suivi patients",
+   "title": "Suivi J+7 et questionnaires",
+   "summary": "Sept jours après la séance, un court questionnaire : satisfaction, douleur, mobilité, et ce que le patient veut vous dire.",
+   "intro": "Quand vous cochez « Demander des nouvelles » en fin de séance, MyOsteoflow envoie au patient un email de suivi avec un questionnaire. Ses réponses vous sont signalées et rassemblées dans Suivi patients.",
+   "duration": "39 s",
+   "availability": "Dans le menu, « Suivi patients ». Demande une boîte email connectée.",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/suivi-j7",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/suivi-j7.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/suivi-j7.webp",
+   "steps": [
+    {
+     "title": "Le questionnaire",
+     "text": "Sept jours après la séance (délai réglable), le patient reçoit un email avec quelques questions rapides.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/suivi-j7/etape-1.webp"
+    },
+    {
+     "title": "La cloche",
+     "text": "Chaque réponse vous est signalée dans les notifications, en haut de l’écran.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/suivi-j7/etape-2.webp"
+    },
+    {
+     "title": "Suivi patients",
+     "text": "Toutes les réponses au même endroit, depuis le menu.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/suivi-j7/etape-3.webp"
+    },
+    {
+     "title": "En un coup d’œil",
+     "text": "Note moyenne, douleur (EVA), part de patients soulagés et plus mobiles.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/suivi-j7/etape-4.webp"
+    },
+    {
+     "title": "Chaque réponse",
+     "text": "Note, EVA, évolution de la douleur et de la mobilité, et le commentaire du patient.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/suivi-j7/etape-5.webp"
+    },
+    {
+     "title": "« Email » ou « Traité »",
+     "text": "« Email » pour lui répondre, « Traité » pour la ranger une fois lue. « Tout marquer comme traité » d’un coup.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/suivi-j7/etape-6.webp"
+    },
+    {
+     "title": "En attente",
+     "text": "Les patients qui n’ont pas encore répondu.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/suivi-j7/etape-7.webp"
+    },
+    {
+     "title": "Emails programmés",
+     "text": "Les suivis à venir, envoyés ou en échec, avec leur date.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/suivi-j7/etape-8.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Changer le délai de 7 jours ?",
+     "a": "Pour une séance, dans la fenêtre de fin de consultation. Par défaut, dans Paramètres, Communication."
+    },
+    {
+     "q": "Une réponse n’apparaît pas.",
+     "a": "« Synchroniser » récupère les dernières réponses du formulaire en ligne."
+    },
+    {
+     "q": "Un email est en échec.",
+     "a": "Le message d’erreur s’affiche dans « Emails programmés ». Le plus souvent, la connexion de votre boîte email est à refaire dans Paramètres, Communication."
     }
    ]
   },
