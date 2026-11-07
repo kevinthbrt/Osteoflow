@@ -21,8 +21,11 @@ export const changelog: ChangelogEntry[] = [
   {
     version: '1.21.0',
     date: '2026-11-05',
-    title: 'Une interface plus claire, plus rapide, à votre main',
+    title: 'Votre agenda Doctolib synchronisé, et une interface à votre main',
     changes: [
+      { type: 'feature', text: "Agenda Doctolib synchronisé : avec l'extension MyOsteoFlow pour Chrome (Réglages, Intégrations, Doctolib), votre semaine se synchronise toute seule quand votre agenda Doctolib est ouvert. Les patients reconnus arrivent dans Ma journée, les homonymes et nouveaux patients restent à valider en un clic. Rien ne passe par un serveur : tout reste sur votre ordinateur." },
+      { type: 'feature', text: "Nouveau bloc « Agenda de la semaine » sur le tableau de bord : vos rendez-vous du lundi au samedi, ceux déjà dans Ma journée et ceux à vérifier." },
+      { type: 'feature', text: "Programmes d'exercices pour tous : dans le dossier patient, onglet « Exercices », l'IA vous suggère des exercices adaptés, vous choisissez ceux que vous conseillez, et le patient reçoit un lien vers une séance guidée sur son téléphone. Son bilan rejoint votre dossier d'un scan." },
       { type: 'feature', text: "Tableau de bord à votre façon : cliquez sur « Organiser » pour déplacer les blocs, choisir leur largeur et masquer ceux qui ne vous servent pas. La météo s'affiche à côté de votre prénom." },
       { type: 'feature', text: "Onglets patients : ouvrez plusieurs dossiers et passez de l'un à l'autre sans rien perdre (Ctrl + Tab). Depuis le tableau de bord, « Ouvrir en onglets » ouvre d'un coup tous les patients du jour. Chaque patient garde son brouillon de consultation." },
       { type: 'feature', text: "Recherche universelle (Ctrl + K) : un patient, une action ou une page en quelques lettres. Le bouton « Nouveau » en haut de l'écran crée une consultation ou un patient de n'importe où." },
