@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { copyText } from '@/lib/utils/clipboard'
 import { useDoctolibStatus, useDoctolibStoreUrl } from '@/lib/doctolib/use-doctolib-feature'
+import { TUTORIALS } from '@/lib/tutorials'
 
 /**
  * Mise en route de l'extension Doctolib : installation, connexion
@@ -309,8 +310,12 @@ export function DoctolibSetupCard({ variant }: { variant: 'day-plan' | 'settings
         </div>
       )}
 
-      <div className="border-t border-border px-5 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-t border-border px-5 py-3">
         <ManualPairing />
+        <a href={TUTORIALS.doctolib} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] font-medium text-accent-foreground hover:underline">
+          Voir le tutoriel pas à pas
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
       </div>
     </section>
   )
