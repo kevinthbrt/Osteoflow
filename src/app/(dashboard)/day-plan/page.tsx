@@ -229,6 +229,9 @@ export default function DayPlanPage() {
           if (importedDate === date && practitionerId) loadPlan(practitionerId, date)
           else setDate(importedDate)
         }}
+        onPlanChanged={() => {
+          if (practitionerId) loadPlan(practitionerId, date)
+        }}
       />
 
       {/* Add patient */}

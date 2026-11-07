@@ -29,11 +29,16 @@ const appt = (id: string, date: string, first: string, last: string, birth: stri
 
 const plan = (date: string) =>
   (db.prepare('SELECT patient_id, status FROM daily_plan_items WHERE plan_date = ? ORDER BY position').all(date) as Array<{ patient_id: string; status: string }>)
+const planCabinets = () =>
+  (db.prepare('SELECT DISTINCT practitioner_id FROM daily_plan_items').all() as Array<{ practitioner_id: string }>).map((row) => row.practitioner_id)
 
 beforeEach(() => {
   db = new Database(':memory:')
   db.exec(`
     CREATE TABLE app_config (key TEXT PRIMARY KEY, value TEXT);
+    CREATE TABLE practitioners (id TEXT PRIMARY KEY, user_id TEXT, owner_id TEXT);
+    INSERT INTO practitioners VALUES ('dr', 'u1', 'o1'), ('dr2', 'u2', 'o1');
+    INSERT INTO app_config VALUES ('current_user_id', 'u1');
     CREATE TABLE patients (id TEXT PRIMARY KEY, practitioner_id TEXT, first_name TEXT, last_name TEXT, birth_date TEXT, archived_at TEXT);
     CREATE TABLE daily_plan_items (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
@@ -43,6 +48,7 @@ beforeEach(() => {
     INSERT INTO patients VALUES ('p-lea', 'dr', 'Léa', 'BERNARD', '1990-04-12', NULL);
     INSERT INTO patients VALUES ('p-marc', 'dr', 'Marc', 'PETIT', '1978-09-02', NULL);
     INSERT INTO patients VALUES ('p-old', 'dr', 'Ancien', 'ARCHIVE', '1950-01-01', '2025-01-01');
+    INSERT INTO patients VALUES ('p-autre', 'dr2', 'Chloé', 'DAVID', '1985-05-05', NULL);
   `)
 })
 
@@ -125,6 +131,33 @@ describe('syncAgenda', () => {
     expect(summary.added).toBe(0)
     expect(summary.toReview).toBe(2)
     expect(plan(TODAY)).toEqual([])
+  })
+
+  it('cabinets cloisonnés : jamais le dossier d’un autre cabinet, et Ma journée du cabinet actif', () => {
+    const summary = syncAgenda({
+      start: TODAY,
+      end: TODAY,
+      appointments: [appt('a1', TODAY, 'Léa', 'Bernard', '1990-04-12'), appt('a2', TODAY, 'Chloé', 'David', '1985-05-05')],
+    })
+    expect(summary.added).toBe(1)
+    expect(plan(TODAY).map((row) => row.patient_id)).toEqual(['p-lea'])
+    expect(planCabinets()).toEqual(['dr'])
+    const chloe = readAgendaRange(TODAY, TODAY).days[TODAY].find((entry) => entry.doctolibId === 'a2')
+    expect(chloe?.patientId).toBeNull()
+  })
+
+  it('patients partagés entre cabinets : le dossier est reconnu, ajouté au cabinet actif', () => {
+    db.prepare("INSERT INTO app_config VALUES ('cabinet_shared_categories', '[\"patients\"]')").run()
+    syncAgenda({ start: TODAY, end: TODAY, appointments: [appt('a2', TODAY, 'Chloé', 'David', '1985-05-05')] })
+    expect(plan(TODAY).map((row) => row.patient_id)).toEqual(['p-autre'])
+    expect(planCabinets()).toEqual(['dr'])
+  })
+
+  it('sans cabinet actif (session verrouillée), rien n’est ajouté automatiquement', () => {
+    db.prepare("DELETE FROM app_config WHERE key = 'current_user_id'").run()
+    const summary = syncAgenda({ start: TODAY, end: TODAY, appointments: [appt('a1', TODAY, 'Léa', 'Bernard', '1990-04-12')] })
+    expect(summary.added).toBe(0)
+    expect(summary.toReview).toBe(1)
   })
 
   it('les rendez-vous ignorés ou ajoutés depuis Ma journée ne sont plus proposés', () => {

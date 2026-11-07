@@ -1,4 +1,5 @@
 import { getDatabase } from '@/lib/database/connection'
+import { getActiveCabinetId, getScopeCabinetIds } from '@/lib/database/cabinet-scope'
 import { localDay, matchPatient, parseDoctolibAppointments, type DoctolibAppointment, type MatchablePatient } from '@/lib/doctolib/import'
 
 /**
@@ -107,14 +108,26 @@ interface PatientRow extends MatchablePatient {
   practitioner_id: string
 }
 
+/**
+ * Patients du périmètre du cabinet actif : sur une installation à plusieurs
+ * cabinets cloisonnés, un rendez-vous ne doit jamais être associé au dossier
+ * d'un autre cabinet.
+ */
 function loadPatients(): PatientRow[] {
-  return getDatabase()
-    .prepare('SELECT id, practitioner_id, first_name, last_name, birth_date FROM patients WHERE archived_at IS NULL')
-    .all() as PatientRow[]
+  const db = getDatabase()
+  const scope = getScopeCabinetIds('patients', db)
+  const base = 'SELECT id, practitioner_id, first_name, last_name, birth_date FROM patients WHERE archived_at IS NULL'
+  if (!scope.length) return db.prepare(base).all() as PatientRow[]
+  return db.prepare(`${base} AND practitioner_id IN (${scope.map(() => '?').join(',')})`).all(...scope) as PatientRow[]
 }
 
+/** Patients déjà dans Ma journée du cabinet actif ce jour-là. */
 function planPatientIds(date: string): Set<string> {
-  const rows = getDatabase().prepare('SELECT patient_id FROM daily_plan_items WHERE plan_date = ?').all(date) as Array<{ patient_id: string }>
+  const db = getDatabase()
+  const cabinet = getActiveCabinetId(db)
+  const rows = (cabinet
+    ? db.prepare('SELECT patient_id FROM daily_plan_items WHERE plan_date = ? AND practitioner_id = ?').all(date, cabinet)
+    : db.prepare('SELECT patient_id FROM daily_plan_items WHERE plan_date = ?').all(date)) as Array<{ patient_id: string }>
   return new Set(rows.map((row) => row.patient_id))
 }
 
@@ -179,7 +192,10 @@ export function syncAgenda(input: { start: string; end: string; appointments: un
 
   // 3. Ajout automatique des patients reconnus avec certitude.
   let added = 0
-  if (isAutoAddEnabled()) {
+  // Les patients reconnus rejoignent Ma journée du cabinet actif ; sans
+  // cabinet actif (session verrouillée), tout attend la validation.
+  const cabinet = getActiveCabinetId(db)
+  if (cabinet && isAutoAddEnabled()) {
     const insert = db.prepare(
       "INSERT INTO daily_plan_items (practitioner_id, patient_id, plan_date, position, status) VALUES (?, ?, ?, ?, 'pending') RETURNING id"
     )
@@ -199,8 +215,8 @@ export function syncAgenda(input: { start: string; end: string; appointments: un
             handled[appointment.doctolibId] = { date: day, patientId: patient.id }
             continue
           }
-          const { max } = maxPosition.get(patient.practitioner_id, day) as { max: number }
-          const row = insert.get(patient.practitioner_id, patient.id, day, max + 1) as { id: string }
+          const { max } = maxPosition.get(cabinet, day) as { max: number }
+          const row = insert.get(cabinet, patient.id, day, max + 1) as { id: string }
           handled[appointment.doctolibId] = { date: day, itemId: row.id, patientId: patient.id, auto: true }
           inPlan.add(patient.id)
           added++

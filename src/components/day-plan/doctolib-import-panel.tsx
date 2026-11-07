@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarArrowDown, Check, Loader2, UserPlus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -12,6 +12,7 @@ import { DoctolibSetupCard } from '@/components/doctolib/doctolib-setup-card'
 import {
   localTime,
   matchPatient,
+  normalizeName,
   canAutoCreate,
   type DoctolibAppointment,
   type MatchablePatient,
@@ -45,6 +46,7 @@ export function DoctolibImportPanel({
   date,
   refreshKey,
   onImported,
+  onPlanChanged,
 }: {
   practitionerId: string | null
   /** Jour affiché dans Ma journée */
@@ -53,6 +55,8 @@ export function DoctolibImportPanel({
   refreshKey: unknown
   /** Appelé après l'ajout, pour afficher la journée mise à jour */
   onImported: (date: string) => void
+  /** Une synchronisation en arrière-plan a pu ajouter ou retirer des patients */
+  onPlanChanged?: () => void
 }) {
   const { toast } = useToast()
   const [db] = useState(() => createClient())
@@ -62,6 +66,8 @@ export function DoctolibImportPanel({
   /** Choix faits à la main par rendez-vous : id de patient, ou null pour ignorer */
   const [overrides, setChoices] = useState<Record<string, string | null>>({})
   const [creatingFor, setCreatingFor] = useState<DoctolibAppointment | null>(null)
+  /** Rendez-vous décochés : pas ajoutés, mais leur association reste */
+  const [excluded, setExcluded] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const featureVisible = useDoctolibFeature()
 
@@ -84,17 +90,40 @@ export function DoctolibImportPanel({
     }
   }, [date, featureVisible])
 
+  // Synchronisation en arrière-plan pendant que la page est ouverte : les
+  // patients ajoutés ou retirés automatiquement n'ont rien à valider ici,
+  // mais la journée affichée doit se mettre à jour.
+  const lastSyncRef = useRef<string | null | undefined>(undefined)
+  const onPlanChangedRef = useRef(onPlanChanged)
+  onPlanChangedRef.current = onPlanChanged
+  const checkSync = useCallback(async () => {
+    if (!featureVisible) return
+    try {
+      const res = await fetch('/api/doctolib/status', { headers: APP_HEADERS, cache: 'no-store' })
+      const { lastSync } = (await res.json()) as { lastSync: { at: string } | null }
+      const at = lastSync?.at ?? null
+      if (lastSyncRef.current !== undefined && at !== lastSyncRef.current) onPlanChangedRef.current?.()
+      lastSyncRef.current = at
+    } catch {
+      // Hors ligne : prochain passage.
+    }
+  }, [featureVisible])
+
   // Les rendez-vous arrivent pendant que la page est ouverte : on regarde
   // régulièrement, et dès que la fenêtre reprend le focus.
   useEffect(() => {
-    loadPending()
-    const timer = setInterval(loadPending, 5000)
-    window.addEventListener('focus', loadPending)
+    const refresh = () => {
+      loadPending()
+      checkSync()
+    }
+    refresh()
+    const timer = setInterval(refresh, 5000)
+    window.addEventListener('focus', refresh)
     return () => {
       clearInterval(timer)
-      window.removeEventListener('focus', loadPending)
+      window.removeEventListener('focus', refresh)
     }
-  }, [loadPending, refreshKey])
+  }, [loadPending, checkSync, refreshKey])
 
   const importDate = pending?.date ?? null
 
@@ -147,7 +176,7 @@ export function DoctolibImportPanel({
 
   const selected = (pending?.appointments ?? []).filter((appointment) => {
     const id = choices[appointment.doctolibId]
-    return id && !inPlan.has(id)
+    return id && !inPlan.has(id) && !excluded.has(appointment.doctolibId)
   })
 
   // Nouveaux patients que l'on peut créer d'un coup, sans risque de doublon
@@ -163,9 +192,18 @@ export function DoctolibImportPanel({
     if (!practitionerId || autoCreatable.length === 0) return
     setCreatingAll(true)
     const created: Record<string, string> = {}
+    // Un même patient peut avoir plusieurs rendez-vous ce jour-là : un seul dossier.
+    const createdByIdentity = new Map<string, string>()
+    const identity = (appointment: DoctolibAppointment) =>
+      `${normalizeName(appointment.firstName)}|${normalizeName(appointment.lastName)}|${appointment.birthDate ?? ''}`
     let failed = 0
     try {
       for (const appointment of autoCreatable) {
+        const existing = createdByIdentity.get(identity(appointment))
+        if (existing) {
+          created[appointment.doctolibId] = existing
+          continue
+        }
         const { data, error } = await db
           .from('patients')
           .insert({
@@ -180,7 +218,11 @@ export function DoctolibImportPanel({
           .select('id')
           .single()
         if (error || !data) failed++
-        else created[appointment.doctolibId] = (data as { id: string }).id
+        else {
+          const id = (data as { id: string }).id
+          created[appointment.doctolibId] = id
+          createdByIdentity.set(identity(appointment), id)
+        }
       }
     } finally {
       setChoices((previous) => ({ ...previous, ...created }))
@@ -285,10 +327,15 @@ export function DoctolibImportPanel({
           return (
             <li key={appointment.doctolibId} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
               <Checkbox
-                checked={!!choice && !alreadyInPlan}
+                checked={!!choice && !alreadyInPlan && !excluded.has(appointment.doctolibId)}
                 disabled={!choice || alreadyInPlan}
                 onCheckedChange={(checked) => {
-                  if (!checked) setChoices((previous) => ({ ...previous, [appointment.doctolibId]: null }))
+                  setExcluded((previous) => {
+                    const next = new Set(previous)
+                    if (checked) next.delete(appointment.doctolibId)
+                    else next.add(appointment.doctolibId)
+                    return next
+                  })
                 }}
                 aria-label={`Ajouter ${appointment.firstName} ${appointment.lastName}`}
               />
