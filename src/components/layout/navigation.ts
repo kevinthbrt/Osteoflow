@@ -10,6 +10,7 @@ import {
   FileText,
   GraduationCap,
   ListChecks,
+  PlayCircle,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -66,6 +67,7 @@ export const navigationGroups: NavGroup[] = [
     label: 'Formation',
     items: [
       { name: 'E-Learning', href: '/elearning', icon: GraduationCap, description: 'Formations OsteoUpgrade', keywords: 'formation cours', matches: ['/formation'] },
+      { name: 'Tutoriels', href: '/tutorials', icon: PlayCircle, description: 'Toutes les fonctions de MyOsteoflow en vidéo', keywords: 'aide tutoriel vidéo comment faire guide', newIn: '1.22.0' },
     ],
   },
 ]

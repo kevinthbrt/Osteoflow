@@ -19,6 +19,16 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.22.0',
+    date: '2026-11-07',
+    title: 'Tous les tutoriels en vidéo, dans l’application',
+    changes: [
+      { type: 'feature', text: "Nouvelle section « Tutoriels » dans le menu (rubrique Formation) : chaque fonction de MyOsteoflow en courte vidéo, puis pas à pas avec les captures et les questions fréquentes. Recherche par mot-clé et classement par rubrique." },
+      { type: 'feature', text: "Les nouveaux tutoriels arrivent sans mise à jour de l’application, marqués « Nouveau » pendant quelques semaines. La liste reste consultable hors connexion ; les vidéos demandent internet." },
+      { type: 'improvement', text: "Les liens « Voir le tutoriel » (exercices, Doctolib, tableau de bord, fenêtre des nouveautés) ouvrent désormais le tutoriel dans l’application au lieu du navigateur." },
+    ],
+  },
+  {
     version: '1.21.1',
     date: '2026-11-07',
     title: 'Votre agenda Doctolib synchronisé, et une interface à votre main',
