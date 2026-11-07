@@ -1,6 +1,6 @@
 {
   "name": "myosteoflow",
-  "version": "1.21.0",
+  "version": "1.21.1",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -142,6 +142,7 @@
       "category": "public.app-category.medical",
       "minimumSystemVersion": "10.15.0",
       "hardenedRuntime": true,
+      "notarize": false,
       "gatekeeperAssess": false,
       "entitlements": "entitlements.mac.plist",
       "entitlementsInherit": "entitlements.mac.plist",
