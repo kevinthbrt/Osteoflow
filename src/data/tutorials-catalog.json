@@ -313,6 +313,216 @@
    ]
   },
   {
+   "slug": "dictee-anamnese",
+   "category": "consultation",
+   "addedAt": "2026-11-07",
+   "kicker": "Consultation",
+   "title": "Dicter l’anamnèse",
+   "summary": "Vous parlez, l’IA range tout par rubrique, repère les drapeaux rouges et les antécédents à reporter au dossier.",
+   "intro": "Plus besoin de taper pendant que le patient parle. Vous dictez l’interrogatoire, MyOsteoflow le transcrit puis le structure en cartes : histoire, douleur, facteurs modulants, antécédents, traitements, retentissement, drapeaux rouges. Vous relisez, vous corrigez, vous validez.",
+   "duration": "43 s",
+   "availability": "Dans chaque consultation, encart « Dictée de l’anamnèse ». Le micro de l’ordinateur suffit.",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/dictee-anamnese",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/dictee-anamnese.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/dictee-anamnese.webp",
+   "steps": [
+    {
+     "title": "« Démarrer l’écoute »",
+     "text": "En haut de la consultation. Le compteur tourne pendant que vous parlez.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dictee-anamnese/etape-1.webp"
+    },
+    {
+     "title": "Parlez naturellement",
+     "text": "Résumez l’interrogatoire comme vous le feriez à voix haute, sans citer le nom du patient. Jusqu’à 10 minutes par dictée.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dictee-anamnese/etape-2.webp"
+    },
+    {
+     "title": "« Arrêter »",
+     "text": "Le texte transcrit s’affiche. « Continuer la dictée » ajoute un passage oublié, « Effacer » repart de zéro.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dictee-anamnese/etape-3.webp"
+    },
+    {
+     "title": "« Transcrire et structurer »",
+     "text": "L’IA range ce que vous avez dit par rubrique, en quelques secondes. Le motif de consultation se remplit au passage.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dictee-anamnese/etape-4.webp"
+    },
+    {
+     "title": "Une carte par rubrique",
+     "text": "Histoire, douleur, facteurs modulants, antécédents, traitements, retentissement fonctionnel : chaque ligne se corrige, s’ajoute ou se supprime. « Texte libre » pour écrire vous-même.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dictee-anamnese/etape-5.webp"
+    },
+    {
+     "title": "Les drapeaux rouges",
+     "text": "La dernière carte reste verte quand aucun n’est relevé, et passe en rouge dès qu’un signe d’alerte apparaît dans la dictée.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dictee-anamnese/etape-6.webp"
+    },
+    {
+     "title": "Les informations détectées",
+     "text": "Profession, sport, antécédents chirurgicaux, traumatiques, médicaux ou familiaux : validez ou ignorez chaque ligne, ou tout d’un coup.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dictee-anamnese/etape-7.webp"
+    },
+    {
+     "title": "Elles rejoignent le dossier",
+     "text": "Les informations validées apparaissent dans la fiche du patient et ses antécédents, sans rien ressaisir.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dictee-anamnese/etape-8.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Où passe l’enregistrement ?",
+     "a": "L’audio est transcrit puis structuré par un service d’IA, en passant par le serveur OsteoUpgrade (détails dans la politique de confidentialité). Ne citez pas le nom du patient pendant la dictée."
+    },
+    {
+     "q": "La transcription a échoué.",
+     "a": "L’enregistrement reste gardé sur le poste : un bouton permet de relancer la transcription sans tout redire. Vérifiez votre connexion internet."
+    },
+    {
+     "q": "Puis-je dicter en plusieurs fois ?",
+     "a": "Oui : « Continuer la dictée » ajoute à la suite du texte déjà transcrit, avant de lancer la structuration."
+    }
+   ]
+  },
+  {
+   "slug": "aide-diagnostic",
+   "category": "consultation",
+   "addedAt": "2026-11-07",
+   "kicker": "Consultation",
+   "title": "Hypothèses cliniques",
+   "summary": "Des pistes classées après la dictée, des questions à poser et des tests à cocher : le classement suit vos réponses.",
+   "intro": "Après la dictée, MyOsteoflow propose trois hypothèses de diagnostic avec une probabilité indicative, les questions qui les départagent et les tests à réaliser. À chaque réponse ou résultat coché, le classement se recalcule. C’est une aide à la réflexion : l’examen et la décision restent les vôtres.",
+   "duration": "43 s",
+   "availability": "Dans chaque consultation, après la dictée de l’anamnèse, ou avec le bouton « Générer les hypothèses ».",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/aide-diagnostic",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/aide-diagnostic.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/aide-diagnostic.webp",
+   "steps": [
+    {
+     "title": "« Oui » après la dictée",
+     "text": "Au moment de structurer l’anamnèse, MyOsteoflow vous demande si vous voulez des hypothèses. « Non » si vous n’en avez pas besoin : rien n’est généré.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/aide-diagnostic/etape-1.webp"
+    },
+    {
+     "title": "Elles se préparent en parallèle",
+     "text": "Vous continuez la séance pendant ce temps. Elles s’affichent dans l’encart « Hypothèses cliniques ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/aide-diagnostic/etape-2.webp"
+    },
+    {
+     "title": "Trois hypothèses classées",
+     "text": "Chacune avec sa probabilité indicative, d’après l’interrogatoire seul, et la raison qui la justifie.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/aide-diagnostic/etape-3.webp"
+    },
+    {
+     "title": "Les questions à poser",
+     "text": "Une réponse au patient (oui ou non) ajuste aussitôt le classement.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/aide-diagnostic/etape-4.webp"
+    },
+    {
+     "title": "Les tests à réaliser",
+     "text": "Pour chaque test : sa région, ce qu’il recherche et l’hypothèse qu’il départage. Cochez « Positif » ou « Négatif ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/aide-diagnostic/etape-5.webp"
+    },
+    {
+     "title": "Le classement se recalcule",
+     "text": "Les pourcentages évoluent avec chaque résultat, pour vous aider à orienter l’examen.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/aide-diagnostic/etape-6.webp"
+    },
+    {
+     "title": "Depuis votre téléphone",
+     "text": "« Saisir sur téléphone » affiche un QR code : cochez les tests sur votre téléphone pendant l’examen, l’ordinateur se met à jour.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/aide-diagnostic/etape-7.webp"
+    },
+    {
+     "title": "Une aide, pas un diagnostic",
+     "text": "Pourcentages indicatifs, non validés cliniquement. L’examen, l’interprétation et la décision relèvent de votre seule responsabilité.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/aide-diagnostic/etape-8.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "J’ai répondu « Non » par erreur.",
+     "a": "Le bouton « Générer les hypothèses », sous l’anamnèse, les lance à tout moment."
+    },
+    {
+     "q": "Les hypothèses sont-elles enregistrées ?",
+     "a": "Vos réponses et résultats sont gardés avec le brouillon de la consultation. Les hypothèses servent à réfléchir pendant la séance."
+    },
+    {
+     "q": "Faut-il une formule particulière ?",
+     "a": "Non, l’aide aux hypothèses fait partie de MyOsteoflow. La bibliothèque « Tests orthos » détaillée demande une formule incluant OsteoUpgrade."
+    }
+   ]
+  },
+  {
+   "slug": "finaliser-consultation",
+   "category": "consultation",
+   "addedAt": "2026-11-07",
+   "kicker": "Consultation",
+   "title": "Terminer la séance",
+   "summary": "Facture, conseils post-séance, suivi à J+7 et relance dans quelques mois : tout part en une fois.",
+   "intro": "En fin de consultation, une seule fenêtre vous guide en cinq étapes : la facture, son envoi, les conseils à remettre au patient, le suivi automatique et la relance pour une prochaine séance. Vous cochez, MyOsteoflow envoie.",
+   "duration": "46 s",
+   "availability": "Dans chaque consultation : « Terminer la consultation » ou Ctrl + Entrée. Les emails demandent une boîte email connectée.",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/finaliser-consultation",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/finaliser-consultation.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/finaliser-consultation.webp",
+   "steps": [
+    {
+     "title": "Ctrl + Entrée",
+     "text": "Ou « Terminer la consultation », en bas à droite. La fenêtre de fin de séance s’ouvre.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/finaliser-consultation/etape-1.webp"
+    },
+    {
+     "title": "La facture",
+     "text": "Type de séance et paiement. Le détail est dans le tutoriel « Facturer et encaisser ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/finaliser-consultation/etape-2.webp"
+    },
+    {
+     "title": "Son envoi",
+     "text": "Par email, à imprimer, en PDF, ou plus tard. Le choix est retenu pour ce patient.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/finaliser-consultation/etape-3.webp"
+    },
+    {
+     "title": "Les conseils post-séance",
+     "text": "Cochez « Envoyer des conseils post-séance », puis ceux qui conviennent : général, douleur aiguë, douleur chronique.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/finaliser-consultation/etape-4.webp"
+    },
+    {
+     "title": "Les signes d’alerte",
+     "text": "Ajoutez « Quand consulter rapidement » : le patient sait quand reconsulter. L’email part dès l’enregistrement.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/finaliser-consultation/etape-5.webp"
+    },
+    {
+     "title": "Le suivi à J+7",
+     "text": "« Demander des nouvelles » : un email automatique part au bout du délai choisi, et ses réponses arrivent dans Suivi patients.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/finaliser-consultation/etape-6.webp"
+    },
+    {
+     "title": "La relance",
+     "text": "Dans 3, 6 ou 12 mois, le patient apparaîtra dans vos relances patients, pour lui proposer une nouvelle séance.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/finaliser-consultation/etape-7.webp"
+    },
+    {
+     "title": "« Enregistrer la consultation »",
+     "text": "Facture, conseils et suivi partent en une fois. « Continuer la consultation » revient à la séance sans rien envoyer.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/finaliser-consultation/etape-8.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Le patient n’a pas d’email.",
+     "a": "Saisissez-le dans le champ prévu en haut de la fenêtre. Sans email, la facture s’imprime ou se télécharge."
+    },
+    {
+     "q": "Peut-on changer le délai de J+7 ?",
+     "a": "Oui, pour cette séance dans la fenêtre, et par défaut dans Paramètres, Communication."
+    },
+    {
+     "q": "Où voir les relances à venir ?",
+     "a": "Dans la Messagerie, panneau des relances, onglet « Programmées » : vous pouvez les annuler ou les envoyer tout de suite."
+    }
+   ]
+  },
+  {
    "slug": "exercices",
    "category": "patients",
    "addedAt": "2026-11-07",
@@ -398,6 +608,76 @@
     {
      "q": "Est-ce une prescription ?",
      "a": "Non : ce sont des exercices que vous conseillez à votre patient, dans le cadre de votre pratique. L’IA propose, vous décidez."
+    }
+   ]
+  },
+  {
+   "slug": "ma-journee",
+   "category": "agenda",
+   "addedAt": "2026-11-07",
+   "kicker": "Agenda",
+   "title": "Préparer sa journée",
+   "summary": "Vos patients du jour, dans l’ordre de passage, avec leur dossier à un clic.",
+   "intro": "Ma journée liste les patients que vous allez voir, dans l’ordre. Vous la préparez le matin ou la veille, vous la réorganisez au fil des retards, et vous ouvrez chaque dossier d’un clic. Avec l’extension Doctolib, elle se remplit toute seule.",
+   "duration": "54 s",
+   "availability": "Dans le menu, « Ma journée », et sur l’accueil, bloc « Aujourd’hui ».",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/ma-journee",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/ma-journee.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/ma-journee.webp",
+   "steps": [
+    {
+     "title": "Ouvrez Ma journée",
+     "text": "Dans le menu, rubrique Cabinet. Vos patients du jour s’affichent dans l’ordre de passage.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-journee/etape-1.webp"
+    },
+    {
+     "title": "Ajoutez un patient",
+     "text": "« Ajouter un patient à la journée », puis quelques lettres de son nom.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-journee/etape-2.webp"
+    },
+    {
+     "title": "Changez l’ordre",
+     "text": "Les flèches à gauche de chaque nom le font monter ou descendre. La corbeille le retire de la journée.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-journee/etape-3.webp"
+    },
+    {
+     "title": "Un nouveau patient",
+     "text": "« Créer un nouveau patient » ouvre une fiche rapide, ou « Coller depuis Doctolib » la remplit d’un coup. Il est ajouté à la journée.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-journee/etape-4.webp"
+    },
+    {
+     "title": "« Vu »",
+     "text": "Une fois la séance faite. Le compteur avance, « Annuler » revient en arrière.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-journee/etape-5.webp"
+    },
+    {
+     "title": "Ouvrez son dossier",
+     "text": "Un clic sur le nom ouvre la fiche du patient, et le marque comme vu.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-journee/etape-6.webp"
+    },
+    {
+     "title": "Les jours suivants",
+     "text": "Les flèches de date préparent demain ou la semaine à venir. « Revenir à aujourd’hui » vous ramène au jour même.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-journee/etape-7.webp"
+    },
+    {
+     "title": "Sur l’accueil",
+     "text": "Le bloc « Aujourd’hui » reprend la liste, avec « Démarrer la séance » pour le patient suivant et « Ouvrir en onglets » pour tous.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/ma-journee/etape-8.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "J’utilise Doctolib.",
+     "a": "Avec l’extension MyOsteoFlow pour Chrome, la journée se remplit toute seule. Voir le tutoriel « Votre agenda Doctolib, synchronisé tout seul »."
+    },
+    {
+     "q": "Peut-on glisser-déposer les patients ?",
+     "a": "Dans Ma journée, l’ordre se change avec les flèches de chaque ligne."
+    },
+    {
+     "q": "Un patient ne vient pas.",
+     "a": "Retirez-le avec la corbeille : son dossier n’est pas touché."
     }
    ]
   },
