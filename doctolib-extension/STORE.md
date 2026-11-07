@@ -99,6 +99,12 @@ https://www.osteo-upgrade.fr/politique-confidentialite/extension-doctolib
   utilisateurs qui ont le lien, au moins au début.
 - **Pays** : tous, ou France, Belgique, Suisse, Canada selon les utilisateurs.
 
+## Publication
+
+Publiée (non répertoriée) le 7 novembre 2026 :
+https://chromewebstore.google.com/detail/hjichcleckodofpdmoogcdjglalpcmad
+(identifiant `hjichcleckodofpdmoogcdjglalpcmad`).
+
 ## Après la validation par Google
 
 1. Copier l'adresse de l'extension sur le Chrome Web Store.

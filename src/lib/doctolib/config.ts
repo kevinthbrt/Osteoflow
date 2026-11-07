@@ -13,7 +13,8 @@
  * Les deux constantes ci-dessous peuvent ensuite être fixées en dur lors
  * d'une version suivante.
  */
-export const DOCTOLIB_EXTENSION_PUBLISHED = false
-export const DOCTOLIB_EXTENSION_STORE_URL: string | null = null
+export const DOCTOLIB_EXTENSION_PUBLISHED = true
+export const DOCTOLIB_EXTENSION_STORE_URL: string | null =
+  'https://chromewebstore.google.com/detail/hjichcleckodofpdmoogcdjglalpcmad'
 
 export const DOCTOLIB_TESTING_KEY = 'myosteoflow_doctolib_extension_testing'
