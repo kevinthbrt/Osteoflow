@@ -19,8 +19,8 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
-    version: '1.21.0',
-    date: '2026-11-05',
+    version: '1.21.1',
+    date: '2026-11-07',
     title: 'Votre agenda Doctolib synchronisé, et une interface à votre main',
     changes: [
       { type: 'feature', text: "Agenda Doctolib synchronisé : avec l'extension MyOsteoFlow pour Chrome (Réglages, Intégrations, Doctolib), votre semaine se synchronise toute seule quand votre agenda Doctolib est ouvert. Les patients reconnus arrivent dans Ma journée, les homonymes et nouveaux patients restent à valider en un clic. Rien ne passe par un serveur : tout reste sur votre ordinateur." },
