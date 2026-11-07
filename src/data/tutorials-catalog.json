@@ -2,6 +2,10 @@
  "version": 1,
  "categories": [
   {
+   "id": "prise-en-main",
+   "label": "Prise en main"
+  },
+  {
    "id": "consultation",
    "label": "Consultation"
   },
@@ -14,11 +18,300 @@
    "label": "Agenda et Doctolib"
   },
   {
+   "id": "gestion",
+   "label": "Gestion du cabinet"
+  },
+  {
    "id": "interface",
    "label": "Interface et raccourcis"
   }
  ],
  "tutorials": [
+  {
+   "slug": "premiers-pas",
+   "category": "prise-en-main",
+   "addedAt": "2026-11-07",
+   "kicker": "Prise en main",
+   "title": "Configurer son cabinet",
+   "summary": "Coordonnées, facturation, tampon, types de séance, objectifs et verrouillage : tout est prêt en quelques minutes.",
+   "intro": "Avant votre première séance, renseignez une fois ce qui apparaît sur vos factures et vos courriers. Le bloc « Complétez votre profil » du tableau de bord vous indique ce qu’il reste à faire et vous y emmène d’un clic.",
+   "duration": "49 s",
+   "availability": "Dans Paramètres, rubrique « Mon cabinet ». Tout se modifie ensuite à tout moment.",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/premiers-pas",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/premiers-pas.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/premiers-pas.webp",
+   "steps": [
+    {
+     "title": "Suivez « Complétez votre profil »",
+     "text": "Sur le tableau de bord, ce bloc liste ce qui manque : profil, cabinet, facturation, email, objectifs. Un clic sur « Compléter » ouvre la bonne page. Il disparaît une fois tout renseigné.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/premiers-pas/etape-1.webp"
+    },
+    {
+     "title": "Ouvrez Paramètres",
+     "text": "En bas du menu. La rubrique « Mon cabinet » regroupe Coordonnées, Facturation et Objectifs.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/premiers-pas/etape-2.webp"
+    },
+    {
+     "title": "Vos coordonnées",
+     "text": "Nom, email, téléphone, nom du cabinet, profession et adresse. L’email comptable sert à envoyer vos récapitulatifs, le lien de prise de rendez-vous est proposé dans les relances.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/premiers-pas/etape-3.webp"
+    },
+    {
+     "title": "Vos mentions légales",
+     "text": "Pays de facturation, SIREN ou SIRET, statut juridique, RPPS (ou RPE et RNE pour les étiopathes) et régime de TVA : ils figurent sur chaque facture. Cliquez sur « Enregistrer ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/premiers-pas/etape-4.webp"
+    },
+    {
+     "title": "Facturation",
+     "text": "Votre tarif par défaut, le préfixe de numérotation des factures et la couleur de vos documents.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/premiers-pas/etape-5.webp"
+    },
+    {
+     "title": "Votre tampon ou signature",
+     "text": "« Ajouter un tampon » : une image PNG ou JPG de 2 Mo au plus. Elle s’appose sur vos factures et sur les courriers générés.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/premiers-pas/etape-6.webp"
+    },
+    {
+     "title": "Vos types de séance",
+     "text": "Adulte, enfant, nourrisson, sportif… chacun avec son tarif. En fin de séance, choisir le type remplit le montant de la facture.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/premiers-pas/etape-7.webp"
+    },
+    {
+     "title": "Vos objectifs",
+     "text": "Le chiffre d’affaires visé, vos semaines de congés et vos jours travaillés. Ils alimentent la page Objectifs et le bloc Progression de l’accueil.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/premiers-pas/etape-8.webp"
+    },
+    {
+     "title": "La sécurité",
+     "text": "Données & sécurité, Sécurité : MyOsteoflow se verrouille après un temps d’inactivité (30 minutes par défaut), et un mot de passe protège l’accès.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/premiers-pas/etape-9.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Puis-je modifier ces informations plus tard ?",
+     "a": "Oui, à tout moment, depuis la même page. Pensez à cliquer sur « Enregistrer »."
+    },
+    {
+     "q": "Je ne connais pas mon régime de TVA.",
+     "a": "Les actes des ostéopathes sont en principe exonérés (article 261-4-1° du CGI). En cas de doute, demandez à votre comptable."
+    },
+    {
+     "q": "J’exerce au Québec.",
+     "a": "Choisissez « Québec » dans le pays de facturation : la devise, les taxes (TPS et TVQ) et les numéros affichés s’adaptent."
+    }
+   ]
+  },
+  {
+   "slug": "connexion-email",
+   "category": "prise-en-main",
+   "addedAt": "2026-11-07",
+   "kicker": "Prise en main",
+   "title": "Connecter sa boîte email",
+   "summary": "Factures, suivis, conseils et programmes d’exercices partent de votre propre adresse.",
+   "intro": "MyOsteoflow envoie vos emails depuis votre adresse, et ramène les réponses de vos patients dans la Messagerie. La connexion se fait une fois, avec un mot de passe d’application : votre mot de passe habituel n’est jamais demandé.",
+   "duration": "46 s",
+   "availability": "Dans Paramètres, Communication, Connexion e-mail. Gmail, Outlook et Hotmail, Yahoo, OVH, IONOS, ou tout serveur SMTP et IMAP.",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/connexion-email",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/connexion-email.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/connexion-email.webp",
+   "steps": [
+    {
+     "title": "Ouvrez la connexion email",
+     "text": "Depuis « Complétez votre profil » sur l’accueil (ligne Email, « Compléter »), ou depuis Paramètres, Communication.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/connexion-email/etape-1.webp"
+    },
+    {
+     "title": "Choisissez votre fournisseur",
+     "text": "Gmail, Outlook et Hotmail, Yahoo Mail, OVH Mail ou IONOS : les réglages techniques se remplissent tout seuls. Pour un autre fournisseur, ouvrez « Paramètres avancés ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/connexion-email/etape-2.webp"
+    },
+    {
+     "title": "Créez un mot de passe d’application",
+     "text": "Les étapes s’affichent pour votre fournisseur. Pour Gmail : myaccount.google.com, Sécurité, activez la validation en 2 étapes, puis « Mots de passe des applications » et créez-en un pour « Mail ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/connexion-email/etape-3.webp"
+    },
+    {
+     "title": "Votre adresse et votre nom",
+     "text": "Une adresse dédiée au cabinet de préférence, et le nom d’expéditeur que verront vos patients.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/connexion-email/etape-4.webp"
+    },
+    {
+     "title": "Collez le mot de passe d’application",
+     "text": "Les 16 caractères générés par votre fournisseur. Ce n’est pas le mot de passe de votre messagerie.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/connexion-email/etape-5.webp"
+    },
+    {
+     "title": "La synchronisation",
+     "text": "Cochée par défaut : les réponses de vos patients arrivent dans la Messagerie de MyOsteoflow.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/connexion-email/etape-6.webp"
+    },
+    {
+     "title": "« Tester et connecter »",
+     "text": "MyOsteoflow vérifie l’envoi et la réception. En cas d’erreur, le message indique quoi corriger.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/connexion-email/etape-7.webp"
+    },
+    {
+     "title": "C’est connecté",
+     "text": "L’encart vert confirme l’adresse et la dernière synchronisation. « Déconnecter » retire la connexion à tout moment.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/connexion-email/etape-8.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Pourquoi un mot de passe d’application ?",
+     "a": "C’est un code réservé à MyOsteoflow : vous pouvez le révoquer à tout moment depuis votre compte, sans changer le mot de passe de votre boîte."
+    },
+    {
+     "q": "Je ne trouve pas « Mots de passe des applications » chez Google.",
+     "a": "Le menu n’apparaît qu’une fois la validation en 2 étapes activée. Vous pouvez aussi taper « mots de passe des applications » dans la recherche de votre compte Google."
+    },
+    {
+     "q": "Y a-t-il une limite d’envoi ?",
+     "a": "Pour les envois groupés (relances, diffusion), MyOsteoflow s’arrête à 450 emails par jour, sous le plafond de Gmail, et reprend le lendemain. Les factures et suivis du jour passent toujours."
+    }
+   ]
+  },
+  {
+   "slug": "sauvegarde",
+   "category": "prise-en-main",
+   "addedAt": "2026-11-07",
+   "kicker": "Prise en main",
+   "title": "Sauvegarder et restaurer ses données",
+   "summary": "Vos données restent sur votre ordinateur : gardez-en toujours une copie, sur un disque externe ou une clé USB.",
+   "intro": "Les dossiers de vos patients sont enregistrés sur votre ordinateur, pas sur un serveur. Une panne de disque les emporterait : une sauvegarde régulière, rangée à part, permet de tout retrouver, y compris sur un nouvel ordinateur.",
+   "duration": "42 s",
+   "availability": "Le bouton de sauvegarde de l’en-tête, et Paramètres, Données & sécurité, Sauvegarde.",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/sauvegarde",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/sauvegarde.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/sauvegarde.webp",
+   "steps": [
+    {
+     "title": "Vos données sont chez vous",
+     "text": "MyOsteoflow fonctionne sur votre ordinateur. C’est ce qui protège la confidentialité de vos patients, et c’est pourquoi la sauvegarde vous revient.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/sauvegarde/etape-1.webp"
+    },
+    {
+     "title": "Le bouton de l’en-tête",
+     "text": "L’icône de téléchargement, en haut à droite, ouvre la fenêtre de sauvegarde à tout moment, avec la date de votre dernière sauvegarde.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/sauvegarde/etape-2.webp"
+    },
+    {
+     "title": "Rangez-la à part",
+     "text": "Copiez le fichier sur un disque externe ou une clé USB, conservés dans un endroit sûr. Jamais sur un cloud (Google Drive, iCloud, Dropbox) : ce sont des données de santé.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/sauvegarde/etape-3.webp"
+    },
+    {
+     "title": "« Télécharger la sauvegarde »",
+     "text": "Un seul fichier contient tout votre cabinet : patients, consultations, factures, réglages.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/sauvegarde/etape-4.webp"
+    },
+    {
+     "title": "Un rappel chaque jour",
+     "text": "Paramètres, Données & sécurité, Sauvegarde : choisissez l’heure du rappel quotidien. Une notification vous le rappelle, et MyOsteoflow vous alerte au-delà de 14 jours sans sauvegarde.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/sauvegarde/etape-5.webp"
+    },
+    {
+     "title": "Restaurer sur un nouvel ordinateur",
+     "text": "Installez MyOsteoflow, puis « Restaurer depuis une sauvegarde » et choisissez votre fichier.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/sauvegarde/etape-6.webp"
+    },
+    {
+     "title": "Ce que fait la restauration",
+     "text": "Elle remplace toutes les données présentes par celles du fichier, puis l’application redémarre. À n’utiliser que pour récupérer vos données.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/sauvegarde/etape-7.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "À quelle fréquence sauvegarder ?",
+     "a": "Idéalement chaque jour de consultation, au rappel. Gardez plusieurs fichiers datés : en cas de souci, vous revenez à la veille."
+    },
+    {
+     "q": "Pourquoi pas sur Google Drive ou iCloud ?",
+     "a": "Les données de santé ne peuvent être confiées qu’à un hébergeur certifié HDS. Un disque externe ou une clé USB, rangés au cabinet ou chez vous, restent sous votre contrôle."
+    },
+    {
+     "q": "Je change d’ordinateur.",
+     "a": "Faites une sauvegarde sur l’ancien, installez MyOsteoflow sur le nouveau, puis restaurez le fichier. Tout est retrouvé à l’identique."
+    }
+   ]
+  },
+  {
+   "slug": "facturation",
+   "category": "gestion",
+   "addedAt": "2026-11-07",
+   "kicker": "Facturation",
+   "title": "Facturer et encaisser",
+   "summary": "La facture se fait en fin de séance, part comme le patient le souhaite, et se retrouve dans son dossier.",
+   "intro": "Pas de logiciel à part : en terminant la consultation, vous choisissez le type de séance et le mode de paiement, et MyOsteoflow crée la facture numérotée, avec vos mentions et votre tampon.",
+   "duration": "56 s",
+   "availability": "En fin de consultation, puis dans le dossier du patient (onglet « Factures ») et sur l’accueil (« À traiter »).",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/facturation",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/facturation.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/facturation.webp",
+   "steps": [
+    {
+     "title": "Terminez la consultation",
+     "text": "« Terminer la consultation », en bas à droite, ou Ctrl + Entrée. La fenêtre de fin de séance s’ouvre sur la facturation.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/facturation/etape-1.webp"
+    },
+    {
+     "title": "Choisissez le type de séance",
+     "text": "Son tarif remplit le montant, et son nom remplace le motif sur la facture. Les types se créent dans Paramètres, Facturation.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/facturation/etape-2.webp"
+    },
+    {
+     "title": "Le mode de paiement",
+     "text": "Carte, espèces, chèque (avec son numéro), virement… « Ajouter » permet un règlement en plusieurs fois ou par plusieurs moyens.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/facturation/etape-3.webp"
+    },
+    {
+     "title": "Comment envoyer la facture",
+     "text": "Par email, à imprimer, en PDF sur l’ordinateur, ou plus tard. Le choix est retenu pour ce patient et proposé la fois suivante.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/facturation/etape-4.webp"
+    },
+    {
+     "title": "Conseils, suivi et relance",
+     "text": "Les étapes suivantes proposent l’email de conseils, le suivi à J+7 et une relance dans 3, 6 ou 12 mois. Tout est facultatif.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/facturation/etape-5.webp"
+    },
+    {
+     "title": "« Enregistrer la consultation »",
+     "text": "La facture est créée et numérotée, puis envoyée, imprimée ou téléchargée selon votre choix.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/facturation/etape-6.webp"
+    },
+    {
+     "title": "Dans le dossier du patient",
+     "text": "Onglet « Factures » : toutes ses factures, avec leur statut et le téléchargement du PDF.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/facturation/etape-7.webp"
+    },
+    {
+     "title": "Ouvrir une facture",
+     "text": "Un clic ouvre le détail : statut, paiements reçus et leur modification, impression, PDF ou envoi par email, sans quitter la page.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/facturation/etape-8.webp"
+    },
+    {
+     "title": "Les impayés sur l’accueil",
+     "text": "Le bloc « À traiter » du tableau de bord rassemble les factures en attente de paiement, avec leur ancienneté.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/facturation/etape-9.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Une erreur sur une facture ?",
+     "a": "Ouvrez-la depuis le dossier du patient : la date, le statut et les paiements se corrigent dans la fenêtre de la facture."
+    },
+    {
+     "q": "Le patient paiera plus tard.",
+     "a": "Laissez la facture sans paiement : elle apparaît dans « À traiter ». Ajoutez le règlement quand il arrive."
+    },
+    {
+     "q": "Où voir mon chiffre d’affaires ?",
+     "a": "Dans Comptabilité, onglet « Recettes » : chiffre d’affaires, consultations, panier moyen et répartition par mode de paiement."
+    }
+   ]
+  },
   {
    "slug": "exercices",
    "category": "patients",
