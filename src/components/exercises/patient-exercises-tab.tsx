@@ -1,6 +1,7 @@
 'use client'
 
-import { TUTORIALS } from '@/lib/tutorials'
+import Link from 'next/link'
+import { TUTORIALS } from '@/lib/tutorials/links'
 
 import { useCallback, useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -112,9 +113,9 @@ export function PatientExercisesTab({ patientId, patientName }: Props) {
       ) : programs.length === 0 ? (
         <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">
           Aucun programme pour ce patient. Créez-en un, avec ou sans l&apos;IA.
-          <a href={TUTORIALS.exercices} target="_blank" rel="noreferrer" className="mt-2 block font-medium text-accent-foreground hover:underline">
+          <Link href={TUTORIALS.exercices} className="mt-2 block font-medium text-accent-foreground hover:underline">
             Voir le tutoriel pas à pas
-          </a>
+          </Link>
         </CardContent></Card>
       ) : (
         programs.map(p => (

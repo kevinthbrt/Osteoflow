@@ -25,7 +25,7 @@ import { RelaunchWidget } from './widgets/relaunch-widget'
 import { ProfileCompletionWidget } from './profile-completion-widget'
 import { TodayPanel, type TodaySummary } from './today-panel'
 import { WeekAgendaPanel } from './week-agenda-panel'
-import { TUTORIALS } from '@/lib/tutorials'
+import { TUTORIALS } from '@/lib/tutorials/links'
 import { DoctolibAnnouncement } from '@/components/doctolib/doctolib-announcement'
 import { useDoctolibFeature } from '@/lib/doctolib/use-doctolib-feature'
 import { HeaderWeather } from '@/components/layout/header-weather'
@@ -414,9 +414,9 @@ export function Dashboard({ practitioner, practitionerEmail, stats, unpaidInvoic
             <span className="font-semibold">Votre tableau de bord, à votre façon.</span>{' '}
             Déplacez les blocs, choisissez leur largeur et masquez ceux qui ne vous servent pas.
           </p>
-          <a href={TUTORIALS.tableauDeBord} target="_blank" rel="noreferrer" className="text-sm font-medium text-accent-foreground hover:underline">
+          <Link href={TUTORIALS.tableauDeBord} className="text-sm font-medium text-accent-foreground hover:underline">
             Voir le tutoriel
-          </a>
+          </Link>
           <Button size="sm" onClick={startEditing}>Organiser maintenant</Button>
           <button
             type="button"

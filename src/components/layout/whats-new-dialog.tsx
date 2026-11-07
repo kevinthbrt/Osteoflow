@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { changelog } from '@/data/changelog'
 import packageJson from '../../../package.json'
-import { TUTORIALS } from '@/lib/tutorials'
+import { TUTORIALS } from '@/lib/tutorials/links'
 
 const LAST_SEEN_KEY = 'myosteoflow_last_seen_version'
 
@@ -101,7 +101,7 @@ export function WhatsNewDialog() {
           </Button>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" asChild>
-              <a href={TUTORIALS.all} target="_blank" rel="noreferrer">Voir les tutoriels en vidéo</a>
+              <Link href={TUTORIALS.all} onClick={() => setOpen(false)}>Voir les tutoriels en vidéo</Link>
             </Button>
             <Button size="sm" onClick={() => setOpen(false)}>
               Compris
