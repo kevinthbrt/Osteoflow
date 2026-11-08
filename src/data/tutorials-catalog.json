@@ -238,6 +238,201 @@
    ]
   },
   {
+   "slug": "importer-patients",
+   "category": "prise-en-main",
+   "addedAt": "2026-11-08",
+   "kicker": "Prise en main",
+   "title": "Importer ses patients",
+   "summary": "Depuis votre ancien logiciel en CSV, ou une fiche Doctolib copiée-collée : votre patientèle sans tout ressaisir.",
+   "intro": "Vous changez de logiciel ? Exportez vos patients en CSV et déposez le fichier : MyOsteoflow reconnaît les colonnes et crée les fiches. Pour un patient isolé, collez sa fiche Doctolib, les champs se remplissent tout seuls.",
+   "duration": "40 s",
+   "availability": "Dans Paramètres, Données & sécurité, « Import de données », et à la création d’un patient.",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/importer-patients",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/importer-patients.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/importer-patients.webp",
+   "steps": [
+    {
+     "title": "Ouvrez l’import",
+     "text": "Paramètres, Données & sécurité, « Import de données ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/importer-patients/etape-1.webp"
+    },
+    {
+     "title": "Déposez votre fichier CSV",
+     "text": "Exporté depuis votre ancien logiciel. Les séparateurs virgule et point-virgule sont reconnus. Le fichier est lu sur votre ordinateur, rien n’est envoyé.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/importer-patients/etape-2.webp"
+    },
+    {
+     "title": "La correspondance des colonnes",
+     "text": "Nom, prénom, date de naissance, téléphone, email… sont reconnus automatiquement. Ajustez une colonne si besoin, l’aperçu montre les premières lignes.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/importer-patients/etape-3.webp"
+    },
+    {
+     "title": "Lancez l’import",
+     "text": "Les patients sont créés, et leurs consultations si le fichier en contient.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/importer-patients/etape-4.webp"
+    },
+    {
+     "title": "Import terminé",
+     "text": "Le nombre de patients importés s’affiche, avec « Voir les patients ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/importer-patients/etape-5.webp"
+    },
+    {
+     "title": "Un seul patient ?",
+     "text": "« Nouveau », « Nouveau patient » : la fiche de création s’ouvre.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/importer-patients/etape-6.webp"
+    },
+    {
+     "title": "« Importer depuis Doctolib »",
+     "text": "Copiez la fiche du patient dans Doctolib, collez-la, « Analyser » puis « Remplir les champs ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/importer-patients/etape-7.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Mon fichier n’est pas reconnu.",
+     "a": "Enregistrez-le en CSV (UTF-8) depuis Excel ou votre ancien logiciel. Si la mise en forme résiste, l’assistant propose de l’envoyer au support pour le transformer."
+    },
+    {
+     "q": "Les doublons sont-ils évités ?",
+     "a": "Vérifiez votre fichier avant l’import : un patient présent deux fois dans le fichier sera créé deux fois."
+    },
+    {
+     "q": "Et mes consultations passées ?",
+     "a": "Si votre fichier contient date, motif, anamnèse ou examen, faites correspondre ces colonnes : les consultations sont créées avec les patients."
+    }
+   ]
+  },
+  {
+   "slug": "multi-cabinet",
+   "category": "prise-en-main",
+   "addedAt": "2026-11-08",
+   "kicker": "Prise en main",
+   "title": "Travailler sur plusieurs cabinets",
+   "summary": "Un cabinet par lieu d’exercice, avec ses coordonnées et ses données, partagées ou non.",
+   "intro": "Vous exercez à plusieurs adresses ? Créez un cabinet pour chacune : ses coordonnées apparaissent sur ses factures, et ses données restent séparées, sauf si vous choisissez de les mettre en commun.",
+   "duration": "51 s",
+   "availability": "Dans le menu du cabinet, en haut à droite, « Changer de cabinet ».",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/multi-cabinet",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/multi-cabinet.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/multi-cabinet.webp",
+   "steps": [
+    {
+     "title": "« Changer de cabinet »",
+     "text": "Dans le menu du cabinet, en haut à droite de l’écran.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/multi-cabinet/etape-1.webp"
+    },
+    {
+     "title": "« Ajouter un cabinet »",
+     "text": "Son nom, puis « Créer ». Ses coordonnées se renseignent ensuite dans Paramètres, une fois dessus.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/multi-cabinet/etape-2.webp"
+    },
+    {
+     "title": "Le partage",
+     "text": "Cochez ce qui est mis en commun entre vos cabinets : patients, puis consultations, puis comptabilité. Non coché, chaque cabinet garde ses données.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/multi-cabinet/etape-3.webp"
+    },
+    {
+     "title": "« Basculer »",
+     "text": "L’application passe sur l’autre cabinet.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/multi-cabinet/etape-4.webp"
+    },
+    {
+     "title": "Un cabinet neuf",
+     "text": "Son tableau de bord, sa journée, sa comptabilité : vides au départ.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/multi-cabinet/etape-5.webp"
+    },
+    {
+     "title": "Revenir",
+     "text": "Même menu, « Basculer » sur le cabinet principal.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/multi-cabinet/etape-6.webp"
+    },
+    {
+     "title": "Supprimer un cabinet",
+     "text": "La corbeille, pour un cabinet vide. Un cabinet qui contient des patients, ou le cabinet actif, ne peut pas être supprimé.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/multi-cabinet/etape-7.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Mes objectifs et statistiques ?",
+     "a": "Ils suivent le partage : avec la comptabilité en commun, ils couvrent tous vos cabinets."
+    },
+    {
+     "q": "Un patient vient dans mes deux cabinets.",
+     "a": "Cochez le partage des patients : sa fiche est commune, ses consultations aussi si vous les partagez."
+    },
+    {
+     "q": "Faut-il une sauvegarde par cabinet ?",
+     "a": "Non, une sauvegarde contient tous vos cabinets."
+    }
+   ]
+  },
+  {
+   "slug": "securite-rgpd",
+   "category": "prise-en-main",
+   "addedAt": "2026-11-08",
+   "kicker": "Prise en main",
+   "title": "Sécurité et RGPD",
+   "summary": "Verrouillage automatique, mot de passe, et les demandes de vos patients sur leurs données.",
+   "intro": "Les dossiers de vos patients sont sur votre ordinateur. MyOsteoflow se verrouille quand vous vous absentez, et vous permet de répondre aux demandes d’accès ou d’effacement prévues par le RGPD.",
+   "duration": "39 s",
+   "availability": "Dans Paramètres, Données & sécurité : « Sécurité (PIN) » et « RGPD ».",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/securite-rgpd",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/securite-rgpd.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/securite-rgpd.webp",
+   "steps": [
+    {
+     "title": "Ouvrez la sécurité",
+     "text": "Paramètres, Données & sécurité, « Sécurité (PIN) ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/securite-rgpd/etape-1.webp"
+    },
+    {
+     "title": "Le verrouillage automatique",
+     "text": "Après un temps d’inactivité (30 minutes par défaut, de 1 à 480), l’application se verrouille et demande votre code.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/securite-rgpd/etape-2.webp"
+    },
+    {
+     "title": "Un mot de passe",
+     "text": "Il protège l’accès à votre compte, en plus du code.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/securite-rgpd/etape-3.webp"
+    },
+    {
+     "title": "Verrouiller tout de suite",
+     "text": "Le cadenas, en bas du menu, à côté de votre nom.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/securite-rgpd/etape-4.webp"
+    },
+    {
+     "title": "RGPD",
+     "text": "Données & sécurité, « RGPD » : choisissez le patient concerné.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/securite-rgpd/etape-5.webp"
+    },
+    {
+     "title": "Exporter ses données",
+     "text": "Tout son dossier (fiche, consultations, factures) en un fichier, à lui remettre.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/securite-rgpd/etape-6.webp"
+    },
+    {
+     "title": "Supprimer définitivement",
+     "text": "Efface le patient et tout son dossier. Irréversible : faites une sauvegarde avant.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/securite-rgpd/etape-7.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Où sont mes données ?",
+     "a": "Sur votre ordinateur, dans le dossier indiqué dans Données & sécurité, Sauvegarde. Rien n’est hébergé sur un serveur, d’où l’importance de la sauvegarde."
+    },
+    {
+     "q": "Un patient veut récupérer son dossier.",
+     "a": "« Exporter les données » dans l’onglet RGPD, puis remettez-lui le fichier."
+    },
+    {
+     "q": "Qui a modifié quoi ?",
+     "a": "Données & sécurité, « Journal » : l’historique des modifications, exportable en CSV."
+    }
+   ]
+  },
+  {
    "slug": "facturation",
    "category": "gestion",
    "addedAt": "2026-11-07",
@@ -379,6 +574,251 @@
     {
      "q": "Je ne veux pas saisir chaque dépense.",
      "a": "Le mode « Simplifié » de l’onglet Charges accepte de grandes masses annuelles."
+    }
+   ]
+  },
+  {
+   "slug": "recettes",
+   "category": "gestion",
+   "addedAt": "2026-11-08",
+   "kicker": "Comptabilité",
+   "title": "Suivre ses recettes",
+   "summary": "Votre chiffre d’affaires encaissé, par période et par mode de paiement, prêt pour votre comptable.",
+   "intro": "L’onglet Recettes de la Comptabilité totalise ce que vous avez encaissé : chiffre d’affaires, nombre de consultations, panier moyen et répartition par mode de paiement, jour par jour.",
+   "duration": "37 s",
+   "availability": "Dans le menu, « Comptabilité », onglet « Recettes ».",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/recettes",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/recettes.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/recettes.webp",
+   "steps": [
+    {
+     "title": "Ouvrez la Comptabilité",
+     "text": "Onglet « Recettes », sur le mois en cours.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/recettes/etape-1.webp"
+    },
+    {
+     "title": "L’essentiel en un coup d’œil",
+     "text": "Chiffre d’affaires, consultations, panier moyen, et répartition entre carte, chèque, espèces et virement.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/recettes/etape-2.webp"
+    },
+    {
+     "title": "Changez la période",
+     "text": "Ce mois, cette année, ou des dates précises. Filtrez aussi par mode de paiement.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/recettes/etape-3.webp"
+    },
+    {
+     "title": "« Corrections »",
+     "text": "Ajoutez, mois par mois, le chiffre d’affaires encaissé hors MyOsteoflow (avant de l’utiliser, par exemple). Il compte dans les totaux, les objectifs et les statistiques.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/recettes/etape-4.webp"
+    },
+    {
+     "title": "Le récapitulatif",
+     "text": "Chaque jour : nombre de consultations, total, et détail par mode de paiement.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/recettes/etape-5.webp"
+    },
+    {
+     "title": "Pour votre comptable",
+     "text": "CSV, Excel, ou « Envoi direct comptable » à l’adresse renseignée dans vos coordonnées.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/recettes/etape-6.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Une facture impayée compte-t-elle ?",
+     "a": "Non : les recettes comptent ce qui est encaissé. Les impayés sont dans « À traiter », sur l’accueil."
+    },
+    {
+     "q": "Où régler l’email de mon comptable ?",
+     "a": "Paramètres, Mon cabinet, Coordonnées : « Email comptable »."
+    },
+    {
+     "q": "Et mes charges ?",
+     "a": "Onglet « Charges », expliqué dans le tutoriel « Savoir combien vous verser »."
+    }
+   ]
+  },
+  {
+   "slug": "objectifs",
+   "category": "gestion",
+   "addedAt": "2026-11-08",
+   "kicker": "Objectifs",
+   "title": "Fixer et suivre ses objectifs",
+   "summary": "Votre chiffre d’affaires face à l’objectif, au jour, à la semaine, au mois et à l’année.",
+   "intro": "Fixez un objectif annuel et vos jours travaillés : MyOsteoflow en déduit où vous devriez en être chaque jour, et vous montre si vous êtes en avance ou en retard, avec la projection de fin d’année.",
+   "duration": "34 s",
+   "availability": "Dans le menu, « Objectifs », et « Paramétrer » pour les régler.",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/objectifs",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/objectifs.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/objectifs.webp",
+   "steps": [
+    {
+     "title": "Ouvrez Objectifs",
+     "text": "Dans le menu, rubrique Gestion.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/objectifs/etape-1.webp"
+    },
+    {
+     "title": "Réalisé face à l’objectif",
+     "text": "Aujourd’hui, cette semaine, ce mois, cette année : montant réalisé et pourcentage atteint.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/objectifs/etape-2.webp"
+    },
+    {
+     "title": "La trajectoire",
+     "text": "En avance ou en retard, en euros et en jours de congés, avec la projection de fin d’année au rythme actuel.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/objectifs/etape-3.webp"
+    },
+    {
+     "title": "« Afficher en patients »",
+     "text": "Le même objectif, traduit en nombre de consultations.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/objectifs/etape-4.webp"
+    },
+    {
+     "title": "Le détail mensuel",
+     "text": "Chaque mois face à son objectif. « Correction » ajoute le chiffre d’affaires d’avant MyOsteoflow.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/objectifs/etape-5.webp"
+    },
+    {
+     "title": "« Paramétrer »",
+     "text": "Objectif annuel, tarif moyen, semaines de congés et jours travaillés : les objectifs du jour, de la semaine et du mois en découlent.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/objectifs/etape-6.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Pourquoi des jours travaillés ?",
+     "a": "Pour que l’objectif du jour soit juste : un cabinet ouvert quatre jours par semaine n’attend rien le cinquième."
+    },
+    {
+     "q": "Où voir ma progression au quotidien ?",
+     "a": "Sur l’accueil, le bloc « Progression », à afficher avec « Organiser »."
+    },
+    {
+     "q": "Et ma rémunération ?",
+     "a": "Comptabilité, « Ma rémunération » : objectif de rémunération et écart à combler."
+    }
+   ]
+  },
+  {
+   "slug": "statistiques",
+   "category": "gestion",
+   "addedAt": "2026-11-08",
+   "kicker": "Statistiques",
+   "title": "Lire ses statistiques",
+   "summary": "Vos patients, vos consultations et vos revenus, sur la période de votre choix.",
+   "intro": "Les Statistiques analysent votre activité : qui sont vos patients, d’où ils viennent, pour quels motifs ils consultent, quels jours sont les plus chargés, et comment évolue votre chiffre d’affaires.",
+   "duration": "36 s",
+   "availability": "Dans le menu, « Statistiques ».",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/statistiques",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/statistiques.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/statistiques.webp",
+   "steps": [
+    {
+     "title": "Ouvrez Statistiques",
+     "text": "Dans le menu, rubrique Gestion.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/statistiques/etape-1.webp"
+    },
+    {
+     "title": "Les filtres",
+     "text": "Dates, genre et tranche d’âge : tous les chiffres s’y adaptent.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/statistiques/etape-2.webp"
+    },
+    {
+     "title": "Les chiffres clés",
+     "text": "Patients, consultations, chiffre d’affaires et moyenne par consultation.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/statistiques/etape-3.webp"
+    },
+    {
+     "title": "Patients",
+     "text": "Répartition par genre et par âge, et canaux d’acquisition d’après « Recommandé par ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/statistiques/etape-4.webp"
+    },
+    {
+     "title": "Consultations",
+     "text": "Leur évolution mois par mois, vos motifs les plus fréquents et vos jours les plus chargés.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/statistiques/etape-5.webp"
+    },
+    {
+     "title": "Revenus",
+     "text": "L’évolution de votre chiffre d’affaires et sa répartition.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/statistiques/etape-6.webp"
+    },
+    {
+     "title": "« Exporter »",
+     "text": "Pour garder ou partager ces chiffres.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/statistiques/etape-7.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Comment les motifs sont-ils comptés ?",
+     "a": "Par mots-clés : « Lombalgie + cervicalgie » compte dans les deux catégories."
+    },
+    {
+     "q": "Beaucoup de « Non renseigné » ?",
+     "a": "Remplissez « Recommandé par » à la création des patients : le champ alimente les canaux d’acquisition."
+    },
+    {
+     "q": "Créer mes propres canaux ?",
+     "a": "Oui, « Nouvelle catégorie » dans le bloc « Recommandé par » de la fiche patient."
+    }
+   ]
+  },
+  {
+   "slug": "export-csv",
+   "category": "gestion",
+   "addedAt": "2026-11-08",
+   "kicker": "Export",
+   "title": "Exporter pour son comptable",
+   "summary": "Les données et les colonnes de votre choix, en CSV, prêtes pour Excel.",
+   "intro": "Patients, consultations, factures, paiements, charges, immobilisations : cochez ce dont vous avez besoin, colonne par colonne, et récupérez un fichier par type de données, au format Excel français.",
+   "duration": "38 s",
+   "availability": "Dans Paramètres, Données & sécurité, « Export de données ».",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/export-csv",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/export-csv.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/export-csv.webp",
+   "steps": [
+    {
+     "title": "Ouvrez l’export",
+     "text": "Paramètres, Données & sécurité, « Export de données ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/export-csv/etape-1.webp"
+    },
+    {
+     "title": "La période",
+     "text": "Du… au…, ou rien pour tout exporter. Chaque type se filtre sur sa propre date : consultation, émission, encaissement, dépense.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/export-csv/etape-2.webp"
+    },
+    {
+     "title": "Les données",
+     "text": "Cochez factures, paiements, charges, patients…",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/export-csv/etape-3.webp"
+    },
+    {
+     "title": "Les colonnes",
+     "text": "Les plus utiles sont déjà cochées. « Tout cocher » ou « Tout décocher » pour aller vite.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/export-csv/etape-4.webp"
+    },
+    {
+     "title": "Les données de santé",
+     "text": "Anamnèse, examen, hypothèses, conseils : marquées « santé » et décochées par défaut. Votre comptable n’en a pas besoin.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/export-csv/etape-5.webp"
+    },
+    {
+     "title": "« Exporter en CSV »",
+     "text": "Un fichier par type de données, avec point-virgule et virgule décimale : il s’ouvre directement dans Excel.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/export-csv/etape-6.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Le fichier s’ouvre mal dans Excel.",
+     "a": "Ouvrez-le par Fichier, Ouvrir plutôt que par un double-clic si votre Excel n’est pas en français."
+    },
+    {
+     "q": "Exporter les patients archivés ?",
+     "a": "Ils sont exclus, sauf si vous demandez à les inclure."
+    },
+    {
+     "q": "Et pour un seul patient ?",
+     "a": "Données & sécurité, « RGPD » : l’export complet de son dossier."
     }
    ]
   },
@@ -854,6 +1294,136 @@
     {
      "q": "Un email est en échec.",
      "a": "Le message d’erreur s’affiche dans « Emails programmés ». Le plus souvent, la connexion de votre boîte email est à refaire dans Paramètres, Communication."
+    }
+   ]
+  },
+  {
+   "slug": "dossier-patient",
+   "category": "patients",
+   "addedAt": "2026-11-08",
+   "kicker": "Patients",
+   "title": "Le dossier patient",
+   "summary": "Coordonnées, antécédents, consultations et factures, réunis sur une seule fiche.",
+   "intro": "Tout ce qui concerne un patient est sur sa fiche : ses coordonnées, ses antécédents, ses programmes d’exercices, l’historique de ses séances et ses factures. Chaque séance et chaque facture s’ouvrent sans quitter la page.",
+   "duration": "48 s",
+   "availability": "Dans le menu, « Patients », puis un clic sur le patient.",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/dossier-patient",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/dossier-patient.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/dossier-patient.webp",
+   "steps": [
+    {
+     "title": "Trouvez le patient",
+     "text": "Patients : la recherche porte sur le nom, le prénom, la date de naissance, le téléphone ou la profession.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dossier-patient/etape-1.webp"
+    },
+    {
+     "title": "L’onglet Dossier",
+     "text": "Coordonnées, antécédents, programmes d’exercices et statistiques du patient.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dossier-patient/etape-2.webp"
+    },
+    {
+     "title": "Ajouter un antécédent",
+     "text": "Traumatique, médical, chirurgical ou familial : une description, et une ancienneté même approximative.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dossier-patient/etape-3.webp"
+    },
+    {
+     "title": "Une date approximative suffit",
+     "text": "Une année seule, un mois et une année, un âge (même en mois pour un nourrisson) ou une durée. « Point de vigilance » le met en évidence.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dossier-patient/etape-4.webp"
+    },
+    {
+     "title": "L’onglet Consultations",
+     "text": "Tout l’historique, avec le motif et le paiement de chaque séance.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dossier-patient/etape-5.webp"
+    },
+    {
+     "title": "Ouvrir une séance",
+     "text": "« Voir » affiche son contenu, ses exercices, son suivi et sa facture, sans quitter la fiche.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dossier-patient/etape-6.webp"
+    },
+    {
+     "title": "L’onglet Factures",
+     "text": "Toutes ses factures, avec leur statut, l’aperçu et le PDF.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dossier-patient/etape-7.webp"
+    },
+    {
+     "title": "« Modifier »",
+     "text": "Coordonnées, profession, sport, médecin traitant, grossesse, « Recommandé par » et notes.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/dossier-patient/etape-8.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Archiver un patient ?",
+     "a": "Depuis la liste des patients, menu de la ligne. Il disparaît des listes sans être supprimé, « Afficher les patients archivés » le retrouve."
+    },
+    {
+     "q": "À quoi sert « Recommandé par » ?",
+     "a": "À savoir d’où viennent vos patients : médecin, internet, bouche à oreille ou un autre patient. Les Statistiques en font le compte."
+    },
+    {
+     "q": "Les pièces jointes ?",
+     "a": "Comptes rendus, radios ou ordonnances se joignent à chaque consultation, dans la colonne de gauche."
+    }
+   ]
+  },
+  {
+   "slug": "messagerie",
+   "category": "patients",
+   "addedAt": "2026-11-08",
+   "kicker": "Messagerie",
+   "title": "La messagerie",
+   "summary": "Vos échanges par email avec chaque patient, depuis MyOsteoflow et depuis votre adresse.",
+   "intro": "Les emails de vos patients arrivent dans la Messagerie, rangés par patient. Vous y répondez directement, avec des réponses rapides et des pièces jointes, et vous pouvez écrire à un patient ou à toute votre patientèle.",
+   "duration": "38 s",
+   "availability": "Dans le menu, « Messagerie ». Demande une boîte email connectée.",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/messagerie",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/messagerie.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/messagerie.webp",
+   "steps": [
+    {
+     "title": "Ouvrez la Messagerie",
+     "text": "Dans le menu, rubrique Suivi : une conversation par patient.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/messagerie/etape-1.webp"
+    },
+    {
+     "title": "Les non lus en premier",
+     "text": "Une pastille compte les messages non lus. Un clic ouvre la conversation.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/messagerie/etape-2.webp"
+    },
+    {
+     "title": "Répondez",
+     "text": "Écrivez sous la conversation : l’aperçu montre le message tel qu’il partira, depuis votre adresse.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/messagerie/etape-3.webp"
+    },
+    {
+     "title": "Pièces jointes et réponses rapides",
+     "text": "Le trombone joint un document, l’éclair insère une réponse préparée. Puis envoyez.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/messagerie/etape-4.webp"
+    },
+    {
+     "title": "« Nouveau »",
+     "text": "Écrire à un patient, à une adresse email, ou « Envoyer à tous les patients ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/messagerie/etape-5.webp"
+    },
+    {
+     "title": "« Patients inactifs »",
+     "text": "Les relances des patients non revus : voir le tutoriel « Relancer les patients ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/messagerie/etape-6.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Un email n’apparaît pas.",
+     "a": "Le bouton de synchronisation, en haut de la liste, relit votre boîte de réception."
+    },
+    {
+     "q": "Écrire à tous mes patients ?",
+     "a": "« Nouveau », « Envoyer à tous les patients » : le nombre d’emails s’affiche avant l’envoi, étalé à 450 par jour au plus."
+    },
+    {
+     "q": "Les emails partent-ils de MyOsteoflow ?",
+     "a": "Non, de votre propre adresse, connectée dans Paramètres, Communication."
     }
    ]
   },
