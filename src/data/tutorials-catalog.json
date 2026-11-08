@@ -1089,6 +1089,10 @@
     {
      "q": "Puis-je modifier une technique ?",
      "a": "Oui, dans Paramètres, Pratique, Contenu clinique : le crayon la modifie, la corbeille la supprime."
+    },
+    {
+     "q": "Et mes propres tests ?",
+     "a": "Ajoutez-les dans Paramètres, Pratique, Contenu clinique, « Mes tests personnalisés », puis tapez @test suivi de la région : ils s’insèrent avec leur résultat, comme les tests @ec."
     }
    ]
   },
@@ -1424,6 +1428,86 @@
     {
      "q": "Les emails partent-ils de MyOsteoflow ?",
      "a": "Non, de votre propre adresse, connectée dans Paramètres, Communication."
+    }
+   ]
+  },
+  {
+   "slug": "diffusion",
+   "category": "patients",
+   "addedAt": "2026-11-08",
+   "kicker": "Messagerie",
+   "title": "Écrire à tous vos patients",
+   "summary": "Une fermeture pour congés, un changement d’adresse : un email à toute votre patientèle, étalé sur plusieurs jours si besoin.",
+   "intro": "La diffusion envoie le même email à tous vos patients qui ont une adresse. Gmail limite l’envoi à environ 500 emails par jour : MyOsteoflow s’arrête à 450 pour garder de la marge pour vos factures et vos suivis, puis reprend tout seul le lendemain, jusqu’à ce que tout le monde soit prévenu.",
+   "duration": "1 min",
+   "availability": "Dans la Messagerie, « Nouveau », « Envoyer à tous les patients ». Demande une boîte email connectée.",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/diffusion",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/diffusion.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/diffusion.webp",
+   "steps": [
+    {
+     "title": "Ouvrez la diffusion",
+     "text": "Messagerie, « Nouveau », puis « Envoyer à tous les patients ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/diffusion/etape-1.webp"
+    },
+    {
+     "title": "L’objet et le message",
+     "text": "Écrivez votre message, ou partez d’un modèle avec « Modèles ».",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/diffusion/etape-2.webp"
+    },
+    {
+     "title": "Le compteur",
+     "text": "Il indique combien d’emails partiront et pour combien de patients. Les patients qui partagent une adresse (une famille) ne reçoivent qu’un seul email.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/diffusion/etape-3.webp"
+    },
+    {
+     "title": "Plus de 450 emails",
+     "text": "Un avertissement indique en combien de jours l’envoi se fera. Gardez l’application ouverte chaque jour pour qu’il progresse.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/diffusion/etape-4.webp"
+    },
+    {
+     "title": "Écartez les anciens patients",
+     "text": "« Envoyer uniquement aux patients actifs depuis le » : seuls ceux vus depuis cette date le recevront. Le compteur se met à jour.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/diffusion/etape-5.webp"
+    },
+    {
+     "title": "Le bouton « Prendre rendez-vous »",
+     "text": "Facultatif. Il renvoie vers votre lien de prise de rendez-vous, réglé dans Paramètres, Coordonnées.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/diffusion/etape-6.webp"
+    },
+    {
+     "title": "« Envoyer à tous »",
+     "text": "L’envoi part en arrière-plan, par lots. La progression s’affiche en direct.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/diffusion/etape-7.webp"
+    },
+    {
+     "title": "La pause du jour",
+     "text": "À 450 emails, l’envoi se met en pause. Il reprend automatiquement le lendemain, et ainsi de suite.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/diffusion/etape-8.webp"
+    },
+    {
+     "title": "Fermez sans crainte",
+     "text": "Vous pouvez fermer la fenêtre, et même l’application : la diffusion reprend là où elle s’était arrêtée.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/diffusion/etape-9.webp"
+    },
+    {
+     "title": "Le bandeau de suivi",
+     "text": "En haut de la Messagerie, un bandeau suit l’envoi jour après jour. Tant qu’une diffusion est en cours, il est impossible d’en lancer une seconde par erreur.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/diffusion/etape-10.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "Pourquoi 450 et pas 500 ?",
+     "a": "Pour garder de la place, le jour même, aux factures, conseils et suivis de vos consultations, qui partent de la même boîte."
+    },
+    {
+     "q": "Quand lancer un message de congés ?",
+     "a": "Deux à trois semaines avant : avec 1 000 patients, l’envoi prend trois jours."
+    },
+    {
+     "q": "Des emails sont en échec.",
+     "a": "Le bandeau l’indique en fin de diffusion. Si l’échec vient du réseau ou du quota Gmail, « Réessayer » relance seulement ceux-là."
     }
    ]
   },
