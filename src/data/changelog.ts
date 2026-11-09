@@ -19,6 +19,22 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.22.1',
+    date: '2026-11-09',
+    title: 'Votre journée depuis l’agenda Doctolib',
+    changes: [
+      { type: 'feature', text: "L’agenda de la semaine devient votre poste de travail : un clic sur un rendez-vous propose « Démarrer la séance », « Ouvrir le dossier » ou « Marquer vu ». Un rendez-vous vu est barré, et le compteur de la journée avance." },
+      { type: 'feature', text: "Un rendez-vous à vérifier (patient inconnu ou homonyme) se règle depuis l’accueil : choisissez le bon dossier ou créez le patient avec les informations Doctolib, sans passer par Ma journée." },
+      { type: 'feature', text: "Repère « 1re consultation » dans l’agenda et dans Ma journée : il reste affiché tant que le patient n’est jamais venu, même une fois son dossier créé." },
+      { type: 'improvement', text: "Agenda plus lisible : une carte par rendez-vous avec l’heure de début et de fin, un liseré vert (dans Ma journée) ou orange (à vérifier), le jour même mis en avant et un trait « maintenant »." },
+      { type: 'improvement', text: "Avec Doctolib, Ma journée suit l’agenda : l’heure de chaque rendez-vous, un bouton « Séance » sur chaque ligne, et « Ajouter un patient hors agenda » pour les urgences." },
+      { type: 'feature', text: "Examen clinique : @test suivi d’une région propose vos tests personnalisés (Paramètres, Contenu clinique), avec leur résultat." },
+      { type: 'fix', text: "Ma journée suit enfin l’ordre des rendez-vous Doctolib : les patients ajoutés automatiquement ou validés prennent leur place au lieu d’arriver en bas de la liste. Les journées déjà mélangées sont remises en ordre." },
+      { type: 'fix', text: "Vos techniques @tech les plus utilisées remontent bien en tête de liste." },
+      { type: 'fix', text: "Objectifs : « Paramétrer » ouvre directement le réglage des objectifs." },
+    ],
+  },
+  {
     version: '1.22.0',
     date: '2026-11-07',
     title: 'Tous les tutoriels en vidéo, dans l’application',
