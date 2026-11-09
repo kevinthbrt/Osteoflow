@@ -211,6 +211,9 @@ export function ConsultationForm({
   const { osteoupgrade: aOsteoUpgrade } = useEntitlements()
   const [techMentionRegion, setTechMentionRegion] = useState<string | null>(null)
   const [techItems, setTechItems] = useState<{ id: string; name: string; region: string | null; description: string | null; use_count: number }[]>([])
+  // @test inline dropdown : les tests personnalisés (Paramètres, Contenu clinique)
+  const [testMentionRegion, setTestMentionRegion] = useState<string | null>(null)
+  const [customTestItems, setCustomTestItems] = useState<{ id: string; name: string; region: string | null; description: string | null; use_count: number }[]>([])
   // @ec inline dropdown
   const [ecMentionRegion, setEcMentionRegion] = useState<string | null>(null)
   const [orthoTests, setOrthoTests] = useState<{ id: string; name: string; region: string | null; indications: string | null }[]>([])
@@ -1794,12 +1797,29 @@ export function ConsultationForm({
                           return
                         }
                         if (techMentionRegion !== null) setTechMentionRegion(null)
+                        const testMatch = val.match(/@test([a-zA-ZÀ-ÿ]*)$/)
+                        if (testMatch) {
+                          if (customTestItems.length === 0) {
+                            try {
+                              const { createClient: cc } = await import('@/lib/db/client')
+                              const { data } = await cc()
+                                .from('custom_clinical_content')
+                                .select('id, name, region, description, use_count')
+                                .eq('content_type', 'test')
+                                .order('use_count', { ascending: false })
+                              setCustomTestItems(data || [])
+                            } catch { /* silent */ }
+                          }
+                          setTestMentionRegion(testMatch[1])
+                          return
+                        }
+                        if (testMentionRegion !== null) setTestMentionRegion(null)
                       },
                     }
                   })()}
                   onInput={autoResize}
                   disabled={isLoading}
-                  placeholder="Tests effectués, dysfonctions trouvées... (@ec<région> pour tests ortho, @tech<région> pour vos techniques)"
+                  placeholder="Tests effectués, dysfonctions trouvées... (@ec<région> pour tests ortho, @test<région> pour vos tests, @tech<région> pour vos techniques)"
                   rows={4}
                   className="min-h-[96px] resize-none overflow-hidden border-transparent bg-muted/40 shadow-none transition-[height,background-color] duration-200 hover:bg-muted/60 focus-visible:border-input focus-visible:bg-card"
                 />
@@ -1834,7 +1854,8 @@ export function ConsultationForm({
                       const match = techItems.find(t => t.name === text)
                       if (match) {
                         import('@/lib/db/client').then(({ createClient: cc }) => {
-                          cc().from('custom_clinical_content').update({ use_count: (match.use_count || 0) + 1 }).eq('id', match.id)
+                          // Le client ne part que lorsqu'il est attendu : sans then(), le compteur n'était jamais enregistré.
+                          cc().from('custom_clinical_content').update({ use_count: (match.use_count || 0) + 1 }).eq('id', match.id).then(() => {}, () => {})
                         })
                         setTechItems(prev => prev.map(t => t.id === match.id ? { ...t, use_count: (t.use_count || 0) + 1 } : t))
                       }
@@ -1845,6 +1866,32 @@ export function ConsultationForm({
                       const current = watch('examination') || ''
                       setValue('examination', current.replace(/@tech[a-zA-ZÀ-ÿ]*$/, ''), { shouldDirty: true })
                       setTechMentionRegion(null)
+                    }}
+                  />
+                )}
+                {testMentionRegion !== null && (
+                  <AtMentionDropdown
+                    items={customTestItems}
+                    regionQuery={testMentionRegion}
+                    anchorRef={examinationRef as React.RefObject<HTMLTextAreaElement>}
+                    showResultPicker={true}
+                    onSelect={(text) => {
+                      const current = watch('examination') || ''
+                      const cleaned = current.replace(/@test[a-zA-ZÀ-ÿ]*$/, '')
+                      const match = customTestItems.find(t => text === t.name || text.startsWith(`${t.name} : `))
+                      if (match) {
+                        import('@/lib/db/client').then(({ createClient: cc }) => {
+                          cc().from('custom_clinical_content').update({ use_count: (match.use_count || 0) + 1 }).eq('id', match.id).then(() => {}, () => {})
+                        })
+                        setCustomTestItems(prev => prev.map(t => t.id === match.id ? { ...t, use_count: (t.use_count || 0) + 1 } : t))
+                      }
+                      setValue('examination', cleaned ? `${cleaned}\n${text}` : text, { shouldDirty: true })
+                      setTestMentionRegion(null)
+                    }}
+                    onClose={() => {
+                      const current = watch('examination') || ''
+                      setValue('examination', current.replace(/@test[a-zA-ZÀ-ÿ]*$/, ''), { shouldDirty: true })
+                      setTestMentionRegion(null)
                     }}
                   />
                 )}

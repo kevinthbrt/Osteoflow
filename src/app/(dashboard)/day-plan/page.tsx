@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import {
+  Play,
   ListChecks,
   ChevronLeft,
   ChevronRight,
@@ -24,6 +25,7 @@ import { createClient } from '@/lib/db/client'
 import { useToast } from '@/hooks/use-toast'
 import { QuickAddPatientDialog, type QuickAddedPatient } from '@/components/patients/quick-add-patient-dialog'
 import { DoctolibImportPanel } from '@/components/day-plan/doctolib-import-panel'
+import { localTime } from '@/lib/doctolib/import'
 
 interface Patient {
   id: string
@@ -104,6 +106,42 @@ export default function DayPlanPage() {
   }, [date, practitionerId])
 
   const patientIdsInPlan = useMemo(() => new Set(items.map((i) => i.patient?.id)), [items])
+
+  // Heures des rendez-vous Doctolib du jour, par patient : la journée suit l'agenda.
+  const [appointmentTimes, setAppointmentTimes] = useState<Map<string, string>>(new Map())
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/doctolib/agenda?start=${date}&end=${date}`, { headers: { 'x-osteoflow-app': '1' }, cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { days?: Record<string, Array<{ start: string; patientId: string | null }>> } | null) => {
+        if (cancelled) return
+        const times = new Map<string, string>()
+        for (const entry of data?.days?.[date] ?? []) {
+          if (entry.patientId && !times.has(entry.patientId)) times.set(entry.patientId, localTime(entry.start))
+        }
+        setAppointmentTimes(times)
+      })
+      .catch(() => { if (!cancelled) setAppointmentTimes(new Map()) })
+    return () => { cancelled = true }
+  }, [date, items.map((i) => i.patient?.id).join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  const followsAgenda = appointmentTimes.size > 0
+
+  // Patients déjà vus avant ce jour : les autres viennent pour la première fois.
+  const [seenBefore, setSeenBefore] = useState<Set<string> | null>(null)
+  const planIdsKey = items.map((i) => i.patient?.id).filter(Boolean).sort().join(',')
+  useEffect(() => {
+    const ids = planIdsKey ? planIdsKey.split(',') : []
+    if (!ids.length) { setSeenBefore(new Set()); return }
+    let cancelled = false
+    db.from('consultations')
+      .select('patient_id')
+      .in('patient_id', ids)
+      .lt('date_time', date)
+      .then(({ data }: { data: Array<{ patient_id: string }> | null }) => {
+        if (!cancelled) setSeenBefore(new Set((data ?? []).map((row) => row.patient_id)))
+      })
+    return () => { cancelled = true }
+  }, [planIdsKey, date]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const filteredPatients = useMemo(() => {
     const available = patients.filter((p) => !patientIdsInPlan.has(p.id))
@@ -197,7 +235,7 @@ export default function DayPlanPage() {
           Ma journée
         </h1>
         <p className="text-muted-foreground mt-1">
-          Organisez l&apos;ordre de vos patients et accédez à leur fiche au fil de la journée.
+          {followsAgenda ? 'Vos patients du jour, dans l’ordre de votre agenda Doctolib.' : 'Organisez l’ordre de vos patients et accédez à leur fiche au fil de la journée.'}
         </p>
       </div>
 
@@ -240,7 +278,7 @@ export default function DayPlanPage() {
           <Button variant="outline" role="combobox" aria-expanded={addOpen} className="justify-between w-72">
             <span className="flex items-center gap-2 text-muted-foreground">
               <Plus className="h-4 w-4" />
-              Ajouter un patient à la journée
+              {followsAgenda ? 'Ajouter un patient hors agenda' : 'Ajouter un patient à la journée'}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -317,10 +355,19 @@ export default function DayPlanPage() {
                     : 'border-border/60 bg-card'
                 }`}
               >
-                <span className="w-6 text-center text-sm font-semibold text-muted-foreground flex-shrink-0">
-                  {index + 1}
-                </span>
-                <div className="flex flex-col flex-shrink-0">
+                {followsAgenda ? (
+                  <span
+                    className="w-12 flex-shrink-0 text-center text-sm font-semibold tabular-nums text-muted-foreground"
+                    title={item.patient && appointmentTimes.has(item.patient.id) ? 'Heure du rendez-vous Doctolib' : 'Ajouté hors agenda'}
+                  >
+                    {(item.patient && appointmentTimes.get(item.patient.id)) || '·'}
+                  </span>
+                ) : (
+                  <span className="w-6 text-center text-sm font-semibold text-muted-foreground flex-shrink-0">
+                    {index + 1}
+                  </span>
+                )}
+                <div className={`flex flex-col flex-shrink-0 ${followsAgenda ? 'hidden' : ''}`}>
                   <button
                     onClick={() => moveUp(index)}
                     disabled={index === 0}
@@ -345,8 +392,24 @@ export default function DayPlanPage() {
                   }`}
                 >
                   {item.patient?.first_name} {item.patient?.last_name}
+                  {seenBefore && item.patient && !seenBefore.has(item.patient.id) && (
+                    <span
+                      title="Premier rendez-vous : aucune consultation avant ce jour"
+                      className="ml-2 inline-flex rounded bg-primary/10 px-1.5 py-px align-middle text-[10px] font-semibold uppercase tracking-wide text-primary no-underline"
+                    >
+                      1re consultation
+                    </span>
+                  )}
                 </Link>
 
+                {item.status !== 'done' && item.patient && (
+                  <Button variant="ghost" size="sm" className="h-8 gap-1.5 flex-shrink-0 text-primary hover:text-primary" asChild>
+                    <Link href={`/patients/${item.patient.id}/consultation/new`} title="Démarrer la séance">
+                      <Play className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Séance</span>
+                    </Link>
+                  </Button>
+                )}
                 <Button
                   variant={item.status === 'done' ? 'ghost' : 'outline'}
                   size="sm"

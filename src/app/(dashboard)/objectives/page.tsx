@@ -619,7 +619,7 @@ export default function ObjectivesPage() {
             </Button>
           )}
           <Button variant="outline" size="sm" asChild>
-            <Link href="/settings">
+            <Link href="/settings?tab=objectives">
               <Settings className="mr-2 h-4 w-4" />
               Paramétrer
             </Link>
