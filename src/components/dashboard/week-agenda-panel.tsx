@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -16,6 +16,7 @@ import { dayString, displayedWeek } from '@/lib/doctolib/week'
 interface Entry {
   doctolibId: string
   start: string
+  end?: string | null
   firstName: string
   lastName: string
   patientId: string | null
@@ -32,43 +33,82 @@ function dayDate(day: string) {
   return new Date(`${day}T12:00:00`)
 }
 
-function EntryRow({ entry, day, today, compact }: { entry: Entry; day: string; today: string; compact?: boolean }) {
-  const past = day < today
-  const toReview = !past && !entry.inPlan && !entry.handled
+type Tone = 'plan' | 'review' | 'other'
+
+function toneOf(entry: Entry, day: string, today: string): Tone {
+  if (day >= today && !entry.inPlan && !entry.handled) return 'review'
+  return entry.inPlan ? 'plan' : 'other'
+}
+
+const TONE_STYLES: Record<Tone, string> = {
+  plan: 'border-l-success bg-success-soft/60',
+  review: 'border-l-warning bg-warning-soft/70',
+  other: 'border-l-border bg-muted/40',
+}
+
+const TONE_TITLE: Record<Tone, string | undefined> = {
+  plan: 'Dans Ma journée',
+  review: 'À vérifier dans Ma journée',
+  other: undefined,
+}
+
+/** Rendez-vous passé : terminé, ou commencé depuis plus d'une heure faute d'heure de fin. */
+function isOver(entry: Entry, now: number) {
+  const end = entry.end ? Date.parse(entry.end) : Date.parse(entry.start) + 60 * 60 * 1000
+  return Number.isFinite(end) && end <= now
+}
+
+function EntryCard({ entry, day, today, now, compact }: { entry: Entry; day: string; today: string; now: number; compact?: boolean }) {
+  const tone = toneOf(entry, day, today)
+  const past = day < today || (day === today && isOver(entry, now))
   const href = entry.patientId ? `/patients/${entry.patientId}` : `/day-plan?date=${day}`
+  const time = entry.end ? `${localTime(entry.start)} – ${localTime(entry.end)}` : localTime(entry.start)
   return (
     <li>
       <Link
         href={href}
+        title={[TONE_TITLE[tone], `${entry.firstName} ${entry.lastName}`].filter(Boolean).join(' · ')}
         className={cn(
-          'group flex gap-2 rounded-md px-2 py-1.5 text-[13px] hover:bg-accent',
-          compact ? 'items-baseline' : 'items-start',
-          past && 'opacity-55'
+          'block rounded-md border-l-[3px] px-2 py-1.5 text-[13px] leading-snug transition-colors hover:bg-accent',
+          TONE_STYLES[tone],
+          past && 'opacity-50',
+          compact && 'flex items-baseline gap-2'
         )}
-        title={toReview ? 'À vérifier dans Ma journée' : entry.inPlan ? 'Dans Ma journée' : undefined}
       >
-        {compact ? (
-          <>
-            <span className="w-10 shrink-0 font-medium tabular-nums text-muted-foreground">{localTime(entry.start)}</span>
-            <span className="min-w-0 flex-1 truncate">
-              {entry.firstName} <span className="font-medium uppercase">{entry.lastName}</span>
-            </span>
-          </>
-        ) : (
-          // Colonne d'un jour : l'heure au-dessus, le nom sur toute la largeur
-          <span className="min-w-0 flex-1 leading-snug">
-            <span className="block text-xs font-medium tabular-nums text-muted-foreground">{localTime(entry.start)}</span>
-            <span className="block truncate" title={`${entry.firstName} ${entry.lastName}`}>
-              {entry.firstName} <span className="font-medium uppercase">{entry.lastName}</span>
-            </span>
-          </span>
-        )}
-        <span
-          aria-hidden="true"
-          className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', compact && 'mt-0 self-center', toReview ? 'bg-warning' : entry.inPlan ? 'bg-success' : 'bg-transparent')}
-        />
+        <span className={cn('tabular-nums text-muted-foreground', compact ? 'w-24 shrink-0 text-[12px]' : 'block text-[11px] font-medium')}>
+          {compact ? localTime(entry.start) : time}
+        </span>
+        <span className={cn('truncate', compact ? 'min-w-0 flex-1' : 'block')}>
+          {entry.firstName} <span className="font-semibold uppercase">{entry.lastName}</span>
+        </span>
       </Link>
     </li>
+  )
+}
+
+/** Trait « maintenant » placé entre les rendez-vous passés et à venir du jour. */
+function NowLine() {
+  return (
+    <li aria-label="Maintenant" className="relative flex items-center py-0.5">
+      <span className="h-2 w-2 shrink-0 rounded-full bg-destructive" />
+      <span className="h-px flex-1 bg-destructive/70" />
+    </li>
+  )
+}
+
+function DayList({ list, day, today, now, compact }: { list: Entry[]; day: string; today: string; now: number; compact?: boolean }) {
+  const nowIndex = day === today ? list.findIndex((entry) => !isOver(entry, now)) : -1
+  const showNowAt = day === today ? (nowIndex === -1 ? list.length : nowIndex) : -1
+  return (
+    <ul className="space-y-1">
+      {list.map((entry, index) => (
+        <Fragment key={entry.doctolibId}>
+          {index === showNowAt && index > 0 && <NowLine />}
+          <EntryCard entry={entry} day={day} today={today} now={now} compact={compact} />
+        </Fragment>
+      ))}
+      {showNowAt === list.length && list.length > 0 && <NowLine />}
+    </ul>
   )
 }
 
@@ -76,6 +116,7 @@ export function WeekAgendaPanel({ size }: { size: 1 | 2 | 3 }) {
   const [data, setData] = useState<{ syncedAt: string | null; days: Record<string, Entry[]> } | null>(null)
   const week = useMemo(() => displayedWeek(), [])
   const today = dayString(new Date())
+  const [now, setNow] = useState(() => Date.now())
 
   const load = useCallback(async () => {
     try {
@@ -88,7 +129,10 @@ export function WeekAgendaPanel({ size }: { size: 1 | 2 | 3 }) {
 
   useEffect(() => {
     load()
-    const timer = setInterval(load, 60_000)
+    const timer = setInterval(() => {
+      load()
+      setNow(Date.now())
+    }, 60_000)
     window.addEventListener('focus', load)
     return () => {
       clearInterval(timer)
@@ -113,6 +157,12 @@ export function WeekAgendaPanel({ size }: { size: 1 | 2 | 3 }) {
         {data?.syncedAt && (
           <span className="text-[13px] text-muted-foreground">
             {total} rendez-vous · Doctolib, {formatDistanceToNow(new Date(data.syncedAt), { addSuffix: true, locale: fr })}
+          </span>
+        )}
+        {data?.syncedAt && (
+          <span className="hidden items-center gap-3 text-xs text-muted-foreground md:inline-flex">
+            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-1 rounded-full bg-success" />Dans Ma journée</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-1 rounded-full bg-warning" />À vérifier</span>
           </span>
         )}
         {toReview > 0 && (
@@ -141,18 +191,28 @@ export function WeekAgendaPanel({ size }: { size: 1 | 2 | 3 }) {
             const list = days[day] ?? []
             const isToday = day === today
             return (
-              <div key={day} className={cn('min-w-0 px-2 py-3', isToday && 'bg-accent/40')}>
+              <div key={day} className={cn('min-w-0 px-2 py-3', isToday && 'bg-accent/30')}>
                 <Link
                   href={`/day-plan?date=${day}`}
-                  className={cn('mb-1 flex items-baseline gap-1.5 px-2 text-xs font-semibold uppercase tracking-wide', isToday ? 'text-primary' : 'text-muted-foreground', day < today && 'opacity-60')}
+                  className={cn('mb-2 flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-accent', day < today && 'opacity-60')}
                 >
-                  {weekdayShort.format(dayDate(day)).replace('.', '')} {dayDate(day).getDate()}
-                  <span className="ml-auto font-normal normal-case tracking-normal">{list.length || ''}</span>
+                  <span className={cn('text-[11px] font-semibold uppercase tracking-wide', isToday ? 'text-primary' : 'text-muted-foreground')}>
+                    {weekdayShort.format(dayDate(day)).replace('.', '')}
+                  </span>
+                  <span
+                    className={cn(
+                      'flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-sm font-semibold tabular-nums',
+                      isToday ? 'bg-primary text-primary-foreground' : 'text-foreground'
+                    )}
+                  >
+                    {dayDate(day).getDate()}
+                  </span>
+                  {list.length > 0 && <span className="ml-auto text-[11px] text-muted-foreground">{list.length} rdv</span>}
                 </Link>
                 {list.length === 0 ? (
-                  <p className="px-2 py-1.5 text-[13px] text-muted-foreground/70">Aucun</p>
+                  <p className="px-2 py-1.5 text-[13px] text-muted-foreground/70">Aucun rendez-vous</p>
                 ) : (
-                  <ul>{list.map((entry) => <EntryRow key={entry.doctolibId} entry={entry} day={day} today={today} />)}</ul>
+                  <DayList list={list} day={day} today={today} now={now} />
                 )}
               </div>
             )
@@ -165,7 +225,7 @@ export function WeekAgendaPanel({ size }: { size: 1 | 2 | 3 }) {
               <p className={cn('px-2 pb-1 text-xs font-semibold first-letter:uppercase', day === today ? 'text-primary' : 'text-muted-foreground')}>
                 {day === today ? 'Aujourd’hui' : weekdayLong.format(dayDate(day))}
               </p>
-              <ul>{days[day].map((entry) => <EntryRow key={entry.doctolibId} entry={entry} day={day} today={today} compact />)}</ul>
+              <DayList list={days[day]} day={day} today={today} now={now} compact />
             </div>
           ))}
           {week.days.every((day) => day < today || !(days[day]?.length)) && (

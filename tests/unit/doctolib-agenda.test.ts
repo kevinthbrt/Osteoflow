@@ -43,12 +43,15 @@ beforeEach(() => {
     CREATE TABLE daily_plan_items (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
       practitioner_id TEXT NOT NULL, patient_id TEXT NOT NULL, plan_date TEXT NOT NULL,
-      position INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'pending'
+      position INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT DEFAULT (datetime('now'))
     );
     INSERT INTO patients VALUES ('p-lea', 'dr', 'Léa', 'BERNARD', '1990-04-12', NULL);
     INSERT INTO patients VALUES ('p-marc', 'dr', 'Marc', 'PETIT', '1978-09-02', NULL);
     INSERT INTO patients VALUES ('p-old', 'dr', 'Ancien', 'ARCHIVE', '1950-01-01', '2025-01-01');
     INSERT INTO patients VALUES ('p-autre', 'dr2', 'Chloé', 'DAVID', '1985-05-05', NULL);
+    INSERT INTO patients VALUES ('p-ines', 'dr', 'Inès', 'FABRE', '1991-03-14', NULL);
+    INSERT INTO patients VALUES ('p-tom', 'dr', 'Tom', 'ROUX', '2001-07-07', NULL);
   `)
 })
 
@@ -169,5 +172,73 @@ describe('syncAgenda', () => {
     const days = readAgendaRange(TODAY, TODAY).days[TODAY]
     expect(days.find((entry) => entry.doctolibId === 'a2')?.ignored).toBe(true)
     expect(days.find((entry) => entry.doctolibId === 'a1')?.patientId).toBe('p-lea')
+  })
+})
+
+describe('ordre de Ma journée', () => {
+  const at = (id: string, date: string, time: string, first: string, last: string, birth: string | null) =>
+    appt(id, date, first, last, birth, { start_date: `${date}T${time}:00.000+01:00`, end_date: `${date}T${time}:00.000+01:00` })
+  const ids = (date: string) => plan(date).map((row) => row.patient_id)
+
+  it('ajoute les patients dans l’ordre des heures, même si Doctolib les envoie dans le désordre', () => {
+    syncAgenda({
+      start: TODAY,
+      end: TODAY,
+      appointments: [
+        at('a1', TODAY, '16:00', 'Tom', 'Roux', '2001-07-07'),
+        at('a2', TODAY, '09:00', 'Léa', 'Bernard', '1990-04-12'),
+        at('a3', TODAY, '11:30', 'Inès', 'Fabre', '1991-03-14'),
+      ],
+    })
+    expect(ids(TODAY)).toEqual(['p-lea', 'p-ines', 'p-tom'])
+  })
+
+  it('range un rendez-vous ajouté plus tard à sa place, pas en fin de liste', () => {
+    const morning = at('a1', TODAY, '09:00', 'Léa', 'Bernard', '1990-04-12')
+    const evening = at('a3', TODAY, '17:00', 'Tom', 'Roux', '2001-07-07')
+    syncAgenda({ start: TODAY, end: TODAY, appointments: [morning, evening] })
+    syncAgenda({ start: TODAY, end: TODAY, appointments: [morning, evening, at('a2', TODAY, '14:00', 'Inès', 'Fabre', '1991-03-14')] })
+    expect(ids(TODAY)).toEqual(['p-lea', 'p-ines', 'p-tom'])
+  })
+
+  it('range un patient validé depuis Ma journée, et laisse en place un patient ajouté à la main', () => {
+    syncAgenda({
+      start: TODAY,
+      end: TODAY,
+      appointments: [at('a1', TODAY, '10:00', 'Léa', 'Bernard', '1990-04-12'), at('a2', TODAY, '08:30', 'Marc', 'Petit', null)],
+    })
+    // Patient sans rendez-vous, ajouté à la main en tête de journée
+    db.prepare("UPDATE daily_plan_items SET position = position + 1").run()
+    db.prepare("INSERT INTO daily_plan_items (practitioner_id, patient_id, plan_date, position) VALUES ('dr', 'p-autre', ?, 0)").run(TODAY)
+    // Marc (probable) validé : la fenêtre l'ajoute en fin de liste, puis le signale
+    db.prepare("INSERT INTO daily_plan_items (practitioner_id, patient_id, plan_date, position) VALUES ('dr', 'p-marc', ?, 9)").run(TODAY)
+    markHandled([{ doctolibId: 'a2', date: TODAY, patientId: 'p-marc' }])
+    expect(ids(TODAY)).toEqual(['p-autre', 'p-marc', 'p-lea'])
+  })
+
+  it('ne défait pas un ordre changé à la main quand rien n’est ajouté', () => {
+    const appointments = [at('a1', TODAY, '09:00', 'Léa', 'Bernard', '1990-04-12'), at('a2', TODAY, '11:00', 'Inès', 'Fabre', '1991-03-14')]
+    syncAgenda({ start: TODAY, end: TODAY, appointments })
+    db.prepare("UPDATE daily_plan_items SET position = CASE patient_id WHEN 'p-lea' THEN 1 ELSE 0 END").run()
+    syncAgenda({ start: TODAY, end: TODAY, appointments })
+    expect(ids(TODAY)).toEqual(['p-ines', 'p-lea'])
+  })
+
+  it('rend l’agenda dans l’ordre des heures', () => {
+    syncAgenda({
+      start: TODAY,
+      end: TODAY,
+      appointments: [at('a1', TODAY, '15:00', 'Nina', 'Garcia', null), at('a2', TODAY, '08:00', 'Zoé', 'Martin', null)],
+    })
+    expect(readAgendaRange(TODAY, TODAY).days[TODAY].map((entry) => entry.lastName.toUpperCase())).toEqual(['MARTIN', 'GARCIA'])
+  })
+  it('remet une fois dans l’ordre une journée remplie dans le désordre par une version précédente', () => {
+    const appointments = [at('a1', TODAY, '09:00', 'Léa', 'Bernard', '1990-04-12'), at('a2', TODAY, '11:00', 'Inès', 'Fabre', '1991-03-14')]
+    syncAgenda({ start: TODAY, end: TODAY, appointments })
+    // Simule l'état d'avant la correction : ordre inversé, et rattrapage jamais fait
+    db.prepare("UPDATE daily_plan_items SET position = CASE patient_id WHEN 'p-lea' THEN 1 ELSE 0 END").run()
+    db.prepare("DELETE FROM app_config WHERE key = 'doctolib_plan_ordered'").run()
+    syncAgenda({ start: TODAY, end: TODAY, appointments })
+    expect(ids(TODAY)).toEqual(['p-lea', 'p-ines'])
   })
 })

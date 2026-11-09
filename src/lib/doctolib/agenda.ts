@@ -21,6 +21,7 @@ import { localDay, matchPatient, parseDoctolibAppointments, type DoctolibAppoint
 const AGENDA_KEY = 'doctolib_agenda'
 const HANDLED_KEY = 'doctolib_handled'
 const LAST_SYNC_KEY = 'doctolib_last_sync'
+const ORDER_FIXED_KEY = 'doctolib_plan_ordered'
 const REVIEW_SEEN_KEY = 'doctolib_review_seen'
 const AUTO_ADD_KEY = 'doctolib_auto_add'
 
@@ -164,6 +165,9 @@ export function syncAgenda(input: { start: string; end: string; appointments: un
     if (day < start || day > end) continue
     ;(agenda.days[day] ??= []).push(appointment)
   }
+  // Doctolib renvoie les rendez-vous dans l'ordre de sa page, pas forcément
+  // par heure : on les range, pour l'agenda comme pour l'ajout à Ma journée.
+  for (const day of Object.keys(agenda.days)) agenda.days[day].sort(byStart)
   const oldest = addDays(today, -KEEP_DAYS)
   for (const day of Object.keys(agenda.days)) if (day < oldest) delete agenda.days[day]
   agenda.syncedAt = new Date().toISOString()
@@ -192,6 +196,7 @@ export function syncAgenda(input: { start: string; end: string; appointments: un
 
   // 3. Ajout automatique des patients reconnus avec certitude.
   let added = 0
+  const daysAdded = new Set<string>()
   // Les patients reconnus rejoignent Ma journée du cabinet actif ; sans
   // cabinet actif (session verrouillée), tout attend la validation.
   const cabinet = getActiveCabinetId(db)
@@ -219,6 +224,7 @@ export function syncAgenda(input: { start: string; end: string; appointments: un
           const row = insert.get(cabinet, patient.id, day, max + 1) as { id: string }
           handled[appointment.doctolibId] = { date: day, itemId: row.id, patientId: patient.id, auto: true }
           inPlan.add(patient.id)
+          daysAdded.add(day)
           added++
         }
       }
@@ -257,6 +263,13 @@ export function syncAgenda(input: { start: string; end: string; appointments: un
   write(HANDLED_KEY, handled)
   write(REVIEW_SEEN_KEY, review)
   write(LAST_SYNC_KEY, summary)
+  // Une fois, après la mise à jour : les journées déjà remplies dans le
+  // désordre par les versions précédentes sont remises dans l'ordre.
+  if (!read<boolean>(ORDER_FIXED_KEY, false)) {
+    for (const day of Object.keys(agenda.days)) if (day >= today) daysAdded.add(day)
+    write(ORDER_FIXED_KEY, true)
+  }
+  for (const day of daysAdded) orderDayByAppointments(day)
   return summary
 }
 
@@ -273,6 +286,52 @@ export function markHandled(entries: Array<{ doctolibId: string; date: string; p
     }
   }
   write(HANDLED_KEY, handled)
+  // Patients validés depuis Ma journée : ils y ont été ajoutés en fin de liste.
+  const days = new Set(entries.filter((entry) => entry.patientId && !entry.ignored && isDay(entry.date)).map((entry) => entry.date))
+  for (const day of days) orderDayByAppointments(day)
+}
+
+function byStart(a: DoctolibAppointment, b: DoctolibAppointment): number {
+  return (Date.parse(a.start) || 0) - (Date.parse(b.start) || 0)
+}
+
+/**
+ * Range Ma journée dans l'ordre des rendez-vous Doctolib du jour.
+ *
+ * Seuls les patients qui ont un rendez-vous ce jour-là sont déplacés, entre
+ * eux : ils reprennent les places qu'ils occupaient, dans l'ordre des heures.
+ * Un patient ajouté à la main, sans rendez-vous, garde sa place. Appelé
+ * uniquement quand des patients viennent d'être ajoutés depuis Doctolib,
+ * pour ne pas défaire un ordre changé à la main entre deux synchronisations.
+ */
+export function orderDayByAppointments(day: string) {
+  const db = getDatabase()
+  const cabinet = getActiveCabinetId(db)
+  const appointments = readAgenda().days[day] ?? []
+  if (!appointments.length) return
+  const handled = readHandled()
+  const patients = loadPatients()
+  const startOf = new Map<string, number>()
+  for (const appointment of [...appointments].sort(byStart)) {
+    const patientId = handled[appointment.doctolibId]?.patientId ?? matchPatient(appointment, patients).patientId
+    if (patientId && !startOf.has(patientId)) startOf.set(patientId, Date.parse(appointment.start) || 0)
+  }
+  const items = (cabinet
+    ? db.prepare('SELECT id, patient_id FROM daily_plan_items WHERE plan_date = ? AND practitioner_id = ? ORDER BY position, created_at').all(day, cabinet)
+    : db.prepare('SELECT id, patient_id FROM daily_plan_items WHERE plan_date = ? ORDER BY position, created_at').all(day)) as Array<{ id: string; patient_id: string }>
+  const timedSlots: number[] = []
+  const timed: Array<{ id: string; start: number }> = []
+  items.forEach((item, index) => {
+    const start = startOf.get(item.patient_id)
+    if (start === undefined) return
+    timedSlots.push(index)
+    timed.push({ id: item.id, start })
+  })
+  const sorted = [...timed].sort((a, b) => a.start - b.start)
+  const ordered = items.map((item) => item.id)
+  timedSlots.forEach((slot, k) => { ordered[slot] = sorted[k].id })
+  const update = db.prepare('UPDATE daily_plan_items SET position = ? WHERE id = ?')
+  db.transaction(() => ordered.forEach((id, position) => update.run(position, id)))()
 }
 
 export interface AgendaEntry extends DoctolibAppointment {
