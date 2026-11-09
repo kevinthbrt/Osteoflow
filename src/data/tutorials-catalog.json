@@ -1641,7 +1641,7 @@
     },
     {
      "title": "Ouvrez son dossier",
-     "text": "Un clic sur le nom ouvre la fiche du patient, et le marque comme vu.",
+     "text": "Un clic sur le nom ouvre la fiche du patient, et le marque comme vu. « Séance » démarre directement la consultation.",
      "image": "https://www.osteo-upgrade.fr/tutoriels/ma-journee/etape-6.webp"
     },
     {
@@ -1658,15 +1658,85 @@
    "faq": [
     {
      "q": "J’utilise Doctolib.",
-     "a": "Avec l’extension MyOsteoFlow pour Chrome, la journée se remplit toute seule. Voir le tutoriel « Votre agenda Doctolib, synchronisé tout seul »."
+     "a": "Avec l’extension MyOsteoFlow pour Chrome, Ma journée se remplit toute seule et suit l’agenda : l’heure de chaque rendez-vous remplace le numéro, et l’ordre suit les heures. Vous travaillez alors depuis l’agenda de l’accueil : voir le tutoriel « Votre journée depuis l’agenda »."
     },
     {
      "q": "Peut-on glisser-déposer les patients ?",
-     "a": "Dans Ma journée, l’ordre se change avec les flèches de chaque ligne."
+     "a": "L’ordre se change avec les flèches de chaque ligne. Avec l’agenda Doctolib, l’ordre suit les heures des rendez-vous et les flèches disparaissent."
     },
     {
      "q": "Un patient ne vient pas.",
      "a": "Retirez-le avec la corbeille : son dossier n’est pas touché."
+    }
+   ]
+  },
+  {
+   "slug": "agenda",
+   "category": "agenda",
+   "addedAt": "2026-11-09",
+   "kicker": "Agenda Doctolib",
+   "title": "Votre journée depuis l’agenda",
+   "summary": "Avec Doctolib, l’agenda de l’accueil devient votre poste de travail : démarrer la séance, marquer vu, vérifier un nouveau patient.",
+   "intro": "Quand votre agenda Doctolib est synchronisé, plus besoin de préparer Ma journée : elle se remplit seule, dans l’ordre des heures. Tout se fait depuis l’agenda de la semaine, sur l’accueil : un clic sur un rendez-vous suffit.",
+   "duration": "53 s",
+   "availability": "Avec l’extension MyOsteoFlow pour Chrome (voir « Votre agenda Doctolib, synchronisé tout seul »), sur l’accueil, bloc « Agenda de la semaine ».",
+   "page": "https://www.osteo-upgrade.fr/tutoriels/agenda",
+   "video": "https://www.osteo-upgrade.fr/tutoriels/videos/agenda.mp4",
+   "poster": "https://www.osteo-upgrade.fr/tutoriels/videos/agenda.webp",
+   "steps": [
+    {
+     "title": "Votre semaine sur l’accueil",
+     "text": "Du lundi au samedi, dans l’ordre des heures, avec l’heure de début et de fin de chaque rendez-vous. Le jour même est mis en avant.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/agenda/etape-1.webp"
+    },
+    {
+     "title": "Les couleurs",
+     "text": "Vert : le patient est dans Ma journée. Orange : le rendez-vous est à vérifier. Le trait rouge marque l’heure qu’il est ; les rendez-vous passés sont estompés.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/agenda/etape-2.webp"
+    },
+    {
+     "title": "« 1re consultation »",
+     "text": "Le patient n’est encore jamais venu, même si son dossier existe déjà. Le repère disparaît après sa première séance.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/agenda/etape-3.webp"
+    },
+    {
+     "title": "Un clic sur un rendez-vous",
+     "text": "« Démarrer la séance », « Ouvrir le dossier » ou « Marquer vu ». Un rendez-vous vu est barré, « Pas encore vu » annule.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/agenda/etape-4.webp"
+    },
+    {
+     "title": "Un rendez-vous à vérifier",
+     "text": "Patient inconnu ou homonyme : « Vérifier ce rendez-vous », ou la pastille « à vérifier » en haut du bloc.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/agenda/etape-5.webp"
+    },
+    {
+     "title": "Choisissez ou créez le dossier",
+     "text": "Le bon patient parmi les homonymes, ou « Créer le patient » avec les informations Doctolib. Il rejoint Ma journée à sa place, sans quitter l’accueil.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/agenda/etape-6.webp"
+    },
+    {
+     "title": "Ma journée suit l’agenda",
+     "text": "L’heure de chaque rendez-vous remplace le numéro, l’ordre suit les heures, et « Séance » démarre la consultation.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/agenda/etape-7.webp"
+    },
+    {
+     "title": "Un patient sans rendez-vous",
+     "text": "Une urgence, un rendez-vous pris par téléphone : « Ajouter un patient hors agenda » dans Ma journée.",
+     "image": "https://www.osteo-upgrade.fr/tutoriels/agenda/etape-8.webp"
+    }
+   ],
+   "faq": [
+    {
+     "q": "J’ai changé l’ordre de Ma journée à la main.",
+     "a": "Il est conservé. L’ordre des heures n’est réappliqué que lorsqu’un nouveau patient arrive de Doctolib."
+    },
+    {
+     "q": "Marquer vu depuis l’agenda, ça change quoi ?",
+     "a": "C’est le même « Vu » que dans Ma journée et sur le bloc « Aujourd’hui » : le compteur de la journée avance et le patient suivant est proposé."
+    },
+    {
+     "q": "Et sans Doctolib ?",
+     "a": "Rien ne change : Ma journée reste la liste que vous préparez vous-même. Voir « Préparer sa journée »."
     }
    ]
   },
@@ -1716,7 +1786,7 @@
     },
     {
      "title": "Votre semaine sur l’accueil",
-     "text": "Le bloc « Agenda de la semaine » montre vos rendez-vous du lundi au samedi : en vert ceux déjà dans Ma journée, en orange ceux à vérifier.",
+     "text": "Le bloc « Agenda de la semaine » montre vos rendez-vous du lundi au samedi, dans l’ordre des heures : en vert ceux déjà dans Ma journée, en orange ceux à vérifier, « 1re consultation » pour un patient jamais venu. Un clic sur un rendez-vous démarre la séance ou le marque vu : voir le tutoriel « Votre journée depuis l’agenda ».",
      "image": "https://www.osteo-upgrade.fr/tutoriels/doctolib/etape-7.webp"
     }
    ],
@@ -1736,6 +1806,10 @@
     {
      "q": "Mes données passent-elles par un serveur ?",
      "a": "Non. L’extension lit votre agenda avec votre session déjà ouverte et envoie les rendez-vous directement à MyOsteoflow sur votre ordinateur. Notes et adresses ne sont pas reprises."
+    },
+    {
+     "q": "Faut-il encore préparer Ma journée ?",
+     "a": "Non : elle se remplit seule et suit l’ordre de l’agenda. Vous ne l’utilisez plus que pour ajouter un patient sans rendez-vous Doctolib."
     },
     {
      "q": "Est-ce un outil de Doctolib ?",
