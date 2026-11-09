@@ -343,6 +343,42 @@ export interface AgendaEntry extends DoctolibAppointment {
   ignored: boolean
   /** Premier rendez-vous : patient inconnu, ou aucune consultation avant ce jour */
   firstVisit: boolean
+  /** Ligne de Ma journée du patient ce jour-là, et son état */
+  planItemId: string | null
+  seen: boolean
+}
+
+/** Lignes de Ma journée du cabinet actif un jour donné, par patient. */
+function planItems(date: string): Map<string, { id: string; status: string }> {
+  const db = getDatabase()
+  const cabinet = getActiveCabinetId(db)
+  const rows = (cabinet
+    ? db.prepare('SELECT id, patient_id, status FROM daily_plan_items WHERE plan_date = ? AND practitioner_id = ?').all(date, cabinet)
+    : db.prepare('SELECT id, patient_id, status FROM daily_plan_items WHERE plan_date = ?').all(date)) as Array<{ id: string; patient_id: string; status: string }>
+  return new Map(rows.map((row) => [row.patient_id, { id: row.id, status: row.status }]))
+}
+
+/**
+ * Marque « vu » (ou non) un patient depuis l'agenda. S'il n'est pas encore
+ * dans Ma journée, il y est ajouté, à sa place dans l'ordre des rendez-vous.
+ */
+export function setSeen(date: string, patientId: string, seen: boolean): { ok: boolean } {
+  const db = getDatabase()
+  const cabinet = getActiveCabinetId(db)
+  if (!cabinet || !isDay(date)) return { ok: false }
+  const patient = db.prepare('SELECT id FROM patients WHERE id = ?').get(patientId)
+  if (!patient) return { ok: false }
+  const existing = planItems(date).get(patientId)
+  const status = seen ? 'done' : 'pending'
+  if (existing) {
+    db.prepare('UPDATE daily_plan_items SET status = ? WHERE id = ?').run(status, existing.id)
+    return { ok: true }
+  }
+  if (!seen) return { ok: true }
+  const { max } = db.prepare('SELECT COALESCE(MAX(position), -1) AS max FROM daily_plan_items WHERE practitioner_id = ? AND plan_date = ?').get(cabinet, date) as { max: number }
+  db.prepare('INSERT INTO daily_plan_items (practitioner_id, patient_id, plan_date, position, status) VALUES (?, ?, ?, ?, ?)').run(cabinet, patientId, date, max + 1, status)
+  orderDayByAppointments(date)
+  return { ok: true }
 }
 
 /**
@@ -374,19 +410,22 @@ export function readAgendaRange(start: string, end: string) {
   for (let day = start, guard = 0; day <= end && guard < 62; day = addDays(day, 1), guard++) {
     const list = agenda.days[day]
     if (!list) continue
-    const inPlan = planPatientIds(day)
+    const plan = planItems(day)
     days[day] = list.map((appointment) => {
       const entry = handled[appointment.doctolibId]
       const match = matchPatient(appointment, patients)
       const patientId = entry?.patientId ?? match.patientId
+      const item = patientId ? plan.get(patientId) : undefined
       return {
         ...appointment,
         patientId,
         matchStatus: match.status,
-        inPlan: !!patientId && inPlan.has(patientId),
+        inPlan: !!item,
         handled: !!entry,
         ignored: !!entry?.ignored,
         firstVisit: false,
+        planItemId: item?.id ?? null,
+        seen: item?.status === 'done',
       }
     })
   }

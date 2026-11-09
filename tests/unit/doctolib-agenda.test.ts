@@ -5,7 +5,7 @@ import Database from 'better-sqlite3'
 let db: Database.Database
 vi.mock('@/lib/database/connection', () => ({ getDatabase: () => db }))
 
-import { syncAgenda, markHandled, readAgendaRange, setAutoAdd } from '@/lib/doctolib/agenda'
+import { syncAgenda, markHandled, readAgendaRange, setAutoAdd, setSeen } from '@/lib/doctolib/agenda'
 
 const day = (offset: number) => {
   const d = new Date()
@@ -260,5 +260,21 @@ describe('ordre de Ma journée', () => {
     const first = (date: string) => Object.fromEntries(range[date].map((entry) => [entry.lastName, entry.firstVisit]))
     expect(first(TODAY)).toEqual({ Bernard: false, Fabre: true, Garcia: true })
     expect(first(TOMORROW)).toEqual({ Roux: false })
+  })
+  it('marque vu depuis l’agenda, en ajoutant le patient à Ma journée à sa place s’il n’y est pas', () => {
+    setAutoAdd(false)
+    syncAgenda({
+      start: TODAY,
+      end: TODAY,
+      appointments: [at('a1', TODAY, '09:00', 'Léa', 'Bernard', '1990-04-12'), at('a2', TODAY, '11:00', 'Inès', 'Fabre', '1991-03-14')],
+    })
+    expect(plan(TODAY)).toEqual([])
+    expect(setSeen(TODAY, 'p-ines', true).ok).toBe(true)
+    expect(setSeen(TODAY, 'p-lea', true).ok).toBe(true)
+    expect(plan(TODAY)).toEqual([{ patient_id: 'p-lea', status: 'done' }, { patient_id: 'p-ines', status: 'done' }])
+    setSeen(TODAY, 'p-lea', false)
+    const entries = readAgendaRange(TODAY, TODAY).days[TODAY]
+    expect(entries.map((entry) => [entry.lastName, entry.seen, !!entry.planItemId])).toEqual([['Bernard', false, true], ['Fabre', true, true]])
+    expect(setSeen(TODAY, 'inconnu', true).ok).toBe(false)
   })
 })
