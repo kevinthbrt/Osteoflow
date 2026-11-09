@@ -105,6 +105,23 @@ export default function DayPlanPage() {
 
   const patientIdsInPlan = useMemo(() => new Set(items.map((i) => i.patient?.id)), [items])
 
+  // Patients déjà vus avant ce jour : les autres viennent pour la première fois.
+  const [seenBefore, setSeenBefore] = useState<Set<string> | null>(null)
+  const planIdsKey = items.map((i) => i.patient?.id).filter(Boolean).sort().join(',')
+  useEffect(() => {
+    const ids = planIdsKey ? planIdsKey.split(',') : []
+    if (!ids.length) { setSeenBefore(new Set()); return }
+    let cancelled = false
+    db.from('consultations')
+      .select('patient_id')
+      .in('patient_id', ids)
+      .lt('date_time', date)
+      .then(({ data }: { data: Array<{ patient_id: string }> | null }) => {
+        if (!cancelled) setSeenBefore(new Set((data ?? []).map((row) => row.patient_id)))
+      })
+    return () => { cancelled = true }
+  }, [planIdsKey, date]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const filteredPatients = useMemo(() => {
     const available = patients.filter((p) => !patientIdsInPlan.has(p.id))
     const q = patientSearch.trim().toLowerCase()
@@ -345,6 +362,14 @@ export default function DayPlanPage() {
                   }`}
                 >
                   {item.patient?.first_name} {item.patient?.last_name}
+                  {seenBefore && item.patient && !seenBefore.has(item.patient.id) && (
+                    <span
+                      title="Premier rendez-vous : aucune consultation avant ce jour"
+                      className="ml-2 inline-flex rounded bg-primary/10 px-1.5 py-px align-middle text-[10px] font-semibold uppercase tracking-wide text-primary no-underline"
+                    >
+                      1re consultation
+                    </span>
+                  )}
                 </Link>
 
                 <Button

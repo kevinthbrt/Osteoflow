@@ -22,6 +22,7 @@ interface Entry {
   patientId: string | null
   inPlan: boolean
   handled: boolean
+  firstVisit?: boolean
 }
 
 const APP_HEADERS = { 'x-osteoflow-app': '1' }
@@ -67,7 +68,7 @@ function EntryCard({ entry, day, today, now, compact }: { entry: Entry; day: str
     <li>
       <Link
         href={href}
-        title={[TONE_TITLE[tone], `${entry.firstName} ${entry.lastName}`].filter(Boolean).join(' · ')}
+        title={[TONE_TITLE[tone], entry.firstVisit ? 'Premier rendez-vous' : null, `${entry.firstName} ${entry.lastName}`].filter(Boolean).join(' · ')}
         className={cn(
           'block rounded-md border-l-[3px] px-2 py-1.5 text-[13px] leading-snug transition-colors hover:bg-accent',
           TONE_STYLES[tone],
@@ -81,6 +82,14 @@ function EntryCard({ entry, day, today, now, compact }: { entry: Entry; day: str
         <span className={cn('truncate', compact ? 'min-w-0 flex-1' : 'block')}>
           {entry.firstName} <span className="font-semibold uppercase">{entry.lastName}</span>
         </span>
+        {entry.firstVisit && (
+          <span
+            title="Premier rendez-vous : aucune consultation avant ce jour"
+            className={cn('inline-flex shrink-0 rounded bg-primary/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-primary', !compact && 'mt-1')}
+          >
+            1re consultation
+          </span>
+        )}
       </Link>
     </li>
   )
@@ -163,6 +172,7 @@ export function WeekAgendaPanel({ size }: { size: 1 | 2 | 3 }) {
           <span className="hidden items-center gap-3 text-xs text-muted-foreground md:inline-flex">
             <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-1 rounded-full bg-success" />Dans Ma journée</span>
             <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-1 rounded-full bg-warning" />À vérifier</span>
+            <span className="inline-flex items-center gap-1.5"><span className="rounded bg-primary/10 px-1 text-[10px] font-semibold uppercase text-primary">1re</span>Premier rendez-vous</span>
           </span>
         )}
         {toReview > 0 && (

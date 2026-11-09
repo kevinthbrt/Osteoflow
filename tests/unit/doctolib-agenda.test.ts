@@ -50,6 +50,7 @@ beforeEach(() => {
     INSERT INTO patients VALUES ('p-marc', 'dr', 'Marc', 'PETIT', '1978-09-02', NULL);
     INSERT INTO patients VALUES ('p-old', 'dr', 'Ancien', 'ARCHIVE', '1950-01-01', '2025-01-01');
     INSERT INTO patients VALUES ('p-autre', 'dr2', 'Chloé', 'DAVID', '1985-05-05', NULL);
+    CREATE TABLE consultations (id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))), patient_id TEXT, date_time TEXT);
     INSERT INTO patients VALUES ('p-ines', 'dr', 'Inès', 'FABRE', '1991-03-14', NULL);
     INSERT INTO patients VALUES ('p-tom', 'dr', 'Tom', 'ROUX', '2001-07-07', NULL);
   `)
@@ -240,5 +241,24 @@ describe('ordre de Ma journée', () => {
     db.prepare("DELETE FROM app_config WHERE key = 'doctolib_plan_ordered'").run()
     syncAgenda({ start: TODAY, end: TODAY, appointments })
     expect(ids(TODAY)).toEqual(['p-lea', 'p-ines'])
+  })
+  it('signale le premier rendez-vous, même une fois le dossier créé', () => {
+    db.prepare("INSERT INTO consultations (patient_id, date_time) VALUES ('p-lea', '2025-01-10T10:00:00.000Z')").run()
+    syncAgenda({
+      start: TODAY,
+      end: TOMORROW,
+      appointments: [
+        at('a1', TODAY, '09:00', 'Léa', 'Bernard', '1990-04-12'), // déjà vue
+        at('a2', TODAY, '10:00', 'Inès', 'Fabre', '1991-03-14'), // dossier créé, jamais vue
+        at('a3', TODAY, '11:00', 'Nina', 'Garcia', '1988-02-02'), // pas encore de dossier
+        at('a4', TOMORROW, '09:00', 'Tom', 'Roux', '2001-07-07'),
+      ],
+    })
+    // Tom est vu aujourd'hui : demain, ce n'est plus sa première fois
+    db.prepare(`INSERT INTO consultations (patient_id, date_time) VALUES ('p-tom', '${TODAY}T08:00:00.000+01:00')`).run()
+    const range = readAgendaRange(TODAY, TOMORROW).days
+    const first = (date: string) => Object.fromEntries(range[date].map((entry) => [entry.lastName, entry.firstVisit]))
+    expect(first(TODAY)).toEqual({ Bernard: false, Fabre: true, Garcia: true })
+    expect(first(TOMORROW)).toEqual({ Roux: false })
   })
 })

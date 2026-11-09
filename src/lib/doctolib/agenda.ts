@@ -341,6 +341,28 @@ export interface AgendaEntry extends DoctolibAppointment {
   inPlan: boolean
   handled: boolean
   ignored: boolean
+  /** Premier rendez-vous : patient inconnu, ou aucune consultation avant ce jour */
+  firstVisit: boolean
+}
+
+/**
+ * Jour de la première consultation de chaque patient. Un rendez-vous est un
+ * « premier rendez-vous » tant que le patient n'a été vu à aucune date
+ * antérieure, même si son dossier vient d'être créé.
+ */
+function firstConsultationDays(patientIds: string[]): Map<string, string> {
+  const ids = Array.from(new Set(patientIds))
+  const result = new Map<string, string>()
+  if (!ids.length) return result
+  const db = getDatabase()
+  for (let i = 0; i < ids.length; i += 500) {
+    const chunk = ids.slice(i, i + 500)
+    const rows = db
+      .prepare(`SELECT patient_id, MIN(date_time) AS first FROM consultations WHERE patient_id IN (${chunk.map(() => '?').join(',')}) GROUP BY patient_id`)
+      .all(...chunk) as Array<{ patient_id: string; first: string | null }>
+    for (const row of rows) if (row.first) result.set(row.patient_id, localDay(row.first))
+  }
+  return result
 }
 
 /** Agenda des jours demandés, avec l'état de chaque rendez-vous. */
@@ -364,8 +386,21 @@ export function readAgendaRange(start: string, end: string) {
         inPlan: !!patientId && inPlan.has(patientId),
         handled: !!entry,
         ignored: !!entry?.ignored,
+        firstVisit: false,
       }
     })
+  }
+  const firstDays = firstConsultationDays(Object.values(days).flatMap((list) => list.map((entry) => entry.patientId).filter((id): id is string => !!id)))
+  for (const [day, list] of Object.entries(days)) {
+    for (const entry of list) {
+      if (!entry.patientId) {
+        // Sans dossier : nouveau, sauf homonyme possible (à trancher à la validation)
+        entry.firstVisit = entry.matchStatus === 'none'
+        continue
+      }
+      const first = firstDays.get(entry.patientId)
+      entry.firstVisit = !first || first >= day
+    }
   }
   return { syncedAt: agenda.syncedAt, days }
 }
