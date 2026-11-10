@@ -1105,7 +1105,23 @@ export function runMigrations(db: { exec: (sql: string) => void; pragma: (sql: s
     );
   `)
   db.exec('CREATE INDEX IF NOT EXISTS idx_referral_sources_practitioner ON referral_sources(practitioner_id, is_active);')
+
+  // Correspondance entre les identifiants d'un logiciel d'origine (OsteoTools…)
+  // et les lignes créées à l'import : relancer un import ne crée aucun doublon.
+  db.exec(IMPORT_LINKS_SQL)
 }
+
+export const IMPORT_LINKS_SQL = `
+  CREATE TABLE IF NOT EXISTS import_links (
+    source TEXT NOT NULL,
+    entity TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    record_id TEXT NOT NULL,
+    practitioner_id TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (source, practitioner_id, entity, source_id)
+  );
+`
 
 /**
  * Boolean fields that need conversion between SQLite (0/1) and JS (true/false).
