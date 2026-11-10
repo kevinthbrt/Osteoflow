@@ -36,6 +36,7 @@ import {
   type MappableField,
   type ImportResult,
 } from '@/lib/import/csv'
+import { OsteoToolsImportCard } from './osteotools-import-card'
 
 type ImportStep = 'upload' | 'mapping' | 'importing' | 'done'
 
@@ -214,6 +215,8 @@ export function ImportDataTab() {
 
   return (
     <div className="space-y-6">
+      <OsteoToolsImportCard />
+
       {/* RGPD reassurance banner */}
       <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
         <ShieldCheck className="h-5 w-5 shrink-0 text-emerald-600 mt-0.5" />

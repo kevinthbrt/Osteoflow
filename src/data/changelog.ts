@@ -19,6 +19,17 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.23.0',
+    date: '2026-11-10',
+    title: 'Vous venez d’OsteoTools ? Tout votre cabinet en un import',
+    changes: [
+      { type: 'feature', text: "Import OsteoTools (Paramètres, Import de données) : déposez l’archive .zip reçue d’OsteoTools telle quelle avec son mot de passe, sans la décompresser ni faire correspondre de colonnes. Patients, antécédents, séances, factures, règlements et documents joints sont repris." },
+      { type: 'feature', text: "Une analyse vous montre tout ce qui va être importé avant d’enregistrer quoi que ce soit, et vous confirmez la correspondance des modes de règlement OsteoTools (carte, chèque, espèces…) pour que votre comptabilité soit juste." },
+      { type: 'improvement', text: "Antécédents rangés dans la bonne catégorie (traumatiques, médicaux, chirurgicaux, familiaux), fiche de naissance des nourrissons reprise, et heure réelle des séances retrouvée dans votre agenda OsteoTools." },
+      { type: 'improvement', text: "Vous aviez déjà importé des patients ? Ils sont complétés et corrigés (sexe, date de naissance, téléphone), sans doublon, et ce que vous avez saisi vous-même est conservé. Une copie de sécurité de votre base est faite juste avant l’import, et vous pouvez le relancer sans risque." },
+    ],
+  },
+  {
     version: '1.22.1',
     date: '2026-11-09',
     title: 'Votre journée depuis l’agenda Doctolib',
