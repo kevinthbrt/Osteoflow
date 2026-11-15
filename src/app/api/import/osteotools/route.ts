@@ -15,7 +15,7 @@ import path from 'path'
 import { checkLocalApiToken } from '@/lib/local-api-auth'
 import { getAppDataDir, getDatabase } from '@/lib/database/connection'
 import { getActiveCabinetId } from '@/lib/database/cabinet-scope'
-import { readOsteoToolsArchive, OsteoToolsArchiveError } from '@/lib/import/osteotools/archive'
+import { readOsteoToolsArchive, readOsteoToolsFolder, OsteoToolsArchiveError } from '@/lib/import/osteotools/archive'
 import { buildOsteoToolsPlan, type PaymentTarget } from '@/lib/import/osteotools/transform'
 import { applyOsteoToolsPlan } from '@/lib/import/osteotools/apply'
 
@@ -42,15 +42,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Envoi illisible.' }, { status: 400 })
   }
 
-  const file = form.get('file')
+  // Soit une archive .zip, soit le contenu d'un export déjà décompressé
+  // (plusieurs fichiers envoyés avec leur chemin relatif).
+  const uploads = form.getAll('file').filter((f): f is File => f instanceof Blob)
   const password = String(form.get('password') || '').trim()
   const action = form.get('action') === 'import' ? 'import' : 'analyze'
-  if (!(file instanceof Blob)) return NextResponse.json({ error: 'Archive manquante.' }, { status: 400 })
-  if (file.size > MAX_ARCHIVE_SIZE) return NextResponse.json({ error: 'Archive trop volumineuse.' }, { status: 400 })
+  if (uploads.length === 0) return NextResponse.json({ error: 'Archive manquante.' }, { status: 400 })
+  if (uploads.reduce((total, f) => total + f.size, 0) > MAX_ARCHIVE_SIZE) {
+    return NextResponse.json({ error: 'Archive trop volumineuse.' }, { status: 400 })
+  }
+  let paths: string[] = []
+  try {
+    const parsed = JSON.parse(String(form.get('paths') || '[]'))
+    if (Array.isArray(parsed)) paths = parsed.map(String)
+  } catch {
+    // chemins absents : on se contente des noms de fichiers
+  }
+  // Un fichier unique qui n'est pas un CSV est traité comme une archive, même
+  // si son extension a été perdue en route (messagerie, téléchargement).
+  const zip =
+    uploads.find((f) => /\.zip$/i.test(f.name || '')) ||
+    (uploads.length === 1 && !/\.csv$/i.test(uploads[0].name || '') ? uploads[0] : undefined)
 
   let archive
   try {
-    archive = await readOsteoToolsArchive(new Uint8Array(await file.arrayBuffer()), password || undefined)
+    archive = zip
+      ? await readOsteoToolsArchive(new Uint8Array(await zip.arrayBuffer()), password || undefined)
+      : readOsteoToolsFolder(
+          await Promise.all(
+            uploads.map(async (f, i) => ({ path: paths[i] || f.name || '', data: new Uint8Array(await f.arrayBuffer()) }))
+          )
+        )
   } catch (err) {
     if (err instanceof OsteoToolsArchiveError) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: 400 })

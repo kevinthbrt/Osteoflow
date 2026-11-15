@@ -19,6 +19,16 @@ export interface ChangelogEntry {
  */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.23.1',
+    date: '2026-11-15',
+    title: 'Import OsteoTools plus tolérant',
+    changes: [
+      { type: 'fix', text: "L’archive OsteoTools déposée dans la zone d’import CSV n’est plus refusée : elle est reprise automatiquement par l’encadré « Vous venez d’OsteoTools ? », il ne reste qu’à saisir son mot de passe." },
+      { type: 'improvement', text: "L’archive OsteoTools se glisse-dépose directement dans son encadré, et un export déjà décompressé (avec 7-Zip par exemple) s’importe en choisissant son dossier." },
+      { type: 'improvement', text: "Un fichier CSV issu d’un export OsteoTools déposé seul dans l’import CSV est signalé, au lieu d’être importé de travers (sexe et dates erronés)." },
+    ],
+  },
+  {
     version: '1.23.0',
     date: '2026-11-10',
     title: 'Vous venez d’OsteoTools ? Tout votre cabinet en un import',

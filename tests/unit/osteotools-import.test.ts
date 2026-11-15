@@ -6,7 +6,7 @@ import Database from 'better-sqlite3'
 import { TextReader, Uint8ArrayReader, Uint8ArrayWriter, ZipWriter } from '@zip.js/zip.js'
 import { SCHEMA_SQL, runMigrations } from '@/lib/database/schema'
 import { parseSemicolonCsv } from '@/lib/import/osteotools/csv'
-import { readOsteoToolsArchive, OsteoToolsArchiveError } from '@/lib/import/osteotools/archive'
+import { readOsteoToolsArchive, readOsteoToolsFolder, OsteoToolsArchiveError } from '@/lib/import/osteotools/archive'
 import {
   buildOsteoToolsPlan,
   buildConsultationTexts,
@@ -118,6 +118,22 @@ describe('archive chiffrée', () => {
     await expect(readOsteoToolsArchive(zip)).rejects.toMatchObject({ code: 'password_required' })
     await expect(readOsteoToolsArchive(zip, 'faux')).rejects.toBeInstanceOf(OsteoToolsArchiveError)
     await expect(readOsteoToolsArchive(zip, 'faux')).rejects.toMatchObject({ code: 'bad_password' })
+  })
+})
+
+describe('export déjà décompressé', () => {
+  it('se lit depuis le dossier, documents compris', () => {
+    const enc = new TextEncoder()
+    const entries = Object.entries(FIXTURE).map(([name, content]) => ({ path: `export123/${name}`, data: enc.encode(content) }))
+    entries.push({ path: 'export123/attachments/f1.pdf', data: enc.encode('%PDF-1.4 fictif') })
+    entries.push({ path: '__MACOSX/export123/._patients.csv', data: enc.encode('x') })
+    const archive = readOsteoToolsFolder(entries)
+    expect(archive.tables.patients).toHaveLength(4)
+    expect(archive.files.has('f1.pdf')).toBe(true)
+  })
+
+  it('refuse un dossier qui n\'est pas un export OsteoTools', () => {
+    expect(() => readOsteoToolsFolder([{ path: 'patients.xlsx', data: new Uint8Array() }])).toThrow(OsteoToolsArchiveError)
   })
 })
 

@@ -72,12 +72,35 @@ export async function readOsteoToolsArchive(data: Uint8Array, password?: string)
     await reader.close().catch(() => undefined)
   }
 
-  if (!REQUIRED_TABLES.every((table) => tables[table])) {
+  return checkTables({ tables, files })
+}
+
+function checkTables(archive: OsteoToolsArchive): OsteoToolsArchive {
+  if (!REQUIRED_TABLES.every((table) => archive.tables[table])) {
     throw new OsteoToolsArchiveError(
-      'Cette archive ne ressemble pas à un export OsteoTools (fichiers patients.csv et consultations.csv introuvables).',
+      'Ce fichier ne ressemble pas à un export OsteoTools (fichiers patients.csv et consultations.csv introuvables).',
       'not_osteotools',
     )
   }
+  return archive
+}
 
-  return { tables, files }
+/**
+ * Export déjà décompressé (avec 7-Zip, WinRAR…) : le praticien sélectionne le
+ * dossier, ou les fichiers qu'il contient. `path` est le chemin relatif du
+ * fichier (ex. « 1279…/attachments/2416….pdf »).
+ */
+export function readOsteoToolsFolder(entries: { path: string; data: Uint8Array }[]): OsteoToolsArchive {
+  const tables: OsteoToolsTables = {}
+  const files = new Map<string, Uint8Array>()
+  const decoder = new TextDecoder('utf-8')
+  for (const entry of entries) {
+    const parts = entry.path.split(/[\\/]/)
+    const name = parts[parts.length - 1]
+    if (!name || name.startsWith('.') || parts.includes('__MACOSX')) continue
+    const parent = parts[parts.length - 2]?.toLowerCase()
+    if (parent === 'attachments') files.set(name, entry.data)
+    else if (name.toLowerCase().endsWith('.csv')) tables[name.slice(0, -4).toLowerCase()] = parseSemicolonCsv(decoder.decode(entry.data))
+  }
+  return checkTables({ tables, files })
 }

@@ -47,6 +47,7 @@ export function ImportDataTab() {
   const [dataRows, setDataRows] = useState<string[][]>([])
   const [columnMapping, setColumnMapping] = useState<Record<number, MappableField>>({})
   const [isDragOver, setIsDragOver] = useState(false)
+  const [osteoToolsFile, setOsteoToolsFile] = useState<File | null>(null)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [importProgress, setImportProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -57,6 +58,16 @@ export function ImportDataTab() {
   // -----------------------------------------------------------------------
   const processFile = useCallback(
     (file: File) => {
+      // Une archive déposée ici est presque toujours l'export OsteoTools :
+      // on la confie à l'encadré dédié au lieu de la refuser.
+      if (file.name.toLowerCase().endsWith('.zip')) {
+        setOsteoToolsFile(file)
+        toast({
+          title: 'Archive OsteoTools détectée',
+          description: 'Saisissez son mot de passe dans l\'encadré « Vous venez d\'OsteoTools ? », puis cliquez sur « Analyser l\'archive ».',
+        })
+        return
+      }
       if (!file.name.toLowerCase().endsWith('.csv')) {
         toast({
           variant: 'destructive',
@@ -83,6 +94,17 @@ export function ImportDataTab() {
 
           const csvHeaders = rows[0]
           const csvData = rows.slice(1)
+
+          // Fichier issu d'un export OsteoTools : l'import CSV générique ne lit
+          // qu'un fichier et se trompe sur les codes (sexe, dates).
+          if (csvHeaders.some((h) => ['pat_id', 'con_id', 'usr_id'].includes(h.replace(/^\ufeff/, '').trim()))) {
+            toast({
+              variant: 'destructive',
+              title: 'Fichier OsteoTools',
+              description: 'Ce fichier fait partie d\'un export OsteoTools. Utilisez l\'encadré « Vous venez d\'OsteoTools ? » avec l\'archive .zip complète (ou le dossier décompressé).',
+            })
+            return
+          }
 
           setHeaders(csvHeaders)
           setDataRows(csvData)
@@ -215,7 +237,7 @@ export function ImportDataTab() {
 
   return (
     <div className="space-y-6">
-      <OsteoToolsImportCard />
+      <OsteoToolsImportCard incomingFile={osteoToolsFile} />
 
       {/* RGPD reassurance banner */}
       <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
@@ -274,7 +296,7 @@ export function ImportDataTab() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,text/csv,.zip"
                 className="hidden"
                 onChange={handleFileInputChange}
               />

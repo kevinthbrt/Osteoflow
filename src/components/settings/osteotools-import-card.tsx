@@ -7,7 +7,7 @@
  * modes de règlement.
  */
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { localApiHeaders } from '@/lib/local-api-token'
-import { AlertCircle, CheckCircle2, FileArchive, Loader2, RotateCcw } from 'lucide-react'
+import { AlertCircle, CheckCircle2, FileArchive, FolderOpen, Loader2, RotateCcw, Upload } from 'lucide-react'
 
 type Step = 'select' | 'analyzing' | 'review' | 'importing' | 'done'
 type Target = 'card' | 'cash' | 'check' | 'transfer' | 'other' | 'free'
@@ -78,9 +78,60 @@ function frenchDate(day: string | null): string {
   return `${d}/${m}/${y}`
 }
 
-export function OsteoToolsImportCard() {
+interface Selection {
+  files: File[]
+  /** Chemin relatif de chaque fichier (dossier décompressé). */
+  paths: string[]
+  label: string
+  isZip: boolean
+}
+
+/** Fichiers choisis ou déposés → sélection (archive .zip ou dossier décompressé). */
+function toSelection(list: File[]): Selection | null {
+  const files = list.filter((f) => !f.name.startsWith('.'))
+  if (files.length === 0) return null
+  const zip = files.find((f) => f.name.toLowerCase().endsWith('.zip'))
+  if (zip) return { files: [zip], paths: [zip.name], label: zip.name, isZip: true }
+  if (files.length === 1 && !files[0].name.toLowerCase().endsWith('.csv')) {
+    return { files, paths: [files[0].name], label: files[0].name, isZip: true }
+  }
+  const paths = files.map((f) => (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name)
+  const csvCount = files.filter((f) => f.name.toLowerCase().endsWith('.csv')).length
+  return { files, paths, label: `Dossier décompressé : ${csvCount} fichier(s) CSV, ${files.length - csvCount} document(s)`, isZip: false }
+}
+
+/** Parcourt un dossier glissé-déposé (API d'entrées du navigateur). */
+async function readDroppedEntries(items: DataTransferItemList): Promise<{ files: File[]; paths: string[] }> {
+  const files: File[] = []
+  const paths: string[] = []
+  const walk = async (entry: FileSystemEntry): Promise<void> => {
+    if (entry.isFile) {
+      const file = await new Promise<File>((resolve, reject) => (entry as FileSystemFileEntry).file(resolve, reject))
+      files.push(file)
+      paths.push(entry.fullPath.replace(/^\//, ''))
+    } else if (entry.isDirectory) {
+      const reader = (entry as FileSystemDirectoryEntry).createReader()
+      for (;;) {
+        const batch = await new Promise<FileSystemEntry[]>((resolve, reject) => reader.readEntries(resolve, reject))
+        if (batch.length === 0) break
+        for (const child of batch) await walk(child)
+      }
+    }
+  }
+  // Les entrées doivent être lues avant tout await : la liste est vidée ensuite.
+  const roots = Array.from(items)
+    .map((item) => item.webkitGetAsEntry())
+    .filter((e): e is FileSystemEntry => !!e)
+  for (const root of roots) await walk(root)
+  return { files, paths }
+}
+
+export function OsteoToolsImportCard({ incomingFile }: { incomingFile?: File | null }) {
   const [step, setStep] = useState<Step>('select')
-  const [file, setFile] = useState<File | null>(null)
+  const [selection, setSelection] = useState<Selection | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const folderRef = useRef<HTMLInputElement>(null)
   const [password, setPassword] = useState('')
   const [analysis, setAnalysis] = useState<ImportResponse | null>(null)
   const [targets, setTargets] = useState<Record<string, Target>>({})
@@ -89,15 +140,60 @@ export function OsteoToolsImportCard() {
   const inputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
+  // Archive déposée dans la zone CSV : on la reprend ici.
+  useEffect(() => {
+    if (!incomingFile) return
+    setSelection(toSelection([incomingFile]))
+    setStep('select')
+    setError(null)
+    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [incomingFile])
+
+  // Dossier : attribut non standard, posé à la main pour éviter les erreurs de type.
+  useEffect(() => {
+    folderRef.current?.setAttribute('webkitdirectory', '')
+    folderRef.current?.setAttribute('directory', '')
+  }, [step])
+
+  const choose = (list: File[]) => {
+    const next = toSelection(list)
+    setError(next ? null : 'Aucun fichier exploitable dans cette sélection.')
+    setSelection(next)
+  }
+
+  const onDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    if (step !== 'select') return
+    const hasFolder = Array.from(e.dataTransfer.items || []).some((item) => item.webkitGetAsEntry()?.isDirectory)
+    if (hasFolder) {
+      const { files, paths } = await readDroppedEntries(e.dataTransfer.items)
+      const next = toSelection(files)
+      if (next && !next.isZip) next.paths = paths
+      setError(next ? null : 'Aucun fichier exploitable dans ce dossier.')
+      setSelection(next)
+      return
+    }
+    choose(Array.from(e.dataTransfer.files))
+  }
+
   const send = async (action: 'analyze' | 'import'): Promise<ImportResponse | null> => {
-    if (!file) return null
+    if (!selection) return null
     const form = new FormData()
-    form.append('file', file)
+    selection.files.forEach((f) => form.append('file', f))
+    form.append('paths', JSON.stringify(selection.paths))
     form.append('password', password)
     form.append('action', action)
     form.append('paymentTargets', JSON.stringify(targets))
-    const res = await fetch('/api/import/osteotools', { method: 'POST', body: form, headers: await localApiHeaders() })
-    const body = await res.json().catch(() => ({ error: 'Réponse illisible.' }))
+    let res: Response
+    try {
+      res = await fetch('/api/import/osteotools', { method: 'POST', body: form, headers: await localApiHeaders() })
+    } catch {
+      setError('L\'archive n\'a pas pu être transmise à l\'application. Réessayez, puis contactez le support si le problème persiste.')
+      return null
+    }
+    const body = await res.json().catch(() => ({ error: `Réponse illisible (erreur ${res.status}).` }))
     if (!res.ok) {
       setError(body.error || 'Erreur inconnue.')
       return null
@@ -136,18 +232,19 @@ export function OsteoToolsImportCard() {
 
   const reset = () => {
     setStep('select')
-    setFile(null)
+    setSelection(null)
     setPassword('')
     setAnalysis(null)
     setResult(null)
     setError(null)
     if (inputRef.current) inputRef.current.value = ''
+    if (folderRef.current) folderRef.current.value = ''
   }
 
   const busy = step === 'analyzing' || step === 'importing'
 
   return (
-    <Card className="border-primary/30">
+    <Card ref={cardRef} className="border-primary/30">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileArchive className="h-5 w-5 text-primary" />
@@ -169,33 +266,80 @@ export function OsteoToolsImportCard() {
         )}
 
         {(step === 'select' || step === 'analyzing') && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="osteotools-file">Archive OsteoTools (.zip)</Label>
-              <Input
-                id="osteotools-file"
+          <div className="space-y-4">
+            <div
+              onDragOver={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setIsDragOver(true)
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setIsDragOver(false)
+              }}
+              onDrop={onDrop}
+              onClick={() => !busy && inputRef.current?.click()}
+              className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
+                isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary hover:bg-muted/50'
+              }`}
+            >
+              <Upload className="h-5 w-5 text-muted-foreground" />
+              {selection ? (
+                <p className="text-sm font-medium break-all">{selection.label}</p>
+              ) : (
+                <>
+                  <p className="text-sm font-medium">Glissez ici l&apos;archive .zip d&apos;OsteoTools</p>
+                  <p className="text-xs text-muted-foreground">ou cliquez pour la choisir</p>
+                </>
+              )}
+              <input
                 ref={inputRef}
                 type="file"
-                accept=".zip,application/zip"
+                accept=".zip,application/zip,application/x-zip-compressed,.csv"
+                multiple
+                className="hidden"
                 disabled={busy}
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                onChange={(e) => choose(Array.from(e.target.files || []))}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="osteotools-password">Mot de passe de l&apos;archive</Label>
-              <Input
-                id="osteotools-password"
-                type="text"
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="Communiqué par OsteoTools"
-                value={password}
+            <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+              <span>Vous avez déjà décompressé l&apos;archive ?</span>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
                 disabled={busy}
-                onChange={(e) => setPassword(e.target.value)}
+                onClick={() => folderRef.current?.click()}
+              >
+                <FolderOpen className="h-3.5 w-3.5" />
+                Choisir le dossier décompressé
+              </button>
+              <input
+                ref={folderRef}
+                type="file"
+                multiple
+                className="hidden"
+                disabled={busy}
+                onChange={(e) => choose(Array.from(e.target.files || []))}
               />
             </div>
-            <div className="sm:col-span-2">
-              <Button onClick={analyze} disabled={!file || busy}>
+            {(!selection || selection.isZip) && (
+              <div className="space-y-1.5 sm:max-w-sm">
+                <Label htmlFor="osteotools-password">Mot de passe de l&apos;archive</Label>
+                <Input
+                  id="osteotools-password"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="Communiqué par OsteoTools"
+                  value={password}
+                  disabled={busy}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            )}
+            <div>
+              <Button onClick={analyze} disabled={!selection || busy}>
                 {step === 'analyzing' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {step === 'analyzing' ? 'Analyse en cours…' : 'Analyser l\'archive'}
               </Button>
